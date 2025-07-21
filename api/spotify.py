@@ -2,13 +2,15 @@ import re
 import time
 from typing import Optional
 from spotipy import Spotify, SpotifyClientCredentials
-from frontend.src.config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
 from models import Song, SongStatus, Artist
 from schemas import SongOut, EnhanceRequest
+import os
 
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
 router = APIRouter(prefix="/spotify", tags=["Spotify"])
 

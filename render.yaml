@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: trackflow-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    env: static

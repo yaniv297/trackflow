@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "./config";
 
 function NewPackForm() {
   const navigate = useNavigate();
@@ -56,7 +57,7 @@ function NewPackForm() {
         });
     }
 
-    fetch("http://localhost:8001/songs/batch", {
+    fetch(`${API_BASE_URL}/songs/batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -86,12 +87,12 @@ function NewPackForm() {
 
           try {
             const optionsRes = await fetch(
-              `http://localhost:8001/spotify/${song.id}/spotify-options`
+              `${API_BASE_URL}/spotify/${song.id}/spotify-options`
             );
             const options = await optionsRes.json();
 
             if (options.length > 0) {
-              await fetch(`http://localhost:8001/spotify/${song.id}/enhance`, {
+              await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ track_id: options[0].track_id }),
@@ -105,7 +106,7 @@ function NewPackForm() {
         // Cleanup phase
         setProgress({ phase: "Cleaning remaster tags", current: 1, total: 1 });
         window.showNotification("Cleaning remaster tags...", "info");
-        await fetch("http://localhost:8001/tools/bulk-clean", {
+        await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newIds),

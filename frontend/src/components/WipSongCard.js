@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import API_BASE_URL from "../config";
 
 export default function WipSongCard({
   song,
@@ -68,7 +69,7 @@ export default function WipSongCard({
     setLocalAuthoring((prev) => ({ ...prev, [field]: newValue })); // trigger re-render
 
     // Backend update
-    await fetch(`http://localhost:8001/authoring/${song.id}`, {
+    await fetch(`${API_BASE_URL}/authoring/${song.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: !currentValue }),
@@ -88,7 +89,7 @@ export default function WipSongCard({
     setLoadingSpotify(true);
     try {
       const res = await fetch(
-        `http://localhost:8001/spotify/${song.id}/spotify-options`
+        `${API_BASE_URL}/spotify/${song.id}/spotify-options`
       );
       const data = await res.json();
       setSpotifyOptions(data || []);
@@ -103,7 +104,7 @@ export default function WipSongCard({
   const enhanceFromSpotify = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8001/spotify/${song.id}/spotify-options`
+        `${API_BASE_URL}/spotify/${song.id}/spotify-options`
       );
       const options = await response.json();
       if (options.length === 0) {
@@ -112,7 +113,7 @@ export default function WipSongCard({
       }
 
       const firstOption = options[0];
-      await fetch(`http://localhost:8001/spotify/${song.id}/enhance`, {
+      await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ track_id: firstOption.track_id }),
@@ -133,7 +134,7 @@ export default function WipSongCard({
       return;
     }
 
-    fetch(`http://localhost:8001/songs/${song.id}`, {
+    fetch(`${API_BASE_URL}/songs/${song.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ year }),
@@ -153,7 +154,7 @@ export default function WipSongCard({
     }
     setEditing((prev) => ({ ...prev, [field]: false }));
 
-    fetch(`http://localhost:8001/songs/${song.id}`, {
+    fetch(`${API_BASE_URL}/songs/${song.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
@@ -199,7 +200,7 @@ export default function WipSongCard({
 
   const markAllDone = async () => {
     try {
-      await fetch(`http://localhost:8001/authoring/complete/${song.id}`, {
+      await fetch(`${API_BASE_URL}/authoring/complete/${song.id}`, {
         method: "POST",
       });
 

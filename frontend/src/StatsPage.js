@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import API_BASE_URL from "./config";
 
 // Reusable card component
 const StatCard = ({ title, value, icon, color = "#3498db" }) => (
@@ -180,7 +181,7 @@ export default function StatsPage() {
   const [loadingYear, setLoadingYear] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:8001/stats")
+    fetch(`${API_BASE_URL}/stats`)
       .then((res) => res.json())
       .then((data) => setStats(data));
   }, []);
@@ -197,7 +198,7 @@ export default function StatsPage() {
       setLoadingYear(year);
       try {
         const response = await fetch(
-          `http://localhost:8001/stats/year/${year}/details`
+          `${API_BASE_URL}/stats/year/${year}/details`
         );
         const details = await response.json();
         setYearDetails((prev) => ({ ...prev, [year]: details }));

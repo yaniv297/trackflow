@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import WipSongCard from "./components/WipSongCard";
+import API_BASE_URL from "./config";
 
 function WipPage() {
   const [songs, setSongs] = useState([]);
@@ -27,7 +28,7 @@ function WipPage() {
   ];
 
   useEffect(() => {
-    fetch("http://localhost:8001/songs?status=In%20Progress")
+    fetch(`${API_BASE_URL}/songs?status=In%20Progress`)
       .then((res) => res.json())
       .then((data) => {
         setSongs(data);
@@ -78,9 +79,7 @@ function WipPage() {
 
   const releasePack = (pack) => {
     fetch(
-      `http://localhost:8001/songs/release-pack?pack=${encodeURIComponent(
-        pack
-      )}`,
+      `${API_BASE_URL}/songs/release-pack?pack=${encodeURIComponent(pack)}`,
       {
         method: "POST",
       }
@@ -109,13 +108,13 @@ function WipPage() {
     for (const song of songs) {
       try {
         const res = await fetch(
-          `http://localhost:8001/spotify/${song.id}/spotify-options`
+          `${API_BASE_URL}/spotify/${song.id}/spotify-options`
         );
         const options = await res.json();
         const firstOption = options[0];
         if (!firstOption) continue;
 
-        await fetch(`http://localhost:8001/spotify/${song.id}/enhance`, {
+        await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ track_id: firstOption.track_id }),
@@ -134,7 +133,7 @@ function WipPage() {
   const handleDeleteSong = (songId) => {
     if (!window.confirm("Delete this song?")) return;
 
-    fetch(`http://localhost:8001/songs/${songId}`, { method: "DELETE" })
+    fetch(`${API_BASE_URL}/songs/${songId}`, { method: "DELETE" })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to delete");
         setSongs((prev) => prev.filter((s) => s.id !== songId));
@@ -154,7 +153,7 @@ function WipPage() {
   };
 
   const toggleOptional = (songId, isCurrentlyOptional) => {
-    fetch(`http://localhost:8001/songs/${songId}`, {
+    fetch(`${API_BASE_URL}/songs/${songId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ optional: !isCurrentlyOptional }),
@@ -178,7 +177,7 @@ function WipPage() {
     };
 
     try {
-      const response = await fetch("http://localhost:8001/songs", {
+      const response = await fetch(`${API_BASE_URL}/songs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -191,18 +190,18 @@ function WipPage() {
       let enhancedSong = newSong;
       try {
         const optionsRes = await fetch(
-          `http://localhost:8001/spotify/${newSong.id}/spotify-options`
+          `${API_BASE_URL}/spotify/${newSong.id}/spotify-options`
         );
         const options = await optionsRes.json();
         if (Array.isArray(options) && options.length > 0) {
-          await fetch(`http://localhost:8001/spotify/${newSong.id}/enhance`, {
+          await fetch(`${API_BASE_URL}/spotify/${newSong.id}/enhance`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ track_id: options[0].track_id }),
           });
 
           // Clean remaster tags
-          await fetch("http://localhost:8001/tools/bulk-clean", {
+          await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([newSong.id]),
@@ -210,7 +209,7 @@ function WipPage() {
 
           // Fetch the updated song
           const updatedRes = await fetch(
-            `http://localhost:8001/songs?status=In%20Progress`
+            `${API_BASE_URL}/songs?status=In%20Progress`
           );
           const allSongs = await updatedRes.json();
           const found = allSongs.find((s) => s.id === newSong.id);

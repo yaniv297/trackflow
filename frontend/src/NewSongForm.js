@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "./config";
 
 function NewSongForm() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ function NewSongForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    fetch("http://localhost:8001/songs", {
+    fetch(`${API_BASE_URL}/songs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),

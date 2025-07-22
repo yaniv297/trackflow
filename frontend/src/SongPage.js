@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import SongRow from "./components/SongRow";
+import API_BASE_URL from "./config";
 
 function SongPage({ status }) {
   const [songs, setSongs] = useState([]);
@@ -129,7 +130,7 @@ function SongPage({ status }) {
     try {
       await Promise.all(
         selectedSongs.map((id) =>
-          fetch(`http://localhost:8001/songs/${id}`, {
+          fetch(`${API_BASE_URL}/songs/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: "wip" }),
@@ -149,7 +150,7 @@ function SongPage({ status }) {
 
   const fetchSpotifyOptions = (song) => {
     setLoadingId(song.id);
-    fetch(`http://localhost:8001/spotify/${song.id}/spotify-options`)
+    fetch(`${API_BASE_URL}/spotify/${song.id}/spotify-options`)
       .then((res) => {
         if (!res.ok) throw new Error("Spotify search failed");
         return res.json();
@@ -167,7 +168,7 @@ function SongPage({ status }) {
   };
 
   const applySpotifyEnhancement = (songId, trackId) => {
-    fetch(`http://localhost:8001/spotify/${songId}/enhance`, {
+    fetch(`${API_BASE_URL}/spotify/${songId}/enhance`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ track_id: trackId }),
@@ -186,7 +187,7 @@ function SongPage({ status }) {
   const handleDelete = (id) => {
     if (!window.confirm("Delete this song?")) return;
 
-    fetch(`http://localhost:8001/songs/${id}`, {
+    fetch(`${API_BASE_URL}/songs/${id}`, {
       method: "DELETE",
     })
       .then((res) => {
@@ -205,7 +206,7 @@ function SongPage({ status }) {
     }
     setEditing((prev) => ({ ...prev, [`${id}_${field}`]: false }));
 
-    fetch(`http://localhost:8001/songs/${id}`, {
+    fetch(`${API_BASE_URL}/songs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
@@ -225,7 +226,7 @@ function SongPage({ status }) {
       return;
     }
 
-    fetch("http://localhost:8001/tools/bulk-clean", {
+    fetch(`${API_BASE_URL}/tools/bulk-clean`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(selectedSongs),
@@ -255,7 +256,7 @@ function SongPage({ status }) {
       // Step 1: Assign pack name
       await Promise.all(
         selectedSongs.map((id) =>
-          fetch(`http://localhost:8001/songs/${id}`, {
+          fetch(`${API_BASE_URL}/songs/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pack: packName }),
@@ -271,13 +272,13 @@ function SongPage({ status }) {
       for (const id of selectedSongs) {
         try {
           const optRes = await fetch(
-            `http://localhost:8001/spotify/${id}/spotify-options`
+            `${API_BASE_URL}/spotify/${id}/spotify-options`
           );
           const options = await optRes.json();
 
           if (Array.isArray(options) && options.length > 0) {
             const top = options[0];
-            await fetch(`http://localhost:8001/spotify/${id}/enhance`, {
+            await fetch(`${API_BASE_URL}/spotify/${id}/enhance`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ track_id: top.track_id }),
@@ -296,7 +297,7 @@ function SongPage({ status }) {
       console.log("✅ Spotify enhancement done. Running cleanup...");
 
       // Step 3: Cleanup after enhancement
-      await fetch("http://localhost:8001/tools/bulk-clean", {
+      await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(selectedSongs),
@@ -328,7 +329,7 @@ function SongPage({ status }) {
     if (!window.confirm(`Delete ${selectedSongs.length} selected song(s)?`))
       return;
 
-    fetch("http://localhost:8001/songs/bulk-delete", {
+    fetch(`${API_BASE_URL}/songs/bulk-delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(selectedSongs),
@@ -357,13 +358,13 @@ function SongPage({ status }) {
     for (const songId of selectedSongs) {
       try {
         const res = await fetch(
-          `http://localhost:8001/spotify/${songId}/spotify-options`
+          `${API_BASE_URL}/spotify/${songId}/spotify-options`
         );
         const options = await res.json();
 
         if (Array.isArray(options) && options.length > 0) {
           const topMatch = options[0];
-          await fetch(`http://localhost:8001/spotify/${songId}/enhance`, {
+          await fetch(`${API_BASE_URL}/spotify/${songId}/enhance`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ track_id: topMatch.track_id }),
@@ -426,7 +427,7 @@ function SongPage({ status }) {
       updates[bulkEditField] =
         bulkEditField === "year" ? Number(bulkEditValue) : bulkEditValue;
       try {
-        const res = await fetch(`http://localhost:8001/songs/${id}`, {
+        const res = await fetch(`${API_BASE_URL}/songs/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updates),
@@ -448,7 +449,7 @@ function SongPage({ status }) {
       window.showNotification(`Failed to update ${failed} song(s).`, "error");
     }
     // Optionally, refresh songs
-    let url = `http://localhost:8001/songs?`;
+    let url = `${API_BASE_URL}/songs?`;
     if (status) url += `status=${encodeURIComponent(status)}&`;
     if (search) url += `query=${encodeURIComponent(search)}&`;
     fetch(url)
@@ -467,7 +468,7 @@ function SongPage({ status }) {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      let url = `http://localhost:8001/songs?`;
+      let url = `${API_BASE_URL}/songs?`;
       if (status) url += `status=${encodeURIComponent(status)}&`;
       if (search) url += `query=${encodeURIComponent(search)}&`;
       fetch(url)

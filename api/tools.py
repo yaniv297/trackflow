@@ -12,6 +12,7 @@ CLEANUP_PATTERNS = [
     r"[-–]?\s*\(?\d{4}\s*Remaster\)?",
     r"[-–]?\s*\(?Special Edition\)?",
     r"[-–]?\s*\(?Deluxe Edition\)?",
+    r"\[?\d{4}\s*Remaster\]?",
 ]
 
 def clean_string(title: str) -> str:
@@ -38,6 +39,12 @@ def clean_string(title: str) -> str:
     # 5. NEW: Remove "- 2010 Version", "- 2011 Remaster" etc.
     title = re.sub(
         r"\s*-\s*[12][0-9]{3}( Version| Remaster(ed)?| Mix)?$",
+        "", title, flags=re.IGNORECASE
+    )
+
+    # 6. NEW: Remove [2015 Remaster] patterns
+    title = re.sub(
+        r"\s*\[[12][0-9]{3}\s*Remaster(ed)?\]",
         "", title, flags=re.IGNORECASE
     )
 

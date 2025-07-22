@@ -1,0 +1,366 @@
+body {
+  background: #f4f4f4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  padding: 2rem 4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 0.5rem;
+  letter-spacing: 1px;
+  font-size: 2.2rem;
+}
+
+.song-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.song-table th,
+.song-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.song-table th {
+  background-color: #fafafa;
+  color: #555;
+}
+
+.status {
+  font-weight: bold;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  display: inline-block;
+  font-size: 0.9rem;
+}
+
+.status.In\ Progress {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status.wip {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status.Future\ Plans {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status.Released {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  padding: 0.75rem 0 0.75rem 0;
+  margin: 0 0 2rem 0;
+  border-bottom: 1px solid #eee;
+  transition: box-shadow 0.2s;
+}
+
+.nav a {
+  text-decoration: none;
+  padding: 0.5rem 1.2rem;
+  background: #f3f3f3;
+  border-radius: 6px;
+  color: #333;
+  font-weight: bold;
+  font-size: 1.05rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav a.active {
+  background: #007bff;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.08);
+}
+
+.editable-cell {
+  cursor: pointer;
+  position: relative;
+}
+
+.editable-cell:hover {
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.editable-cell::after {
+  content: "✏️";
+  font-size: 0.8rem;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.4;
+}
+
+td input {
+  width: 100%;
+  font-size: 1rem;
+  padding: 2px 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.bulk-actions {
+  margin-bottom: 10px;
+  background: #f5f5f5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  padding-right: 10px;
+  position: relative;
+}
+
+th.sortable:hover {
+  background-color: #f0f0f0;
+}
+
+th.sortable::after {
+  font-size: 0.75em;
+  margin-left: 5px;
+}
+
+.group-header td {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+.group-header button {
+  font-size: 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.group-header {
+  background-color: #f2f2f2;
+  font-size: 1.1em;
+  border-top: 2px solid #ccc;
+}
+
+.group-subheader {
+  background-color: #fafafa;
+  font-style: italic;
+}
+
+.stats-container {
+  padding: 2rem;
+  font-family: sans-serif;
+  max-width: 800px;
+  margin: auto;
+}
+
+.stats-card {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  background: #fafafa;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.stats-card h3 {
+  margin-bottom: 0.5rem;
+}
+
+.stats-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stats-card li {
+  padding: 0.3rem 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.count {
+  font-weight: bold;
+  color: #555;
+}
+
+.toggle-btn {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+  border: none;
+  background: #eee;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.toggle-btn:hover {
+  background: #ddd;
+}
+
+.song-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: white;
+  border: 1px solid #ddd;
+  margin-bottom: 1rem;
+}
+
+.song-card-left {
+  flex: 1;
+}
+
+.song-card-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.progress-bar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 150px;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #aaa;
+}
+
+.group-toggle {
+  display: inline-flex;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  overflow: hidden;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.group-toggle span {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  background: #f7f7f7;
+  transition: background 0.3s, color 0.3s;
+  user-select: none;
+}
+
+.group-toggle span.active {
+  background: #1db954;
+  color: white;
+  font-weight: bold;
+}
+
+.toggle-all-button {
+  padding: 0.5rem 1rem;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s ease-in-out;
+}
+
+.toggle-all-button:hover {
+  background: #e0e0e0;
+}
+
+.loading-spinner {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #555;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid #ddd;
+  border-top: 4px solid #4caf50;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pretty-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1em;
+  height: 1em;
+  border: 2px solid #bbb;
+  border-radius: 4px;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+  vertical-align: middle;
+  margin: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+.pretty-checkbox:checked {
+  border-color: #4f8cff;
+  background: linear-gradient(135deg, #4f8cff 60%, #7fd6ff 100%);
+}
+.pretty-checkbox:checked::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: 0.22em;
+  top: 0.05em;
+  width: 0.28em;
+  height: 0.55em;
+  border: solid #fff;
+  border-width: 0 0.14em 0.14em 0;
+  transform: rotate(45deg);
+}
+.pretty-checkbox:focus {
+  border-color: #4f8cff;
+  box-shadow: 0 0 0 2px #cce3ff;
+}

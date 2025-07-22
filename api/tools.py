@@ -71,6 +71,7 @@ def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depe
             updated.append(song)
 
     db.commit()
+    print("Updated", len(updated), "songs")
     return updated
 
 @router.post("/fix-broken-titles", response_model=list[SongOut])

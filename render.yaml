@@ -2,5 +2,10 @@ services:
   - type: web
     name: trackflow-frontend
     env: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/build
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    buildFilter:
+      paths:
+        - frontend/**/*
+    repo: https://github.com/your-username/trackflow
+    rootDir: frontend

@@ -245,6 +245,11 @@ export default function StatsPage() {
         />
         <StatCard title="Packs" value={stats.total_packs} color="#6f42c1" />
         <StatCard title="Artists" value={stats.total_artists} color="#fd7e14" />
+        <StatCard
+          title="Collaborators"
+          value={stats.total_collaborators || 0}
+          color="#e83e8c"
+        />
       </div>
 
       {/* TOP ARTISTS */}
@@ -279,6 +284,18 @@ export default function StatsPage() {
         maxInitial={10}
         maxExpanded={50}
       />
+
+      {/* TOP COLLABORATORS */}
+      {stats.top_collaborators && stats.top_collaborators.length > 0 && (
+        <ExpandableList
+          title="🤝 Top Collaborators"
+          items={stats.top_collaborators}
+          itemKey="author"
+          labelKey="author"
+          countKey="count"
+          maxItems={10}
+        />
+      )}
 
       {/* YEAR DISTRIBUTION */}
       {stats.year_distribution && stats.year_distribution.length > 0 && (

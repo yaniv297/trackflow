@@ -41,7 +41,8 @@ def import_playlist_to_db(playlist_url: str):
                 album=album,
                 year=year,
                 album_cover=cover,
-                status=SongStatus.done
+                status=SongStatus.done,
+                author="yaniv297"  # Force author to be yaniv297
             )
 
             db.add(song)

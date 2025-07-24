@@ -1,6 +1,92 @@
 import React, { useEffect, useState, useMemo } from "react";
 import WipSongCard from "./components/WipSongCard";
+import Fireworks from "./components/Fireworks";
+import CustomAlert from "./components/CustomAlert";
 import API_BASE_URL from "./config";
+
+// Utility function to capitalize artist and album names
+const capitalizeName = (name) => {
+  if (!name) return name;
+  return name
+    .split(" ")
+    .map((word) => {
+      // Handle special cases like "the", "of", "and", etc.
+      const lowerWords = [
+        "the",
+        "of",
+        "and",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "with",
+        "by",
+        "from",
+        "up",
+        "about",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "among",
+        "within",
+        "without",
+        "against",
+        "toward",
+        "towards",
+        "upon",
+        "across",
+        "behind",
+        "beneath",
+        "beside",
+        "beyond",
+        "inside",
+        "outside",
+        "under",
+        "over",
+        "along",
+        "around",
+        "down",
+        "off",
+        "out",
+        "up",
+        "away",
+        "back",
+        "forward",
+        "backward",
+        "upward",
+        "downward",
+        "inward",
+        "outward",
+        "northward",
+        "southward",
+        "eastward",
+        "westward",
+        "homeward",
+        "heavenward",
+        "earthward",
+        "seaward",
+        "landward",
+        "leeward",
+        "windward",
+        "leftward",
+        "rightward",
+      ];
+
+      if (lowerWords.includes(word.toLowerCase())) {
+        return word.toLowerCase();
+      }
+
+      // Capitalize first letter of each word
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+};
 
 function WipPage() {
   const [songs, setSongs] = useState([]);
@@ -8,6 +94,23 @@ function WipPage() {
   const [addingToPack, setAddingToPack] = useState(null);
   const [collapsedPacks, setCollapsedPacks] = useState({});
   const [showAddForm, setShowAddForm] = useState(null);
+  const [selectedSongs, setSelectedSongs] = useState([]);
+  const [showAlbumSeriesModal, setShowAlbumSeriesModal] = useState(false);
+  const [albumSeriesForm, setAlbumSeriesForm] = useState({
+    artist_name: "",
+    album_name: "",
+    year: "",
+    cover_image_url: "",
+    description: "",
+  });
+  const [fireworksTrigger, setFireworksTrigger] = useState(0);
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    type: "warning",
+  });
 
   const authoringFields = [
     "demucs",
@@ -87,6 +190,8 @@ function WipPage() {
       .then((res) => res.json())
       .then(() => {
         setSongs((prev) => prev.filter((s) => s.pack !== pack));
+        // Trigger fireworks when pack is released! 🎆
+        setFireworksTrigger((prev) => prev + 1);
       });
   };
 
@@ -131,25 +236,51 @@ function WipPage() {
   };
 
   const handleDeleteSong = (songId) => {
-    if (!window.confirm("Delete this song?")) return;
-
-    fetch(`${API_BASE_URL}/songs/${songId}`, { method: "DELETE" })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to delete");
-        setSongs((prev) => prev.filter((s) => s.id !== songId));
-        window.showNotification("Song deleted successfully", "success");
-      })
-      .catch((err) => window.showNotification(err.message, "error"));
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Song",
+      message:
+        "Are you sure you want to delete this song? This action cannot be undone.",
+      onConfirm: () => {
+        fetch(`${API_BASE_URL}/songs/${songId}`, { method: "DELETE" })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to delete");
+            setSongs((prev) => prev.filter((s) => s.id !== songId));
+            window.showNotification("Song deleted successfully", "success");
+          })
+          .catch((err) => window.showNotification(err.message, "error"));
+      },
+      type: "danger",
+    });
   };
 
   const updateAuthoringField = (songId, field, value) => {
-    setSongs((prev) =>
-      prev.map((song) =>
+    setSongs((prev) => {
+      const updated = prev.map((song) =>
         song.id === songId
           ? { ...song, authoring: { ...song.authoring, [field]: value } }
           : song
-      )
-    );
+      );
+
+      // Check if this song just became complete
+      const song = updated.find((s) => s.id === songId);
+      if (song && song.authoring) {
+        const completedFields = authoringFields.filter(
+          (f) => song.authoring[f]
+        ).length;
+        const wasComplete =
+          authoringFields.filter((f) => song.authoring?.[f]).length ===
+          authoringFields.length;
+        const isNowComplete = completedFields === authoringFields.length;
+
+        // If song just became complete, trigger fireworks
+        if (!wasComplete && isNowComplete) {
+          setFireworksTrigger((prev) => prev + 1);
+        }
+      }
+
+      return updated;
+    });
   };
 
   const toggleOptional = (songId, isCurrentlyOptional) => {
@@ -169,9 +300,183 @@ function WipPage() {
       );
   };
 
+  const handleCreateAlbumSeries = async () => {
+    if (!albumSeriesForm.artist_name || !albumSeriesForm.album_name) {
+      window.showNotification(
+        "Please provide artist name and album name.",
+        "warning"
+      );
+      return;
+    }
+
+    // Get the pack name from the first selected song
+    const firstSong = songs.find((song) => song.id === selectedSongs[0]);
+    if (!firstSong || !firstSong.pack) {
+      window.showNotification(
+        "Selected songs must be from the same pack.",
+        "warning"
+      );
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/album-series/create-from-pack`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pack_name: firstSong.pack,
+            artist_name: albumSeriesForm.artist_name,
+            album_name: albumSeriesForm.album_name,
+            year:
+              albumSeriesForm.year && albumSeriesForm.year.trim()
+                ? parseInt(albumSeriesForm.year)
+                : null,
+            cover_image_url:
+              albumSeriesForm.cover_image_url &&
+              albumSeriesForm.cover_image_url.trim()
+                ? albumSeriesForm.cover_image_url
+                : null,
+            description:
+              albumSeriesForm.description && albumSeriesForm.description.trim()
+                ? albumSeriesForm.description
+                : null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to create album series");
+      }
+
+      const result = await response.json();
+      window.showNotification(
+        `✅ Album series "${albumSeriesForm.album_name}" created successfully!`,
+        "success"
+      );
+
+      // Reset form and close modal
+      setAlbumSeriesForm({
+        artist_name: "",
+        album_name: "",
+        year: "",
+        cover_image_url: "",
+        description: "",
+      });
+      setShowAlbumSeriesModal(false);
+      setSelectedSongs([]);
+
+      // Refresh songs to show the new album series links
+      fetch(`${API_BASE_URL}/songs?status=In%20Progress`)
+        .then((res) => res.json())
+        .then((data) => setSongs(data));
+    } catch (error) {
+      console.error("Error creating album series:", error);
+      window.showNotification("Failed to create album series.", "error");
+    }
+  };
+
+  const handleMakeDoubleAlbumSeries = async (
+    packName,
+    albumsWithEnoughSongs
+  ) => {
+    if (albumsWithEnoughSongs.length < 2) {
+      window.showNotification(
+        "Need at least 2 albums with 5+ songs each.",
+        "warning"
+      );
+      return;
+    }
+
+    // Get the second album (the one that's not already an album series)
+    const secondAlbum = albumsWithEnoughSongs[1]; // [albumName, count]
+    const secondAlbumName = secondAlbum[0];
+    const secondAlbumCount = secondAlbum[1];
+
+    // Find the most common artist for the second album
+    const songsInSecondAlbum = songs.filter(
+      (song) => song.pack === packName && song.album === secondAlbumName
+    );
+    const artistCounts = {};
+    songsInSecondAlbum.forEach((song) => {
+      if (song.artist) {
+        artistCounts[song.artist] = (artistCounts[song.artist] || 0) + 1;
+      }
+    });
+    const mostCommonArtist = Object.entries(artistCounts).sort(
+      (a, b) => b[1] - a[1]
+    )[0]?.[0];
+
+    if (!mostCommonArtist) {
+      window.showNotification(
+        "Could not determine artist for second album.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      // Create a new pack name for the second album
+      const newPackName = `${packName} - ${secondAlbumName}`;
+
+      // Update all songs from the second album to the new pack
+      const songIdsToMove = songsInSecondAlbum.map((song) => song.id);
+
+      // Update pack names for songs in the second album
+      await Promise.all(
+        songIdsToMove.map((songId) =>
+          fetch(`${API_BASE_URL}/songs/${songId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pack: newPackName }),
+          })
+        )
+      );
+
+      // Create album series for the second album
+      const response = await fetch(
+        `${API_BASE_URL}/album-series/create-from-pack`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pack_name: newPackName,
+            artist_name: mostCommonArtist,
+            album_name: secondAlbumName,
+            year: null,
+            cover_image_url: null,
+            description: null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to create second album series");
+      }
+
+      const result = await response.json();
+      window.showNotification(
+        `✅ Double album series created! "${secondAlbumName}" split into its own album series with ${secondAlbumCount} songs.`,
+        "success"
+      );
+
+      // Refresh songs to show the updated structure
+      fetch(`${API_BASE_URL}/songs?status=In%20Progress`)
+        .then((res) => res.json())
+        .then((data) => setSongs(data));
+    } catch (error) {
+      console.error("Error creating double album series:", error);
+      window.showNotification("Failed to create double album series.", "error");
+    }
+  };
+
   const addSongToPack = async (packName, songData) => {
     const payload = {
       ...songData,
+      artist: capitalizeName(songData.artist),
+      title: capitalizeName(songData.title),
+      album: capitalizeName(songData.album),
       pack: packName,
       status: "In Progress",
     };
@@ -183,7 +488,11 @@ function WipPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Failed to add song");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to add song");
+      }
+
       const newSong = await response.json();
 
       // Automatically enhance from Spotify (top match)
@@ -238,6 +547,7 @@ function WipPage() {
 
   return (
     <div style={{ padding: "2rem" }}>
+      <Fireworks trigger={fireworksTrigger} />
       <h2>🧪 WIP Packs</h2>
 
       <button
@@ -288,6 +598,47 @@ function WipPage() {
           (s) => s.artist === mostCommonArtist
         )?.artist_image_url;
 
+        const uniqueSeries = Array.from(
+          new Set(allSongs.map((s) => s.album_series_id).filter(Boolean))
+        );
+
+        // Filter series to only include those with at least 4 songs
+        const seriesWithThreshold = uniqueSeries.filter((seriesId) => {
+          const songsInThisSeries = allSongs.filter(
+            (song) => song.album_series_id === seriesId
+          );
+          return songsInThisSeries.length >= 4;
+        });
+
+        const seriesInfo = seriesWithThreshold
+          .map((id) => {
+            const s = allSongs.find((song) => song.album_series_id === id);
+            return s
+              ? { id, number: s.album_series_number, name: s.album_series_name }
+              : null;
+          })
+          .filter(Boolean);
+
+        seriesInfo.sort((a, b) => a.number - b.number);
+
+        // Check for double album series opportunity
+        const albumCounts = {};
+        allSongs.forEach((song) => {
+          if (song.album && !song.optional) {
+            albumCounts[song.album] = (albumCounts[song.album] || 0) + 1;
+          }
+        });
+
+        // Find albums with 5+ songs
+        const albumsWithEnoughSongs = Object.entries(albumCounts)
+          .filter(([album, count]) => count >= 5)
+          .sort((a, b) => b[1] - a[1]); // Sort by count descending
+
+        // Check if we have an existing album series AND another album with 5+ songs
+        const hasExistingSeries = seriesWithThreshold.length > 0;
+        const hasSecondAlbum = albumsWithEnoughSongs.length >= 2;
+        const canMakeDoubleAlbumSeries = hasExistingSeries && hasSecondAlbum;
+
         return (
           <div
             key={packName}
@@ -333,7 +684,60 @@ function WipPage() {
               >
                 {collapsedPacks[packName] ? "▶" : "▼"}
               </button>
-              {packName} ({totalSongs} song{totalSongs !== 1 ? "s" : ""})
+              {seriesWithThreshold.length === 1 ? (
+                <a
+                  href={`/album-series/${seriesInfo[0].id}`}
+                  style={{
+                    textDecoration: "none",
+                    color: "#1a237e",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    background: "#e3eaff",
+                    borderRadius: "12px",
+                    padding: "0.15rem 0.7rem 0.15rem 0.5rem",
+                    fontWeight: 600,
+                    fontSize: "1.08em",
+                    boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
+                    transition: "background 0.2s",
+                    marginRight: 8,
+                  }}
+                  title={`Album Series #${seriesInfo[0].number}: ${seriesInfo[0].name}`}
+                >
+                  <span style={{ fontSize: "1.1em", marginRight: 4 }}>📀</span>
+                  Album Series #{seriesInfo[0].number}: {seriesInfo[0].name}
+                </a>
+              ) : seriesWithThreshold.length === 2 ? (
+                <>
+                  {seriesInfo.map((info, idx) => (
+                    <a
+                      key={info.id}
+                      href={`/album-series/${info.id}`}
+                      style={{
+                        textDecoration: "none",
+                        color: "#1a237e",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        background: "#e3eaff",
+                        borderRadius: "12px",
+                        padding: "0.15rem 0.7rem 0.15rem 0.5rem",
+                        fontWeight: 600,
+                        fontSize: "1.08em",
+                        boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
+                        transition: "background 0.2s",
+                        marginRight: idx === 0 ? 8 : 0,
+                      }}
+                      title={`Album Series #${info.number}: ${info.name}`}
+                    >
+                      <span style={{ fontSize: "1.1em", marginRight: 4 }}>
+                        📀
+                      </span>
+                      Album Series #{info.number}: {info.name}
+                    </a>
+                  ))}
+                </>
+              ) : (
+                `${packName} (${totalSongs} song${totalSongs !== 1 ? "s" : ""})`
+              )}
               {/* Progress bar and percent always visible in header */}
               <div
                 style={{
@@ -371,29 +775,33 @@ function WipPage() {
                   {percent}%
                 </span>
               </div>
-              {/* Add Song Button */}
-              <button
-                onClick={() =>
-                  setShowAddForm(showAddForm === packName ? null : packName)
-                }
-                style={{
-                  background: "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: "24px",
-                  height: "24px",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginLeft: "auto",
-                }}
-                title="Add song to this pack"
+              {/* Action Buttons */}
+              <div
+                style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}
               >
-                +
-              </button>
+                {/* Add Song Button */}
+                <button
+                  onClick={() =>
+                    setShowAddForm(showAddForm === packName ? null : packName)
+                  }
+                  style={{
+                    background: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "24px",
+                    height: "24px",
+                    fontSize: "16px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title="Add song to this pack"
+                >
+                  +
+                </button>
+              </div>
             </h3>
 
             {/* Add Song Form */}
@@ -574,11 +982,462 @@ function WipPage() {
                     </ul>
                   </>
                 )}
+
+                {/* Pack Action Buttons - Only shown when expanded */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    marginTop: "1rem",
+                    paddingTop: "1rem",
+                    borderTop: "1px solid #eee",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {/* Bulk Enhance Button */}
+                  <button
+                    onClick={() => bulkEnhancePack(allSongs)}
+                    style={{
+                      background: "#f3f4f6",
+                      color: "#222",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "4px",
+                      padding: "0.25rem 0.75rem",
+                      fontWeight: 500,
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      transition: "background 0.2s, border 0.2s",
+                    }}
+                    title="Enhance all songs in this pack with Spotify data"
+                  >
+                    🔍 Bulk Enhance
+                  </button>
+
+                  {/* Release Pack Button - Only shown when pack is complete */}
+                  {percent === 100 && (
+                    <button
+                      onClick={() => releasePack(packName)}
+                      style={{
+                        background: "#28a745",
+                        color: "white",
+                        border: "1px solid #1e7e34",
+                        borderRadius: "4px",
+                        padding: "0.25rem 0.75rem",
+                        fontWeight: 500,
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                        transition: "background 0.2s, border 0.2s",
+                      }}
+                      title="Release this pack"
+                    >
+                      🚀 Release Pack
+                    </button>
+                  )}
+
+                  {/* Create Album Series Button */}
+                  {(() => {
+                    // Check if we have 4+ songs from the same album
+                    const albumCounts = {};
+                    allSongs.forEach((song) => {
+                      if (song.album && !song.optional) {
+                        albumCounts[song.album] =
+                          (albumCounts[song.album] || 0) + 1;
+                      }
+                    });
+
+                    // Check if any album has 4+ songs
+                    const hasEnoughSongs = Object.values(albumCounts).some(
+                      (count) => count >= 4
+                    );
+
+                    return seriesWithThreshold.length === 0 && hasEnoughSongs;
+                  })() ? (
+                    <button
+                      onClick={() => {
+                        // Auto-populate form with most common artist and album from pack songs
+                        const artistCounts = {};
+                        allSongs.forEach((song) => {
+                          if (song.artist) {
+                            artistCounts[song.artist] =
+                              (artistCounts[song.artist] || 0) + 1;
+                          }
+                        });
+                        const mostCommonArtist =
+                          Object.keys(artistCounts).reduce(
+                            (a, b) =>
+                              artistCounts[a] > artistCounts[b] ? a : b,
+                            Object.keys(artistCounts)[0]
+                          ) || "";
+
+                        const albumCounts = {};
+                        allSongs.forEach((song) => {
+                          if (song.album && !song.optional) {
+                            albumCounts[song.album] =
+                              (albumCounts[song.album] || 0) + 1;
+                          }
+                        });
+                        const mostCommonAlbum =
+                          Object.keys(albumCounts).reduce(
+                            (a, b) => (albumCounts[a] > albumCounts[b] ? a : b),
+                            Object.keys(albumCounts)[0]
+                          ) || "";
+
+                        const yearCounts = {};
+                        allSongs.forEach((song) => {
+                          if (song.year) {
+                            yearCounts[song.year] =
+                              (yearCounts[song.year] || 0) + 1;
+                          }
+                        });
+                        const mostCommonYear =
+                          Object.keys(yearCounts).reduce(
+                            (a, b) => (yearCounts[a] > yearCounts[b] ? a : b),
+                            Object.keys(yearCounts)[0]
+                          ) || "";
+
+                        setAlbumSeriesForm({
+                          artist_name: mostCommonArtist,
+                          album_name: mostCommonAlbum,
+                          year: mostCommonYear,
+                          cover_image_url: "",
+                          description: "",
+                        });
+                        setSelectedSongs(allSongs.map((s) => s.id));
+                        setShowAlbumSeriesModal(true);
+                      }}
+                      style={{
+                        background: "#4CAF50",
+                        color: "white",
+                        border: "1px solid #45a049",
+                        borderRadius: "4px",
+                        padding: "0.25rem 0.75rem",
+                        fontWeight: 500,
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                        transition: "background 0.2s, border 0.2s",
+                      }}
+                      title="Create an album series from this pack"
+                    >
+                      🎵 Create Album Series
+                    </button>
+                  ) : null}
+
+                  {/* Make Double Album Series Button */}
+                  {canMakeDoubleAlbumSeries ? (
+                    <button
+                      onClick={() =>
+                        handleMakeDoubleAlbumSeries(
+                          packName,
+                          albumsWithEnoughSongs
+                        )
+                      }
+                      style={{
+                        background: "#FF6B35",
+                        color: "white",
+                        border: "1px solid #E55A2B",
+                        borderRadius: "4px",
+                        padding: "0.25rem 0.75rem",
+                        fontWeight: 500,
+                        fontSize: "0.8rem",
+                        cursor: "pointer",
+                        transition: "background 0.2s, border 0.2s",
+                      }}
+                      title={`Split "${albumsWithEnoughSongs[1][0]}" into its own album series (${albumsWithEnoughSongs[1][1]} songs)`}
+                    >
+                      🎵🎵 Make Double Album Series
+                    </button>
+                  ) : null}
+                </div>
               </>
             )}
           </div>
         );
       })}
+
+      {/* Album Series Creation Modal */}
+      {showAlbumSeriesModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "2rem",
+              borderRadius: "12px",
+              maxWidth: "500px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>
+              Create Album Series
+            </h3>
+            <p
+              style={{
+                fontSize: "0.9rem",
+                color: "#666",
+                marginBottom: "0.5rem",
+              }}
+            >
+              Create an album series from {selectedSongs.length} selected song
+              {selectedSongs.length !== 1 ? "s" : ""}
+            </p>
+
+            {/* Preview of selected songs */}
+            <div
+              style={{
+                background: "#f8f9fa",
+                border: "1px solid #e9ecef",
+                borderRadius: "6px",
+                padding: "0.75rem",
+                marginBottom: "1rem",
+                fontSize: "0.85rem",
+              }}
+            >
+              <strong>Songs in this pack:</strong>
+              <ul style={{ margin: "0.5rem 0 0 0", paddingLeft: "1.5rem" }}>
+                {songs
+                  .filter((song) => selectedSongs.includes(song.id))
+                  .slice(0, 5)
+                  .map((song) => (
+                    <li key={song.id}>
+                      {song.artist} - {song.title}
+                    </li>
+                  ))}
+                {selectedSongs.length > 5 && (
+                  <li>... and {selectedSongs.length - 5} more</li>
+                )}
+              </ul>
+            </div>
+
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Artist Name *
+                </label>
+                <input
+                  type="text"
+                  value={albumSeriesForm.artist_name}
+                  onChange={(e) =>
+                    setAlbumSeriesForm((prev) => ({
+                      ...prev,
+                      artist_name: e.target.value,
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "1rem",
+                  }}
+                  placeholder="Artist name"
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Album Name *
+                </label>
+                <input
+                  type="text"
+                  value={albumSeriesForm.album_name}
+                  onChange={(e) =>
+                    setAlbumSeriesForm((prev) => ({
+                      ...prev,
+                      album_name: e.target.value,
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "1rem",
+                  }}
+                  placeholder="Album name"
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Year
+                </label>
+                <input
+                  type="number"
+                  value={albumSeriesForm.year}
+                  onChange={(e) =>
+                    setAlbumSeriesForm((prev) => ({
+                      ...prev,
+                      year: e.target.value,
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "1rem",
+                  }}
+                  placeholder="Year (optional)"
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Cover Image URL
+                </label>
+                <input
+                  type="url"
+                  value={albumSeriesForm.cover_image_url}
+                  onChange={(e) =>
+                    setAlbumSeriesForm((prev) => ({
+                      ...prev,
+                      cover_image_url: e.target.value,
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "1rem",
+                  }}
+                  placeholder="Cover image URL (optional)"
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Description
+                </label>
+                <textarea
+                  value={albumSeriesForm.description}
+                  onChange={(e) =>
+                    setAlbumSeriesForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "1rem",
+                    minHeight: "80px",
+                    resize: "vertical",
+                  }}
+                  placeholder="Description (optional)"
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "1rem",
+                marginTop: "2rem",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowAlbumSeriesModal(false);
+                  setAlbumSeriesForm({
+                    artist_name: "",
+                    album_name: "",
+                    year: "",
+                    cover_image_url: "",
+                    description: "",
+                  });
+                  setSelectedSongs([]);
+                }}
+                style={{
+                  padding: "0.75rem 1.5rem",
+                  background: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAlbumSeries}
+                style={{
+                  padding: "0.75rem 1.5rem",
+                  background: "#4CAF50",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                }}
+              >
+                Create Album Series
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Alert Modal */}
+      <CustomAlert
+        isOpen={alertConfig.isOpen}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+        onConfirm={alertConfig.onConfirm}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+      />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Song, SongStatus, Artist
-from sqlalchemy import func
+from models import Song, SongStatus, Artist, SongCollaboration
+from sqlalchemy import func, text
 
 router = APIRouter(prefix="/stats", tags=["Stats"])
 
@@ -10,10 +10,8 @@ router = APIRouter(prefix="/stats", tags=["Stats"])
 def get_stats(db: Session = Depends(get_db)):
     included_statuses = [SongStatus.released, SongStatus.wip]
 
-    # Include both RELEASED and WIP songs in main stats
-    base_query = db.query(Song).filter(Song.status.in_(included_statuses))
-
-    total = base_query.count()
+    # Get all stats in optimized queries
+    total = db.query(Song).filter(Song.status.in_(included_statuses)).count()
 
     by_status = dict(
         db.query(Song.status, func.count())
@@ -22,64 +20,169 @@ def get_stats(db: Session = Depends(get_db)):
           .all()
     )
 
+    # Get top artists with a single optimized query
+    top_artists_data = db.query(
+        Song.artist, 
+        func.count().label('count')
+    ).filter(
+        Song.status.in_(included_statuses),
+        Song.artist.isnot(None)
+    ).group_by(
+        Song.artist
+    ).order_by(
+        func.count().desc()
+    ).limit(50).all()
+
+    # Get all unique artists for batch lookup
+    artist_names = [row.artist for row in top_artists_data]
+    artist_images = dict(
+        db.query(Artist.name, Artist.image_url)
+          .filter(Artist.name.in_(artist_names))
+          .all()
+    )
+
     top_artists = [
-        {"artist": artist, "count": count, "artist_image_url": db.query(Artist.image_url).filter(Artist.name == artist).scalar()}
-        for artist, count in base_query
-            .with_entities(Song.artist, func.count())
-            .group_by(Song.artist)
-            .order_by(func.count().desc())
-            .limit(50)
-            .all()
+        {
+            "artist": row.artist, 
+            "count": row.count, 
+            "artist_image_url": artist_images.get(row.artist)
+        }
+        for row in top_artists_data
     ]
 
+    # Get top albums
     top_albums = [
         {"album": album, "count": count, "album_cover": album_cover, "artist": artist}
-        for album, count, album_cover, artist in base_query
-            .with_entities(Song.album, func.count(), Song.album_cover, Song.artist)
-            .group_by(Song.album, Song.album_cover, Song.artist)
-            .order_by(func.count().desc())
-            .limit(50)
-            .all()
+        for album, count, album_cover, artist in db.query(
+            Song.album, 
+            func.count(), 
+            Song.album_cover, 
+            Song.artist
+        ).filter(
+            Song.status.in_(included_statuses),
+            Song.album.isnot(None)
+        ).group_by(
+            Song.album, Song.album_cover, Song.artist
+        ).order_by(
+            func.count().desc()
+        ).limit(50).all()
     ]
 
+    # Optimized pack processing with single query
+    pack_artist_counts = db.query(
+        Song.pack,
+        Song.artist,
+        func.count().label('artist_count')
+    ).filter(
+        Song.status.in_(included_statuses),
+        Song.pack.isnot(None),
+        Song.artist.isnot(None)
+    ).group_by(
+        Song.pack, Song.artist
+    ).subquery()
+
+    # Get the most common artist per pack using window function
+    pack_ranked_artists = db.query(
+        pack_artist_counts.c.pack,
+        pack_artist_counts.c.artist,
+        func.row_number().over(
+            partition_by=pack_artist_counts.c.pack,
+            order_by=pack_artist_counts.c.artist_count.desc()
+        ).label('rank')
+    ).subquery()
+
+    pack_counts = dict(
+        db.query(Song.pack, func.count())
+          .filter(Song.status.in_(included_statuses), Song.pack.isnot(None))
+          .group_by(Song.pack)
+          .order_by(func.count().desc())
+          .limit(50)
+          .all()
+    )
+
+    # Get top pack artists in batch
+    top_pack_artists = db.query(
+        pack_ranked_artists.c.pack,
+        pack_ranked_artists.c.artist
+    ).filter(
+        pack_ranked_artists.c.rank == 1,
+        pack_ranked_artists.c.pack.in_(pack_counts.keys())
+    ).all()
+
+    pack_artist_names = [row.artist for row in top_pack_artists]
+    pack_artist_images = dict(
+        db.query(Artist.name, Artist.image_url)
+          .filter(Artist.name.in_(pack_artist_names))
+          .all()
+    )
+
     top_packs = []
-    for pack, count in base_query.with_entities(Song.pack, func.count()).group_by(Song.pack).order_by(func.count().desc()).limit(50).all():
-        # Find the most common artist in this pack
-        pack_songs = db.query(Song).filter(Song.pack == pack, Song.status.in_(included_statuses)).all()
-        artist_counts = {}
-        for song in pack_songs:
-            if song.artist:
-                artist_counts[song.artist] = artist_counts.get(song.artist, 0) + 1
-        most_common_artist = None
-        artist_image_url = None
-        if artist_counts:
-            most_common_artist = max(artist_counts.items(), key=lambda x: x[1])[0]
-            artist_image_url = db.query(Artist.image_url).filter(Artist.name == most_common_artist).scalar()
+    for pack, count in pack_counts.items():
+        pack_artist = next((row.artist for row in top_pack_artists if row.pack == pack), None)
         top_packs.append({
             "pack": pack,
             "count": count,
-            "artist": most_common_artist,
-            "artist_image_url": artist_image_url
+            "artist": pack_artist,
+            "artist_image_url": pack_artist_images.get(pack_artist) if pack_artist else None
         })
 
-    # Get total counts (not limited)
-    total_artists = db.query(Song.artist).filter(Song.status.in_(included_statuses)).distinct().count()
-    total_albums = db.query(Song.album).filter(Song.status.in_(included_statuses)).distinct().count()
-    total_packs = db.query(Song.pack).filter(Song.status.in_(included_statuses)).distinct().count()
+    # Get total counts
+    total_artists = db.query(Song.artist).filter(
+        Song.status.in_(included_statuses),
+        Song.artist.isnot(None)
+    ).distinct().count()
+    
+    total_albums = db.query(Song.album).filter(
+        Song.status.in_(included_statuses),
+        Song.album.isnot(None)
+    ).distinct().count()
+    
+    total_packs = db.query(Song.pack).filter(
+        Song.status.in_(included_statuses),
+        Song.pack.isnot(None)
+    ).distinct().count()
+
+    # Get collaboration stats
+    total_collaborations = db.query(SongCollaboration).count()
+    
+    # Get unique collaborators count
+    total_collaborators = db.query(SongCollaboration.author).distinct().count()
+    
+    # Get top collaborators (excluding the current user)
+    top_collaborators = [
+        {"author": author, "count": count}
+        for author, count in db.query(
+            SongCollaboration.author,
+            func.count().label('count')
+        ).filter(
+            SongCollaboration.author != "yaniv297"  # Exclude current user
+        ).group_by(
+            SongCollaboration.author
+        ).order_by(
+            func.count().desc()
+        ).limit(10).all()
+    ]
 
     # Get year distribution
     year_distribution = [
         {"year": year, "count": count}
-        for year, count in base_query
-            .with_entities(Song.year, func.count())
-            .filter(Song.year.isnot(None))
-            .group_by(Song.year)
-            .order_by(Song.year.asc())
-            .all()
+        for year, count in db.query(
+            Song.year, func.count()
+        ).filter(
+            Song.status.in_(included_statuses),
+            Song.year.isnot(None)
+        ).group_by(
+            Song.year
+        ).order_by(
+            Song.year.asc()
+        ).all()
     ]
 
-    # Still include WIP songs for authoring progress
-    wip_songs = db.query(Song).filter(Song.status == SongStatus.wip).all()
+    # Optimized WIP processing - only load necessary fields
+    wip_songs = db.query(Song).filter(
+        Song.status == SongStatus.wip
+    ).all()
+    
     total_wips = len(wip_songs)
     authoring_fields = [
         "demucs", "tempo_map", "fake_ending", "drums", "bass", "guitar",
@@ -88,9 +191,8 @@ def get_stats(db: Session = Depends(get_db)):
     ]
     progress = {field: 0 for field in authoring_fields}
 
-    # Count fully ready WIP songs (all authoring fields complete)
+    # Count fully ready WIP songs and progress
     fully_ready_wips = 0
-    # Count WIP songs with at least tempo_map done (actually in progress)
     actually_in_progress = 0
     
     for song in wip_songs:
@@ -100,10 +202,10 @@ def get_stats(db: Session = Depends(get_db)):
                 fully_ready_wips += 1
             elif getattr(song.authoring, "tempo_map", False):
                 actually_in_progress += 1
-        
-        for field in authoring_fields:
-            if getattr(song.authoring, field, False):
-                progress[field] += 1
+            
+            for field in authoring_fields:
+                if getattr(song.authoring, field, False):
+                    progress[field] += 1
 
     # Adjust by_status to show only songs that are actually in progress
     if "In Progress" in by_status:
@@ -123,6 +225,9 @@ def get_stats(db: Session = Depends(get_db)):
         "total_artists": total_artists,
         "total_albums": total_albums,
         "total_packs": total_packs,
+        "total_collaborations": total_collaborations,
+        "total_collaborators": total_collaborators,
+        "top_collaborators": top_collaborators,
         "authoring_progress": authoring_percent,
         "fully_ready_wips": fully_ready_wips,
         "year_distribution": year_distribution,
@@ -131,34 +236,71 @@ def get_stats(db: Session = Depends(get_db)):
 @router.get("/year/{year}/details")
 def get_year_details(year: int, db: Session = Depends(get_db)):
     included_statuses = [SongStatus.released, SongStatus.wip]
-    year_songs = db.query(Song).filter(
+    
+    # Get total songs for the year
+    total_songs = db.query(Song).filter(
         Song.year == year,
         Song.status.in_(included_statuses)
-    ).all()
-    artist_counts = {}
-    album_counts = {}
-    album_covers = {}
-    for song in year_songs:
-        if song.artist:
-            artist_counts[song.artist] = artist_counts.get(song.artist, 0) + 1
-        if song.album:
-            album_counts[song.album] = album_counts.get(song.album, 0) + 1
-            if song.album_cover:
-                album_covers[song.album] = song.album_cover
-    top_artists = sorted(artist_counts.items(), key=lambda x: x[1], reverse=True)[:5]
-    # Add artist_image_url
+    ).count()
+    
+    # Get top artists with optimized query
+    top_artists_data = db.query(
+        Song.artist,
+        func.count().label('count')
+    ).filter(
+        Song.year == year,
+        Song.status.in_(included_statuses),
+        Song.artist.isnot(None)
+    ).group_by(
+        Song.artist
+    ).order_by(
+        func.count().desc()
+    ).limit(5).all()
+    
+    # Batch lookup artist images
+    artist_names = [row.artist for row in top_artists_data]
+    artist_images = dict(
+        db.query(Artist.name, Artist.image_url)
+          .filter(Artist.name.in_(artist_names))
+          .all()
+    )
+    
     top_artists = [
-        {"artist": artist, "count": count, "artist_image_url": db.query(Artist.image_url).filter(Artist.name == artist).scalar()}
-        for artist, count in top_artists
+        {
+            "artist": row.artist, 
+            "count": row.count, 
+            "artist_image_url": artist_images.get(row.artist)
+        }
+        for row in top_artists_data
     ]
-    top_albums = sorted(album_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    # Get top albums with optimized query
+    top_albums_data = db.query(
+        Song.album,
+        func.count().label('count'),
+        Song.album_cover
+    ).filter(
+        Song.year == year,
+        Song.status.in_(included_statuses),
+        Song.album.isnot(None)
+    ).group_by(
+        Song.album, Song.album_cover
+    ).order_by(
+        func.count().desc()
+    ).limit(5).all()
+    
     top_albums = [
-        {"album": album, "count": count, "album_cover": album_covers.get(album)}
-        for album, count in top_albums
+        {
+            "album": row.album, 
+            "count": row.count, 
+            "album_cover": row.album_cover
+        }
+        for row in top_albums_data
     ]
+    
     return {
         "year": year,
-        "total_songs": len(year_songs),
+        "total_songs": total_songs,
         "top_artists": top_artists,
         "top_albums": top_albums
     }

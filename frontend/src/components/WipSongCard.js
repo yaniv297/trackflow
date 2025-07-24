@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../config";
+import WipCollaborationModal from "./WipCollaborationModal";
 
 export default function WipSongCard({
   song,
@@ -27,7 +28,45 @@ export default function WipSongCard({
     album: song.album,
     year: song.year || "",
   });
+  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
+  const [wipCollaborations, setWipCollaborations] = useState([]);
   const isOptional = song.optional;
+
+  // Load WIP collaborations when component mounts
+  useEffect(() => {
+    loadWipCollaborations();
+  }, [song.id]);
+
+  const loadWipCollaborations = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/authoring/${song.id}/wip-collaborations`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setWipCollaborations(data.assignments || []);
+      }
+    } catch (error) {
+      console.error("Error loading WIP collaborations:", error);
+    }
+  };
+
+  const getCollaboratorColor = (collaborator) => {
+    const colors = [
+      "#e74c3c",
+      "#3498db",
+      "#2ecc71",
+      "#f39c12",
+      "#9b59b6",
+      "#1abc9c",
+      "#e67e22",
+      "#34495e",
+      "#16a085",
+      "#8e44ad",
+    ];
+    const index = collaborator.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
 
   const fields = [
     "demucs",
@@ -200,19 +239,28 @@ export default function WipSongCard({
 
   const markAllDone = async () => {
     try {
-      await fetch(`${API_BASE_URL}/authoring/complete/${song.id}`, {
-        method: "POST",
+      // Only mark enabled parts as complete
+      const partsToMark = fields;
+      const updates = {};
+      partsToMark.forEach((f) => {
+        updates[f] = true;
+      });
+
+      await fetch(`${API_BASE_URL}/authoring/${song.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
       });
 
       // Update UI state manually
-      const updatedFields = {};
-      fields.forEach((f) => {
+      const updatedFields = { ...localAuthoring };
+      partsToMark.forEach((f) => {
         updatedFields[f] = true;
       });
       setLocalAuthoring(updatedFields);
 
       if (onAuthoringUpdate) {
-        fields.forEach((f) => {
+        partsToMark.forEach((f) => {
           onAuthoringUpdate(song.id, f, true);
         });
       }
@@ -221,9 +269,13 @@ export default function WipSongCard({
     }
   };
 
-  const filled = fields.filter((f) => localAuthoring?.[f]).length;
-  const percent = Math.round((filled / fields.length) * 100);
-  const isComplete = filled === fields.length;
+  // For progress calculation, use all fields
+  const safeParts = fields;
+
+  const filled = safeParts.filter((f) => localAuthoring?.[f]).length;
+  const percent =
+    safeParts.length > 0 ? Math.round((filled / safeParts.length) * 100) : 0;
+  const isComplete = safeParts.length > 0 && filled === safeParts.length;
 
   return (
     <div
@@ -328,7 +380,7 @@ export default function WipSongCard({
               />
             </div>
             <small style={{ fontSize: "0.8rem", color: "#444" }}>
-              {filled} / {fields.length} parts
+              {filled} / {safeParts.length} parts
             </small>
             {!isComplete && (
               <label
@@ -467,42 +519,200 @@ export default function WipSongCard({
             <div
               style={{
                 display: "flex",
-                flexWrap: "wrap",
-                gap: "0.5rem",
+                flexDirection: "column",
+                gap: "0.75rem",
                 flexGrow: 1,
               }}
             >
-              {fields.map((field) => {
-                const filled = localAuthoring?.[field];
-                const displayName = field
-                  .split("_")
-                  .map((w) => w[0].toUpperCase() + w.slice(1))
-                  .join(" ");
+              {/* Show fields grouped by collaborator if collaborations exist */}
+              {wipCollaborations.length > 0 ? (
+                <div>
+                  {(() => {
+                    // Group collaborations by collaborator
+                    const collaboratorGroups = {};
+                    wipCollaborations.forEach((collab) => {
+                      if (!collaboratorGroups[collab.collaborator]) {
+                        collaboratorGroups[collab.collaborator] = [];
+                      }
+                      collaboratorGroups[collab.collaborator].push(
+                        collab.field
+                      );
+                    });
 
-                const bg = filled ? "#4caf50" : "#ddd";
-                const color = filled ? "white" : "black";
+                    // Get all fields that are NOT assigned to any collaborator (these belong to yaniv297)
+                    const assignedFields = new Set(
+                      wipCollaborations.map((collab) => collab.field)
+                    );
+                    const unassignedFields = fields.filter(
+                      (field) => !assignedFields.has(field)
+                    );
 
-                return (
-                  <span
-                    key={field}
-                    onClick={() => toggleAuthoringField(field)}
-                    style={{
-                      padding: "0.25rem 0.6rem",
-                      borderRadius: "12px",
-                      fontSize: "0.85rem",
-                      backgroundColor: bg,
-                      color,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      lineHeight: "1",
-                      cursor: "pointer",
-                      userSelect: "none",
-                    }}
-                  >
-                    {displayName}
-                  </span>
-                );
-              })}
+                    const result = [];
+
+                    // Add yaniv297's unassigned fields first
+                    if (unassignedFields.length > 0) {
+                      result.push(
+                        <div key="yaniv297" style={{ marginBottom: "0.5rem" }}>
+                          <div
+                            style={{
+                              fontSize: "0.8rem",
+                              fontWeight: "bold",
+                              marginBottom: "0.25rem",
+                              color: "#666",
+                            }}
+                          >
+                            yaniv297:
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "0.5rem",
+                            }}
+                          >
+                            {unassignedFields.map((field) => {
+                              const filled = localAuthoring?.[field];
+                              const displayName = field
+                                .split("_")
+                                .map((w) => w[0].toUpperCase() + w.slice(1))
+                                .join(" ");
+
+                              const bg = filled ? "#4caf50" : "#ddd";
+                              const color = filled ? "white" : "black";
+
+                              return (
+                                <span
+                                  key={field}
+                                  onClick={() => toggleAuthoringField(field)}
+                                  style={{
+                                    padding: "0.25rem 0.6rem",
+                                    borderRadius: "12px",
+                                    fontSize: "0.85rem",
+                                    backgroundColor: bg,
+                                    color,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    lineHeight: "1",
+                                    cursor: "pointer",
+                                    userSelect: "none",
+                                  }}
+                                >
+                                  {displayName}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Add other collaborators' fields
+                    Object.entries(collaboratorGroups).forEach(
+                      ([collaborator, assignedFields]) => {
+                        if (collaborator !== "yaniv297") {
+                          result.push(
+                            <div
+                              key={collaborator}
+                              style={{ marginBottom: "0.5rem" }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: "0.8rem",
+                                  fontWeight: "bold",
+                                  marginBottom: "0.25rem",
+                                  color: "#666",
+                                }}
+                              >
+                                {collaborator}:
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: "0.5rem",
+                                }}
+                              >
+                                {assignedFields.map((field) => {
+                                  const filled = localAuthoring?.[field];
+                                  const displayName = field
+                                    .split("_")
+                                    .map((w) => w[0].toUpperCase() + w.slice(1))
+                                    .join(" ");
+
+                                  const bg = filled ? "#4caf50" : "#ddd";
+                                  const color = filled ? "white" : "black";
+
+                                  return (
+                                    <span
+                                      key={field}
+                                      onClick={() =>
+                                        toggleAuthoringField(field)
+                                      }
+                                      style={{
+                                        padding: "0.25rem 0.6rem",
+                                        borderRadius: "12px",
+                                        fontSize: "0.85rem",
+                                        backgroundColor: bg,
+                                        color,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        lineHeight: "1",
+                                        cursor: "pointer",
+                                        userSelect: "none",
+                                      }}
+                                    >
+                                      {displayName}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        }
+                      }
+                    );
+
+                    return result;
+                  })()}
+                </div>
+              ) : (
+                /* Show regular fields if no collaborations */
+                <div
+                  style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}
+                >
+                  {fields.map((field) => {
+                    const filled = localAuthoring?.[field];
+                    const displayName = field
+                      .split("_")
+                      .map((w) => w[0].toUpperCase() + w.slice(1))
+                      .join(" ");
+
+                    const bg = filled ? "#4caf50" : "#ddd";
+                    const color = filled ? "white" : "black";
+
+                    return (
+                      <span
+                        key={field}
+                        onClick={() => toggleAuthoringField(field)}
+                        style={{
+                          padding: "0.25rem 0.6rem",
+                          borderRadius: "12px",
+                          fontSize: "0.85rem",
+                          backgroundColor: bg,
+                          color,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          lineHeight: "1",
+                          cursor: "pointer",
+                          userSelect: "none",
+                        }}
+                      >
+                        {displayName}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Action Links */}
@@ -514,18 +724,39 @@ export default function WipSongCard({
                 color: "#5a8fcf",
                 fontWeight: 400,
                 textAlign: "left",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
               }}
             >
+              <button
+                onClick={() => setShowCollaborationModal(true)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "block",
+                  padding: 0,
+                  textDecoration: "none",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) =>
+                  (e.target.style.textDecoration = "underline")
+                }
+                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
+              >
+                {wipCollaborations.length > 0 ? "Edit Collab" : "Make Collab"}
+              </button>
               <button
                 onClick={markAllDone}
                 style={{
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  display: "inline",
+                  display: "block",
                   padding: 0,
-                  marginRight: "1.2rem",
                   textDecoration: "none",
+                  textAlign: "left",
                 }}
                 onMouseEnter={(e) =>
                   (e.target.style.textDecoration = "underline")
@@ -541,10 +772,10 @@ export default function WipSongCard({
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  display: "inline",
+                  display: "block",
                   padding: 0,
-                  marginRight: "1.2rem",
                   textDecoration: "none",
+                  textAlign: "left",
                 }}
                 onMouseEnter={(e) =>
                   (e.target.style.textDecoration = "underline")
@@ -557,6 +788,23 @@ export default function WipSongCard({
           </div>
         )}
       </div>
+
+      {/* WIP Collaboration Modal */}
+      <WipCollaborationModal
+        song={song}
+        isOpen={showCollaborationModal}
+        onClose={() => setShowCollaborationModal(false)}
+        onSave={() => {
+          loadWipCollaborations();
+          if (onAuthoringUpdate) {
+            onAuthoringUpdate(
+              song.id,
+              "demucs",
+              localAuthoring.demucs || false
+            );
+          }
+        }}
+      />
     </div>
   );
 }

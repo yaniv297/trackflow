@@ -82,7 +82,8 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
                     year=year,
                     album_cover=cover,
                     status=song_status,
-                    pack=pack
+                    pack=pack,
+                    author="yaniv297"  # Force author to be yaniv297
                 )
                 
                 db.add(song)
@@ -168,8 +169,8 @@ def get_spotify_matches(song_id: int, db: Session = Depends(get_db)):
 
     return options
 
-@router.post("/{song_id}/enhance", response_model=SongOut)
-def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Depends(get_db)):
+def enhance_song_with_track_data(song_id: int, track_id: str, db: Session):
+    """Enhance a song with Spotify track data"""
     song = db.query(Song).get(song_id)
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
@@ -179,7 +180,7 @@ def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Dep
         client_secret=SPOTIFY_CLIENT_SECRET
     ))
 
-    track = sp.track(req.track_id)
+    track = sp.track(track_id)
     album = track["album"]
 
     song.album = album["name"]
@@ -208,6 +209,47 @@ def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Dep
     db.commit()
     db.refresh(song)
     return song
+
+@router.post("/{song_id}/enhance", response_model=SongOut)
+def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Depends(get_db)):
+    return enhance_song_with_track_data(song_id, req.track_id, db)
+
+def auto_enhance_song(song_id: int, db: Session):
+    """Automatically enhance a song with the best Spotify match"""
+    song = db.query(Song).get(song_id)
+    if not song:
+        print(f"Song {song_id} not found for auto-enhancement")
+        return False
+    
+    # Check if Spotify credentials are available
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        print("Spotify credentials not available, skipping auto-enhancement")
+        return False
+    
+    try:
+        sp = Spotify(auth_manager=SpotifyClientCredentials(
+            client_id=SPOTIFY_CLIENT_ID,
+            client_secret=SPOTIFY_CLIENT_SECRET
+        ))
+        
+        # Search for the song on Spotify
+        search_query = f"{song.title} {song.artist}"
+        results = sp.search(q=search_query, type="track", limit=1)
+        tracks = results.get("tracks", {}).get("items", [])
+        
+        if not tracks:
+            print(f"No Spotify match found for '{search_query}'")
+            return False
+        
+        # Use the first (best) match
+        track_id = tracks[0]["id"]
+        enhance_song_with_track_data(song_id, track_id, db)
+        print(f"Successfully auto-enhanced song '{song.title}' with Spotify data")
+        return True
+        
+    except Exception as e:
+        print(f"Error during auto-enhancement: {e}")
+        return False
 
 @router.patch("/{song_id}")
 def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(get_db)):

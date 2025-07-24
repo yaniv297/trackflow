@@ -16,7 +16,7 @@ COPY schemas.py .
 COPY api/ ./api/
 COPY __init__.py .
 
-# Expose port
+# Expose port (will be overridden by Railway)
 EXPOSE 8000
 
 # Start the application

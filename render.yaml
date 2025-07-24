@@ -1,7 +1,7 @@
 services:
 - type: web
   name: trackflow-frontend
-  env: static
+  env: node
   buildCommand: npm install && npm run build
   staticPublishPath: build
   buildFilter:

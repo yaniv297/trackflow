@@ -6,8 +6,16 @@ from database import engine
 from models import Base
 from api import songs, authoring, spotify, tools, stats, album_series
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
-app = FastAPI()
+app = FastAPI(
+    title="TrackFlow API",
+    description="API for TrackFlow music management system",
+    version="1.0.0"
+)
+
+# Add GZip compression for better performance
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,

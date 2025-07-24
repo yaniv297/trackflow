@@ -29,6 +29,7 @@ def get_filtered_songs(
     query: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    # Build base query with all necessary joins
     q = db.query(Song).options(
         joinedload(Song.authoring), 
         joinedload(Song.artist_obj),
@@ -59,24 +60,38 @@ def get_filtered_songs(
             )
         )
 
+    # Get all songs with their related data in one query
     songs = q.order_by(Song.artist.asc(), Song.title.asc()).all()
-    # Attach artist_image_url to each song for the response
+    
+    # Pre-fetch all album series data to avoid N+1 queries
+    album_series_ids = {song.album_series_id for song in songs if song.album_series_id}
+    album_series_map = {}
+    if album_series_ids:
+        series_list = db.query(AlbumSeries).filter(AlbumSeries.id.in_(album_series_ids)).all()
+        album_series_map = {series.id: series for series in series_list}
+    
+    # Build result efficiently
     result = []
     for song in songs:
         song_dict = song.__dict__.copy()
         song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
-        # Attach authoring as well
+        
+        # Attach authoring
         if hasattr(song, "authoring") and song.authoring:
             song_dict["authoring"] = song.authoring
+        
         # Attach collaborations
         if hasattr(song, "collaborations"):
             song_dict["collaborations"] = song.collaborations
-        if song.album_series_id:
-            series = db.query(AlbumSeries).filter_by(id=song.album_series_id).first()
-            if series:
-                song_dict["album_series_number"] = series.series_number
-                song_dict["album_series_name"] = series.album_name
+        
+        # Attach album series data from pre-fetched map
+        if song.album_series_id and song.album_series_id in album_series_map:
+            series = album_series_map[song.album_series_id]
+            song_dict["album_series_number"] = series.series_number
+            song_dict["album_series_name"] = series.album_name
+        
         result.append(SongOut.model_validate(song_dict, from_attributes=True))
+    
     return result
 
 @router.delete("/{song_id}", status_code=204)

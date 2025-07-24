@@ -19,5 +19,5 @@ COPY __init__.py .
 # Expose port (will be overridden by Railway)
 EXPOSE 8000
 
-# Start the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+# ✅ Call main.py directly to let it parse PORT
+CMD ["python", "main.py"]

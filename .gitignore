@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+venv/
+.env
+.env.production
+
+# SQLite
+*.db
+*.sqlite3
+
+# Node/React
+node_modules/
+build/
+dist/
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+
+# Cache
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Misc
+*.swp
+*.swo
+
+# Ignore local config
+.env.*
+
+# Ignore test output
+coverage/
+
+# Ignore editor configs
+.idea/
+.vscode/
+
+# Ignore static asset cache
+frontend/public/static/ 

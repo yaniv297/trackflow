@@ -1,6 +1,20 @@
 from pydantic import BaseModel
 from models import SongStatus
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
+
+class SongCollaborationCreate(BaseModel):
+    author: str
+    parts: Optional[str] = None
+
+class SongCollaborationOut(BaseModel):
+    id: int
+    author: str
+    parts: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 class SongCreate(BaseModel):
     artist: str
@@ -11,7 +25,9 @@ class SongCreate(BaseModel):
     year: int | None = None
     album_cover: str | None = None
     notes: str | None = None
+    author: str | None = None
     optional: bool | None = None
+    collaborations: List[SongCollaborationCreate] | None = None
 
 class AuthoringOut(BaseModel):
     id: int
@@ -44,15 +60,22 @@ class SongOut(BaseModel):
     pack: Optional[str]
     year: Optional[int]
     album_cover: Optional[str]
+    author: Optional[str]
+    collaborations: List[SongCollaborationOut] = []
     authoring: Optional[AuthoringOut] 
     optional: Optional[bool]
     artist_image_url: Optional[str] = None
+    album_series_id: Optional[int] = None
+    album_series_number: Optional[int] = None
+    album_series_name: Optional[str] = None
+    
 
     class Config:
         from_attributes = True
 
 class AuthoringUpdate(BaseModel):
     demucs: Optional[bool] = None
+    midi: Optional[bool] = None
     tempo_map: Optional[bool] = None
     fake_ending: Optional[bool] = None
     drums: Optional[bool] = None
@@ -69,3 +92,47 @@ class AuthoringUpdate(BaseModel):
 
 class EnhanceRequest(BaseModel):
     track_id: str
+
+class AlbumSeriesResponse(BaseModel):
+    id: int
+    series_number: int | None = None
+    album_name: str
+    artist_name: str
+    year: Optional[int] = None
+    cover_image_url: Optional[str] = None
+    status: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    song_count: int = 0
+    authors: List[str] = []  # List of all authors in this series
+    
+    class Config:
+        from_attributes = True
+
+class AlbumSeriesDetailResponse(BaseModel):
+    id: int
+    series_number: int | None = None
+    album_name: str
+    artist_name: str
+    year: Optional[int] = None
+    cover_image_url: Optional[str] = None
+    status: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    album_songs: List[SongOut]
+    bonus_songs: List[SongOut]
+    total_songs: int
+    authors: List[str] = []  # List of all authors in this series
+    
+    class Config:
+        from_attributes = True
+
+class CreateAlbumSeriesRequest(BaseModel):
+    pack_name: str
+    artist_name: str
+    album_name: str
+    year: int | None = None
+    cover_image_url: str | None = None
+    description: str | None = None

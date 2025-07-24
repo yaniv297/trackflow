@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AuthoringProgress
+from models import Song, SongStatus, AuthoringProgress, AlbumSeries, SongCollaboration
 from typing import Optional
 from typing import List
 
@@ -13,7 +13,15 @@ router = APIRouter(prefix="/songs", tags=["Songs"])
 
 @router.post("/", response_model=SongOut)
 def create_song(song: SongCreate, db: Session = Depends(get_db)):
-    return create_song_in_db(db, song)
+    # Force the author to be yaniv297 for all new songs
+    song_data = song.dict()
+    song_data["author"] = "yaniv297"
+    
+    # Create a new SongCreate object with the forced author
+    from schemas import SongCreate
+    song_with_author = SongCreate(**song_data)
+    
+    return create_song_in_db(db, song_with_author)
 
 @router.get("/", response_model=list[SongOut])
 def get_filtered_songs(
@@ -21,18 +29,33 @@ def get_filtered_songs(
     query: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    q = db.query(Song).options(joinedload(Song.authoring), joinedload(Song.artist_obj))
+    q = db.query(Song).options(
+        joinedload(Song.authoring), 
+        joinedload(Song.artist_obj),
+        joinedload(Song.collaborations)
+    )
+
+    # Filter to only show songs authored by yaniv297
+    q = q.filter(Song.author == "yaniv297")
 
     if status:
         q = q.filter(Song.status == status)
 
     if query:
         pattern = f"%{query}%"
+        # Search in song fields and also in collaborations
         q = q.filter(
             or_(
                 Song.title.ilike(pattern),
                 Song.artist.ilike(pattern),
-                Song.album.ilike(pattern)
+                Song.album.ilike(pattern),
+                Song.pack.ilike(pattern),
+                # Search in collaborations using EXISTS subquery
+                Song.id.in_(
+                    db.query(SongCollaboration.song_id)
+                    .filter(SongCollaboration.author.ilike(pattern))
+                    .subquery()
+                )
             )
         )
 
@@ -45,7 +68,15 @@ def get_filtered_songs(
         # Attach authoring as well
         if hasattr(song, "authoring") and song.authoring:
             song_dict["authoring"] = song.authoring
-        result.append(SongOut.from_orm(song_dict))
+        # Attach collaborations
+        if hasattr(song, "collaborations"):
+            song_dict["collaborations"] = song.collaborations
+        if song.album_series_id:
+            series = db.query(AlbumSeries).filter_by(id=song.album_series_id).first()
+            if series:
+                song_dict["album_series_number"] = series.series_number
+                song_dict["album_series_name"] = series.album_name
+        result.append(SongOut.model_validate(song_dict, from_attributes=True))
     return result
 
 @router.delete("/{song_id}", status_code=204)
@@ -57,27 +88,86 @@ def delete_song(song_id: int, db: Session = Depends(get_db)):
 @router.post("/batch", response_model=list[SongOut])
 def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db)):
     new_songs = []
-    for song_data in songs:
-        new_song = Song(**song_data.dict())
-        db.add(new_song)
-        db.commit()
-        db.refresh(new_song)
-
-        if new_song.status == SongStatus.wip:
-            authoring = AuthoringProgress(song_id=new_song.id)
-            db.add(authoring)
-            db.commit()
-
-        new_songs.append(new_song)
-
+    errors = []
+    
+    for i, song_data in enumerate(songs):
+        try:
+            # Force the author to be yaniv297 for all new songs
+            song_dict = song_data.dict()
+            song_dict["author"] = "yaniv297"
+            
+            # Create a new SongCreate object with the forced author
+            from schemas import SongCreate
+            song_with_author = SongCreate(**song_dict)
+            
+            new_song = create_song_in_db(db, song_with_author)
+            new_songs.append(new_song)
+        except HTTPException as e:
+            # If it's a duplicate error, add it to errors list but continue
+            if e.status_code == 400 and "already exists" in e.detail:
+                errors.append(f"Song {i+1}: {e.detail}")
+            else:
+                # Re-raise other HTTP exceptions
+                raise e
+        except Exception as e:
+            errors.append(f"Song {i+1}: {str(e)}")
+    
+    # If there were any errors, return them along with successfully created songs
+    if errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Some songs could not be created: {'; '.join(errors)}"
+        )
+    
     return new_songs
 
 @router.patch("/{song_id}", response_model=SongOut)
 def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(get_db)):
-    song = db.query(Song).get(song_id)
+    song = db.query(Song).options(
+        joinedload(Song.collaborations)
+    ).get(song_id)
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
 
+    # Handle collaborations update if provided
+    if "collaborations" in updates:
+        # Delete existing collaborations
+        db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+        
+        # Add new collaborations
+        collaborations = updates["collaborations"]
+        
+        # Handle both string format (comma-separated) and list format
+        if isinstance(collaborations, str):
+            # Split comma-separated string and clean up
+            collab_names = [name.strip() for name in collaborations.split(",") if name.strip()]
+        elif isinstance(collaborations, list):
+            # Handle list of strings or list of dictionaries
+            collab_names = []
+            for collab_data in collaborations:
+                if isinstance(collab_data, str):
+                    collab_names.append(collab_data)
+                elif isinstance(collab_data, dict) and "author" in collab_data:
+                    collab_names.append(collab_data["author"])
+                else:
+                    continue
+        else:
+            collab_names = []
+        
+        # Add collaborations to database
+        for author in collab_names:
+            if author and author != "yaniv297":  # Don't add self as collaborator
+                db_collab = SongCollaboration(
+                    song_id=song_id,
+                    author=author,
+                    parts=None
+                )
+                db.add(db_collab)
+        
+        # Remove collaborations from updates dict to avoid setting it as an attribute
+        del updates["collaborations"]
+
+    # Update other fields
     for key, value in updates.items():
         if hasattr(song, key):
             setattr(song, key, value)
@@ -90,20 +180,89 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
 
 @router.post("/release-pack")
 def release_pack(pack: str, db: Session = Depends(get_db)):
-    songs_to_release = (
-        db.query(Song)
-        .filter(Song.pack == pack, Song.status == SongStatus.wip)
-        .all()
-    )
-
-    for song in songs_to_release:
+    songs = db.query(Song).filter(Song.pack == pack).all()
+    for song in songs:
         song.status = SongStatus.released
-
     db.commit()
-    return {"message": f"Released {len(songs_to_release)} songs in pack '{pack}'"}
+    return {"message": f"Released pack: {pack}"}
 
 @router.post("/bulk-delete")
 def bulk_delete(song_ids: list[int], db: Session = Depends(get_db)):
-    deleted = db.query(Song).filter(Song.id.in_(song_ids)).delete(synchronize_session="fetch")
+    for song_id in song_ids:
+        delete_song_from_db(db, song_id)
+    return {"message": f"Deleted {len(song_ids)} songs"}
+
+@router.post("/{song_id}/collaborations")
+def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depends(get_db)):
+    song = db.query(Song).get(song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    # Delete existing collaborations
+    db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+    
+    # Add new collaborations
+    collaborations = data.get("collaborations", [])
+    for collab_data in collaborations:
+        db_collab = SongCollaboration(
+            song_id=song_id,
+            author=collab_data["author"],
+            parts=None  # No longer using parts
+        )
+        db.add(db_collab)
+    
     db.commit()
-    return {"deleted": deleted}
+    return {"message": f"Updated collaborations for song {song_id}"}
+
+@router.get("/autocomplete/artists")
+def get_artists_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+    """Get artists for auto-complete"""
+    if not query:
+        return []
+    
+    artists = db.query(Song.artist).filter(
+        Song.author == "yaniv297",
+        Song.artist.ilike(f"%{query}%")
+    ).distinct().limit(10).all()
+    
+    return [artist[0] for artist in artists if artist[0]]
+
+@router.get("/autocomplete/albums")
+def get_albums_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+    """Get albums for auto-complete"""
+    if not query:
+        return []
+    
+    albums = db.query(Song.album).filter(
+        Song.author == "yaniv297",
+        Song.album.ilike(f"%{query}%")
+    ).distinct().limit(10).all()
+    
+    return [album[0] for album in albums if album[0]]
+
+@router.get("/autocomplete/collaborators")
+def get_collaborators_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+    """Get collaborators for auto-complete"""
+    if not query:
+        return []
+    
+    collaborators = db.query(SongCollaboration.author).filter(
+        SongCollaboration.author.ilike(f"%{query}%"),
+        SongCollaboration.author != "yaniv297"
+    ).distinct().limit(10).all()
+    
+    return [collab[0] for collab in collaborators if collab[0]]
+
+@router.get("/autocomplete/packs")
+def get_packs_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+    """Get packs for auto-complete"""
+    if not query:
+        return []
+    
+    packs = db.query(Song.pack).filter(
+        Song.author == "yaniv297",
+        Song.pack.ilike(f"%{query}%"),
+        Song.pack.isnot(None)
+    ).distinct().limit(10).all()
+    
+    return [pack[0] for pack in packs if pack[0]]

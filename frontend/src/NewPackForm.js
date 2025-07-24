@@ -2,6 +2,90 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "./config";
 
+// Utility function to capitalize artist and album names
+const capitalizeName = (name) => {
+  if (!name) return name;
+  return name
+    .split(" ")
+    .map((word) => {
+      // Handle special cases like "the", "of", "and", etc.
+      const lowerWords = [
+        "the",
+        "of",
+        "and",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "with",
+        "by",
+        "from",
+        "up",
+        "about",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "among",
+        "within",
+        "without",
+        "against",
+        "toward",
+        "towards",
+        "upon",
+        "across",
+        "behind",
+        "beneath",
+        "beside",
+        "beyond",
+        "inside",
+        "outside",
+        "under",
+        "over",
+        "along",
+        "around",
+        "down",
+        "off",
+        "out",
+        "up",
+        "away",
+        "back",
+        "forward",
+        "backward",
+        "upward",
+        "downward",
+        "inward",
+        "outward",
+        "northward",
+        "southward",
+        "eastward",
+        "westward",
+        "homeward",
+        "heavenward",
+        "earthward",
+        "seaward",
+        "landward",
+        "leeward",
+        "windward",
+        "leftward",
+        "rightward",
+      ];
+
+      if (lowerWords.includes(word.toLowerCase())) {
+        return word.toLowerCase();
+      }
+
+      // Capitalize first letter of each word
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+};
+
 function NewPackForm() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("artist"); // "artist" or "mixed"
@@ -10,6 +94,10 @@ function NewPackForm() {
     artist: "",
     album: "",
     status: "Future Plans",
+    collaborations: "",
+    isAlbumSeries: false,
+    albumSeriesArtist: "",
+    albumSeriesAlbum: "",
   });
   const [entries, setEntries] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,7 +110,30 @@ function NewPackForm() {
       return;
     }
 
+    if (
+      meta.isAlbumSeries &&
+      (!meta.albumSeriesArtist || !meta.albumSeriesAlbum)
+    ) {
+      window.showNotification(
+        "Album series artist and name are required when creating an album series",
+        "warning"
+      );
+      return;
+    }
+
     setIsSubmitting(true);
+
+    // Parse collaborations if provided
+    let collaborations = [];
+    if (meta.collaborations.trim()) {
+      collaborations = meta.collaborations.split(",").map((collab) => {
+        const author = collab.trim();
+        return {
+          author: author,
+          parts: null,
+        };
+      });
+    }
 
     let payload;
     if (mode === "artist") {
@@ -34,10 +145,11 @@ function NewPackForm() {
 
       payload = titles.map((title) => ({
         title,
-        artist: meta.artist,
-        album: meta.album,
+        artist: capitalizeName(meta.artist),
+        album: capitalizeName(meta.album),
         pack: meta.pack,
         status: meta.status,
+        collaborations: collaborations.length > 0 ? collaborations : undefined,
       }));
     } else {
       // Mixed mode: "Artist - Title" format
@@ -48,26 +160,72 @@ function NewPackForm() {
         .map((line) => {
           const [artist, title] = line.split(/[–-]/).map((x) => x.trim());
           return {
-            title: title || "Unknown Title",
-            artist: artist || "Unknown Artist",
-            album: meta.album,
+            title: capitalizeName(title || "Unknown Title"),
+            artist: capitalizeName(artist || "Unknown Artist"),
+            album: capitalizeName(meta.album),
             pack: meta.pack,
             status: meta.status,
+            collaborations:
+              collaborations.length > 0 ? collaborations : undefined,
           };
         });
     }
 
+    // First, create the songs
     fetch(`${API_BASE_URL}/songs/batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to add songs");
+      .then(async (res) => {
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || "Failed to add songs");
+        }
         return res.json();
       })
       .then(async (createdSongs) => {
         const newIds = createdSongs.map((s) => s.id);
+
+        // If creating an album series, create it now
+        if (meta.isAlbumSeries) {
+          setProgress({ phase: "Creating album series", current: 1, total: 1 });
+          window.showNotification("Creating album series...", "info");
+
+          try {
+            const albumSeriesResponse = await fetch(
+              `${API_BASE_URL}/album-series/create-from-pack`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  pack_name: meta.pack,
+                  artist_name: capitalizeName(meta.albumSeriesArtist),
+                  album_name: capitalizeName(meta.albumSeriesAlbum),
+                  year: null,
+                  cover_image_url: null,
+                  description: null,
+                }),
+              }
+            );
+
+            if (!albumSeriesResponse.ok) {
+              throw new Error("Failed to create album series");
+            }
+
+            const albumSeriesResult = await albumSeriesResponse.json();
+            window.showNotification(
+              `Album series "${meta.albumSeriesAlbum}" created successfully!`,
+              "success"
+            );
+          } catch (err) {
+            console.warn("Failed to create album series:", err);
+            window.showNotification(
+              "Songs created but failed to create album series. You can create it manually later.",
+              "warning"
+            );
+          }
+        }
 
         // Enhancement phase
         setProgress({
@@ -112,10 +270,11 @@ function NewPackForm() {
           body: JSON.stringify(newIds),
         });
 
-        window.showNotification(
-          `${createdSongs.length} song(s) added to "${meta.pack}", enhanced & cleaned.`,
-          "success"
-        );
+        const successMessage = meta.isAlbumSeries
+          ? `${createdSongs.length} song(s) added to album series "${meta.albumSeriesAlbum}", enhanced & cleaned.`
+          : `${createdSongs.length} song(s) added to "${meta.pack}", enhanced & cleaned.`;
+
+        window.showNotification(successMessage, "success");
         navigate(
           `/${
             meta.status === "In Progress"
@@ -396,6 +555,187 @@ function NewPackForm() {
               </select>
             </div>
           </div>
+
+          {/* Collaborations */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                color: "#555",
+                fontSize: "0.95rem",
+              }}
+            >
+              Collaborations (Optional)
+            </label>
+            <input
+              value={meta.collaborations}
+              onChange={(e) =>
+                setMeta({ ...meta, collaborations: e.target.value })
+              }
+              placeholder="e.g., jphn, EdTanguy"
+              style={{
+                width: "100%",
+                padding: "0.75rem 1rem",
+                border: "2px solid #e1e5e9",
+                borderRadius: "8px",
+                fontSize: "1rem",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+                boxSizing: "border-box",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#007bff";
+                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "#e1e5e9";
+                e.target.style.boxShadow = "none";
+              }}
+            />
+            <small
+              style={{
+                color: "#666",
+                fontSize: "0.85rem",
+                marginTop: "0.25rem",
+                display: "block",
+              }}
+            >
+              Format: author, author (e.g., jphn, EdTanguy)
+            </small>
+          </div>
+
+          {/* Album Series Option */}
+          <div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                color: "#555",
+                fontSize: "0.95rem",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={meta.isAlbumSeries}
+                onChange={(e) =>
+                  setMeta({ ...meta, isAlbumSeries: e.target.checked })
+                }
+                style={{
+                  width: "1.2rem",
+                  height: "1.2rem",
+                  accentColor: "#007bff",
+                }}
+              />
+              Create as Album Series
+            </label>
+            <small
+              style={{
+                color: "#666",
+                fontSize: "0.85rem",
+                marginTop: "0.25rem",
+                display: "block",
+              }}
+            >
+              Check this to create an album series instead of a regular pack
+            </small>
+          </div>
+
+          {/* Album Series Fields */}
+          {meta.isAlbumSeries && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1rem",
+                padding: "1rem",
+                background: "#f8f9fa",
+                borderRadius: "8px",
+                border: "1px solid #e1e5e9",
+              }}
+            >
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "#555",
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  Album Series Artist *
+                </label>
+                <input
+                  type="text"
+                  value={meta.albumSeriesArtist}
+                  onChange={(e) =>
+                    setMeta({ ...meta, albumSeriesArtist: e.target.value })
+                  }
+                  placeholder="e.g., The Beatles"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    border: "2px solid #e1e5e9",
+                    borderRadius: "8px",
+                    fontSize: "1rem",
+                    transition: "border-color 0.2s, box-shadow 0.2s",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007bff";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e1e5e9";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "#555",
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  Album Series Name *
+                </label>
+                <input
+                  type="text"
+                  value={meta.albumSeriesAlbum}
+                  onChange={(e) =>
+                    setMeta({ ...meta, albumSeriesAlbum: e.target.value })
+                  }
+                  placeholder="e.g., Abbey Road"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem 1rem",
+                    border: "2px solid #e1e5e9",
+                    borderRadius: "8px",
+                    fontSize: "1rem",
+                    transition: "border-color 0.2s, box-shadow 0.2s",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007bff";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e1e5e9";
+                    e.target.style.boxShadow = "none";
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Song Entries */}
           <div>

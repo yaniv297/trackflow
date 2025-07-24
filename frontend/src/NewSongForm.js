@@ -2,6 +2,15 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "./config";
 
+// Utility function to capitalize artist and album names
+const capitalizeName = (name) => {
+  if (!name) return "";
+  return name
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 function NewSongForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -10,6 +19,7 @@ function NewSongForm() {
     album: "",
     pack: "",
     status: "Future Plans",
+    collaborations: "",
   });
 
   const handleChange = (e) => {
@@ -19,13 +29,36 @@ function NewSongForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Parse collaborations if provided
+    const songData = { ...form };
+    if (form.collaborations.trim()) {
+      const collaborations = form.collaborations.split(",").map((collab) => {
+        const author = collab.trim();
+        return {
+          author: author,
+          parts: null,
+        };
+      });
+      songData.collaborations = collaborations;
+    } else {
+      delete songData.collaborations;
+    }
+
+    // Capitalize names
+    songData.artist = capitalizeName(songData.artist);
+    songData.title = capitalizeName(songData.title);
+    songData.album = capitalizeName(songData.album);
+
     fetch(`${API_BASE_URL}/songs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(songData),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to add song");
+      .then(async (res) => {
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || "Failed to add song");
+        }
         return res.json();
       })
       .then(() => {
@@ -277,6 +310,53 @@ function NewSongForm() {
               <option value="In Progress">In Progress</option>
               <option value="Released">Released</option>
             </select>
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                color: "#555",
+                fontSize: "0.95rem",
+              }}
+            >
+              Collaborations (Optional)
+            </label>
+            <input
+              name="collaborations"
+              placeholder="e.g., jphn, EdTanguy"
+              value={form.collaborations}
+              onChange={handleChange}
+              style={{
+                width: "100%",
+                padding: "0.75rem 1rem",
+                border: "2px solid #e1e5e9",
+                borderRadius: "8px",
+                fontSize: "1rem",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+                boxSizing: "border-box",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#007bff";
+                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "#e1e5e9";
+                e.target.style.boxShadow = "none";
+              }}
+            />
+            <small
+              style={{
+                color: "#666",
+                fontSize: "0.85rem",
+                marginTop: "0.25rem",
+                display: "block",
+              }}
+            >
+              Format: author, author (e.g., jphn, EdTanguy)
+            </small>
           </div>
 
           <button

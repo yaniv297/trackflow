@@ -5,6 +5,7 @@ import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
 import NewPackForm from "./NewPackForm";
 import StatsPage from "./StatsPage";
+import AlbumSeriesPage from "./AlbumSeriesPage";
 import NotificationManager from "./components/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import "./App.css";
@@ -155,21 +156,25 @@ function App() {
             )}
           </div>
 
+          <NavLink to="/album-series" activeclassname="active">
+            Album Series
+          </NavLink>
           <NavLink to="/stats" activeclassname="active">
             Stats
           </NavLink>
         </nav>
 
         <Routes>
-          <Route path="/" element={<SongPage status={null} />} />
+          <Route path="/" element={<WipPage />} />
           <Route path="/future" element={<SongPage status="Future Plans" />} />
           <Route path="/wip" element={<WipPage />} />
           <Route path="/released" element={<SongPage status="Released" />} />
           <Route path="/new" element={<NewSongForm />} />
           <Route path="/pack" element={<NewPackForm />} />
           <Route path="/import-spotify" element={<ImportSpotifyPage />} />
+          <Route path="/album-series" element={<AlbumSeriesPage />} />
           <Route path="/stats" element={<StatsPage />} />
-          <Route path="*" element={<SongPage status={null} />} />
+          <Route path="*" element={<WipPage />} />
         </Routes>
       </div>
     </NotificationManager>

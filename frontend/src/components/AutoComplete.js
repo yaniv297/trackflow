@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const API_BASE_URL =
-  process.env.REACT_APP_API_URL ||
-  (window.location.hostname === "localhost"
-    ? "http://localhost:8001"
-    : window.location.origin);
+import { API_BASE_URL } from "../config";
 
 const AutoComplete = ({
   value,

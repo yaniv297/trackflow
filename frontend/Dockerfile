@@ -20,5 +20,7 @@ RUN npm install -g serve
 # Expose port
 EXPOSE 3000
 
+RUN echo "This is the FRONTEND Dockerfile"
+
 # Start the application
 CMD ["serve", "-s", "build", "-l", "3000"] 

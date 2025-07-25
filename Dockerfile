@@ -19,5 +19,7 @@ COPY __init__.py .
 # Expose port (will be overridden by Railway)
 EXPOSE 8000
 
+RUN echo "This is the BACKEND Dockerfile"
+
 # ✅ Call main.py directly to let it parse PORT
 CMD ["python", "main.py"]

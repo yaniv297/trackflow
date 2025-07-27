@@ -213,7 +213,7 @@ function NewPackForm() {
               throw new Error("Failed to create album series");
             }
 
-            const albumSeriesResult = await albumSeriesResponse.json();
+            await albumSeriesResponse.json();
             window.showNotification(
               `Album series "${meta.albumSeriesAlbum}" created successfully!`,
               "success"

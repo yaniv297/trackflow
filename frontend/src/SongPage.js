@@ -11,21 +11,12 @@ function SongPage({ status }) {
   const [editing, setEditing] = useState({}); // { [songId_field]: true }
   const [editValues, setEditValues] = useState({});
   const [spotifyOptions, setSpotifyOptions] = useState({});
-  const [loadingId, setLoadingId] = useState(null);
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [groupBy, setGroupBy] = useState("artist");
   const [showBulkModal, setShowBulkModal] = useState(false);
-  const [bulkEditFields, setBulkEditFields] = useState({
-    artist: "",
-    album: "",
-    pack: "",
-    year: "",
-    status: "",
-    collaborations: "",
-  });
   const [fireworksTrigger, setFireworksTrigger] = useState(0);
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
@@ -323,98 +314,6 @@ function SongPage({ status }) {
       .catch((err) => window.showNotification("Bulk clean failed", "error"));
   };
 
-  const handleMakePack = async () => {
-    if (!selectedSongs.length) {
-      window.showNotification(
-        "Select at least one song to create a pack.",
-        "warning"
-      );
-      return;
-    }
-
-    setPromptConfig({
-      isOpen: true,
-      title: "Create New Pack",
-      message: "Enter a name for the new pack:",
-      placeholder: "Pack name...",
-      onConfirm: async (packName) => {
-        try {
-          console.log("👉 Assigning songs to pack:", packName);
-
-          // Step 1: Assign pack name
-          await Promise.all(
-            selectedSongs.map((id) =>
-              fetch(`${API_BASE_URL}/songs/${id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ pack: packName }),
-              }).then((res) => res.json())
-            )
-          );
-
-          console.log(
-            "✅ Pack assignment complete. Running Spotify enhancement..."
-          );
-
-          // Step 2: Spotify enhancement
-          for (const id of selectedSongs) {
-            try {
-              const optRes = await fetch(
-                `${API_BASE_URL}/spotify/${id}/spotify-options`
-              );
-              const options = await optRes.json();
-
-              if (Array.isArray(options) && options.length > 0) {
-                const top = options[0];
-                await fetch(`${API_BASE_URL}/spotify/${id}/enhance`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ track_id: top.track_id }),
-                });
-                console.log(
-                  `🎧 Enhanced song ${id} with Spotify match: ${top.title}`
-                );
-              } else {
-                console.warn(`⚠️ No Spotify options for song ${id}`);
-              }
-            } catch (e) {
-              console.error(`❌ Failed Spotify enhancement for song ${id}`, e);
-            }
-          }
-
-          console.log("✅ Spotify enhancement done. Running cleanup...");
-
-          // Step 3: Cleanup after enhancement
-          await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(selectedSongs),
-          });
-
-          console.log("🧹 Cleanup done");
-
-          // Final step: Update UI
-          setSongs((prev) =>
-            prev.map((s) =>
-              selectedSongs.includes(s.id) ? { ...s, pack: packName } : s
-            )
-          );
-          setSelectedSongs([]);
-          window.showNotification(
-            `✅ ${selectedSongs.length} song(s) added to "${packName}", enhanced & cleaned.`,
-            "success"
-          );
-        } catch (err) {
-          console.error("❌ Pack creation failed:", err);
-          window.showNotification(
-            "Something went wrong while making the pack.",
-            "error"
-          );
-        }
-      },
-    });
-  };
-
   const handleBulkDelete = () => {
     setAlertConfig({
       isOpen: true,
@@ -588,7 +487,7 @@ function SongPage({ status }) {
         throw new Error(error.detail || "Failed to create album series");
       }
 
-      const result = await response.json();
+      await response.json();
       window.showNotification(
         `✅ Album series "${albumSeriesForm.album_name}" created successfully!`,
         "success"
@@ -696,7 +595,7 @@ function SongPage({ status }) {
         throw new Error("Failed to create second album series");
       }
 
-      const result = await response.json();
+      await response.json();
       window.showNotification(
         `✅ Double album series created! "${secondAlbumName}" split into its own album series with ${secondAlbumCount} songs.`,
         "success"
@@ -1399,12 +1298,6 @@ function SongPage({ status }) {
                     (s) => s.album_series_id
                   )
                     ? validSongsInPack[0].album_series_id
-                    : null;
-                  const allAlbumSeriesNumber = allAlbumSeriesId
-                    ? validSongsInPack[0].album_series_number
-                    : null;
-                  const allAlbumSeriesName = allAlbumSeriesId
-                    ? validSongsInPack[0].album_series_name
                     : null;
 
                   const uniqueSeries = Array.from(

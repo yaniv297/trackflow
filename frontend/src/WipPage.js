@@ -91,7 +91,7 @@ const capitalizeName = (name) => {
 function WipPage() {
   const [songs, setSongs] = useState([]);
   const [newSongData, setNewSongData] = useState({});
-  const [addingToPack, setAddingToPack] = useState(null);
+
   const [collapsedPacks, setCollapsedPacks] = useState({});
   const [showAddForm, setShowAddForm] = useState(null);
   const [selectedSongs, setSelectedSongs] = useState([]);
@@ -178,7 +178,7 @@ function WipPage() {
 
     // Return as an array for rendering
     return packStats;
-  }, [songs]);
+  }, [songs, authoringFields]);
 
   const releasePack = (pack) => {
     fetch(
@@ -350,7 +350,7 @@ function WipPage() {
         throw new Error("Failed to create album series");
       }
 
-      const result = await response.json();
+      await response.json();
       window.showNotification(
         `✅ Album series "${albumSeriesForm.album_name}" created successfully!`,
         "success"
@@ -455,7 +455,7 @@ function WipPage() {
         throw new Error("Failed to create second album series");
       }
 
-      const result = await response.json();
+      await response.json();
       window.showNotification(
         `✅ Double album series created! "${secondAlbumName}" split into its own album series with ${secondAlbumCount} songs.`,
         "success"
@@ -577,12 +577,7 @@ function WipPage() {
         // Only count core songs for header
         const mainSongs = sortedCoreSongs;
         const totalSongs = mainSongs.length;
-        const totalParts = totalSongs * authoringFields.length;
-        const filledParts = mainSongs.reduce(
-          (acc, song) =>
-            acc + authoringFields.filter((f) => song.authoring?.[f]).length,
-          0
-        );
+
         // const percent = totalParts > 0 ? Math.round((filledParts / totalParts) * 100) : 0;
 
         // Before rendering the pack header, find the most common artist and their image URL

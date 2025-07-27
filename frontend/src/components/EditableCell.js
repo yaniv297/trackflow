@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import AutoComplete from "./AutoComplete";
 
 export default function EditableCell({

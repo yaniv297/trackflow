@@ -35,7 +35,7 @@ export default function WipSongCard({
   // Load WIP collaborations when component mounts
   useEffect(() => {
     loadWipCollaborations();
-  }, [song.id]);
+  }, [song.id, loadWipCollaborations]);
 
   const loadWipCollaborations = async () => {
     try {
@@ -49,23 +49,6 @@ export default function WipSongCard({
     } catch (error) {
       console.error("Error loading WIP collaborations:", error);
     }
-  };
-
-  const getCollaboratorColor = (collaborator) => {
-    const colors = [
-      "#e74c3c",
-      "#3498db",
-      "#2ecc71",
-      "#f39c12",
-      "#9b59b6",
-      "#1abc9c",
-      "#e67e22",
-      "#34495e",
-      "#16a085",
-      "#8e44ad",
-    ];
-    const index = collaborator.charCodeAt(0) % colors.length;
-    return colors[index];
   };
 
   const fields = [
@@ -101,7 +84,6 @@ export default function WipSongCard({
     const newValue = !localAuthoring[field];
 
     const currentValue = song.authoring[field] || false;
-    const updated = { ...song.authoring, [field]: !currentValue };
 
     // Optimistic UI update
     song.authoring[field] = !currentValue;
@@ -164,25 +146,6 @@ export default function WipSongCard({
     } catch (error) {
       window.showNotification("Enhancement failed.", "error");
     }
-  };
-
-  const updateYear = (newYear) => {
-    const year = parseInt(newYear);
-    if (isNaN(year) || year < 1900 || year > 2030) {
-      window.showNotification("Please enter a valid 4-digit year.", "warning");
-      return;
-    }
-
-    fetch(`${API_BASE_URL}/songs/${song.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year }),
-    })
-      .then((res) => res.json())
-      .then((updated) => {
-        onAuthoringUpdate(song.id, "year", year);
-      })
-      .catch(() => window.showNotification("Update failed", "error"));
   };
 
   const saveEdit = (field) => {

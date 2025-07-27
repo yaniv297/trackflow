@@ -13,4 +13,4 @@ EXPOSE $PORT
 
 RUN echo "This is the FRONTEND Dockerfile"
 
-CMD ["sh", "-c", "serve -s build -l $PORT --single --no-clipboard --listen 0.0.0.0"]
+CMD ["sh", "-c", "serve -s build -l $PORT --single --no-clipboard 0.0.0.0"]

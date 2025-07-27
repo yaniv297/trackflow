@@ -18,7 +18,7 @@ const Fireworks = ({ trigger, onComplete }) => {
 
       return () => clearTimeout(timer);
     }
-  }, [trigger]);
+  }, [trigger, createFireworks, onComplete]);
 
   const createFireworks = () => {
     const newParticles = [];

@@ -55,7 +55,7 @@ const CustomPrompt = ({
       document.removeEventListener("keydown", handleEnter);
       document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose, inputValue]);
+  }, [isOpen, onClose, inputValue, handleConfirm]);
 
   if (!isOpen) return null;
 

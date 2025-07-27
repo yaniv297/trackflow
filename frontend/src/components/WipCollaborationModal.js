@@ -48,7 +48,7 @@ export default function WipCollaborationModal({
     if (isOpen && song) {
       loadWipCollaborations();
     }
-  }, [isOpen, song]);
+  }, [isOpen, song, loadWipCollaborations]);
 
   const loadWipCollaborations = async () => {
     try {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import EditableCell from "./EditableCell";
 import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
-import AutoComplete from "./AutoComplete";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";

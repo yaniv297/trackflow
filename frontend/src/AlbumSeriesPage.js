@@ -74,34 +74,6 @@ const AlbumSeriesPage = () => {
     }
   };
 
-  const fetchAllAlbumArt = async () => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/album-series/fetch-all-album-art`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to fetch album art");
-      }
-
-      const result = await response.json();
-      window.showNotification(result.message, "success");
-
-      // Refresh the album series list to show the new cover art
-      fetchAlbumSeries();
-    } catch (error) {
-      window.showNotification(
-        `Failed to fetch album art: ${error.message}`,
-        "error"
-      );
-    }
-  };
-
   const toggleSeries = (seriesId) => {
     const newExpanded = new Set(expandedSeries);
     if (newExpanded.has(seriesId)) {

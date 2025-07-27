@@ -20,24 +20,6 @@ const StatCard = ({ title, value, icon, color = "#3498db" }) => (
   </div>
 );
 
-const Bar = ({ label, percent }) => (
-  <div style={{ marginBottom: "0.5rem" }}>
-    <div style={{ fontSize: "0.9rem", marginBottom: 4 }}>{label}</div>
-    <div style={{ background: "#ddd", borderRadius: "4px", height: 12 }}>
-      <div
-        style={{
-          background: "#2ecc71",
-          width: `${percent}%`,
-          height: "100%",
-          borderRadius: "4px",
-          transition: "width 0.3s",
-        }}
-      />
-    </div>
-    <div style={{ fontSize: "0.75rem", color: "#555" }}>{percent}%</div>
-  </div>
-);
-
 const ExpandableList = ({
   title,
   items,

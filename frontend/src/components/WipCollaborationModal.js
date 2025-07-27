@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AutoComplete from "./AutoComplete";
 
 const API_BASE_URL =
@@ -37,20 +37,7 @@ export default function WipCollaborationModal({
     "Compile",
   ];
 
-  // Load existing WIP collaborations when modal opens
-  useEffect(() => {
-    console.log(
-      "Modal useEffect triggered - isOpen:",
-      isOpen,
-      "song:",
-      song?.id
-    );
-    if (isOpen && song) {
-      loadWipCollaborations();
-    }
-  }, [isOpen, song, loadWipCollaborations]);
-
-  const loadWipCollaborations = async () => {
+  const loadWipCollaborations = useCallback(async () => {
     try {
       console.log("Loading WIP collaborations for song:", song.id);
       const response = await fetch(
@@ -69,7 +56,20 @@ export default function WipCollaborationModal({
     } catch (error) {
       console.error("Error loading WIP collaborations:", error);
     }
-  };
+  }, [song?.id]);
+
+  // Load existing WIP collaborations when modal opens
+  useEffect(() => {
+    console.log(
+      "Modal useEffect triggered - isOpen:",
+      isOpen,
+      "song:",
+      song?.id
+    );
+    if (isOpen && song) {
+      loadWipCollaborations();
+    }
+  }, [isOpen, song, loadWipCollaborations]);
 
   const handleBulkAssign = () => {
     if (!bulkCollaborator || bulkFields.length === 0) return;

@@ -1,26 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 const Fireworks = ({ trigger, onComplete }) => {
   const [particles, setParticles] = useState([]);
   const [isActive, setIsActive] = useState(false);
 
-  useEffect(() => {
-    if (trigger) {
-      setIsActive(true);
-      createFireworks();
-
-      // Clean up after animation
-      const timer = setTimeout(() => {
-        setIsActive(false);
-        setParticles([]);
-        if (onComplete) onComplete();
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [trigger, createFireworks, onComplete]);
-
-  const createFireworks = () => {
+  const createFireworks = useCallback(() => {
     const newParticles = [];
     const colors = [
       "#ff6b6b",
@@ -59,9 +43,9 @@ const Fireworks = ({ trigger, onComplete }) => {
 
     setParticles(newParticles);
     animateParticles();
-  };
+  }, []);
 
-  const animateParticles = () => {
+  const animateParticles = useCallback(() => {
     setParticles((prevParticles) => {
       const updated = prevParticles
         .map((particle) => ({
@@ -80,7 +64,23 @@ const Fireworks = ({ trigger, onComplete }) => {
 
       return updated;
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (trigger) {
+      setIsActive(true);
+      createFireworks();
+
+      // Clean up after animation
+      const timer = setTimeout(() => {
+        setIsActive(false);
+        setParticles([]);
+        if (onComplete) onComplete();
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [trigger, createFireworks, onComplete]);
 
   if (!isActive) return null;
 

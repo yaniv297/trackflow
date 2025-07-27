@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import API_BASE_URL from "../config";
 import WipCollaborationModal from "./WipCollaborationModal";
 
@@ -32,12 +32,7 @@ export default function WipSongCard({
   const [wipCollaborations, setWipCollaborations] = useState([]);
   const isOptional = song.optional;
 
-  // Load WIP collaborations when component mounts
-  useEffect(() => {
-    loadWipCollaborations();
-  }, [song.id, loadWipCollaborations]);
-
-  const loadWipCollaborations = async () => {
+  const loadWipCollaborations = useCallback(async () => {
     try {
       const response = await fetch(
         `${API_BASE_URL}/authoring/${song.id}/wip-collaborations`
@@ -49,7 +44,12 @@ export default function WipSongCard({
     } catch (error) {
       console.error("Error loading WIP collaborations:", error);
     }
-  };
+  }, [song.id]);
+
+  // Load WIP collaborations when component mounts
+  useEffect(() => {
+    loadWipCollaborations();
+  }, [loadWipCollaborations]);
 
   const fields = [
     "demucs",

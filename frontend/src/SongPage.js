@@ -207,7 +207,6 @@ function SongPage({ status }) {
   };
 
   const fetchSpotifyOptions = (song) => {
-    setLoadingId(song.id);
     fetch(`${API_BASE_URL}/spotify/${song.id}/spotify-options`)
       .then((res) => {
         if (!res.ok) throw new Error("Spotify search failed");
@@ -221,8 +220,7 @@ function SongPage({ status }) {
       .catch((err) => {
         window.showNotification(err.message, "error");
         setSpotifyOptions((prev) => ({ ...prev, [song.id]: [] })); // set to empty array to avoid .map crash
-      })
-      .finally(() => setLoadingId(null));
+      });
   };
 
   const applySpotifyEnhancement = (songId, trackId) => {

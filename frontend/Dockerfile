@@ -9,8 +9,8 @@ COPY . .
 RUN npm run build
 RUN npm install -g serve
 
-EXPOSE $PORT
+EXPOSE 3000
 
 RUN echo "This is the FRONTEND Dockerfile"
 
-CMD ["sh", "-c", "serve -s build -l $PORT"]
+CMD ["sh", "-c", "serve -s build -l 3000"]

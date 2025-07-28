@@ -12,7 +12,7 @@ const getApiUrl = () => {
 
   // For production, you'll need to update this with your Railway URL
   // This will be replaced after you deploy to Railway
-  return "https://your-railway-app-name.railway.app";
+  return "https:/trackflow-api.up.railway.app";
 };
 
 export const API_BASE_URL = getApiUrl();

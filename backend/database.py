@@ -29,11 +29,14 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+print(f"📦 Connected to database: {SQLALCHEMY_DATABASE_URL}")
+
 Base = declarative_base()
 
 # Dependency for FastAPI
 def get_db():
     db = SessionLocal()
+    print(f"📦 Connected to database: {SQLALCHEMY_DATABASE_URL}")
     try:
         yield db
     finally:

@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AuthoringProgress, AlbumSeries, SongCollaboration
+from models import Song, SongStatus, AlbumSeries, SongCollaboration
 from typing import Optional
 from typing import List
 
@@ -281,3 +281,8 @@ def get_packs_autocomplete(query: str = Query(""), db: Session = Depends(get_db)
     ).distinct().limit(10).all()
     
     return [pack[0] for pack in packs if pack[0]]
+
+@router.get("/debug-songs")
+def debug_songs(db: Session = Depends(get_db)):
+    songs = db.query(Song).all()
+    return {"count": len(songs), "titles": [song.title for song in songs]}

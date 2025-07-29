@@ -503,7 +503,7 @@ function SongPage({ status }) {
       setSelectedSongs([]);
 
       // Refresh songs to show the new album series links
-      let url = `${API_BASE_URL}/songs?`;
+      let url = `${API_BASE_URL}/songs/?`;
       if (status) url += `status=${encodeURIComponent(status)}&`;
       if (search) url += `query=${encodeURIComponent(search)}&`;
       fetch(url)
@@ -600,7 +600,7 @@ function SongPage({ status }) {
       );
 
       // Refresh songs to show the updated structure
-      let url = `${API_BASE_URL}/songs?`;
+      let url = `${API_BASE_URL}/songs/?`;
       if (status) url += `status=${encodeURIComponent(status)}&`;
       if (search) url += `query=${encodeURIComponent(search)}&`;
       fetch(url)
@@ -675,7 +675,7 @@ function SongPage({ status }) {
       window.showNotification(`Failed to update ${failed} song(s).`, "error");
     }
     // Optionally, refresh songs
-    let url = `${API_BASE_URL}/songs?`;
+    let url = `${API_BASE_URL}/songs/?`;
     if (status) url += `status=${encodeURIComponent(status)}&`;
     if (search) url += `query=${encodeURIComponent(search)}&`;
     fetch(url)
@@ -694,7 +694,7 @@ function SongPage({ status }) {
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      let url = `${API_BASE_URL}/songs?`;
+      let url = `${API_BASE_URL}/songs/?`;
       if (status) url += `status=${encodeURIComponent(status)}&`;
       if (search) url += `query=${encodeURIComponent(search)}&`;
       fetch(url)

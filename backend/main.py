@@ -22,7 +22,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://trackflow-front.onrender.com"
+        "https://trackflow-front.onrender.com",
+        "https://frontend-production-4e01.up.railway.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

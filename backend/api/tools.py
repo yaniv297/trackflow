@@ -5,7 +5,7 @@ from database import get_db
 from models import Song
 from schemas import SongOut
 
-router = APIRouter(prefix="/tools", tags=["Tools"], trailing_slash=False)
+router = APIRouter(prefix="/tools", tags=["Tools"])
 
 CLEANUP_PATTERNS = [
     r"[-–]?\s*\(?Remaster(ed)?(\s*\d{4})?\)?",

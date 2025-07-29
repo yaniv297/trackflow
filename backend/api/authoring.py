@@ -9,7 +9,7 @@ from models import Song, AuthoringProgress, WipCollaboration
 
 class EditPartsRequest(BaseModel):
     disabled_parts: List[str]
-router = APIRouter(prefix="/authoring", tags=["Authoring"], trailing_slash=False)
+router = APIRouter(prefix="/authoring", tags=["Authoring"])
 
 @router.get("/{song_id}", response_model=AuthoringOut)
 def get_authoring(song_id: int, db: Session = Depends(get_db)):

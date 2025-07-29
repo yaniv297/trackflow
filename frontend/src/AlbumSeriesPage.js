@@ -15,7 +15,7 @@ const AlbumSeriesPage = () => {
   const fetchAlbumSeries = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/album-series`);
+      const response = await fetch(`${API_BASE_URL}/album-series/`);
       if (!response.ok) {
         throw new Error("Failed to fetch album series");
       }

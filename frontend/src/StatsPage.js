@@ -163,7 +163,7 @@ export default function StatsPage() {
   const [loadingYear, setLoadingYear] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/stats`)
+    fetch(`${API_BASE_URL}/stats/`)
       .then((res) => res.json())
       .then((data) => setStats(data));
   }, []);

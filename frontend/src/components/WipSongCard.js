@@ -90,7 +90,7 @@ export default function WipSongCard({
     setLocalAuthoring((prev) => ({ ...prev, [field]: newValue })); // trigger re-render
 
     // Backend update
-    await fetch(`${API_BASE_URL}/authoring/${song.id}`, {
+    await fetch(`${API_BASE_URL}/authoring/${song.id}/`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: !currentValue }),
@@ -209,7 +209,7 @@ export default function WipSongCard({
         updates[f] = true;
       });
 
-      await fetch(`${API_BASE_URL}/authoring/${song.id}`, {
+      await fetch(`${API_BASE_URL}/authoring/${song.id}/`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),

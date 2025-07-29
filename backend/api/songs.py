@@ -8,10 +8,10 @@ from models import Song, SongStatus, AlbumSeries, SongCollaboration
 from typing import Optional
 from typing import List
 
-router = APIRouter(prefix="/songs", tags=["Songs"])
+router = APIRouter(prefix="/songs", tags=["Songs"], trailing_slash=False)
 
 
-@router.post("/", response_model=SongOut)
+@router.post("", response_model=SongOut)
 def create_song(song: SongCreate, db: Session = Depends(get_db)):
     # Force the author to be yaniv297 for all new songs
     song_data = song.dict()
@@ -23,7 +23,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db)):
     
     return create_song_in_db(db, song_with_author)
 
-@router.get("/", response_model=list[SongOut])
+@router.get("", response_model=list[SongOut])
 def get_filtered_songs(
     status: Optional[SongStatus] = Query(None),
     query: Optional[str] = Query(None),

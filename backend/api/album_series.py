@@ -14,7 +14,7 @@ from pydantic import BaseModel
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "7939abf6b76d4fc7a627869350dbe3d7")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "b1aefd1ba3504dc28a441b1344698bd9")
 
-router = APIRouter(prefix="/album-series", tags=["Album Series"])
+router = APIRouter(prefix="/album-series", tags=["Album Series"], trailing_slash=False)
 
 class UpdateAlbumSeriesStatusRequest(BaseModel):
     status: str
@@ -44,7 +44,7 @@ def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     
     return sorted(list(all_authors))
 
-@router.get("/", response_model=List[AlbumSeriesResponse])
+@router.get("", response_model=List[AlbumSeriesResponse])
 def get_album_series(db: Session = Depends(get_db)):
     """Get all album series, with song count and authors"""
     # Order by series_number (nulls last), then by created_at for planned/in-progress

@@ -4,9 +4,9 @@ from database import get_db
 from models import Song, SongStatus, Artist, SongCollaboration
 from sqlalchemy import func, text
 
-router = APIRouter(prefix="/stats", tags=["Stats"])
+router = APIRouter(prefix="/stats", tags=["Stats"], trailing_slash=False)
 
-@router.get("/")
+@router.get("")
 def get_stats(db: Session = Depends(get_db)):
     included_statuses = [SongStatus.released, SongStatus.wip]
 

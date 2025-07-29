@@ -12,7 +12,7 @@ import os
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
-router = APIRouter(prefix="/spotify", tags=["Spotify"])
+router = APIRouter(prefix="/spotify", tags=["Spotify"], trailing_slash=False)
 
 def extract_playlist_id(playlist_url: str) -> str:
     """Extract playlist ID from Spotify URL"""

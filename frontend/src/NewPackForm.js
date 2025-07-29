@@ -172,7 +172,7 @@ function NewPackForm() {
     }
 
     // First, create the songs
-    fetch(`${API_BASE_URL}/songs/batch`, {
+    fetch(`${API_BASE_URL}/songs/batch/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

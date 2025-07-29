@@ -52,7 +52,7 @@ const AutoComplete = ({
           : "collaborators";
 
       const response = await fetch(
-        `${API_BASE_URL}/songs/autocomplete/${endpoint}?query=${encodeURIComponent(
+        `${API_BASE_URL}/songs/autocomplete/${endpoint}/?query=${encodeURIComponent(
           query
         )}`
       );

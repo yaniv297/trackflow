@@ -131,7 +131,7 @@ function WipPage() {
   ];
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/songs?status=In%20Progress`)
+    fetch(`${API_BASE_URL}/songs/?status=In%20Progress`)
       .then((res) => res.json())
       .then((data) => {
         setSongs(data);
@@ -182,7 +182,7 @@ function WipPage() {
 
   const releasePack = (pack) => {
     fetch(
-      `${API_BASE_URL}/songs/release-pack?pack=${encodeURIComponent(pack)}`,
+      `${API_BASE_URL}/songs/release-pack/?pack=${encodeURIComponent(pack)}`,
       {
         method: "POST",
       }
@@ -242,7 +242,7 @@ function WipPage() {
       message:
         "Are you sure you want to delete this song? This action cannot be undone.",
       onConfirm: () => {
-        fetch(`${API_BASE_URL}/songs/${songId}`, { method: "DELETE" })
+        fetch(`${API_BASE_URL}/songs/${songId}/`, { method: "DELETE" })
           .then((res) => {
             if (!res.ok) throw new Error("Failed to delete");
             setSongs((prev) => prev.filter((s) => s.id !== songId));
@@ -284,7 +284,7 @@ function WipPage() {
   };
 
   const toggleOptional = (songId, isCurrentlyOptional) => {
-    fetch(`${API_BASE_URL}/songs/${songId}`, {
+    fetch(`${API_BASE_URL}/songs/${songId}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ optional: !isCurrentlyOptional }),
@@ -368,7 +368,7 @@ function WipPage() {
       setSelectedSongs([]);
 
       // Refresh songs to show the new album series links
-      fetch(`${API_BASE_URL}/songs?status=In%20Progress`)
+      fetch(`${API_BASE_URL}/songs/?status=In%20Progress`)
         .then((res) => res.json())
         .then((data) => setSongs(data));
     } catch (error) {
@@ -426,7 +426,7 @@ function WipPage() {
       // Update pack names for songs in the second album
       await Promise.all(
         songIdsToMove.map((songId) =>
-          fetch(`${API_BASE_URL}/songs/${songId}`, {
+          fetch(`${API_BASE_URL}/songs/${songId}/`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pack: newPackName }),
@@ -462,7 +462,7 @@ function WipPage() {
       );
 
       // Refresh songs to show the updated structure
-      fetch(`${API_BASE_URL}/songs?status=In%20Progress`)
+      fetch(`${API_BASE_URL}/songs/?status=In%20Progress`)
         .then((res) => res.json())
         .then((data) => setSongs(data));
     } catch (error) {
@@ -482,7 +482,7 @@ function WipPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/songs`, {
+      const response = await fetch(`${API_BASE_URL}/songs/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -518,7 +518,7 @@ function WipPage() {
 
           // Fetch the updated song
           const updatedRes = await fetch(
-            `${API_BASE_URL}/songs?status=In%20Progress`
+            `${API_BASE_URL}/songs/?status=In%20Progress`
           );
           const allSongs = await updatedRes.json();
           const found = allSongs.find((s) => s.id === newSong.id);

@@ -49,7 +49,7 @@ function NewSongForm() {
     songData.title = capitalizeName(songData.title);
     songData.album = capitalizeName(songData.album);
 
-    fetch(`${API_BASE_URL}/songs`, {
+    fetch(`${API_BASE_URL}/songs/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(songData),

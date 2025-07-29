@@ -156,7 +156,7 @@ export default function WipSongCard({
     }
     setEditing((prev) => ({ ...prev, [field]: false }));
 
-    fetch(`${API_BASE_URL}/songs/${song.id}`, {
+    fetch(`${API_BASE_URL}/songs/${song.id}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),

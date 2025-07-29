@@ -167,7 +167,7 @@ function SongPage({ status }) {
           // Move songs to WIP
           await Promise.all(
             selectedSongs.map((id) =>
-              fetch(`${API_BASE_URL}/songs/${id}`, {
+              fetch(`${API_BASE_URL}/songs/${id}/`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: "wip" }),
@@ -179,11 +179,14 @@ function SongPage({ status }) {
           for (const [seriesId, seriesSongs] of Object.entries(seriesGroups)) {
             if (seriesSongs.length > 0) {
               try {
-                await fetch(`${API_BASE_URL}/album-series/${seriesId}/status`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status: "in_progress" }),
-                });
+                await fetch(
+                  `${API_BASE_URL}/album-series/${seriesId}/status/`,
+                  {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: "in_progress" }),
+                  }
+                );
               } catch (err) {
                 console.warn(
                   `Failed to update album series ${seriesId} status:`,
@@ -206,38 +209,33 @@ function SongPage({ status }) {
     });
   };
 
-  const fetchSpotifyOptions = (song) => {
-    fetch(`${API_BASE_URL}/spotify/${song.id}/spotify-options`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Spotify search failed");
-        return res.json();
-      })
-      .then((data) => {
-        if (!Array.isArray(data))
-          throw new Error("Unexpected Spotify response");
-        setSpotifyOptions((prev) => ({ ...prev, [song.id]: data }));
-      })
-      .catch((err) => {
-        window.showNotification(err.message, "error");
-        setSpotifyOptions((prev) => ({ ...prev, [song.id]: [] })); // set to empty array to avoid .map crash
-      });
+  const fetchSpotifyOptions = async (song) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/spotify/${song.id}/spotify-options/`
+      );
+      if (!response.ok) throw new Error("Spotify search failed");
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("Unexpected Spotify response");
+      setSpotifyOptions((prev) => ({ ...prev, [song.id]: data }));
+    } catch (err) {
+      window.showNotification(err.message, "error");
+      setSpotifyOptions((prev) => ({ ...prev, [song.id]: [] })); // set to empty array to avoid .map crash
+    }
   };
 
-  const applySpotifyEnhancement = (songId, trackId) => {
-    fetch(`${API_BASE_URL}/spotify/${songId}/enhance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ track_id: trackId }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Enhancement failed");
-        return res.json();
-      })
-      .then((updated) => {
-        setSongs((prev) => prev.map((s) => (s.id === songId ? updated : s)));
-        setSpotifyOptions((prev) => ({ ...prev, [songId]: undefined }));
-      })
-      .catch((err) => window.showNotification(err.message, "error"));
+  const applySpotifyEnhancement = async (songId, trackId) => {
+    try {
+      await fetch(`${API_BASE_URL}/spotify/${songId}/enhance/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track_id: trackId }),
+      });
+      setSongs((prev) => prev.map((s) => (s.id === songId ? updated : s)));
+      setSpotifyOptions((prev) => ({ ...prev, [songId]: undefined }));
+    } catch (err) {
+      window.showNotification(err.message, "error");
+    }
   };
 
   const handleDelete = (id) => {
@@ -247,11 +245,9 @@ function SongPage({ status }) {
       message:
         "Are you sure you want to delete this song? This action cannot be undone.",
       onConfirm: () => {
-        fetch(`${API_BASE_URL}/songs/${id}`, {
-          method: "DELETE",
-        })
+        fetch(`${API_BASE_URL}/songs/${id}/`, { method: "DELETE" })
           .then((res) => {
-            if (!res.ok) throw new Error("Failed to delete");
+            if (!res.ok) throw new Error("Failed to delete song");
             setSongs(songs.filter((s) => s.id !== id));
             window.showNotification("Song deleted successfully", "success");
           })
@@ -261,17 +257,14 @@ function SongPage({ status }) {
     });
   };
 
-  const saveEdit = (id, field) => {
-    const value = editValues[`${id}_${field}`];
-
-    if (field === "year" && value && !/^\d{4}$/.test(value)) {
-      window.showNotification("Please enter a valid 4-digit year.", "warning");
-      return;
+  const saveEdit = (id, field, value) => {
+    // For collaborations, we need to parse the string back into an array of objects
+    if (field === "collaborations") {
+      const authors = value.split(",").map((s) => s.trim());
+      value = authors.map((author) => ({ author, parts: null }));
     }
 
-    setEditing((prev) => ({ ...prev, [`${id}_${field}`]: false }));
-
-    fetch(`${API_BASE_URL}/songs/${id}`, {
+    fetch(`${API_BASE_URL}/songs/${id}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
@@ -294,47 +287,43 @@ function SongPage({ status }) {
       .catch((err) => window.showNotification("Update failed", "error"));
   };
 
-  const handleCleanTitles = () => {
+  const handleCleanTitles = async () => {
     if (selectedSongs.length === 0) {
       window.showNotification("Select at least one song to clean.", "warning");
       return;
     }
 
-    fetch(`${API_BASE_URL}/tools/bulk-clean`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selectedSongs),
-    })
-      .then(() => {
-        window.showNotification("Bulk clean completed!", "success");
-        setSelectedSongs([]);
-      })
-      .catch((err) => window.showNotification("Bulk clean failed", "error"));
+    try {
+      await fetch(`${API_BASE_URL}/tools/bulk-clean/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(selectedSongs),
+      });
+      window.showNotification("Bulk clean completed!", "success");
+      setSelectedSongs([]);
+    } catch (err) {
+      window.showNotification("Bulk clean failed", "error");
+    }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     setAlertConfig({
       isOpen: true,
       title: "Delete Multiple Songs",
       message: `Are you sure you want to delete ${selectedSongs.length} selected song(s)? This action cannot be undone.`,
-      onConfirm: () => {
-        fetch(`${API_BASE_URL}/songs/bulk-delete`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selectedSongs),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            console.log(`Deleted ${data.deleted} songs`);
-            setSongs((prev) =>
-              prev.filter((s) => !selectedSongs.includes(s.id))
-            );
-            setSelectedSongs([]);
-            window.showNotification("Songs deleted successfully", "success");
-          })
-          .catch((err) =>
-            window.showNotification("Bulk delete failed", "error")
-          );
+      onConfirm: async () => {
+        try {
+          await fetch(`${API_BASE_URL}/songs/bulk-delete/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: selectedSongs }),
+          });
+          setSongs((prev) => prev.filter((s) => !selectedSongs.includes(s.id)));
+          setSelectedSongs([]);
+          window.showNotification("Songs deleted successfully", "success");
+        } catch (err) {
+          window.showNotification("Bulk delete failed", "error");
+        }
       },
       type: "danger",
     });
@@ -354,13 +343,13 @@ function SongPage({ status }) {
         for (const songId of selectedSongs) {
           try {
             const res = await fetch(
-              `${API_BASE_URL}/spotify/${songId}/spotify-options`
+              `${API_BASE_URL}/spotify/${songId}/spotify-options/`
             );
             const options = await res.json();
 
             if (Array.isArray(options) && options.length > 0) {
               const topMatch = options[0];
-              await fetch(`${API_BASE_URL}/spotify/${songId}/enhance`, {
+              await fetch(`${API_BASE_URL}/spotify/${songId}/enhance/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ track_id: topMatch.track_id }),
@@ -455,7 +444,7 @@ function SongPage({ status }) {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/album-series/create-from-pack`,
+        `${API_BASE_URL}/album-series/create-from-pack/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -564,7 +553,7 @@ function SongPage({ status }) {
       // Update pack names for songs in the second album
       await Promise.all(
         songIdsToMove.map((songId) =>
-          fetch(`${API_BASE_URL}/songs/${songId}`, {
+          fetch(`${API_BASE_URL}/songs/${songId}/`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pack: newPackName }),
@@ -574,7 +563,7 @@ function SongPage({ status }) {
 
       // Create album series for the second album
       const response = await fetch(
-        `${API_BASE_URL}/album-series/create-from-pack`,
+        `${API_BASE_URL}/album-series/create-from-pack/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -638,7 +627,7 @@ function SongPage({ status }) {
               });
 
             const res = await fetch(
-              `${API_BASE_URL}/songs/${id}/collaborations`,
+              `${API_BASE_URL}/songs/${id}/collaborations/`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -651,7 +640,7 @@ function SongPage({ status }) {
           const updates = {};
           updates[bulkEditField] =
             bulkEditField === "year" ? Number(bulkEditValue) : bulkEditValue;
-          const res = await fetch(`${API_BASE_URL}/songs/${id}`, {
+          const res = await fetch(`${API_BASE_URL}/songs/${id}/`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updates),
@@ -1442,7 +1431,7 @@ function SongPage({ status }) {
                             >
                               {seriesInfo.length === 1 && seriesInfo[0] ? (
                                 <a
-                                  href={`/album-series/${seriesInfo[0].id}`}
+                                  href={`/album-series/${seriesInfo[0].id}/`}
                                   style={{
                                     textDecoration: "none",
                                     color: "#1a237e",
@@ -1477,7 +1466,7 @@ function SongPage({ status }) {
                                   {seriesInfo.map((info, idx) => (
                                     <a
                                       key={info.id}
-                                      href={`/album-series/${info.id}`}
+                                      href={`/album-series/${info.id}/`}
                                       style={{
                                         textDecoration: "none",
                                         color: "#1a237e",

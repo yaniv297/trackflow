@@ -78,7 +78,7 @@ const CollaborationAutoComplete = ({
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/songs/autocomplete/collaborators?query=${encodeURIComponent(
+        `${API_BASE_URL}/songs/autocomplete/collaborators/?query=${encodeURIComponent(
           query
         )}`
       );

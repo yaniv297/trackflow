@@ -226,11 +226,15 @@ function SongPage({ status }) {
 
   const applySpotifyEnhancement = async (songId, trackId) => {
     try {
-      await fetch(`${API_BASE_URL}/spotify/${songId}/enhance/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track_id: trackId }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/spotify/${songId}/enhance/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ track_id: trackId }),
+        }
+      );
+      const updated = await response.json();
       setSongs((prev) => prev.map((s) => (s.id === songId ? updated : s)));
       setSpotifyOptions((prev) => ({ ...prev, [songId]: undefined }));
     } catch (err) {
@@ -1349,7 +1353,9 @@ function SongPage({ status }) {
                   const hasExistingSeries = validSeries.length > 0;
                   const hasSecondAlbum = albumsWithEnoughSongs.length >= 2;
                   const canMakeDoubleAlbumSeries =
-                    hasExistingSeries && hasSecondAlbum;
+                    status !== "Released" &&
+                    hasExistingSeries &&
+                    hasSecondAlbum;
 
                   return (
                     <React.Fragment key={groupKey}>
@@ -1530,7 +1536,9 @@ function SongPage({ status }) {
                                 ).some((count) => count >= 4);
 
                                 return (
-                                  validSeries.length === 0 && hasEnoughSongs
+                                  status !== "Released" &&
+                                  validSeries.length === 0 &&
+                                  hasEnoughSongs
                                 );
                               })() ? (
                                 <button
@@ -1748,7 +1756,9 @@ function SongPage({ status }) {
                                   ).some((count) => count >= 4);
 
                                   return (
-                                    selectedSongs.length > 0 && hasEnoughSongs
+                                    status !== "Released" &&
+                                    selectedSongs.length > 0 &&
+                                    hasEnoughSongs
                                   );
                                 })() ? (
                                   <button

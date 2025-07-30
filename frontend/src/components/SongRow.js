@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import EditableCell from "./EditableCell";
 import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
-import { apiGet } from "../utils/api";
+import { useAuth } from "../contexts/AuthContext";
+
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
 
 // Color palette for collaborators
 const collaboratorColors = [
@@ -75,13 +78,17 @@ const CollaborationAutoComplete = ({
     }
 
     try {
-      const data = await apiGet(
-        `/songs/autocomplete/collaborators/?query=${encodeURIComponent(query)}`
+      const response = await fetch(
+        `${API_BASE_URL}/songs/autocomplete/collaborators/?query=${encodeURIComponent(
+          query
+        )}`
       );
-      setSuggestions(data);
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data);
+      }
     } catch (error) {
       console.error("Error fetching suggestions:", error);
-      setSuggestions([]);
     }
   };
 
@@ -240,6 +247,7 @@ export default function SongRow({
   setSpotifyOptions,
   applySpotifyEnhancement,
 }) {
+  const { user } = useAuth();
   return (
     <>
       <tr>
@@ -359,7 +367,7 @@ export default function SongRow({
                 editValues[`${song.id}_collaborations`] ??
                 (song.collaborations && song.collaborations.length > 0
                   ? song.collaborations
-                      .filter((collab) => collab.author !== "yaniv297")
+                      .filter((collab) => collab.author !== user.username)
                       .map((collab) => collab.author)
                       .join(", ")
                   : "None")
@@ -387,7 +395,7 @@ export default function SongRow({
             >
               {song.collaborations && song.collaborations.length > 0 ? (
                 song.collaborations
-                  .filter((collab) => collab.author !== "yaniv297")
+                  .filter((collab) => collab.author !== user.username)
                   .map((collab) => (
                     <span
                       key={collab.id}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { apiGet } from "../utils/api";
+
+import { API_BASE_URL } from "../config";
 
 const AutoComplete = ({
   value,
@@ -50,13 +51,17 @@ const AutoComplete = ({
           ? "albums"
           : "collaborators";
 
-      const data = await apiGet(
-        `/songs/autocomplete/${endpoint}/?query=${encodeURIComponent(query)}`
+      const response = await fetch(
+        `${API_BASE_URL}/songs/autocomplete/${endpoint}/?query=${encodeURIComponent(
+          query
+        )}`
       );
-      setSuggestions(data);
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data);
+      }
     } catch (error) {
       console.error("Error fetching suggestions:", error);
-      setSuggestions([]);
     }
   };
 

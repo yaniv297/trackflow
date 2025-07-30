@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPost } from "./utils/api";
+import API_BASE_URL from "./config";
 
 const statuses = [
   { label: "Future Plans", value: "Future Plans" },
@@ -29,17 +29,24 @@ function ImportSpotifyPage() {
 
     try {
       // Call the backend API
-      const response = await apiPost(`spotify/import-playlist`, {
-        playlist_url: playlistUrl,
-        status: status,
-        pack: pack || null,
+      const response = await fetch(`${API_BASE_URL}/spotify/import-playlist`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playlist_url: playlistUrl,
+          status: status,
+          pack: pack || null,
+        }),
       });
 
-      if (response.error) {
-        throw new Error(response.detail || "Failed to import playlist");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to import playlist");
       }
 
-      const result = response.data;
+      const result = await response.json();
 
       // Show success notification
       window.showNotification(

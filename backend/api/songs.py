@@ -39,8 +39,17 @@ def get_filtered_songs(
         joinedload(Song.collaborations)
     )
 
-    # Filter to only show songs owned by the current user
-    q = q.filter(Song.user_id == current_user.id)
+    # Filter to show songs owned by the current user OR where the current user is a collaborator
+    q = q.filter(
+        or_(
+            Song.user_id == current_user.id,  # Songs owned by current user
+            Song.id.in_(  # Songs where current user is a collaborator
+                db.query(SongCollaboration.song_id)
+                .filter(SongCollaboration.author == current_user.username)
+                .subquery()
+            )
+        )
+    )
 
     if status:
         q = q.filter(Song.status == status)

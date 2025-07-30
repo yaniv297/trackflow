@@ -61,6 +61,8 @@ class SongOut(BaseModel):
     status: SongStatus
     pack_id: Optional[int] = None
     pack_name: Optional[str] = None
+    pack_owner_id: Optional[int] = None
+    pack_owner_username: Optional[str] = None
     year: Optional[int]
     album_cover: Optional[str]
     author: Optional[str]  # Username from user relationship

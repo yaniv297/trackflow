@@ -134,11 +134,21 @@ def get_filtered_songs(
                 if pack:
                     song_dict["pack_id"] = pack.id
                     song_dict["pack_name"] = pack.name
+                    song_dict["pack_owner_id"] = pack.user_id
+                    # Get pack owner username
+                    pack_owner = db.query(User).filter(User.id == pack.user_id).first()
+                    if pack_owner:
+                        song_dict["pack_owner_username"] = pack_owner.username
         
         # Attach pack data from loaded relationship (only if not already set by album series)
         if not song_dict.get("pack_name") and song.pack_obj:
             song_dict["pack_id"] = song.pack_obj.id
             song_dict["pack_name"] = song.pack_obj.name
+            song_dict["pack_owner_id"] = song.pack_obj.user_id
+            # Get pack owner username
+            pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()
+            if pack_owner:
+                song_dict["pack_owner_username"] = pack_owner.username
         
         # Determine if song is editable and add collaboration info
         is_owner = song.user_id == current_user.id
@@ -383,6 +393,11 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
     if song.pack_obj:
         song_dict["pack_id"] = song.pack_obj.id
         song_dict["pack_name"] = song.pack_obj.name
+        song_dict["pack_owner_id"] = song.pack_obj.user_id
+        # Get pack owner username
+        pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()
+        if pack_owner:
+            song_dict["pack_owner_username"] = pack_owner.username
     
     # Determine if song is editable and add collaboration info (same logic as get_filtered_songs)
     is_owner = song.user_id == current_user.id

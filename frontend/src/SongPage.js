@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useAuth } from "./contexts/AuthContext";
 import SongRow from "./components/SongRow";
 import BulkActions from "./components/BulkActions";
 import CustomAlert from "./components/CustomAlert";
@@ -9,6 +10,7 @@ import Fireworks from "./components/Fireworks";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
 function SongPage({ status }) {
+  const { user } = useAuth();
   const [songs, setSongs] = useState([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState({}); // { [songId_field]: true }
@@ -643,15 +645,24 @@ function SongPage({ status }) {
 
   // Load pack collaborations for the current user
   useEffect(() => {
-    apiGet("/pack-collaborations/my-collaborations/")
+    apiGet("/song-pack-collaborations/my-collaborations/")
       .then((data) => {
-        console.log("Loaded pack collaborations:", data);
+        console.log("SongPage - Loaded song pack collaborations:", data);
+        console.log("SongPage - Current user:", user);
+        console.log(
+          "SongPage - Collaboration details:",
+          data.map((c) => ({
+            pack_id: c.pack_id,
+            pack_name: c.pack_name,
+            song_id: c.song_id,
+          }))
+        );
         setPackCollaborations(data);
       })
       .catch((err) =>
-        console.error("Failed to fetch pack collaborations:", err)
+        console.error("Failed to fetch song pack collaborations:", err)
       );
-  }, []);
+  }, [user]);
 
   return (
     <>
@@ -1391,76 +1402,208 @@ function SongPage({ status }) {
                               }}
                             >
                               {seriesInfo.length === 1 && seriesInfo[0] ? (
-                                <a
-                                  href={`/album-series/${seriesInfo[0].id}/`}
-                                  style={{
-                                    textDecoration: "none",
-                                    color: "#1a237e",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    background: "#e3eaff",
-                                    borderRadius: "12px",
-                                    padding: "0.15rem 0.7rem 0.15rem 0.5rem",
-                                    fontWeight: 600,
-                                    fontSize: "1.08em",
-                                    boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
-                                    transition: "background 0.2s",
-                                    marginRight: 8,
-                                  }}
-                                  title={`Album Series #${
-                                    seriesInfo[0].number || "N/A"
-                                  }: ${seriesInfo[0].name || "Unknown"}`}
-                                >
-                                  <span
+                                <span>
+                                  <a
+                                    href={`/album-series/${seriesInfo[0].id}/`}
                                     style={{
-                                      fontSize: "1.1em",
-                                      marginRight: 4,
+                                      textDecoration: "none",
+                                      color: "#1a237e",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      background: "#e3eaff",
+                                      borderRadius: "12px",
+                                      padding: "0.15rem 0.7rem 0.15rem 0.5rem",
+                                      fontWeight: 600,
+                                      fontSize: "1.08em",
+                                      boxShadow:
+                                        "0 1px 4px rgba(26,35,126,0.07)",
+                                      transition: "background 0.2s",
+                                      marginRight: 8,
                                     }}
+                                    title={`Album Series #${
+                                      seriesInfo[0].number || "N/A"
+                                    }: ${seriesInfo[0].name || "Unknown"}`}
                                   >
-                                    📀
-                                  </span>
-                                  Album Series #{seriesInfo[0].number || "N/A"}:{" "}
-                                  {seriesInfo[0].name || "Unknown"}
-                                </a>
-                              ) : seriesInfo.length === 2 ? (
-                                <>
-                                  {seriesInfo.map((info, idx) => (
-                                    <a
-                                      key={info.id}
-                                      href={`/album-series/${info.id}/`}
+                                    <span
                                       style={{
-                                        textDecoration: "none",
-                                        color: "#1a237e",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        background: "#e3eaff",
-                                        borderRadius: "12px",
-                                        padding:
-                                          "0.15rem 0.7rem 0.15rem 0.5rem",
-                                        fontWeight: 600,
-                                        fontSize: "1.08em",
-                                        boxShadow:
-                                          "0 1px 4px rgba(26,35,126,0.07)",
-                                        transition: "background 0.2s",
-                                        marginRight: idx === 0 ? 8 : 0,
+                                        fontSize: "1.1em",
+                                        marginRight: 4,
                                       }}
-                                      title={`Album Series #${
-                                        info.number || "N/A"
-                                      }: ${info.name || "Unknown"}`}
                                     >
-                                      <span
+                                      📀
+                                    </span>
+                                    Album Series #
+                                    {seriesInfo[0].number || "N/A"}:{" "}
+                                    {seriesInfo[0].name || "Unknown"}
+                                  </a>
+                                  {/* Show collaboration tag if user is a collaborator on this pack */}
+                                  {(() => {
+                                    // For album series, get pack_id from the album series relationship
+                                    let packId = validSongsInPack[0]?.pack_id;
+                                    if (
+                                      validSongsInPack[0]?.album_series_id &&
+                                      !packId
+                                    ) {
+                                      // If we have an album series but no pack_id, try to get it from the album series
+                                      const albumSeriesSong =
+                                        validSongsInPack.find(
+                                          (s) => s.album_series_id
+                                        );
+                                      if (albumSeriesSong) {
+                                        packId = albumSeriesSong.pack_id;
+                                      }
+                                    }
+
+                                    const isCollaborator =
+                                      packId &&
+                                      packCollaborations.some(
+                                        (collab) => collab.pack_id === packId
+                                      );
+                                    console.log(
+                                      `SongPage - Album Series Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
+                                      {
+                                        packCollaborations: packCollaborations,
+                                        packId: packId,
+                                        validSongsInPack:
+                                          validSongsInPack.slice(0, 2), // First 2 songs for debugging
+                                      }
+                                    );
+
+                                    if (isCollaborator) {
+                                      // Get the pack owner username from the song data
+                                      const packOwnerUsername =
+                                        validSongsInPack[0]
+                                          ?.pack_owner_username ||
+                                        validSongsInPack[0]?.author ||
+                                        "unknown";
+
+                                      return (
+                                        <span
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            background: "#e8f5e8",
+                                            color: "#2d5a2d",
+                                            borderRadius: "12px",
+                                            padding: "0.15rem 0.5rem",
+                                            fontWeight: 500,
+                                            fontSize: "0.8rem",
+                                            marginLeft: "0.5rem",
+                                            border: "1px solid #c3e6c3",
+                                          }}
+                                          title={`Collaborating with ${packOwnerUsername}`}
+                                        >
+                                          🤝 collab with {packOwnerUsername}
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </span>
+                              ) : seriesInfo.length === 2 ? (
+                                <span>
+                                  <>
+                                    {seriesInfo.map((info, idx) => (
+                                      <a
+                                        key={info.id}
+                                        href={`/album-series/${info.id}/`}
                                         style={{
-                                          fontSize: "1.1em",
-                                          marginRight: 4,
+                                          textDecoration: "none",
+                                          color: "#1a237e",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          background: "#e3eaff",
+                                          borderRadius: "12px",
+                                          padding:
+                                            "0.15rem 0.7rem 0.15rem 0.5rem",
+                                          fontWeight: 600,
+                                          fontSize: "1.08em",
+                                          boxShadow:
+                                            "0 1px 4px rgba(26,35,126,0.07)",
+                                          transition: "background 0.2s",
+                                          marginRight: idx === 0 ? 8 : 0,
                                         }}
+                                        title={`Album Series #${
+                                          info.number || "N/A"
+                                        }: ${info.name || "Unknown"}`}
                                       >
-                                        📀
-                                      </span>
-                                      Album Series #{info.number || "N/A"}:{" "}
-                                      {info.name || "Unknown"}
-                                    </a>
-                                  ))}
-                                </>
+                                        <span
+                                          style={{
+                                            fontSize: "1.1em",
+                                            marginRight: 4,
+                                          }}
+                                        >
+                                          📀
+                                        </span>
+                                        Album Series #{info.number || "N/A"}:{" "}
+                                        {info.name || "Unknown"}
+                                      </a>
+                                    ))}
+                                  </>
+                                  {/* Show collaboration tag if user is a collaborator on this pack */}
+                                  {(() => {
+                                    // For album series, get pack_id from the album series relationship
+                                    let packId = validSongsInPack[0]?.pack_id;
+                                    if (
+                                      validSongsInPack[0]?.album_series_id &&
+                                      !packId
+                                    ) {
+                                      // If we have an album series but no pack_id, try to get it from the album series
+                                      const albumSeriesSong =
+                                        validSongsInPack.find(
+                                          (s) => s.album_series_id
+                                        );
+                                      if (albumSeriesSong) {
+                                        packId = albumSeriesSong.pack_id;
+                                      }
+                                    }
+
+                                    const isCollaborator =
+                                      packId &&
+                                      packCollaborations.some(
+                                        (collab) => collab.pack_id === packId
+                                      );
+                                    console.log(
+                                      `SongPage - Double Album Series Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
+                                      {
+                                        packCollaborations: packCollaborations,
+                                        packId: packId,
+                                        validSongsInPack:
+                                          validSongsInPack.slice(0, 2), // First 2 songs for debugging
+                                      }
+                                    );
+
+                                    if (isCollaborator) {
+                                      // Get the pack owner username from the song data
+                                      const packOwnerUsername =
+                                        validSongsInPack[0]
+                                          ?.pack_owner_username ||
+                                        validSongsInPack[0]?.author ||
+                                        "unknown";
+
+                                      return (
+                                        <span
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            background: "#e8f5e8",
+                                            color: "#2d5a2d",
+                                            borderRadius: "12px",
+                                            padding: "0.15rem 0.5rem",
+                                            fontWeight: 500,
+                                            fontSize: "0.8rem",
+                                            marginLeft: "0.5rem",
+                                            border: "1px solid #c3e6c3",
+                                          }}
+                                          title={`Collaborating with ${packOwnerUsername}`}
+                                        >
+                                          🤝 collab with {packOwnerUsername}
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </span>
                               ) : (
                                 <span>
                                   {`${packName} (${validSongsInPack.length})`}
@@ -1488,10 +1631,40 @@ function SongPage({ status }) {
                                         (collab) => collab.pack_id === packId
                                       );
                                     console.log(
-                                      `SongPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`
+                                      `SongPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
+                                      {
+                                        packCollaborations: packCollaborations,
+                                        packId: packId,
+                                        validSongsInPack:
+                                          validSongsInPack.slice(0, 2), // First 2 songs for debugging
+                                      }
                                     );
 
+                                    // Debug ALL packs, not just collaborators
+                                    if (!isCollaborator) {
+                                      console.log(
+                                        `SongPage - Pack: "${packName}" (ID: ${packId}) - NO COLLABORATION`,
+                                        {
+                                          packCollaborations:
+                                            packCollaborations.map((c) => ({
+                                              pack_id: c.pack_id,
+                                              pack_name: c.pack_name,
+                                            })),
+                                          packId: packId,
+                                          validSongsInPack:
+                                            validSongsInPack.slice(0, 1),
+                                        }
+                                      );
+                                    }
+
                                     if (isCollaborator) {
+                                      // Get the pack owner username from the song data
+                                      const packOwnerUsername =
+                                        validSongsInPack[0]
+                                          ?.pack_owner_username ||
+                                        validSongsInPack[0]?.author ||
+                                        "unknown";
+
                                       return (
                                         <span
                                           style={{
@@ -1506,18 +1679,9 @@ function SongPage({ status }) {
                                             marginLeft: "0.5rem",
                                             border: "1px solid #c3e6c3",
                                           }}
-                                          title={`Collaborating with ${
-                                            packCollaborations.find(
-                                              (collab) =>
-                                                collab.pack_id === packId
-                                            )?.owner_username || "unknown"
-                                          }`}
+                                          title={`Collaborating with ${packOwnerUsername}`}
                                         >
-                                          🤝 collab with{" "}
-                                          {packCollaborations.find(
-                                            (collab) =>
-                                              collab.pack_id === packId
-                                          )?.owner_username || "unknown"}
+                                          🤝 collab with {packOwnerUsername}
                                         </span>
                                       );
                                     }
@@ -1535,52 +1699,54 @@ function SongPage({ status }) {
                                 verticalAlign: "middle",
                               }}
                             >
-                              {/* Invite Collab Button - Only show for Future Plans */}
-                              {status === "Future Plans" && (
-                                <button
-                                  onClick={() => {
-                                    // Get pack_id from the first song in the pack
-                                    let packId = validSongsInPack[0]?.pack_id;
-                                    if (
-                                      validSongsInPack[0]?.album_series_id &&
-                                      !packId
-                                    ) {
-                                      // If we have an album series but no pack_id, try to get it from the album series
-                                      const albumSeriesSong =
-                                        validSongsInPack.find(
-                                          (s) => s.album_series_id
-                                        );
-                                      if (albumSeriesSong) {
-                                        packId = albumSeriesSong.pack_id;
+                              {/* Invite Collab Button - Only show for Future Plans and pack owners */}
+                              {status === "Future Plans" &&
+                                validSongsInPack[0]?.pack_owner_id ===
+                                  user?.id && (
+                                  <button
+                                    onClick={() => {
+                                      // Get pack_id from the first song in the pack
+                                      let packId = validSongsInPack[0]?.pack_id;
+                                      if (
+                                        validSongsInPack[0]?.album_series_id &&
+                                        !packId
+                                      ) {
+                                        // If we have an album series but no pack_id, try to get it from the album series
+                                        const albumSeriesSong =
+                                          validSongsInPack.find(
+                                            (s) => s.album_series_id
+                                          );
+                                        if (albumSeriesSong) {
+                                          packId = albumSeriesSong.pack_id;
+                                        }
                                       }
-                                    }
 
-                                    if (packId) {
-                                      setSelectedPackForCollaboration({
-                                        id: packId,
-                                        name: packName,
-                                      });
-                                      setShowPackCollaborationModal(true);
-                                    }
-                                  }}
-                                  style={{
-                                    background: "#17a2b8",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    padding: "0.25rem 0.5rem",
-                                    fontSize: "0.8rem",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.25rem",
-                                    fontWeight: 500,
-                                  }}
-                                  title="Invite collaborators to this pack"
-                                >
-                                  👥 Invite Collab
-                                </button>
-                              )}
+                                      if (packId) {
+                                        setSelectedPackForCollaboration({
+                                          id: packId,
+                                          name: packName,
+                                        });
+                                        setShowPackCollaborationModal(true);
+                                      }
+                                    }}
+                                    style={{
+                                      background: "#17a2b8",
+                                      color: "white",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      padding: "0.25rem 0.5rem",
+                                      fontSize: "0.8rem",
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.25rem",
+                                      fontWeight: 500,
+                                    }}
+                                    title="Invite collaborators to this pack"
+                                  >
+                                    👥 Invite Collab
+                                  </button>
+                                )}
 
                               {/* Create Album Series Button */}
                               {(() => {

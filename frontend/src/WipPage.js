@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useAuth } from "./contexts/AuthContext";
 import WipSongCard from "./components/WipSongCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
@@ -90,6 +91,7 @@ const capitalizeName = (name) => {
 };
 
 function WipPage() {
+  const { user } = useAuth();
   const [songs, setSongs] = useState([]);
   const [newSongData, setNewSongData] = useState({});
 
@@ -158,15 +160,16 @@ function WipPage() {
 
   // Load pack collaborations for the current user
   useEffect(() => {
-    apiGet("/pack-collaborations/my-collaborations/")
+    apiGet("/song-pack-collaborations/my-collaborations/")
       .then((data) => {
-        console.log("WipPage - Loaded pack collaborations:", data);
+        console.log("WipPage - Loaded song pack collaborations:", data);
+        console.log("WipPage - Current user:", user);
         setPackCollaborations(data);
       })
       .catch((err) =>
-        console.error("Failed to fetch pack collaborations:", err)
+        console.error("Failed to fetch song pack collaborations:", err)
       );
-  }, []);
+  }, [user]);
 
   const grouped = useMemo(() => {
     const getFilledCount = (song) =>
@@ -736,10 +739,25 @@ function WipPage() {
                         (collab) => collab.pack_id === packId
                       );
                     console.log(
-                      `WipPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`
+                      `WipPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
+                      {
+                        packCollaborations: packCollaborations,
+                        packId: packId,
+                        songsInPack: grouped
+                          .find((p) => p.pack === packName)
+                          ?.allSongs.slice(0, 2), // First 2 songs for debugging
+                      }
                     );
 
                     if (isCollaborator) {
+                      // Get the pack owner username from the song data
+                      const packOwnerUsername =
+                        grouped.find((p) => p.pack === packName)?.allSongs[0]
+                          ?.pack_owner_username ||
+                        grouped.find((p) => p.pack === packName)?.allSongs[0]
+                          ?.author ||
+                        "unknown";
+
                       return (
                         <span
                           style={{
@@ -754,16 +772,9 @@ function WipPage() {
                             marginLeft: "0.5rem",
                             border: "1px solid #c3e6c3",
                           }}
-                          title={`Collaborating with ${
-                            packCollaborations.find(
-                              (collab) => collab.pack_id === packId
-                            )?.owner_username || "unknown"
-                          }`}
+                          title={`Collaborating with ${packOwnerUsername}`}
                         >
-                          🤝 collab with{" "}
-                          {packCollaborations.find(
-                            (collab) => collab.pack_id === packId
-                          )?.owner_username || "unknown"}
+                          🤝 collab with {packOwnerUsername}
                         </span>
                       );
                     }
@@ -812,52 +823,55 @@ function WipPage() {
               <div
                 style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}
               >
-                {/* Invite Collab Button */}
-                <button
-                  onClick={() => {
-                    // Get pack_id from the first song in the pack
-                    let packId = grouped.find((p) => p.pack === packName)
-                      ?.allSongs[0]?.pack_id;
+                {/* Invite Collab Button - Only show for pack owners */}
+                {grouped.find((p) => p.pack === packName)?.allSongs[0]
+                  ?.pack_owner_id === user?.id && (
+                  <button
+                    onClick={() => {
+                      // Get pack_id from the first song in the pack
+                      let packId = grouped.find((p) => p.pack === packName)
+                        ?.allSongs[0]?.pack_id;
 
-                    if (
-                      grouped.find((p) => p.pack === packName)?.allSongs[0]
-                        ?.album_series_id &&
-                      !packId
-                    ) {
-                      // If we have an album series but no pack_id, try to get it from the album series
-                      const albumSeriesSong = grouped
-                        .find((p) => p.pack === packName)
-                        ?.allSongs.find((s) => s.album_series_id);
-                      if (albumSeriesSong) {
-                        packId = albumSeriesSong.pack_id;
+                      if (
+                        grouped.find((p) => p.pack === packName)?.allSongs[0]
+                          ?.album_series_id &&
+                        !packId
+                      ) {
+                        // If we have an album series but no pack_id, try to get it from the album series
+                        const albumSeriesSong = grouped
+                          .find((p) => p.pack === packName)
+                          ?.allSongs.find((s) => s.album_series_id);
+                        if (albumSeriesSong) {
+                          packId = albumSeriesSong.pack_id;
+                        }
                       }
-                    }
 
-                    if (packId) {
-                      setSelectedPackForCollaboration({
-                        id: packId,
-                        name: packName,
-                      });
-                      setShowPackCollaborationModal(true);
-                    }
-                  }}
-                  style={{
-                    background: "#17a2b8",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    padding: "0.25rem 0.5rem",
-                    fontSize: "0.8rem",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.25rem",
-                    fontWeight: 500,
-                  }}
-                  title="Invite collaborators to this pack"
-                >
-                  👥 Invite Collab
-                </button>
+                      if (packId) {
+                        setSelectedPackForCollaboration({
+                          id: packId,
+                          name: packName,
+                        });
+                        setShowPackCollaborationModal(true);
+                      }
+                    }}
+                    style={{
+                      background: "#17a2b8",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      padding: "0.25rem 0.5rem",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.25rem",
+                      fontWeight: 500,
+                    }}
+                    title="Invite collaborators to this pack"
+                  >
+                    👥 Invite Collab
+                  </button>
+                )}
 
                 {/* Add Song Button */}
                 <button

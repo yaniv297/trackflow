@@ -65,7 +65,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     
     # Create access token
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(
         data={"sub": db_user.username}, expires_delta=access_token_expires
     )
@@ -92,7 +92,7 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
@@ -121,7 +121,7 @@ def get_current_user_info(current_user: User = Depends(get_current_active_user))
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(current_user: User = Depends(get_current_active_user)):
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(
         data={"sub": current_user.username}, expires_delta=access_token_expires
     )

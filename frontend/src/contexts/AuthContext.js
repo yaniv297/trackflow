@@ -45,6 +45,17 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [token]);
 
+  // Auto-refresh token every 23 hours (before the 24-hour expiration)
+  useEffect(() => {
+    if (!token) return;
+
+    const refreshInterval = setInterval(() => {
+      refreshToken();
+    }, 23 * 60 * 60 * 1000); // 23 hours
+
+    return () => clearInterval(refreshInterval);
+  }, [token]);
+
   const login = async (username, password) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {

@@ -35,6 +35,41 @@ export const apiCall = async (endpoint, options = {}) => {
 
     // Handle 401 Unauthorized - token might be expired
     if (response.status === 401) {
+      // Try to refresh the token first
+      try {
+        const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        });
+
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          localStorage.setItem("token", refreshData.access_token);
+
+          // Retry the original request with the new token
+          const newHeaders = createHeaders(options.headers);
+          const retryResponse = await fetch(url, {
+            ...config,
+            headers: newHeaders,
+          });
+
+          if (retryResponse.ok) {
+            if (
+              retryResponse.status === 204 ||
+              retryResponse.headers.get("content-length") === "0"
+            ) {
+              return null;
+            }
+            return await retryResponse.json();
+          }
+        }
+      } catch (refreshError) {
+        console.error("Token refresh failed:", refreshError);
+      }
+
+      // If refresh failed, redirect to login
       localStorage.removeItem("token");
       window.location.href = "/login";
       throw new Error("Authentication required");
@@ -45,6 +80,14 @@ export const apiCall = async (endpoint, options = {}) => {
       throw new Error(
         errorData.detail || `HTTP error! status: ${response.status}`
       );
+    }
+
+    // Handle responses with no content (like DELETE endpoints)
+    if (
+      response.status === 204 ||
+      response.headers.get("content-length") === "0"
+    ) {
+      return null;
     }
 
     return await response.json();

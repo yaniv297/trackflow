@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { apiGet } from "./utils/api";
 import API_BASE_URL from "./config";
 
 const AlbumSeriesPage = () => {
@@ -16,11 +16,7 @@ const AlbumSeriesPage = () => {
   const fetchAlbumSeries = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/album-series/`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch album series");
-      }
-      const data = await response.json();
+      const data = await apiGet("/album-series/");
       setAlbumSeries(data);
     } catch (err) {
       setError(err.message);
@@ -33,11 +29,7 @@ const AlbumSeriesPage = () => {
     if (seriesDetails[seriesId]) return; // Already fetched
 
     try {
-      const response = await fetch(`${API_BASE_URL}/album-series/${seriesId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch series details");
-      }
-      const data = await response.json();
+      const data = await apiGet(`/album-series/${seriesId}`);
       setSeriesDetails((prev) => ({
         ...prev,
         [seriesId]: data,

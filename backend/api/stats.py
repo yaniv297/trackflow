@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Song, SongStatus, Artist, SongCollaboration
+from models import Song, SongStatus, Artist, SongCollaboration, User
 from sqlalchemy import func, text
 from auth import get_current_active_user
 
@@ -162,25 +162,32 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         Song.user_id == current_user.id
     ).distinct().count()
 
-    # Get collaboration stats
-    total_collaborations = db.query(SongCollaboration).count()
+    # Get collaboration stats - filter by current user's songs
+    total_collaborations = db.query(SongCollaboration).join(Song).filter(
+        Song.user_id == current_user.id
+    ).count()
     
-    # Get unique collaborators count
-    total_collaborators = db.query(SongCollaboration.author).distinct().count()
+    # Get unique collaborators count - filter by current user's songs
+    total_collaborators = db.query(SongCollaboration.collaborator_id).join(Song).filter(
+        Song.user_id == current_user.id
+    ).distinct().count()
     
-    # Get top collaborators (excluding the current user)
+    # Get top collaborators (excluding the current user) - filter by current user's songs
+    top_collaborators_data = db.query(
+        User.username,
+        func.count().label('count')
+    ).join(SongCollaboration).join(Song).filter(
+        Song.user_id == current_user.id,
+        User.username != current_user.username  # Exclude current user
+    ).group_by(
+        User.username
+    ).order_by(
+        func.count().desc()
+    ).limit(10).all()
+    
     top_collaborators = [
-        {"author": author, "count": count}
-        for author, count in db.query(
-            SongCollaboration.author,
-            func.count().label('count')
-        ).filter(
-            SongCollaboration.author != "yaniv297"  # Exclude current user
-        ).group_by(
-            SongCollaboration.author
-        ).order_by(
-            func.count().desc()
-        ).limit(10).all()
+        {"author": username, "count": count}
+        for username, count in top_collaborators_data
     ]
 
     # Get year distribution

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 import enum
@@ -24,6 +24,8 @@ class User(Base):
     # Relationships
     songs = relationship("Song", back_populates="user")
     artists = relationship("Artist", back_populates="user")
+    collaborations = relationship("SongCollaboration", back_populates="collaborator", cascade="all, delete-orphan")
+    wip_collaborations = relationship("WipCollaboration", back_populates="collaborator", cascade="all, delete-orphan")
     
     def set_password(self, password):
         self.hashed_password = generate_password_hash(password)
@@ -89,23 +91,33 @@ class SongCollaboration(Base):
     __tablename__ = "song_collaborations"
     
     id = Column(Integer, primary_key=True, index=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    author = Column(String, nullable=False, index=True)
-    parts = Column(String, nullable=True)  # e.g., "drums, bass" or "vocals, harmonies"
+    song_id = Column(Integer, ForeignKey("songs.id", ondelete="CASCADE"), nullable=False)
+    collaborator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String, nullable=True)  # e.g., "drums", "bass", "vocals", "producer"
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # Relationships
     song = relationship("Song", back_populates="collaborations")
+    collaborator = relationship("User", back_populates="collaborations")
+    
+    # Ensure unique collaboration per user per song
+    __table_args__ = (UniqueConstraint('song_id', 'collaborator_id', name='unique_song_collaborator'),)
 
 class WipCollaboration(Base):
     __tablename__ = "wip_collaborations"
     
     id = Column(Integer, primary_key=True, index=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    collaborator = Column(String, nullable=False, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id", ondelete="CASCADE"), nullable=False)
+    collaborator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     field = Column(String, nullable=False)  # e.g., "drums", "bass", "vocals"
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # Relationships
     song = relationship("Song", back_populates="wip_collaborations")
+    collaborator = relationship("User", back_populates="wip_collaborations")
+    
+    # Ensure unique field collaboration per user per song
+    __table_args__ = (UniqueConstraint('song_id', 'collaborator_id', 'field', name='unique_wip_collaboration'),)
     
 class AuthoringProgress(Base):
     __tablename__ = "authoring"

@@ -4,13 +4,14 @@ from typing import Optional, List
 from datetime import datetime
 
 class SongCollaborationCreate(BaseModel):
-    author: str
-    parts: Optional[str] = None
+    author: str  # Username of the collaborator
+    role: Optional[str] = None
 
 class SongCollaborationOut(BaseModel):
     id: int
-    author: str
-    parts: Optional[str] = None
+    collaborator_id: int
+    author: str  # Username for backward compatibility
+    role: Optional[str] = None
     created_at: datetime
     
     class Config:

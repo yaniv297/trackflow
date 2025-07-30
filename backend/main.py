@@ -4,7 +4,7 @@ load_dotenv()
 from fastapi import FastAPI
 from database import engine
 from models import Base
-from api import songs, authoring, spotify, tools, stats, album_series
+from api import songs, authoring, spotify, tools, stats, album_series, auth
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import os
@@ -42,6 +42,7 @@ def init_db():
         print("The app will start but database operations may fail")
 
 # Register route modules
+app.include_router(auth.router)
 app.include_router(songs.router)
 app.include_router(authoring.router)
 app.include_router(spotify.router)

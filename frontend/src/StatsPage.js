@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import API_BASE_URL from "./config";
+import React, { useState, useEffect } from "react";
+import { apiGet } from "./utils/api";
 
 // Reusable card component
 const StatCard = ({ title, value, icon, color = "#3498db" }) => (
@@ -163,9 +163,7 @@ export default function StatsPage() {
   const [loadingYear, setLoadingYear] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/stats/`)
-      .then((res) => res.json())
-      .then((data) => setStats(data));
+    apiGet("/stats/").then((data) => setStats(data));
   }, []);
 
   if (!stats) return <p style={{ padding: "2rem" }}>Loading stats...</p>;
@@ -179,10 +177,8 @@ export default function StatsPage() {
     if (!yearDetails[year] && !loadingYear) {
       setLoadingYear(year);
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/stats/year/${year}/details`
-        );
-        const details = await response.json();
+        const response = await apiGet(`/stats/year/${year}/details`);
+        const details = response;
         setYearDetails((prev) => ({ ...prev, [year]: details }));
       } catch (error) {
         console.error("Failed to fetch year details:", error);

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API_BASE_URL from "./config";
+import { apiPost, apiGet } from "./utils/api";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -172,18 +172,7 @@ function NewPackForm() {
     }
 
     // First, create the songs
-    fetch(`${API_BASE_URL}/songs/batch/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.detail || "Failed to add songs");
-        }
-        return res.json();
-      })
+    apiPost("/songs/batch/", payload)
       .then(async (createdSongs) => {
         const newIds = createdSongs.map((s) => s.id);
 
@@ -193,19 +182,15 @@ function NewPackForm() {
           window.showNotification("Creating album series...", "info");
 
           try {
-            const albumSeriesResponse = await fetch(
-              `${API_BASE_URL}/album-series/create-from-pack`,
+            const albumSeriesResponse = await apiPost(
+              "/album-series/create-from-pack",
               {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  pack_name: meta.pack,
-                  artist_name: capitalizeName(meta.albumSeriesArtist),
-                  album_name: capitalizeName(meta.albumSeriesAlbum),
-                  year: null,
-                  cover_image_url: null,
-                  description: null,
-                }),
+                pack_name: meta.pack,
+                artist_name: capitalizeName(meta.albumSeriesArtist),
+                album_name: capitalizeName(meta.albumSeriesAlbum),
+                year: null,
+                cover_image_url: null,
+                description: null,
               }
             );
 
@@ -244,16 +229,13 @@ function NewPackForm() {
           });
 
           try {
-            const optionsRes = await fetch(
-              `${API_BASE_URL}/spotify/${song.id}/spotify-options`
+            const optionsRes = await apiGet(
+              `/spotify/${song.id}/spotify-options`
             );
-            const options = await optionsRes.json();
 
-            if (options.length > 0) {
-              await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ track_id: options[0].track_id }),
+            if (optionsRes.length > 0) {
+              await apiPost(`/spotify/${song.id}/enhance`, {
+                track_id: optionsRes[0].track_id,
               });
             }
           } catch (err) {
@@ -264,11 +246,7 @@ function NewPackForm() {
         // Cleanup phase
         setProgress({ phase: "Cleaning remaster tags", current: 1, total: 1 });
         window.showNotification("Cleaning remaster tags...", "info");
-        await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newIds),
-        });
+        await apiPost("/tools/bulk-clean", newIds);
 
         const successMessage = meta.isAlbumSeries
           ? `${createdSongs.length} song(s) added to album series "${meta.albumSeriesAlbum}", enhanced & cleaned.`

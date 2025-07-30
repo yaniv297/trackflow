@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import WipSongCard from "./components/WipSongCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
-import API_BASE_URL from "./config";
+import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -131,8 +131,7 @@ function WipPage() {
   ];
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/songs/?status=In%20Progress`)
-      .then((res) => res.json())
+    apiGet("/songs/?status=In%20Progress")
       .then((data) => {
         setSongs(data);
         // Collapse all packs by default after loading songs
@@ -144,6 +143,10 @@ function WipPage() {
           collapsed[p] = true;
         });
         setCollapsedPacks(collapsed);
+      })
+      .catch((error) => {
+        console.error("Failed to load songs:", error);
+        setSongs([]);
       });
   }, []);
 
@@ -181,17 +184,14 @@ function WipPage() {
   }, [songs, authoringFields]);
 
   const releasePack = (pack) => {
-    fetch(
-      `${API_BASE_URL}/songs/release-pack/?pack=${encodeURIComponent(pack)}`,
-      {
-        method: "POST",
-      }
-    )
-      .then((res) => res.json())
+    apiPost(`/songs/release-pack/?pack=${encodeURIComponent(pack)}`)
       .then(() => {
         setSongs((prev) => prev.filter((s) => s.pack !== pack));
         // Trigger fireworks when pack is released! 🎆
         setFireworksTrigger((prev) => prev + 1);
+      })
+      .catch((error) => {
+        console.error("Failed to release pack:", error);
       });
   };
 
@@ -212,17 +212,12 @@ function WipPage() {
   const bulkEnhancePack = async (songs) => {
     for (const song of songs) {
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/spotify/${song.id}/spotify-options`
-        );
-        const options = await res.json();
+        const options = await apiGet(`/spotify/${song.id}/spotify-options`);
         const firstOption = options[0];
         if (!firstOption) continue;
 
-        await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ track_id: firstOption.track_id }),
+        await apiPost(`/spotify/${song.id}/enhance`, {
+          track_id: firstOption.track_id,
         });
       } catch (err) {
         console.error(`Error enhancing ${song.title}:`, err);
@@ -242,9 +237,8 @@ function WipPage() {
       message:
         "Are you sure you want to delete this song? This action cannot be undone.",
       onConfirm: () => {
-        fetch(`${API_BASE_URL}/songs/${songId}/`, { method: "DELETE" })
-          .then((res) => {
-            if (!res.ok) throw new Error("Failed to delete");
+        apiDelete(`/songs/${songId}/`)
+          .then(() => {
             setSongs((prev) => prev.filter((s) => s.id !== songId));
             window.showNotification("Song deleted successfully", "success");
           })
@@ -284,12 +278,7 @@ function WipPage() {
   };
 
   const toggleOptional = (songId, isCurrentlyOptional) => {
-    fetch(`${API_BASE_URL}/songs/${songId}/`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ optional: !isCurrentlyOptional }),
-    })
-      .then((res) => res.json())
+    apiPatch(`/songs/${songId}/`, { optional: !isCurrentlyOptional })
       .then((updated) =>
         setSongs((prev) =>
           prev.map((s) => (s.id === songId ? { ...s, ...updated } : s))
@@ -320,31 +309,24 @@ function WipPage() {
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/album-series/create-from-pack`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pack_name: firstSong.pack,
-            artist_name: albumSeriesForm.artist_name,
-            album_name: albumSeriesForm.album_name,
-            year:
-              albumSeriesForm.year && albumSeriesForm.year.trim()
-                ? parseInt(albumSeriesForm.year)
-                : null,
-            cover_image_url:
-              albumSeriesForm.cover_image_url &&
-              albumSeriesForm.cover_image_url.trim()
-                ? albumSeriesForm.cover_image_url
-                : null,
-            description:
-              albumSeriesForm.description && albumSeriesForm.description.trim()
-                ? albumSeriesForm.description
-                : null,
-          }),
-        }
-      );
+      const response = await apiPost("/album-series/create-from-pack", {
+        pack_name: firstSong.pack,
+        artist_name: albumSeriesForm.artist_name,
+        album_name: albumSeriesForm.album_name,
+        year:
+          albumSeriesForm.year && albumSeriesForm.year.trim()
+            ? parseInt(albumSeriesForm.year)
+            : null,
+        cover_image_url:
+          albumSeriesForm.cover_image_url &&
+          albumSeriesForm.cover_image_url.trim()
+            ? albumSeriesForm.cover_image_url
+            : null,
+        description:
+          albumSeriesForm.description && albumSeriesForm.description.trim()
+            ? albumSeriesForm.description
+            : null,
+      });
 
       if (!response.ok) {
         throw new Error("Failed to create album series");
@@ -368,9 +350,11 @@ function WipPage() {
       setSelectedSongs([]);
 
       // Refresh songs to show the new album series links
-      fetch(`${API_BASE_URL}/songs/?status=In%20Progress`)
-        .then((res) => res.json())
-        .then((data) => setSongs(data));
+      apiGet("/songs/?status=In%20Progress")
+        .then((data) => setSongs(data))
+        .catch((error) => {
+          console.error("Failed to refresh songs:", error);
+        });
     } catch (error) {
       console.error("Error creating album series:", error);
       window.showNotification("Failed to create album series.", "error");
@@ -426,45 +410,31 @@ function WipPage() {
       // Update pack names for songs in the second album
       await Promise.all(
         songIdsToMove.map((songId) =>
-          fetch(`${API_BASE_URL}/songs/${songId}/`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pack: newPackName }),
-          })
+          apiPatch(`/songs/${songId}/`, { pack: newPackName })
         )
       );
 
       // Create album series for the second album
-      const response = await fetch(
-        `${API_BASE_URL}/album-series/create-from-pack`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pack_name: newPackName,
-            artist_name: mostCommonArtist,
-            album_name: secondAlbumName,
-            year: null,
-            cover_image_url: null,
-            description: null,
-          }),
-        }
-      );
+      const response = await apiPost("/album-series/create-from-pack", {
+        pack_name: newPackName,
+        artist_name: mostCommonArtist,
+        album_name: secondAlbumName,
+        year: null,
+        cover_image_url: null,
+        description: null,
+      });
 
-      if (!response.ok) {
-        throw new Error("Failed to create second album series");
-      }
-
-      await response.json();
       window.showNotification(
         `✅ Double album series created! "${secondAlbumName}" split into its own album series with ${secondAlbumCount} songs.`,
         "success"
       );
 
       // Refresh songs to show the updated structure
-      fetch(`${API_BASE_URL}/songs/?status=In%20Progress`)
-        .then((res) => res.json())
-        .then((data) => setSongs(data));
+      apiGet(`/songs/?status=In%20Progress`)
+        .then((data) => setSongs(data))
+        .catch((error) => {
+          console.error("Failed to refresh songs:", error);
+        });
     } catch (error) {
       console.error("Error creating double album series:", error);
       window.showNotification("Failed to create double album series.", "error");
@@ -474,53 +444,27 @@ function WipPage() {
   const addSongToPack = async (packName, songData) => {
     const payload = {
       ...songData,
-      artist: capitalizeName(songData.artist),
-      title: capitalizeName(songData.title),
-      album: capitalizeName(songData.album),
       pack: packName,
       status: "In Progress",
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/songs/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to add song");
-      }
-
-      const newSong = await response.json();
+      const newSong = await apiPost("/songs/", payload);
 
       // Automatically enhance from Spotify (top match)
       let enhancedSong = newSong;
       try {
-        const optionsRes = await fetch(
-          `${API_BASE_URL}/spotify/${newSong.id}/spotify-options`
-        );
-        const options = await optionsRes.json();
+        const options = await apiGet(`/spotify/${newSong.id}/spotify-options`);
         if (Array.isArray(options) && options.length > 0) {
-          await fetch(`${API_BASE_URL}/spotify/${newSong.id}/enhance`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ track_id: options[0].track_id }),
+          await apiPost(`/spotify/${newSong.id}/enhance`, {
+            track_id: options[0].track_id,
           });
 
           // Clean remaster tags
-          await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify([newSong.id]),
-          });
+          await apiPost("/tools/bulk-clean", [newSong.id]);
 
           // Fetch the updated song
-          const updatedRes = await fetch(
-            `${API_BASE_URL}/songs/?status=In%20Progress`
-          );
-          const allSongs = await updatedRes.json();
+          const allSongs = await apiGet("/songs/?status=In%20Progress");
           const found = allSongs.find((s) => s.id === newSong.id);
           if (found) enhancedSong = found;
           window.showNotification(

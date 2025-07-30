@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import EditableCell from "./EditableCell";
 import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
+import { apiGet } from "../utils/api";
 
 // Color palette for collaborators
 const collaboratorColors = [
@@ -77,17 +75,13 @@ const CollaborationAutoComplete = ({
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/songs/autocomplete/collaborators/?query=${encodeURIComponent(
-          query
-        )}`
+      const data = await apiGet(
+        `/songs/autocomplete/collaborators/?query=${encodeURIComponent(query)}`
       );
-      if (response.ok) {
-        const data = await response.json();
-        setSuggestions(data);
-      }
+      setSuggestions(data);
     } catch (error) {
       console.error("Error fetching suggestions:", error);
+      setSuggestions([]);
     }
   };
 

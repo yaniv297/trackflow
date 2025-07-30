@@ -26,6 +26,7 @@ class SongCreate(BaseModel):
     album_cover: Optional[str] = None
     notes: Optional[str] = None
     author: Optional[str] = None
+    user_id: Optional[int] = None
     optional: Optional[bool] = None
     collaborations: Optional[List[SongCollaborationCreate]] = None
 
@@ -61,6 +62,7 @@ class SongOut(BaseModel):
     year: Optional[int]
     album_cover: Optional[str]
     author: Optional[str]
+    user_id: Optional[int]
     collaborations: List[SongCollaborationOut] = []
     authoring: Optional[AuthoringOut] 
     optional: Optional[bool]

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LoginForm from "./components/LoginForm";
+import RegisterForm from "./components/RegisterForm";
 import SongPage from "./SongPage";
 import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
@@ -10,9 +14,10 @@ import NotificationManager from "./components/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import "./App.css";
 
-function App() {
+function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -31,6 +36,11 @@ function App() {
     navigate(path);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <NotificationManager>
       <div className="app-container">
@@ -43,6 +53,25 @@ function App() {
           }}
         >
           <h1>🎶 TrackFlow</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <span style={{ color: "#666", fontSize: "0.9rem" }}>
+              Welcome, {user?.username}!
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: "#dc3545",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                padding: "0.5rem 1rem",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+              }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
         <nav className="nav">
           <NavLink to="/future" activeclassname="active">
@@ -165,19 +194,101 @@ function App() {
         </nav>
 
         <Routes>
-          <Route path="/" element={<WipPage />} />
-          <Route path="/future" element={<SongPage status="Future Plans" />} />
-          <Route path="/wip" element={<WipPage />} />
-          <Route path="/released" element={<SongPage status="Released" />} />
-          <Route path="/new" element={<NewSongForm />} />
-          <Route path="/pack" element={<NewPackForm />} />
-          <Route path="/import-spotify" element={<ImportSpotifyPage />} />
-          <Route path="/album-series" element={<AlbumSeriesPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="*" element={<WipPage />} />
+          <Route path="/login" element={<LoginForm />} />
+          <Route path="/register" element={<RegisterForm />} />
+
+          {/* Protected Routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <WipPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/future"
+            element={
+              <ProtectedRoute>
+                <SongPage status="Future Plans" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wip"
+            element={
+              <ProtectedRoute>
+                <WipPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/released"
+            element={
+              <ProtectedRoute>
+                <SongPage status="Released" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/new"
+            element={
+              <ProtectedRoute>
+                <NewSongForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pack"
+            element={
+              <ProtectedRoute>
+                <NewPackForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/import-spotify"
+            element={
+              <ProtectedRoute>
+                <ImportSpotifyPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/album-series"
+            element={
+              <ProtectedRoute>
+                <AlbumSeriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute>
+                <StatsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <WipPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </div>
     </NotificationManager>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

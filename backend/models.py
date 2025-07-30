@@ -3,18 +3,44 @@ from sqlalchemy.orm import relationship
 from database import Base
 import enum
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 class SongStatus(str, enum.Enum):
     released = "Released"
     wip = "In Progress"
     future = "Future Plans"
 
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    songs = relationship("Song", back_populates="user")
+    artists = relationship("Artist", back_populates="user")
+    
+    def set_password(self, password):
+        self.hashed_password = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.hashed_password, password)
+
 class Artist(Base):
     __tablename__ = "artists"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     image_url = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Relationships
     songs = relationship("Song", back_populates="artist_obj")
+    user = relationship("User", back_populates="artists")
 
 class AlbumSeries(Base):
     __tablename__ = "album_series"
@@ -47,11 +73,13 @@ class Song(Base):
     album_cover = Column(String, nullable=True)
     notes = Column(String, nullable=True)
     author = Column(String, nullable=True, index=True)  # Track who authored the song (for backward compatibility)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # New field for user ownership
     authoring = relationship("AuthoringProgress", uselist=False, back_populates="song")
     optional = Column(Boolean, default=False)
     artist_obj = relationship("Artist", back_populates="songs", foreign_keys=[artist_id])
     album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True)
     album_series_obj = relationship("AlbumSeries", back_populates="songs", foreign_keys=[album_series_id])
+    user = relationship("User", back_populates="songs")  # New relationship
     
     # New relationship for collaborations
     collaborations = relationship("SongCollaboration", back_populates="song", cascade="all, delete-orphan")

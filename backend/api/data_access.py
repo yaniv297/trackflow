@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Song, AuthoringProgress, SongCollaboration
+from models import Song, AuthoringProgress, SongCollaboration, User
 from schemas import SongCreate, AuthoringUpdate
 from fastapi import HTTPException
 
@@ -8,24 +8,28 @@ from fastapi import HTTPException
 def get_songs(db: Session):
     return db.query(Song).all()
 
-def create_song_in_db(db: Session, song: SongCreate):
+def create_song_in_db(db: Session, song: SongCreate, user: User):
     # Extract collaborations from the song data
     song_data = song.dict()
     collaborations = song_data.pop('collaborations', [])
     
-    # Check if song already exists (same title and artist)
+    # Check if song already exists for this user (same title and artist)
     existing_song = db.query(Song).filter(
         Song.title == song_data.get('title'),
-        Song.artist == song_data.get('artist')
+        Song.artist == song_data.get('artist'),
+        Song.user_id == user.id
     ).first()
     
     if existing_song:
         raise HTTPException(
             status_code=400,
-            detail=f"Song '{song_data.get('title')}' by {song_data.get('artist')} already exists in the database"
+            detail=f"Song '{song_data.get('title')}' by {song_data.get('artist')} already exists in your database"
         )
     
     print(f"Creating song: {song_data.get('title')} by {song_data.get('artist')} with author: {song_data.get('author')}")
+    
+    # Ensure user_id is set
+    song_data['user_id'] = user.id
     
     db_song = Song(**song_data)
     db.add(db_song)
@@ -43,12 +47,14 @@ def create_song_in_db(db: Session, song: SongCreate):
             else:
                 author = collab_data['author']
             
-            db_collab = SongCollaboration(
-                song_id=db_song.id,
-                author=author,
-                parts=None  # No longer using parts
-            )
-            db.add(db_collab)
+            # Don't add the current user as a collaborator
+            if author != user.username:
+                db_collab = SongCollaboration(
+                    song_id=db_song.id,
+                    author=author,
+                    parts=None  # No longer using parts
+                )
+                db.add(db_collab)
         db.commit()
     
     # Auto-create authoring row if song is "In Progress"

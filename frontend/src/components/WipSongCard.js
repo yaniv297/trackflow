@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import API_BASE_URL from "../config";
+import { apiGet, apiPost, apiPatch } from "../utils/api";
 import WipCollaborationModal from "./WipCollaborationModal";
 
 export default function WipSongCard({
@@ -34,9 +34,7 @@ export default function WipSongCard({
 
   const loadWipCollaborations = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/authoring/${song.id}/wip-collaborations`
-      );
+      const response = await apiGet(`/authoring/${song.id}/wip-collaborations`);
       if (response.ok) {
         const data = await response.json();
         setWipCollaborations(data.assignments || []);
@@ -90,11 +88,7 @@ export default function WipSongCard({
     setLocalAuthoring((prev) => ({ ...prev, [field]: newValue })); // trigger re-render
 
     // Backend update
-    await fetch(`${API_BASE_URL}/authoring/${song.id}/`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: !currentValue }),
-    });
+    await apiPatch(`/authoring/${song.id}/`, { [field]: !currentValue });
 
     setLocalAuthoring((prev) => ({
       ...prev,
@@ -109,9 +103,7 @@ export default function WipSongCard({
   const fetchSpotifyOptions = async () => {
     setLoadingSpotify(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/spotify/${song.id}/spotify-options`
-      );
+      const res = await apiGet(`/spotify/${song.id}/spotify-options`);
       const data = await res.json();
       setSpotifyOptions(data || []);
     } catch (err) {
@@ -124,9 +116,7 @@ export default function WipSongCard({
 
   const enhanceFromSpotify = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/spotify/${song.id}/spotify-options`
-      );
+      const response = await apiGet(`/spotify/${song.id}/spotify-options`);
       const options = await response.json();
       if (options.length === 0) {
         window.showNotification("Failed to fetch Spotify options.", "error");
@@ -134,10 +124,8 @@ export default function WipSongCard({
       }
 
       const firstOption = options[0];
-      await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track_id: firstOption.track_id }),
+      await apiPost(`/spotify/${song.id}/enhance`, {
+        track_id: firstOption.track_id,
       });
 
       window.showNotification("✅ Song enhanced!", "success");
@@ -156,11 +144,7 @@ export default function WipSongCard({
     }
     setEditing((prev) => ({ ...prev, [field]: false }));
 
-    fetch(`${API_BASE_URL}/songs/${song.id}/`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
-    })
+    apiPatch(`/songs/${song.id}/`, { [field]: value })
       .then((res) => res.json())
       .then((updated) => {
         setEditValues((prev) => ({ ...prev, [field]: updated[field] }));
@@ -209,11 +193,7 @@ export default function WipSongCard({
         updates[f] = true;
       });
 
-      await fetch(`${API_BASE_URL}/authoring/${song.id}/`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
+      await apiPatch(`/authoring/${song.id}/`, updates);
 
       // Update UI state manually
       const updatedFields = { ...localAuthoring };

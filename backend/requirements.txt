@@ -7,3 +7,7 @@ pytest
 pytest-asyncio
 httpx
 psycopg2-binary
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+email-validator

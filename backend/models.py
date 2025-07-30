@@ -24,8 +24,13 @@ class User(Base):
     # Relationships
     songs = relationship("Song", back_populates="user")
     artists = relationship("Artist", back_populates="user")
+    packs = relationship("Pack", back_populates="user", cascade="all, delete-orphan")
     collaborations = relationship("SongCollaboration", back_populates="collaborator", cascade="all, delete-orphan")
     wip_collaborations = relationship("WipCollaboration", back_populates="collaborator", cascade="all, delete-orphan")
+    pack_collaborations = relationship("PackCollaboration", foreign_keys="PackCollaboration.collaborator_id", back_populates="collaborator", cascade="all, delete-orphan")
+    owned_pack_collaborations = relationship("PackCollaboration", foreign_keys="PackCollaboration.owner_id", back_populates="owner", cascade="all, delete-orphan")
+    song_pack_collaborations = relationship("SongPackCollaboration", foreign_keys="SongPackCollaboration.collaborator_id", back_populates="collaborator", cascade="all, delete-orphan")
+    owned_song_pack_collaborations = relationship("SongPackCollaboration", foreign_keys="SongPackCollaboration.owner_id", back_populates="owner", cascade="all, delete-orphan")
     
     def set_password(self, password):
         self.hashed_password = generate_password_hash(password)
@@ -55,11 +60,30 @@ class AlbumSeries(Base):
     cover_image_url = Column(String, nullable=True)
     status = Column(String, default="planned")  # planned, in_progress, released
     description = Column(String, nullable=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)  # Link to the pack
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship to songs
     songs = relationship("Song", back_populates="album_series_obj")
+    # Relationship to pack
+    pack = relationship("Pack", back_populates="album_series")
+
+class Pack(Base):
+    __tablename__ = "packs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="packs")
+    songs = relationship("Song", back_populates="pack_obj")
+    collaborations = relationship("PackCollaboration", back_populates="pack", cascade="all, delete-orphan")
+    song_collaborations = relationship("SongPackCollaboration", back_populates="pack", cascade="all, delete-orphan")
+    album_series = relationship("AlbumSeries", back_populates="pack", cascade="all, delete-orphan")
 
 class Song(Base):
     __tablename__ = "songs"
@@ -69,16 +93,16 @@ class Song(Base):
     artist_id = Column(Integer, ForeignKey("artists.id"), nullable=True)
     title = Column(String, index=True)
     album = Column(String, nullable=True)
-    pack = Column(String, nullable=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
     status = Column(Enum(SongStatus), default=SongStatus.future)
     year = Column(Integer, nullable=True)
     album_cover = Column(String, nullable=True)
     notes = Column(String, nullable=True)
-    author = Column(String, nullable=True, index=True)  # Track who authored the song (for backward compatibility)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # New field for user ownership
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # User ownership
     authoring = relationship("AuthoringProgress", uselist=False, back_populates="song")
     optional = Column(Boolean, default=False)
     artist_obj = relationship("Artist", back_populates="songs", foreign_keys=[artist_id])
+    pack_obj = relationship("Pack", back_populates="songs", foreign_keys=[pack_id])
     album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True)
     album_series_obj = relationship("AlbumSeries", back_populates="songs", foreign_keys=[album_series_id])
     user = relationship("User", back_populates="songs")  # New relationship
@@ -86,6 +110,7 @@ class Song(Base):
     # New relationship for collaborations
     collaborations = relationship("SongCollaboration", back_populates="song", cascade="all, delete-orphan")
     wip_collaborations = relationship("WipCollaboration", back_populates="song", cascade="all, delete-orphan")
+    pack_collaborations = relationship("SongPackCollaboration", back_populates="song", cascade="all, delete-orphan")
 
 class SongCollaboration(Base):
     __tablename__ = "song_collaborations"
@@ -118,6 +143,46 @@ class WipCollaboration(Base):
     
     # Ensure unique field collaboration per user per song
     __table_args__ = (UniqueConstraint('song_id', 'collaborator_id', 'field', name='unique_wip_collaboration'),)
+
+class PackCollaboration(Base):
+    __tablename__ = "pack_collaborations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pack_id = Column(Integer, ForeignKey("packs.id", ondelete="CASCADE"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    collaborator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    pack = relationship("Pack", back_populates="collaborations")
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_pack_collaborations")
+    collaborator = relationship("User", foreign_keys=[collaborator_id], back_populates="pack_collaborations")
+    
+    # Ensure unique collaboration per user per pack
+    __table_args__ = (UniqueConstraint('pack_id', 'collaborator_id', name='unique_pack_collaborator'),)
+
+
+class SongPackCollaboration(Base):
+    __tablename__ = "song_pack_collaborations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pack_id = Column(Integer, ForeignKey("packs.id", ondelete="CASCADE"), nullable=False)
+    song_id = Column(Integer, ForeignKey("songs.id", ondelete="CASCADE"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    collaborator_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    can_edit = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    pack = relationship("Pack", back_populates="song_collaborations")
+    song = relationship("Song", back_populates="pack_collaborations")
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_song_pack_collaborations")
+    collaborator = relationship("User", foreign_keys=[collaborator_id], back_populates="song_pack_collaborations")
+    
+    # Ensure unique collaboration per user per song per pack
+    __table_args__ = (UniqueConstraint('pack_id', 'song_id', 'collaborator_id', name='unique_song_pack_collaborator'),)
+
+
     
 class AuthoringProgress(Base):
     __tablename__ = "authoring"

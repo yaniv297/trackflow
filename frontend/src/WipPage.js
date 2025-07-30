@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import WipSongCard from "./components/WipSongCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
+import SongPackCollaborationModal from "./components/SongPackCollaborationModal";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
 // Utility function to capitalize artist and album names
@@ -103,6 +104,11 @@ function WipPage() {
     cover_image_url: "",
     description: "",
   });
+  const [showPackCollaborationModal, setShowPackCollaborationModal] =
+    useState(false);
+  const [selectedPackForCollaboration, setSelectedPackForCollaboration] =
+    useState(null);
+  const [packCollaborations, setPackCollaborations] = useState([]);
   const [fireworksTrigger, setFireworksTrigger] = useState(0);
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
@@ -136,7 +142,7 @@ function WipPage() {
         setSongs(data);
         // Collapse all packs by default after loading songs
         const packs = Array.from(
-          new Set(data.map((s) => s.pack || "(no pack)"))
+          new Set(data.map((s) => s.pack_name || "(no pack)"))
         );
         const collapsed = {};
         packs.forEach((p) => {
@@ -150,13 +156,38 @@ function WipPage() {
       });
   }, []);
 
+  // Load pack collaborations for the current user
+  useEffect(() => {
+    apiGet("/pack-collaborations/my-collaborations/")
+      .then((data) => {
+        console.log("WipPage - Loaded pack collaborations:", data);
+        setPackCollaborations(data);
+      })
+      .catch((err) =>
+        console.error("Failed to fetch pack collaborations:", err)
+      );
+  }, []);
+
   const grouped = useMemo(() => {
     const getFilledCount = (song) =>
       authoringFields.filter((f) => song.authoring?.[f]).length;
 
     const groups = {};
     for (const song of songs) {
-      const key = song.pack || "(no pack)";
+      // For songs in album series, use the album series pack name
+      let key;
+      if (song.album_series_id && song.album_series_name) {
+        // Use album series pack name if available, otherwise construct it
+        key =
+          song.pack_name ||
+          `Album Series #${song.album_series_number || "N/A"}: ${
+            song.album_series_name
+          }`;
+      } else {
+        // Use pack_name if available, otherwise fall back to pack string
+        key = song.pack_name || "(no pack)";
+      }
+
       if (!groups[key]) groups[key] = [];
       const filledCount = getFilledCount(song);
       groups[key].push({ ...song, filledCount });
@@ -186,7 +217,7 @@ function WipPage() {
   const releasePack = (pack) => {
     apiPost(`/songs/release-pack/?pack=${encodeURIComponent(pack)}`)
       .then(() => {
-        setSongs((prev) => prev.filter((s) => s.pack !== pack));
+        setSongs((prev) => prev.filter((s) => s.pack_name !== pack));
         // Trigger fireworks when pack is released! 🎆
         setFireworksTrigger((prev) => prev + 1);
       })
@@ -300,7 +331,7 @@ function WipPage() {
 
     // Get the pack name from the first selected song
     const firstSong = songs.find((song) => song.id === selectedSongs[0]);
-    if (!firstSong || !firstSong.pack) {
+    if (!firstSong || !firstSong.pack_name) {
       window.showNotification(
         "Selected songs must be from the same pack.",
         "warning"
@@ -310,7 +341,7 @@ function WipPage() {
 
     try {
       const response = await apiPost("/album-series/create-from-pack", {
-        pack_name: firstSong.pack,
+        pack_name: firstSong.pack_name,
         artist_name: albumSeriesForm.artist_name,
         album_name: albumSeriesForm.album_name,
         year:
@@ -380,7 +411,7 @@ function WipPage() {
 
     // Find the most common artist for the second album
     const songsInSecondAlbum = songs.filter(
-      (song) => song.pack === packName && song.album === secondAlbumName
+      (song) => song.pack_name === packName && song.album === secondAlbumName
     );
     const artistCounts = {};
     songsInSecondAlbum.forEach((song) => {
@@ -675,7 +706,70 @@ function WipPage() {
                   ))}
                 </>
               ) : (
-                `${packName} (${totalSongs} song${totalSongs !== 1 ? "s" : ""})`
+                <span>
+                  {`${packName} (${totalSongs} song${
+                    totalSongs !== 1 ? "s" : ""
+                  })`}
+                  {/* Show collaboration tag if user is a collaborator on this pack */}
+                  {(() => {
+                    // For album series, get pack_id from the album series relationship
+                    let packId = grouped.find((p) => p.pack === packName)
+                      ?.allSongs[0]?.pack_id;
+
+                    if (
+                      grouped.find((p) => p.pack === packName)?.allSongs[0]
+                        ?.album_series_id &&
+                      !packId
+                    ) {
+                      // If we have an album series but no pack_id, try to get it from the album series
+                      const albumSeriesSong = grouped
+                        .find((p) => p.pack === packName)
+                        ?.allSongs.find((s) => s.album_series_id);
+                      if (albumSeriesSong) {
+                        packId = albumSeriesSong.pack_id;
+                      }
+                    }
+
+                    const isCollaborator =
+                      packId &&
+                      packCollaborations.some(
+                        (collab) => collab.pack_id === packId
+                      );
+                    console.log(
+                      `WipPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`
+                    );
+
+                    if (isCollaborator) {
+                      return (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            background: "#e8f5e8",
+                            color: "#2d5a2d",
+                            borderRadius: "12px",
+                            padding: "0.15rem 0.5rem",
+                            fontWeight: 500,
+                            fontSize: "0.8rem",
+                            marginLeft: "0.5rem",
+                            border: "1px solid #c3e6c3",
+                          }}
+                          title={`Collaborating with ${
+                            packCollaborations.find(
+                              (collab) => collab.pack_id === packId
+                            )?.owner_username || "unknown"
+                          }`}
+                        >
+                          🤝 collab with{" "}
+                          {packCollaborations.find(
+                            (collab) => collab.pack_id === packId
+                          )?.owner_username || "unknown"}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </span>
               )}
               {/* Progress bar and percent always visible in header */}
               <div
@@ -718,6 +812,53 @@ function WipPage() {
               <div
                 style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}
               >
+                {/* Invite Collab Button */}
+                <button
+                  onClick={() => {
+                    // Get pack_id from the first song in the pack
+                    let packId = grouped.find((p) => p.pack === packName)
+                      ?.allSongs[0]?.pack_id;
+
+                    if (
+                      grouped.find((p) => p.pack === packName)?.allSongs[0]
+                        ?.album_series_id &&
+                      !packId
+                    ) {
+                      // If we have an album series but no pack_id, try to get it from the album series
+                      const albumSeriesSong = grouped
+                        .find((p) => p.pack === packName)
+                        ?.allSongs.find((s) => s.album_series_id);
+                      if (albumSeriesSong) {
+                        packId = albumSeriesSong.pack_id;
+                      }
+                    }
+
+                    if (packId) {
+                      setSelectedPackForCollaboration({
+                        id: packId,
+                        name: packName,
+                      });
+                      setShowPackCollaborationModal(true);
+                    }
+                  }}
+                  style={{
+                    background: "#17a2b8",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "0.25rem 0.5rem",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    fontWeight: 500,
+                  }}
+                  title="Invite collaborators to this pack"
+                >
+                  👥 Invite Collab
+                </button>
+
                 {/* Add Song Button */}
                 <button
                   onClick={() =>
@@ -1367,6 +1508,20 @@ function WipPage() {
           </div>
         </div>
       )}
+
+      {/* Song Pack Collaboration Modal */}
+      <SongPackCollaborationModal
+        packId={selectedPackForCollaboration?.id}
+        packName={selectedPackForCollaboration?.name}
+        songs={songs.filter(
+          (song) => song.pack_id === selectedPackForCollaboration?.id
+        )}
+        isOpen={showPackCollaborationModal}
+        onClose={() => {
+          setShowPackCollaborationModal(false);
+          setSelectedPackForCollaboration(null);
+        }}
+      />
 
       {/* Custom Alert Modal */}
       <CustomAlert

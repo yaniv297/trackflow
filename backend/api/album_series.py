@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import AlbumSeries, Song, SongCollaboration, SongStatus, User
+from models import AlbumSeries, Song, SongCollaboration, SongStatus, User, Pack
 from schemas import AlbumSeriesResponse, AlbumSeriesDetailResponse, CreateAlbumSeriesRequest
 from typing import List
 from datetime import datetime
@@ -22,10 +22,10 @@ class UpdateAlbumSeriesStatusRequest(BaseModel):
 
 def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     """Get unique authors for a series from both songs and collaborations"""
-    # Get authors from songs
-    song_authors = db.query(Song.author).filter(
+    # Get authors from songs (using user relationship)
+    song_authors = db.query(User.username).join(Song).filter(
         Song.album_series_id == series_id,
-        Song.author.isnot(None)
+        User.username.isnot(None)
     ).distinct().all()
     
     # Get authors from collaborations (using the new foreign key structure)
@@ -36,9 +36,9 @@ def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     
     # Combine and deduplicate
     all_authors = set()
-    for (author,) in song_authors:
-        if author:
-            all_authors.add(author)
+    for (username,) in song_authors:
+        if username:
+            all_authors.add(username)
     for (username,) in collab_authors:
         if username:
             all_authors.add(username)
@@ -123,6 +123,7 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
         songs = db.query(Song).options(
             joinedload(Song.collaborations).joinedload(SongCollaboration.collaborator),
             joinedload(Song.user),  # Load the song owner
+            joinedload(Song.pack_obj),  # Load the pack relationship
             joinedload(Song.authoring)
         ).filter(Song.album_series_id == series_id).all()
     except Exception as e:
@@ -142,10 +143,10 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
                 "artist": song.artist,
                 "album": song.album,
                 "status": song.status,
-                "pack": song.pack,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
                 "year": song.year,
                 "album_cover": song.album_cover,
-                "author": song.user.username if song.user else song.author,  # Use user.username, fallback to author
+                "author": song.user.username if song.user else None,
                 "user_id": song.user_id,
                 "optional": song.optional,
                 "album_series_id": song.album_series_id,
@@ -177,10 +178,10 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
                 "artist": song.artist or "Unknown",
                 "album": song.album,
                 "status": song.status,
-                "pack": song.pack,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
                 "year": song.year,
                 "album_cover": song.album_cover,
-                "author": song.user.username if song.user else song.author,  # Use user.username, fallback to author
+                "author": song.user.username if song.user else None,
                 "user_id": song.user_id,
                 "optional": song.optional,
                 "album_series_id": song.album_series_id,
@@ -202,6 +203,15 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
         print(f"Error getting authors for series {series_id}: {e}")
         authors = []
     
+    # Get pack data if available
+    pack_id = None
+    pack_name = None
+    if series.pack_id:
+        pack = db.query(Pack).filter(Pack.id == series.pack_id).first()
+        if pack:
+            pack_id = pack.id
+            pack_name = pack.name
+    
     return {
         "id": series.id,
         "series_number": series.series_number,
@@ -213,6 +223,8 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
         "description": series.description,
         "created_at": series.created_at,
         "updated_at": series.updated_at,
+        "pack_id": pack_id,
+        "pack_name": pack_name,
         "album_songs": formatted_album_songs,
         "bonus_songs": formatted_bonus_songs,
         "total_songs": len(songs),
@@ -228,6 +240,7 @@ def get_album_series_songs(series_id: int, db: Session = Depends(get_db)):
     
     songs = db.query(Song).options(
         joinedload(Song.collaborations).joinedload(SongCollaboration.collaborator),
+        joinedload(Song.pack_obj),  # Load the pack relationship
         joinedload(Song.authoring)
     ).filter(Song.album_series_id == series_id).all()
     return songs
@@ -249,8 +262,15 @@ def create_album_series_from_pack(
     description = request.description
     
     # Check if pack exists and has WIP/Future songs
+    pack = db.query(Pack).filter(Pack.name == pack_name).first()
+    if not pack:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Pack '{pack_name}' not found"
+        )
+    
     songs = db.query(Song).filter(
-        Song.pack == pack_name,
+        Song.pack_id == pack.id,
         Song.status.in_([SongStatus.wip, SongStatus.future])
     ).all()
     

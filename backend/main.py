@@ -4,7 +4,7 @@ load_dotenv()
 from fastapi import FastAPI
 from database import engine
 from models import Base
-from api import songs, authoring, spotify, tools, stats, album_series, auth
+from api import songs, authoring, spotify, tools, stats, album_series, auth, pack_collaborations, song_pack_collaborations, packs
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import os
@@ -49,6 +49,9 @@ app.include_router(spotify.router)
 app.include_router(tools.router)
 app.include_router(stats.router)
 app.include_router(album_series.router)
+app.include_router(pack_collaborations.router)
+app.include_router(song_pack_collaborations.router)
+app.include_router(packs.router)
 
 @app.on_event("startup")
 async def startup_event():

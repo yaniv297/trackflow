@@ -21,12 +21,12 @@ class SongCreate(BaseModel):
     artist: str
     title: str
     album: Optional[str] = None
-    pack: Optional[str] = None
+    pack_id: Optional[int] = None
+    pack_name: Optional[str] = None
     status: SongStatus
     year: Optional[int] = None
     album_cover: Optional[str] = None
     notes: Optional[str] = None
-    author: Optional[str] = None
     user_id: Optional[int] = None
     optional: Optional[bool] = None
     collaborations: Optional[List[SongCollaborationCreate]] = None
@@ -59,10 +59,11 @@ class SongOut(BaseModel):
     artist: str
     album: Optional[str]
     status: SongStatus
-    pack: Optional[str]
+    pack_id: Optional[int] = None
+    pack_name: Optional[str] = None
     year: Optional[int]
     album_cover: Optional[str]
-    author: Optional[str]
+    author: Optional[str]  # Username from user relationship
     user_id: Optional[int]
     collaborations: List[SongCollaborationOut] = []
     authoring: Optional[AuthoringOut] 
@@ -71,6 +72,8 @@ class SongOut(BaseModel):
     album_series_id: Optional[int] = None
     album_series_number: Optional[int] = None
     album_series_name: Optional[str] = None
+    is_editable: Optional[bool] = None
+    pack_collaboration: Optional[dict] = None
     
 
     class Config:
@@ -124,6 +127,8 @@ class AlbumSeriesDetailResponse(BaseModel):
     description: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    pack_id: Optional[int] = None
+    pack_name: Optional[str] = None
     album_songs: List[SongOut]
     bonus_songs: List[SongOut]
     total_songs: int

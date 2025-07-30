@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Song, SongStatus, Artist, SongCollaboration, User
+from models import Song, SongStatus, Artist, SongCollaboration, User, Pack
 from sqlalchemy import func, text
 from auth import get_current_active_user
 
@@ -82,16 +82,15 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
 
     # Optimized pack processing with single query - filter by current user
     pack_artist_counts = db.query(
-        Song.pack,
+        Pack.name.label('pack'),
         Song.artist,
         func.count().label('artist_count')
-    ).filter(
+    ).join(Song, Pack.id == Song.pack_id).filter(
         Song.status.in_(included_statuses),
-        Song.pack.isnot(None),
         Song.artist.isnot(None),
         Song.user_id == current_user.id
     ).group_by(
-        Song.pack, Song.artist
+        Pack.name, Song.artist
     ).subquery()
 
     # Get the most common artist per pack using window function
@@ -105,13 +104,12 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
     ).subquery()
 
     pack_counts = dict(
-        db.query(Song.pack, func.count())
-          .filter(
+        db.query(Pack.name, func.count())
+          .join(Song, Pack.id == Song.pack_id).filter(
               Song.status.in_(included_statuses), 
-              Song.pack.isnot(None),
               Song.user_id == current_user.id
           )
-          .group_by(Song.pack)
+          .group_by(Pack.name)
           .order_by(func.count().desc())
           .limit(50)
           .all()
@@ -156,9 +154,8 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         Song.user_id == current_user.id
     ).distinct().count()
     
-    total_packs = db.query(Song.pack).filter(
+    total_packs = db.query(Pack.name).join(Song, Pack.id == Song.pack_id).filter(
         Song.status.in_(included_statuses),
-        Song.pack.isnot(None),
         Song.user_id == current_user.id
     ).distinct().count()
 

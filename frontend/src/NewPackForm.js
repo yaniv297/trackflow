@@ -147,7 +147,7 @@ function NewPackForm() {
         title,
         artist: capitalizeName(meta.artist),
         album: capitalizeName(meta.album),
-        pack: meta.pack,
+        pack_name: meta.pack,
         status: meta.status,
         collaborations: collaborations.length > 0 ? collaborations : undefined,
       }));
@@ -163,7 +163,7 @@ function NewPackForm() {
             title: capitalizeName(title || "Unknown Title"),
             artist: capitalizeName(artist || "Unknown Artist"),
             album: capitalizeName(meta.album),
-            pack: meta.pack,
+            pack_name: meta.pack,
             status: meta.status,
             collaborations:
               collaborations.length > 0 ? collaborations : undefined,

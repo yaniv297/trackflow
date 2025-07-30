@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Song, AuthoringProgress, SongCollaboration, User
+from models import Song, AuthoringProgress, SongCollaboration, User, Pack
 from schemas import SongCreate, AuthoringUpdate
 from fastapi import HTTPException
 
@@ -12,6 +12,25 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
     # Extract collaborations from the song data
     song_data = song.dict()
     collaborations = song_data.pop('collaborations', [])
+    
+    # Handle pack creation if pack_id is not provided but pack_name is
+    if not song_data.get('pack_id') and song_data.get('pack_name'):
+        pack_name = song_data.pop('pack_name')
+        # Check if pack already exists for this user
+        existing_pack = db.query(Pack).filter(
+            Pack.name == pack_name,
+            Pack.user_id == user.id
+        ).first()
+        
+        if existing_pack:
+            song_data['pack_id'] = existing_pack.id
+        else:
+            # Create new pack
+            new_pack = Pack(name=pack_name, user_id=user.id)
+            db.add(new_pack)
+            db.commit()
+            db.refresh(new_pack)
+            song_data['pack_id'] = new_pack.id
     
     # Check if song already exists for this user (same title and artist)
     existing_song = db.query(Song).filter(

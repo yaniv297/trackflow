@@ -258,6 +258,10 @@ export default function SongRow({
             className="pretty-checkbox"
             checked={selected}
             onChange={onSelect}
+            disabled={!song.is_editable}
+            style={{
+              opacity: song.is_editable ? 1 : 0.5,
+            }}
           />
         </td>
 
@@ -277,8 +281,14 @@ export default function SongRow({
           ) : (
             <div
               className="editable-cell"
-              onClick={() => setEditing({ [`${song.id}_album_cover`]: true })}
-              style={{ cursor: "pointer" }}
+              onClick={() =>
+                song.is_editable &&
+                setEditing({ [`${song.id}_album_cover`]: true })
+              }
+              style={{
+                cursor: song.is_editable ? "pointer" : "default",
+                opacity: song.is_editable ? 1 : 0.6,
+              }}
             >
               {song.album_cover && (
                 <img
@@ -305,6 +315,7 @@ export default function SongRow({
           setEditing={setEditing}
           setEditValues={setEditValues}
           saveEdit={saveEdit}
+          isEditable={song.is_editable}
         />
         <EditableCell
           value={song.artist}
@@ -315,6 +326,7 @@ export default function SongRow({
           setEditing={setEditing}
           setEditValues={setEditValues}
           saveEdit={saveEdit}
+          isEditable={song.is_editable}
         />
         <EditableCell
           value={song.album}
@@ -325,6 +337,7 @@ export default function SongRow({
           setEditing={setEditing}
           setEditValues={setEditValues}
           saveEdit={saveEdit}
+          isEditable={song.is_editable}
         />
         <EditableCell
           value={song.pack}
@@ -335,6 +348,7 @@ export default function SongRow({
           setEditing={setEditing}
           setEditValues={setEditValues}
           saveEdit={saveEdit}
+          isEditable={song.is_editable}
         />
 
         {/* Status */}
@@ -354,12 +368,21 @@ export default function SongRow({
           setEditing={setEditing}
           setEditValues={setEditValues}
           saveEdit={saveEdit}
+          isEditable={song.is_editable}
         />
 
         {/* Collaborations */}
         <td
           className="editable-cell"
-          onClick={() => setEditing({ [`${song.id}_collaborations`]: true })}
+          onClick={() =>
+            song.is_editable &&
+            setEditing({ [`${song.id}_collaborations`]: true })
+          }
+          style={{
+            cursor: song.is_editable ? "pointer" : "default",
+            opacity: song.is_editable ? 1 : 0.6,
+            backgroundColor: song.is_editable ? "transparent" : "#f8f9fa",
+          }}
         >
           {editing[`${song.id}_collaborations`] ? (
             <CollaborationAutoComplete

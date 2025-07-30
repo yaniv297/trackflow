@@ -4,6 +4,7 @@ import BulkActions from "./components/BulkActions";
 import CustomAlert from "./components/CustomAlert";
 import CustomPrompt from "./components/CustomPrompt";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
+import SongPackCollaborationModal from "./components/SongPackCollaborationModal";
 import Fireworks from "./components/Fireworks";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
@@ -17,7 +18,7 @@ function SongPage({ status }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const [collapsedGroups, setCollapsedGroups] = useState({});
-  const [groupBy, setGroupBy] = useState("artist");
+  const [groupBy, setGroupBy] = useState("pack");
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [fireworksTrigger, setFireworksTrigger] = useState(0);
   const [alertConfig, setAlertConfig] = useState({
@@ -34,6 +35,11 @@ function SongPage({ status }) {
     onConfirm: null,
     placeholder: "",
   });
+  const [showPackCollaborationModal, setShowPackCollaborationModal] =
+    useState(false);
+  const [selectedPackForCollaboration, setSelectedPackForCollaboration] =
+    useState(null);
+  const [packCollaborations, setPackCollaborations] = useState([]);
 
   const statusOptions = [
     { label: "Future Plans", value: "Future Plans" },
@@ -108,7 +114,20 @@ function SongPage({ status }) {
         return acc;
       }
 
-      const pack = song.pack || "N/A";
+      // For songs in album series, use the album series pack name
+      let pack;
+      if (song.album_series_id && song.album_series_name) {
+        // Use album series pack name if available, otherwise construct it
+        pack =
+          song.pack_name ||
+          `Album Series #${song.album_series_number || "N/A"}: ${
+            song.album_series_name
+          }`;
+      } else {
+        // Use pack_name if available, otherwise fall back to pack string
+        pack = song.pack_name || "N/A";
+      }
+
       if (!acc[pack]) acc[pack] = [];
       acc[pack].push(song);
       return acc;
@@ -243,10 +262,15 @@ function SongPage({ status }) {
     });
   };
 
-  const saveEdit = (id, field, value) => {
+  const saveEdit = (id, field) => {
+    const key = `${id}_${field}`;
+    const value = editValues[key];
+
     apiPatch(`/songs/${id}/`, { [field]: value })
       .then((updated) => {
         setSongs((prev) => prev.map((s) => (s.id === id ? updated : s)));
+        setEditValues((prev) => ({ ...prev, [key]: undefined })); // Clear the edit value
+        setEditing((prev) => ({ ...prev, [key]: false })); // Exit edit mode
         window.showNotification("Song updated successfully", "success");
       })
       .catch((err) => window.showNotification(err.message, "error"));
@@ -386,7 +410,7 @@ function SongPage({ status }) {
 
     // Get the pack name from the first selected song
     const firstSong = songs.find((song) => song.id === selectedSongs[0]);
-    if (!firstSong || !firstSong.pack) {
+    if (!firstSong || !firstSong.pack_name) {
       window.showNotification(
         "Selected songs must be from the same pack.",
         "warning"
@@ -396,7 +420,7 @@ function SongPage({ status }) {
 
     try {
       const response = await apiPost("/album-series/create-from-pack/", {
-        pack_name: firstSong.pack,
+        pack_name: firstSong.pack_name,
         artist_name: albumSeriesForm.artist_name,
         album_name: albumSeriesForm.album_name,
         year:
@@ -464,7 +488,7 @@ function SongPage({ status }) {
 
     // Find the most common artist for the second album
     const songsInSecondAlbum = songs.filter(
-      (song) => song.pack === packName && song.album === secondAlbumName
+      (song) => song.pack_name === packName && song.album === secondAlbumName
     );
     const artistCounts = {};
     songsInSecondAlbum.forEach((song) => {
@@ -616,6 +640,18 @@ function SongPage({ status }) {
     }, 250); // 250ms debounce
     return () => clearTimeout(handler);
   }, [status, search]);
+
+  // Load pack collaborations for the current user
+  useEffect(() => {
+    apiGet("/pack-collaborations/my-collaborations/")
+      .then((data) => {
+        console.log("Loaded pack collaborations:", data);
+        setPackCollaborations(data);
+      })
+      .catch((err) =>
+        console.error("Failed to fetch pack collaborations:", err)
+      );
+  }, []);
 
   return (
     <>
@@ -1426,7 +1462,68 @@ function SongPage({ status }) {
                                   ))}
                                 </>
                               ) : (
-                                `${packName} (${validSongsInPack.length})`
+                                <span>
+                                  {`${packName} (${validSongsInPack.length})`}
+                                  {/* Show collaboration tag if user is a collaborator on this pack */}
+                                  {(() => {
+                                    // For album series, get pack_id from the album series relationship
+                                    let packId = validSongsInPack[0]?.pack_id;
+                                    if (
+                                      validSongsInPack[0]?.album_series_id &&
+                                      !packId
+                                    ) {
+                                      // If we have an album series but no pack_id, try to get it from the album series
+                                      const albumSeriesSong =
+                                        validSongsInPack.find(
+                                          (s) => s.album_series_id
+                                        );
+                                      if (albumSeriesSong) {
+                                        packId = albumSeriesSong.pack_id;
+                                      }
+                                    }
+
+                                    const isCollaborator =
+                                      packId &&
+                                      packCollaborations.some(
+                                        (collab) => collab.pack_id === packId
+                                      );
+                                    console.log(
+                                      `SongPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`
+                                    );
+
+                                    if (isCollaborator) {
+                                      return (
+                                        <span
+                                          style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            background: "#e8f5e8",
+                                            color: "#2d5a2d",
+                                            borderRadius: "12px",
+                                            padding: "0.15rem 0.5rem",
+                                            fontWeight: 500,
+                                            fontSize: "0.8rem",
+                                            marginLeft: "0.5rem",
+                                            border: "1px solid #c3e6c3",
+                                          }}
+                                          title={`Collaborating with ${
+                                            packCollaborations.find(
+                                              (collab) =>
+                                                collab.pack_id === packId
+                                            )?.owner_username || "unknown"
+                                          }`}
+                                        >
+                                          🤝 collab with{" "}
+                                          {packCollaborations.find(
+                                            (collab) =>
+                                              collab.pack_id === packId
+                                          )?.owner_username || "unknown"}
+                                        </span>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </span>
                               )}
                             </span>
                             {/* Pack-level action buttons */}
@@ -1438,6 +1535,53 @@ function SongPage({ status }) {
                                 verticalAlign: "middle",
                               }}
                             >
+                              {/* Invite Collab Button - Only show for Future Plans */}
+                              {status === "Future Plans" && (
+                                <button
+                                  onClick={() => {
+                                    // Get pack_id from the first song in the pack
+                                    let packId = validSongsInPack[0]?.pack_id;
+                                    if (
+                                      validSongsInPack[0]?.album_series_id &&
+                                      !packId
+                                    ) {
+                                      // If we have an album series but no pack_id, try to get it from the album series
+                                      const albumSeriesSong =
+                                        validSongsInPack.find(
+                                          (s) => s.album_series_id
+                                        );
+                                      if (albumSeriesSong) {
+                                        packId = albumSeriesSong.pack_id;
+                                      }
+                                    }
+
+                                    if (packId) {
+                                      setSelectedPackForCollaboration({
+                                        id: packId,
+                                        name: packName,
+                                      });
+                                      setShowPackCollaborationModal(true);
+                                    }
+                                  }}
+                                  style={{
+                                    background: "#17a2b8",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "4px",
+                                    padding: "0.25rem 0.5rem",
+                                    fontSize: "0.8rem",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                    fontWeight: 500,
+                                  }}
+                                  title="Invite collaborators to this pack"
+                                >
+                                  👥 Invite Collab
+                                </button>
+                              )}
+
                               {/* Create Album Series Button */}
                               {(() => {
                                 // Check if we have 4+ songs from the same album
@@ -2025,6 +2169,20 @@ function SongPage({ status }) {
           </div>
         </div>
       )}
+
+      {/* Song Pack Collaboration Modal */}
+      <SongPackCollaborationModal
+        packId={selectedPackForCollaboration?.id}
+        packName={selectedPackForCollaboration?.name}
+        songs={songs.filter(
+          (song) => song.pack_id === selectedPackForCollaboration?.id
+        )}
+        isOpen={showPackCollaborationModal}
+        onClose={() => {
+          setShowPackCollaborationModal(false);
+          setSelectedPackForCollaboration(null);
+        }}
+      />
 
       {/* Custom Alert Modal */}
       <CustomAlert

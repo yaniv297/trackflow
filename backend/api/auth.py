@@ -119,6 +119,19 @@ def get_current_user_info(current_user: User = Depends(get_current_active_user))
         created_at=current_user.created_at.isoformat()
     )
 
+@router.get("/users/")
+def get_users(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+    """Get all users for collaboration dropdown"""
+    users = db.query(User).filter(User.is_active == True).all()
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        }
+        for user in users
+    ]
+
 @router.post("/refresh", response_model=Token)
 def refresh_token(current_user: User = Depends(get_current_active_user)):
     access_token_expires = timedelta(minutes=1440)  # 24 hours

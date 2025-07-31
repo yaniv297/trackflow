@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Song, SongStatus, Artist, SongCollaboration, User, Pack
+from models import Song, SongStatus, Artist, Collaboration, CollaborationType, User, Pack
 from sqlalchemy import func, text
 from auth import get_current_active_user
 
@@ -160,21 +160,24 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
     ).distinct().count()
 
     # Get collaboration stats - filter by current user's songs
-    total_collaborations = db.query(SongCollaboration).join(Song).filter(
-        Song.user_id == current_user.id
+    total_collaborations = db.query(Collaboration).join(Song).filter(
+        Song.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
     ).count()
     
     # Get unique collaborators count - filter by current user's songs
-    total_collaborators = db.query(SongCollaboration.collaborator_id).join(Song).filter(
-        Song.user_id == current_user.id
+    total_collaborators = db.query(Collaboration.user_id).join(Song).filter(
+        Song.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
     ).distinct().count()
     
     # Get top collaborators (excluding the current user) - filter by current user's songs
     top_collaborators_data = db.query(
         User.username,
         func.count().label('count')
-    ).join(SongCollaboration).join(Song).filter(
+    ).join(Collaboration).join(Song).filter(
         Song.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
         User.username != current_user.username  # Exclude current user
     ).group_by(
         User.username

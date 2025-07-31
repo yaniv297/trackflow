@@ -28,6 +28,11 @@ const collaboratorColors = [
 
 // Function to get consistent color for each collaborator
 const getCollaboratorColor = (collaboratorName) => {
+  // Safety check for undefined or null values
+  if (!collaboratorName || typeof collaboratorName !== "string") {
+    return collaboratorColors[0]; // Return first color as fallback
+  }
+
   // Simple hash function to get consistent color for each collaborator
   let hash = 0;
   for (let i = 0; i < collaboratorName.length; i++) {
@@ -197,8 +202,8 @@ export default function SongRow({
                 editValues[`${song.id}_collaborations`] ??
                 (song.collaborations && song.collaborations.length > 0
                   ? song.collaborations
-                      .filter((collab) => collab.username !== user.username)
-                      .map((collab) => collab.username)
+                      .filter((collab) => collab.author !== user.username)
+                      .map((collab) => collab.author)
                       .join(", ")
                   : "")
               }
@@ -225,12 +230,12 @@ export default function SongRow({
             >
               {song.collaborations && song.collaborations.length > 0 ? (
                 song.collaborations
-                  .filter((collab) => collab.username !== user.username)
+                  .filter((collab) => collab.author !== user.username)
                   .map((collab) => (
                     <span
                       key={collab.id}
                       style={{
-                        background: getCollaboratorColor(collab.username),
+                        background: getCollaboratorColor(collab.author),
                         color: "white",
                         padding: "2px 6px",
                         borderRadius: "12px",
@@ -239,7 +244,7 @@ export default function SongRow({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {collab.username}
+                      {collab.author}
                     </span>
                   ))
               ) : (

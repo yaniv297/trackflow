@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AlbumSeries, SongCollaboration, User, PackCollaboration, Pack, SongPackCollaboration
+from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType
 from auth import get_current_active_user
 from typing import Optional
 from typing import List
@@ -18,9 +18,14 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     song_data = song.dict()
     song_data["user_id"] = current_user.id
     
-    # Create a new SongCreate object with the current user
+    # Clean up song_data to remove fields that don't exist in the Song model
     from schemas import SongCreate
-    song_with_author = SongCreate(**song_data)
+    
+    # Remove fields that don't exist in the Song model
+    cleaned_song_data = {k: v for k, v in song_data.items() 
+                        if k in ['title', 'artist', 'album', 'pack', 'status', 'year', 'album_cover']}
+    
+    song_with_author = SongCreate(**cleaned_song_data)
     
     return create_song_in_db(db, song_with_author, current_user)
 
@@ -33,11 +38,10 @@ def get_filtered_songs(
 ):
     # Build base query with all necessary joins
     q = db.query(Song).options(
-        joinedload(Song.authoring), 
         joinedload(Song.artist_obj),
         joinedload(Song.user),  # Load the song owner
         joinedload(Song.pack_obj),  # Load the pack relationship
-        joinedload(Song.collaborations).joinedload(SongCollaboration.collaborator)
+        joinedload(Song.collaborations).joinedload(Collaboration.user)
     )
 
     # Filter to show songs owned by the current user OR where the current user is a collaborator
@@ -46,14 +50,20 @@ def get_filtered_songs(
         or_(
             Song.user_id == current_user.id,  # Songs owned by current user
             Song.id.in_(  # Songs where current user is a collaborator
-                db.query(SongCollaboration.song_id)
-                .filter(SongCollaboration.collaborator_id == current_user.id)
+                db.query(Collaboration.song_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+                )
                 .subquery()
             ),
             # Songs in packs where current user has ANY collaboration access (will be marked as read-only if no edit access)
             Song.pack_id.in_(
-                db.query(SongPackCollaboration.pack_id)
-                .filter(SongPackCollaboration.collaborator_id == current_user.id)
+                db.query(Collaboration.pack_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+                )
                 .distinct()
                 .subquery()
             )
@@ -73,8 +83,8 @@ def get_filtered_songs(
                 Song.album.ilike(pattern),
                 # Search in collaborations using EXISTS subquery
                 Song.id.in_(
-                    db.query(SongCollaboration.song_id)
-                    .join(User, SongCollaboration.collaborator_id == User.id)
+                    db.query(Collaboration.song_id)
+                    .join(User, Collaboration.user_id == User.id)
                     .filter(User.username.ilike(pattern))
                     .subquery()
                 )
@@ -103,9 +113,7 @@ def get_filtered_songs(
         if song.user:
             song_dict["author"] = song.user.username
         
-        # Attach authoring
-        if hasattr(song, "authoring") and song.authoring:
-            song_dict["authoring"] = song.authoring
+        # Note: authoring relationship was removed in the unified collaboration system
         
         # Attach collaborations with username lookup
         if hasattr(song, "collaborations"):
@@ -113,9 +121,9 @@ def get_filtered_songs(
             for collab in song.collaborations:
                 collab_dict = {
                     "id": collab.id,
-                    "collaborator_id": collab.collaborator_id,
-                    "author": collab.collaborator.username,  # Add username for frontend compatibility
-                    "role": collab.role,
+                    "user_id": collab.user_id,
+                    "username": collab.user.username,  # Add username for frontend compatibility
+                    "collaboration_type": collab.collaboration_type.value,
                     "created_at": collab.created_at
                 }
                 collaborations_with_username.append(collab_dict)
@@ -150,38 +158,30 @@ def get_filtered_songs(
             if pack_owner:
                 song_dict["pack_owner_username"] = pack_owner.username
         
-        # Determine if song is editable and add collaboration info
+        # Determine if song is editable based on unified collaboration system
         is_owner = song.user_id == current_user.id
-        is_song_collaborator = db.query(SongCollaboration).filter(
-            SongCollaboration.song_id == song.id,
-            SongCollaboration.collaborator_id == current_user.id
+        
+        # Check if user has song-level collaboration
+        has_song_collaboration = db.query(Collaboration).filter(
+            Collaboration.song_id == song.id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
         ).first() is not None
         
-        # Check song-level pack collaboration
-        song_pack_collab = db.query(SongPackCollaboration).filter(
-            SongPackCollaboration.song_id == song.id,
-            SongPackCollaboration.collaborator_id == current_user.id
-        ).first()
-        
-        # Check if user has any collaboration on this pack (for read-only access)
-        has_pack_collaboration = db.query(SongPackCollaboration).filter(
-            SongPackCollaboration.pack_id == song.pack_id,
-            SongPackCollaboration.collaborator_id == current_user.id
+        # Check if user has pack-level collaboration
+        has_pack_collaboration = db.query(Collaboration).filter(
+            Collaboration.pack_id == song.pack_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
         ).first() is not None
         
-        # Song is editable if user owns it, is a direct collaborator, or has edit access via pack collaboration
-        song_dict["is_editable"] = is_owner or is_song_collaborator or (song_pack_collab and song_pack_collab.can_edit)
+        # Song is editable if user owns it or has song-level edit collaboration
+        song_dict["is_editable"] = is_owner or has_song_collaboration
         
         # Add pack collaboration info if user has access via pack collaboration
-        if song_pack_collab:
+        if has_pack_collaboration and song.pack_id:
             song_dict["pack_collaboration"] = {
-                "can_edit": song_pack_collab.can_edit,
-                "pack_id": song_pack_collab.pack_id
-            }
-        elif has_pack_collaboration and song.pack_id:
-            # User has collaboration on this pack but not this specific song (read-only)
-            song_dict["pack_collaboration"] = {
-                "can_edit": False,
+                "can_edit": has_song_collaboration,  # Only editable if direct song collaboration
                 "pack_id": song.pack_id
             }
         

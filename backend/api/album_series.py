@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import AlbumSeries, Song, SongCollaboration, SongStatus, User, Pack
+from models import AlbumSeries, Song, Collaboration, CollaborationType, SongStatus, User, Pack
 from schemas import AlbumSeriesResponse, AlbumSeriesDetailResponse, CreateAlbumSeriesRequest
 from typing import List
 from datetime import datetime
@@ -28,8 +28,8 @@ def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
         User.username.isnot(None)
     ).distinct().all()
     
-    # Get authors from collaborations (using the new foreign key structure)
-    collab_authors = db.query(User.username).join(SongCollaboration).join(Song).filter(
+    # Get authors from collaborations (using the new unified collaboration structure)
+    collab_authors = db.query(User.username).join(Collaboration).join(Song).filter(
         Song.album_series_id == series_id,
         User.username.isnot(None)
     ).distinct().all()
@@ -74,9 +74,10 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
         
         if not user_involved:
             # Check if user is a collaborator on any song in this series
-            user_collaboration = db.query(SongCollaboration).join(Song).filter(
+            user_collaboration = db.query(Collaboration).join(Song).filter(
                 Song.album_series_id == s.id,
-                SongCollaboration.collaborator_id == current_user.id
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
             ).first()
             user_involved = user_collaboration is not None
             
@@ -121,7 +122,7 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
     # Get all songs for this series with collaborations and authoring data
     try:
         songs = db.query(Song).options(
-            joinedload(Song.collaborations).joinedload(SongCollaboration.collaborator),
+            joinedload(Song.collaborations).joinedload(Collaboration.user),
             joinedload(Song.user),  # Load the song owner
             joinedload(Song.pack_obj),  # Load the pack relationship
             joinedload(Song.authoring)
@@ -239,7 +240,7 @@ def get_album_series_songs(series_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Album series not found")
     
     songs = db.query(Song).options(
-        joinedload(Song.collaborations).joinedload(SongCollaboration.collaborator),
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
         joinedload(Song.pack_obj),  # Load the pack relationship
         joinedload(Song.authoring)
     ).filter(Song.album_series_id == series_id).all()

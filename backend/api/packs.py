@@ -72,10 +72,11 @@ def get_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depends
     # Check if user has access to this pack
     if pack.user_id != current_user.id:
         # Check if user is a collaborator on this pack
-        from models import PackCollaboration
-        collaboration = db.query(PackCollaboration).filter(
-            PackCollaboration.pack_id == pack_id,
-            PackCollaboration.collaborator_id == current_user.id
+        from models import Collaboration, CollaborationType
+        collaboration = db.query(Collaboration).filter(
+            Collaboration.pack_id == pack_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
         ).first()
         
         if not collaboration:

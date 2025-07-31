@@ -9,9 +9,9 @@ class SongCollaborationCreate(BaseModel):
 
 class SongCollaborationOut(BaseModel):
     id: int
-    collaborator_id: int
-    author: str  # Username for backward compatibility
-    role: Optional[str] = None
+    user_id: int
+    username: str  # Username from user relationship
+    collaboration_type: str
     created_at: datetime
     
     class Config:
@@ -68,8 +68,8 @@ class SongOut(BaseModel):
     author: Optional[str]  # Username from user relationship
     user_id: Optional[int]
     collaborations: List[SongCollaborationOut] = []
-    authoring: Optional[AuthoringOut] 
-    optional: Optional[bool]
+    authoring: Optional[AuthoringOut] = None
+    optional: Optional[bool] = None
     artist_image_url: Optional[str] = None
     album_series_id: Optional[int] = None
     album_series_number: Optional[int] = None

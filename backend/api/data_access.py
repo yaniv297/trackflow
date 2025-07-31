@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Song, AuthoringProgress, SongCollaboration, User, Pack
+from models import Song, AuthoringProgress, Collaboration, CollaborationType, User, Pack
 from schemas import SongCreate, AuthoringUpdate
 from fastapi import HTTPException
 
@@ -50,7 +50,11 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
     # Ensure user_id is set
     song_data['user_id'] = user.id
     
-    db_song = Song(**song_data)
+    # Clean up song_data to remove fields that don't exist in the Song model
+    valid_fields = ['title', 'artist', 'album', 'pack', 'status', 'year', 'album_cover', 'user_id']
+    cleaned_song_data = {k: v for k, v in song_data.items() if k in valid_fields}
+    
+    db_song = Song(**cleaned_song_data)
     db.add(db_song)
     db.commit()
     db.refresh(db_song)
@@ -68,12 +72,15 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
             
             # Don't add the current user as a collaborator
             if author != user.username:
-                db_collab = SongCollaboration(
-                    song_id=db_song.id,
-                    author=author,
-                    parts=None  # No longer using parts
-                )
-                db.add(db_collab)
+                # Find the collaborator user
+                collaborator_user = db.query(User).filter(User.username == author).first()
+                if collaborator_user:
+                    db_collab = Collaboration(
+                        song_id=db_song.id,
+                        user_id=collaborator_user.id,
+                        collaboration_type=CollaborationType.SONG_EDIT
+                    )
+                    db.add(db_collab)
         db.commit()
     
     # Auto-create authoring row if song is "In Progress"
@@ -127,8 +134,8 @@ def delete_song_from_db(db: Session, song_id: int) -> bool:
             print(f"  Deleted authoring records for song {song_id}")
 
             # Delete all collaborations at once
-            collab_count = db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).count()
-            db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+            collab_count = db.query(Collaboration).filter(Collaboration.song_id == song_id).count()
+            db.query(Collaboration).filter(Collaboration.song_id == song_id).delete()
             print(f"  Deleted {collab_count} collaborations for song {song_id}")
 
             # Finally delete the song

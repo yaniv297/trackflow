@@ -3,7 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import SongTable from "./components/SongTable";
 import BulkActionsToolbar from "./components/BulkActionsToolbar";
 import PageHeader from "./components/PageHeader";
-import BulkActions from "./components/BulkActions";
+import BulkEditModal from "./components/BulkEditModal";
 import CustomAlert from "./components/CustomAlert";
 import CustomPrompt from "./components/CustomPrompt";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
@@ -272,7 +272,9 @@ function SongPage({ status }) {
       <BulkActionsToolbar
         selectedSongs={selectedSongs}
         songs={songs}
-        onBulkEdit={() => setShowBulkModal(true)}
+        onBulkEdit={() => {
+          setShowBulkModal(true);
+        }}
         onStartWork={handleStartWork}
         status={status}
       />
@@ -307,12 +309,10 @@ function SongPage({ status }) {
 
       {/* Modals */}
       {showBulkModal && (
-        <BulkActions
+        <BulkEditModal
           isOpen={showBulkModal}
           onClose={() => setShowBulkModal(false)}
           selectedSongs={selectedSongs}
-          songs={songs}
-          setSongs={setSongs}
           onComplete={() => {
             setShowBulkModal(false);
             setSelectedSongs([]);

@@ -1551,6 +1551,24 @@ function WipPage() {
           setShowCollaborationModal(false);
           setSelectedItemForCollaboration(null);
         }}
+        currentUser={user}
+        onCollaborationSaved={() => {
+          // Refresh collaborations data and reload songs
+          apiGet("/collaborations/my-collaborations")
+            .then((data) => {
+              console.log("WipPage - Refreshed user collaborations:", data);
+              setUserCollaborations(data);
+              // Reload songs to get updated permissions
+              apiGet("/songs/?status=In%20Progress")
+                .then((songsData) => {
+                  setSongs(songsData);
+                })
+                .catch((err) => console.error("Failed to refresh songs:", err));
+            })
+            .catch((err) =>
+              console.error("Failed to refresh user collaborations:", err)
+            );
+        }}
       />
 
       {/* Custom Alert Modal */}

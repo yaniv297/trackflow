@@ -9,6 +9,7 @@ const UserDropdown = ({
   autoFocus = false,
   placeholder = "Select users...",
   style = {},
+  currentUser = null,
 }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,7 @@ const UserDropdown = ({
       setLoading(true);
       try {
         console.log("UserDropdown: Loading users...");
-        const data = await apiGet("/pack-collaborations/users/");
+        const data = await apiGet("/auth/users/");
         console.log("UserDropdown: Loaded users:", data);
         setUsers(data);
       } catch (error) {
@@ -43,11 +44,12 @@ const UserDropdown = ({
         .filter((s) => s)
     : [];
 
-  // Filter users based on search term and exclude already selected
+  // Filter users based on search term, exclude already selected, and exclude current user
   const filteredUsers = users.filter(
     (user) =>
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !currentSelections.includes(user.username)
+      !currentSelections.includes(user.username) &&
+      (!currentUser || user.username !== currentUser.username)
   );
 
   const handleUserSelect = (username) => {

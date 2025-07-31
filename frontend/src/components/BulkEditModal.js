@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { apiPost, apiPatch, apiDelete } from "../utils/api";
+import { apiPost, apiPatch } from "../utils/api";
+import SmartDropdown from "./SmartDropdown";
 
 const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
   const [selectedAction, setSelectedAction] = useState("");
@@ -20,7 +21,6 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
       "edit_album",
       "edit_pack",
       "edit_year",
-      "edit_status",
       "edit_cover_art",
       "edit_collaborations",
     ];
@@ -39,7 +39,6 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
         case "edit_album":
         case "edit_pack":
         case "edit_year":
-        case "edit_status":
         case "edit_cover_art":
           const field = selectedAction.replace("edit_", "");
           for (const id of selectedSongs) {
@@ -197,7 +196,6 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           <option value="edit_album">Edit Album</option>
           <option value="edit_pack">Edit Pack</option>
           <option value="edit_year">Edit Year</option>
-          <option value="edit_status">Edit Status</option>
           <option value="edit_cover_art">Edit Cover Art</option>
           <option value="edit_collaborations">Edit Collaborations</option>
           <option value="bulk_enhance">Bulk Enhance</option>
@@ -210,28 +208,63 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           "edit_album",
           "edit_pack",
           "edit_year",
-          "edit_status",
           "edit_cover_art",
           "edit_collaborations",
         ].includes(selectedAction) && (
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder={
-              selectedAction === "edit_collaborations"
-                ? "Enter collaborators separated by commas..."
-                : selectedAction === "edit_year"
-                ? "Enter year..."
-                : `Enter new ${selectedAction.replace("edit_", "")}...`
-            }
-            style={{
-              padding: "0.75rem",
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              fontSize: "1rem",
-            }}
-          />
+          <div style={{ marginTop: "1rem" }}>
+            {selectedAction === "edit_artist" && (
+              <SmartDropdown
+                type="artist"
+                value={inputValue}
+                onChange={setInputValue}
+                placeholder="Select or add artist name"
+              />
+            )}
+            {selectedAction === "edit_album" && (
+              <SmartDropdown
+                type="album"
+                value={inputValue}
+                onChange={setInputValue}
+                placeholder="Select or add album name"
+              />
+            )}
+            {selectedAction === "edit_pack" && (
+              <SmartDropdown
+                type="pack"
+                value={inputValue}
+                onChange={setInputValue}
+                placeholder="Select or add pack name"
+              />
+            )}
+            {selectedAction === "edit_collaborations" && (
+              <SmartDropdown
+                type="collaborations"
+                value={inputValue}
+                onChange={setInputValue}
+                placeholder="Select or add usernames (comma-separated)"
+              />
+            )}
+            {(selectedAction === "edit_year" ||
+              selectedAction === "edit_cover_art") && (
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder={
+                  selectedAction === "edit_year"
+                    ? "Enter year..."
+                    : "Enter cover art URL..."
+                }
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                }}
+              />
+            )}
+          </div>
         )}
 
         <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>

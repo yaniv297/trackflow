@@ -357,6 +357,30 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
         # Remove collaborations from updates dict to avoid setting it as an attribute
         del updates["collaborations"]
 
+    # Handle pack update specially (convert pack name to pack_id)
+    if "pack" in updates:
+        pack_name = updates["pack"]
+        if pack_name:
+            # Find existing pack or create new one
+            existing_pack = db.query(Pack).filter(
+                Pack.name == pack_name,
+                Pack.user_id == current_user.id
+            ).first()
+            
+            if existing_pack:
+                song.pack_id = existing_pack.id
+            else:
+                # Create new pack
+                new_pack = Pack(name=pack_name, user_id=current_user.id)
+                db.add(new_pack)
+                db.flush()  # Flush to get the ID
+                song.pack_id = new_pack.id
+        else:
+            # Empty pack name, remove from pack
+            song.pack_id = None
+        
+        del updates["pack"]
+
     # Update other fields
     for key, value in updates.items():
         if hasattr(song, key):

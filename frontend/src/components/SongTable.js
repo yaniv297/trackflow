@@ -1,5 +1,7 @@
 import React from "react";
 import SongRow from "./SongRow";
+import PackHeader from "./PackHeader";
+import BulkActions from "./BulkActions";
 
 const SongTable = ({
   songs,
@@ -27,6 +29,12 @@ const SongTable = ({
   setShowCollaborationModal,
   setSelectedItemForCollaboration,
   setCollaborationType,
+  status,
+  onBulkEdit,
+  onStartWork,
+  onBulkDelete,
+  onBulkEnhance,
+  onCleanTitles,
 }) => {
   const renderPackGroup = (packName, songsInPack) => {
     const validSongsInPack = songsInPack.filter(
@@ -35,96 +43,78 @@ const SongTable = ({
 
     if (validSongsInPack.length === 0) return null;
 
-    const collaborators = getPackCollaborators(
-      validSongsInPack[0]?.pack_id,
-      validSongsInPack
+    // Album series logic - extract unique series from songs
+    const uniqueSeries = [
+      ...new Set(
+        validSongsInPack
+          .filter((song) => song.album_series_id)
+          .map((song) => song.album_series_id)
+      ),
+    ];
+
+    const seriesSongCounts = {};
+    validSongsInPack.forEach((song) => {
+      if (song.album_series_id) {
+        seriesSongCounts[song.album_series_id] =
+          (seriesSongCounts[song.album_series_id] || 0) + 1;
+      }
+    });
+
+    // Only include series with 4+ songs
+    const validSeries = uniqueSeries.filter(
+      (seriesId) => seriesSongCounts[seriesId] >= 4
     );
+
+    const seriesInfo = validSeries
+      .map((id) => {
+        const s = validSongsInPack.find((song) => song.album_series_id === id);
+        return s
+          ? {
+              id,
+              number: s.album_series_number,
+              name: s.album_series_name,
+            }
+          : null;
+      })
+      .filter(Boolean);
+
+    seriesInfo.sort((a, b) => {
+      // Handle cases where number might be null/undefined
+      const aNum = a?.number ?? 0;
+      const bNum = b?.number ?? 0;
+      return aNum - bNum;
+    });
 
     return (
       <React.Fragment key={packName}>
-        {/* Pack Header Row */}
-        <tr className="group-header">
-          <td colSpan="10">
-            <input
-              type="checkbox"
-              checked={validSongsInPack.every((song) =>
-                selectedSongs.includes(song.id)
-              )}
-              onChange={(e) => {
-                const songIds = validSongsInPack.map((s) => s.id);
-                if (e.target.checked) {
-                  setSelectedSongs((prev) => [
-                    ...new Set([...prev, ...songIds]),
-                  ]);
-                } else {
-                  setSelectedSongs((prev) =>
-                    prev.filter((id) => !songIds.includes(id))
-                  );
-                }
-              }}
-              style={{ marginRight: "1rem" }}
-              className="pretty-checkbox"
-            />
-            <button
-              onClick={() => toggleGroup(packName)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              {collapsedGroups[packName] ? "▶" : "▼"}
-            </button>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: "1.25rem",
-                color: "#222",
-              }}
-            >
-              {packName}
-            </span>
-            {collaborators && (
-              <div
-                style={{
-                  marginTop: "4px",
-                  fontSize: "0.85rem",
-                  color: "#666",
-                  fontStyle: "italic",
-                }}
-              >
-                Collaboration with: {collaborators.join(", ")}
-              </div>
-            )}
-            {validSongsInPack[0]?.pack_id &&
-              validSongsInPack[0]?.pack_owner_username === user?.username && (
-                <button
-                  onClick={() => {
-                    setSelectedItemForCollaboration({
-                      type: "pack",
-                      id: validSongsInPack[0].pack_id,
-                      name: packName,
-                    });
-                    setCollaborationType("pack");
-                    setShowCollaborationModal(true);
-                  }}
-                  style={{
-                    marginLeft: "auto",
-                    background: "#28a745",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    padding: "0.25rem 0.5rem",
-                    cursor: "pointer",
-                    fontSize: "0.75rem",
-                  }}
-                  title="Manage pack collaborations"
-                >
-                  Manage Collaborations
-                </button>
-              )}
-          </td>
-        </tr>
+        <PackHeader
+          packName={packName}
+          validSongsInPack={validSongsInPack}
+          selectedSongs={selectedSongs}
+          setSelectedSongs={setSelectedSongs}
+          collapsedGroups={collapsedGroups}
+          toggleGroup={toggleGroup}
+          seriesInfo={seriesInfo}
+          validSeries={validSeries}
+          // Placeholder props for now - these can be added later if needed
+          canMakeDoubleAlbumSeries={false}
+          albumsWithEnoughSongs={[]}
+          onMakeDoubleAlbumSeries={() => {}}
+          onShowAlbumSeriesModal={() => {}}
+          onBulkEdit={onBulkEdit || (() => {})}
+          onBulkDelete={onBulkDelete || (() => {})}
+          onBulkEnhance={onBulkEnhance || (() => {})}
+          onStartWork={onStartWork || (() => {})}
+          onCleanTitles={onCleanTitles || (() => {})}
+          artistImageUrl=""
+          mostCommonArtist=""
+          showAlbumSeriesButton={false}
+          status={status}
+          user={user}
+          setShowCollaborationModal={setShowCollaborationModal}
+          setSelectedItemForCollaboration={setSelectedItemForCollaboration}
+          setCollaborationType={setCollaborationType}
+        />
 
         {!collapsedGroups[packName] &&
           validSongsInPack.map((song) => (
@@ -151,6 +141,7 @@ const SongTable = ({
               spotifyOptions={spotifyOptions}
               setSpotifyOptions={setSpotifyOptions}
               applySpotifyEnhancement={applySpotifyEnhancement}
+              status={status}
             />
           ))}
       </React.Fragment>
@@ -221,6 +212,23 @@ const SongTable = ({
             >
               {artist}
             </span>
+
+            {/* Bulk actions for artist group if any song in the group is selected */}
+            {allSongsInArtist.some((s) => selectedSongs.includes(s.id)) && (
+              <span style={{ marginLeft: "1rem" }}>
+                <BulkActions
+                  selectedSongs={selectedSongs}
+                  onBulkEdit={onBulkEdit}
+                  onBulkDelete={onBulkDelete}
+                  onBulkEnhance={onBulkEnhance}
+                  onStartWork={onStartWork}
+                  onCleanTitles={onCleanTitles}
+                  showAlbumSeriesButton={false}
+                  showDoubleAlbumSeriesButton={false}
+                  status={status}
+                />
+              </span>
+            )}
           </td>
         </tr>
 
@@ -266,6 +274,23 @@ const SongTable = ({
                       💿 <em>{album || "Unknown Album"}</em> (
                       {songsInAlbum.length})
                     </div>
+
+                    {/* Bulk actions for album group if any song in the album is selected */}
+                    {songsInAlbum.some((s) => selectedSongs.includes(s.id)) && (
+                      <div style={{ flex: "0 0 auto", marginLeft: "1rem" }}>
+                        <BulkActions
+                          selectedSongs={selectedSongs}
+                          onBulkEdit={onBulkEdit}
+                          onBulkDelete={onBulkDelete}
+                          onBulkEnhance={onBulkEnhance}
+                          onStartWork={onStartWork}
+                          onCleanTitles={onCleanTitles}
+                          showAlbumSeriesButton={false}
+                          showDoubleAlbumSeriesButton={false}
+                          status={status}
+                        />
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>

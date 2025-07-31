@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import SongTable from "./components/SongTable";
-import BulkActionsToolbar from "./components/BulkActionsToolbar";
 import PageHeader from "./components/PageHeader";
 import BulkEditModal from "./components/BulkEditModal";
 import CustomAlert from "./components/CustomAlert";
@@ -269,16 +268,6 @@ function SongPage({ status }) {
         toggleAllGroups={toggleAllGroups}
       />
 
-      <BulkActionsToolbar
-        selectedSongs={selectedSongs}
-        songs={songs}
-        onBulkEdit={() => {
-          setShowBulkModal(true);
-        }}
-        onStartWork={handleStartWork}
-        status={status}
-      />
-
       <SongTable
         songs={songs}
         selectedSongs={selectedSongs}
@@ -305,6 +294,12 @@ function SongPage({ status }) {
         setShowCollaborationModal={setShowCollaborationModal}
         setSelectedItemForCollaboration={setSelectedItemForCollaboration}
         setCollaborationType={setCollaborationType}
+        status={status}
+        onBulkEdit={() => setShowBulkModal(true)}
+        onStartWork={handleStartWork}
+        onBulkDelete={() => {}} // Placeholder for now
+        onBulkEnhance={() => {}} // Placeholder for now
+        onCleanTitles={() => {}} // Placeholder for now
       />
 
       {/* Modals */}

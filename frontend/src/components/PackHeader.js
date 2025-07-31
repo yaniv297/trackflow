@@ -21,7 +21,12 @@ const PackHeader = ({
   onCleanTitles,
   artistImageUrl,
   mostCommonArtist,
-  showAlbumSeriesButton
+  showAlbumSeriesButton,
+  status,
+  user,
+  setShowCollaborationModal,
+  setSelectedItemForCollaboration,
+  setCollaborationType,
 }) => {
   return (
     <tr className="group-header">
@@ -29,15 +34,11 @@ const PackHeader = ({
       <td style={{ width: "40px", textAlign: "center" }}>
         <input
           type="checkbox"
-          checked={validSongsInPack.every((s) =>
-            selectedSongs.includes(s.id)
-          )}
+          checked={validSongsInPack.every((s) => selectedSongs.includes(s.id))}
           onChange={(e) => {
             const songIds = validSongsInPack.map((s) => s.id);
             if (e.target.checked) {
-              setSelectedSongs((prev) => [
-                ...new Set([...prev, ...songIds]),
-              ]);
+              setSelectedSongs((prev) => [...new Set([...prev, ...songIds])]);
             } else {
               setSelectedSongs((prev) =>
                 prev.filter((id) => !songIds.includes(id))
@@ -47,7 +48,7 @@ const PackHeader = ({
           className="pretty-checkbox"
         />
       </td>
-      
+
       {/* Second column: expand/collapse, pack name, bulk actions */}
       <td
         colSpan="8"
@@ -78,7 +79,7 @@ const PackHeader = ({
               }}
             />
           )}
-          
+
           <button
             onClick={() => toggleGroup(packName)}
             style={{
@@ -91,7 +92,7 @@ const PackHeader = ({
           >
             {collapsedGroups[packName] ? "▶" : "▼"}
           </button>
-          
+
           <span style={{ flex: 1 }}>
             {validSeries.length === 1 ? (
               <a
@@ -177,11 +178,13 @@ const PackHeader = ({
                 🎵 Create Album Series
               </button>
             )}
-            
+
             {/* Make Double Album Series Button */}
             {canMakeDoubleAlbumSeries && (
               <button
-                onClick={() => onMakeDoubleAlbumSeries(packName, albumsWithEnoughSongs)}
+                onClick={() =>
+                  onMakeDoubleAlbumSeries(packName, albumsWithEnoughSongs)
+                }
                 style={{
                   background: "#FF6B35",
                   color: "white",
@@ -198,12 +201,40 @@ const PackHeader = ({
                 🎵🎵 Make Double Album Series
               </button>
             )}
+
+            {/* Manage Collaborations Button - Only show for Future Plans and pack owners */}
+            {status === "Future Plans" &&
+              validSongsInPack[0]?.pack_owner_username === user?.username && (
+                <button
+                  onClick={() => {
+                    setSelectedItemForCollaboration({
+                      type: "pack",
+                      id: validSongsInPack[0].pack_id,
+                      name: packName,
+                    });
+                    setCollaborationType("pack");
+                    setShowCollaborationModal(true);
+                  }}
+                  style={{
+                    background: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "0.28rem 0.9rem",
+                    cursor: "pointer",
+                    fontSize: "0.98rem",
+                    fontWeight: 600,
+                    transition: "background 0.2s, border 0.2s",
+                  }}
+                  title="Manage pack collaborations"
+                >
+                  👥 Manage Collaborations
+                </button>
+              )}
           </span>
 
           {/* Bulk actions for this group if any song in the group is selected */}
-          {validSongsInPack.some((s) =>
-            selectedSongs.includes(s.id)
-          ) && (
+          {validSongsInPack.some((s) => selectedSongs.includes(s.id)) && (
             <BulkActions
               selectedSongs={selectedSongs}
               onBulkEdit={onBulkEdit}
@@ -213,6 +244,7 @@ const PackHeader = ({
               onCleanTitles={onCleanTitles}
               showAlbumSeriesButton={false} // Already shown above
               showDoubleAlbumSeriesButton={false} // Already shown above
+              status={status}
             />
           )}
         </span>
@@ -221,4 +253,4 @@ const PackHeader = ({
   );
 };
 
-export default PackHeader; 
+export default PackHeader;

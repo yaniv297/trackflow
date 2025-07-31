@@ -1,7 +1,7 @@
 import React from "react";
 import EditableCell from "./EditableCell";
 import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
-import UserDropdown from "./UserDropdown";
+import SmartDropdown from "./SmartDropdown";
 import { useAuth } from "../contexts/AuthContext";
 
 // Color palette for collaborators
@@ -55,6 +55,7 @@ export default function SongRow({
   spotifyOptions,
   setSpotifyOptions,
   applySpotifyEnhancement,
+  status,
 }) {
   const { user } = useAuth();
   return (
@@ -149,7 +150,7 @@ export default function SongRow({
           isEditable={song.is_editable}
         />
         <EditableCell
-          value={song.pack}
+          value={song.pack_name || ""}
           songId={song.id}
           field="pack"
           editing={editing}
@@ -183,18 +184,27 @@ export default function SongRow({
         {/* Collaborations */}
         <td
           className="editable-cell"
-          onClick={() =>
-            song.is_editable &&
-            setEditing({ [`${song.id}_collaborations`]: true })
-          }
+          onClick={() => {
+            // Only allow editing for Released songs (not Future Plans)
+            if (status !== "Future Plans" && song.is_editable) {
+              setEditing({ [`${song.id}_collaborations`]: true });
+            }
+          }}
           style={{
-            cursor: song.is_editable ? "pointer" : "default",
-            opacity: song.is_editable ? 1 : 0.6,
-            backgroundColor: song.is_editable ? "transparent" : "#f8f9fa",
+            cursor:
+              status !== "Future Plans" && song.is_editable
+                ? "pointer"
+                : "default",
+            opacity: status !== "Future Plans" && song.is_editable ? 1 : 0.6,
+            backgroundColor:
+              status !== "Future Plans" && song.is_editable
+                ? "transparent"
+                : "#f8f9fa",
           }}
         >
-          {editing[`${song.id}_collaborations`] ? (
-            <UserDropdown
+          {editing[`${song.id}_collaborations`] && status !== "Future Plans" ? (
+            <SmartDropdown
+              type="collaborations"
               value={
                 editValues[`${song.id}_collaborations`] ??
                 (song.collaborations && song.collaborations.length > 0
@@ -204,17 +214,17 @@ export default function SongRow({
                       .join(", ")
                   : "")
               }
-              onChange={(e) =>
+              onChange={(value) =>
                 setEditValues((prev) => ({
                   ...prev,
-                  [`${song.id}_collaborations`]: e.target.value,
+                  [`${song.id}_collaborations`]: value,
                 }))
               }
               onBlur={() => saveEdit(song.id, "collaborations")}
               onKeyDown={(e) => {
                 if (e.key === "Enter") saveEdit(song.id, "collaborations");
               }}
-              autoFocus
+              placeholder="Select or add collaborators..."
             />
           ) : (
             <div
@@ -245,7 +255,9 @@ export default function SongRow({
                     </span>
                   ))
               ) : (
-                <span style={{ color: "#ccc", fontSize: "0.85rem" }}>None</span>
+                <span style={{ color: "#ccc", fontSize: "0.85rem" }}>
+                  {status === "Future Plans" ? "Managed via pack" : "None"}
+                </span>
               )}
             </div>
           )}

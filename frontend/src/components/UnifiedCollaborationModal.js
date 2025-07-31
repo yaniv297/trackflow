@@ -299,6 +299,59 @@ const UnifiedCollaborationModal = ({
     return collab.collaboration_type?.replace("_", " ") || "Unknown";
   };
 
+  // Group collaborators by user to show one entry per user with their combined permissions
+  const getGroupedCollaborators = () => {
+    const grouped = {};
+
+    collaborators.forEach((collab) => {
+      if (!grouped[collab.user_id]) {
+        grouped[collab.user_id] = {
+          user_id: collab.user_id,
+          username: collab.username,
+          pack_permissions: [],
+          song_permissions: [],
+        };
+      }
+
+      if (
+        collab.collaboration_type === "pack_edit" ||
+        collab.collaboration_type === "pack_view"
+      ) {
+        grouped[collab.user_id].pack_permissions.push(
+          collab.collaboration_type
+        );
+      } else if (collab.collaboration_type === "song_edit" && collab.song_id) {
+        grouped[collab.user_id].song_permissions.push(collab.song_id);
+      }
+    });
+
+    return Object.values(grouped).filter(
+      (group) =>
+        group.pack_permissions.length > 0 && // Must have at least pack permission
+        !pendingRemovals.some((removal) => removal.user_id === group.user_id) // Not in pending removals
+    );
+  };
+
+  const getGroupedPermissionDescription = (group) => {
+    const hasPackEdit = group.pack_permissions.includes("pack_edit");
+    const hasPackView = group.pack_permissions.includes("pack_view");
+
+    if (hasPackEdit) {
+      return "Full permissions (pack view + edit)";
+    } else if (hasPackView && group.song_permissions.length > 0) {
+      const songTitles = group.song_permissions
+        .map((songId) => {
+          const song = packSongs.find((ps) => ps.id === songId);
+          return song ? song.title : `Song ${songId}`;
+        })
+        .join(", ");
+      return `Pack view + song edit for: ${songTitles}`;
+    } else if (hasPackView) {
+      return "Pack view only";
+    }
+    return "Unknown permissions";
+  };
+
   if (!isOpen) return null;
 
   const getTitle = () => {
@@ -594,67 +647,50 @@ const UnifiedCollaborationModal = ({
             <p>Loading collaborators...</p>
           ) : (
             <>
-              {/* Only show pack_edit collaborations, filtered by pending removals */}
-              {collaborators.filter(
-                (collab) =>
-                  collab.collaboration_type === "pack_edit" &&
-                  !pendingRemovals.some(
-                    (removal) => removal.user_id === collab.user_id
-                  )
-              ).length === 0 ? (
+              {getGroupedCollaborators().length === 0 ? (
                 <p style={{ color: "#666", fontStyle: "italic" }}>
                   No collaborators yet.
                 </p>
               ) : (
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                  {collaborators
-                    .filter(
-                      (collab) =>
-                        collab.collaboration_type === "pack_edit" &&
-                        !pendingRemovals.some(
-                          (removal) => removal.user_id === collab.user_id
-                        )
-                    )
-                    .map((collab) => (
-                      <li
-                        key={collab.id}
+                  {getGroupedCollaborators().map((group) => (
+                    <li
+                      key={group.user_id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "0.5rem",
+                        border: "1px solid #eee",
+                        borderRadius: "4px",
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontWeight: "500" }}>
+                          {group.username}
+                        </span>
+                        <div style={{ fontSize: "0.8rem", color: "#666" }}>
+                          {getGroupedPermissionDescription(group)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveCollaborator(group.user_id)}
+                        disabled={loading}
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "0.5rem",
-                          border: "1px solid #eee",
+                          padding: "0.25rem 0.5rem",
+                          background: "#dc3545",
+                          color: "white",
+                          border: "none",
                           borderRadius: "4px",
-                          marginBottom: "0.5rem",
+                          cursor: "pointer",
+                          fontSize: "0.8rem",
                         }}
                       >
-                        <div>
-                          <span style={{ fontWeight: "500" }}>
-                            {collab.username}
-                          </span>
-                          <div style={{ fontSize: "0.8rem", color: "#666" }}>
-                            {getPermissionDescription(collab)}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() =>
-                            handleRemoveCollaborator(collab.user_id)
-                          }
-                          disabled={loading}
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            background: "#dc3545",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "0.8rem",
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </li>
-                    ))}
+                        Remove
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               )}
             </>

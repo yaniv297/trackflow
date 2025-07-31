@@ -111,7 +111,60 @@ function WipPage() {
     useState(null);
   const [collaborationType, setCollaborationType] = useState("pack");
   const [userCollaborations, setUserCollaborations] = useState([]);
+  const [collaborationsOnMyPacks, setCollaborationsOnMyPacks] = useState([]);
   const [fireworksTrigger, setFireworksTrigger] = useState(0);
+
+  // Helper function to get list of collaborating users for a pack
+  const getPackCollaborators = (packId, validSongsInPack) => {
+    if (!packId) return null;
+
+    const collaborators = new Set();
+
+    // Check if current user is a collaborator - add pack owner
+    const isCollaborator = userCollaborations.some(
+      (collab) =>
+        collab.pack_id === packId &&
+        (collab.collaboration_type === "pack_view" ||
+          collab.collaboration_type === "pack_edit")
+    );
+
+    if (isCollaborator) {
+      const packOwner =
+        validSongsInPack[0]?.pack_owner_username ||
+        validSongsInPack[0]?.author ||
+        "unknown";
+      collaborators.add(packOwner);
+    }
+
+    // Check if current user owns pack - add all collaborators
+    const myPackCollabs = collaborationsOnMyPacks.filter(
+      (collab) =>
+        collab.pack_id === packId &&
+        (collab.collaboration_type === "pack_view" ||
+          collab.collaboration_type === "pack_edit")
+    );
+
+    myPackCollabs.forEach((collab) => {
+      collaborators.add(collab.username);
+    });
+
+    // Also check for individual song collaborations within this pack
+    // Look through songs in the pack for any that have collaborations
+    validSongsInPack.forEach((song) => {
+      if (song.collaborations && song.collaborations.length > 0) {
+        song.collaborations.forEach((collab) => {
+          if (collab.collaboration_type === "song_edit") {
+            collaborators.add(collab.username);
+          }
+        });
+      }
+    });
+
+    // Filter out current user - you don't collaborate with yourself
+    collaborators.delete(user?.username);
+
+    return collaborators.size > 0 ? Array.from(collaborators) : null;
+  };
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
     title: "",
@@ -160,15 +213,27 @@ function WipPage() {
 
   // Load user collaborations for the current user
   useEffect(() => {
-    apiGet("/collaborations/my-collaborations")
-      .then((data) => {
-        console.log("WipPage - Loaded user collaborations:", data);
-        console.log("WipPage - Current user:", user);
-        setUserCollaborations(data);
-      })
-      .catch((err) =>
-        console.error("Failed to fetch user collaborations:", err)
-      );
+    if (user) {
+      // Fetch collaborations where current user is a collaborator
+      apiGet("/collaborations/my-collaborations")
+        .then((data) => {
+          console.log("WipPage - Loaded user collaborations:", data);
+          setUserCollaborations(data);
+        })
+        .catch((err) =>
+          console.error("Failed to fetch user collaborations:", err)
+        );
+
+      // Fetch collaborations on packs owned by current user
+      apiGet("/collaborations/on-my-packs")
+        .then((data) => {
+          console.log("WipPage - Loaded collaborations on my packs:", data);
+          setCollaborationsOnMyPacks(data);
+        })
+        .catch((err) =>
+          console.error("Failed to fetch collaborations on my packs:", err)
+        );
+    }
   }, [user]);
 
   const grouped = useMemo(() => {
@@ -709,11 +774,12 @@ function WipPage() {
                   ))}
                 </>
               ) : (
-                <span>
-                  {`${packName} (${totalSongs} song${
-                    totalSongs !== 1 ? "s" : ""
-                  })`}
-                  {/* Show collaboration tag if user is a collaborator on this pack */}
+                <div>
+                  <span>
+                    {`${packName} (${totalSongs} song${
+                      totalSongs !== 1 ? "s" : ""
+                    })`}
+                  </span>
                   {(() => {
                     // For album series, get pack_id from the album series relationship
                     let packId = grouped.find((p) => p.pack === packName)
@@ -733,57 +799,30 @@ function WipPage() {
                       }
                     }
 
-                    const isCollaborator =
-                      packId &&
-                      userCollaborations.some(
-                        (collab) =>
-                          collab.pack_id === packId &&
-                          (collab.collaboration_type === "pack_view" ||
-                            collab.collaboration_type === "pack_edit")
-                      );
-                    console.log(
-                      `WipPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
-                      {
-                        userCollaborations: userCollaborations,
-                        packId: packId,
-                        songsInPack: grouped
-                          .find((p) => p.pack === packName)
-                          ?.allSongs.slice(0, 2), // First 2 songs for debugging
-                      }
+                    const validSongsInPack =
+                      grouped.find((p) => p.pack === packName)?.allSongs || [];
+                    const collaborators = getPackCollaborators(
+                      packId,
+                      validSongsInPack
                     );
 
-                    if (isCollaborator) {
-                      // Get the pack owner username from the song data
-                      const packOwnerUsername =
-                        grouped.find((p) => p.pack === packName)?.allSongs[0]
-                          ?.pack_owner_username ||
-                        grouped.find((p) => p.pack === packName)?.allSongs[0]
-                          ?.author ||
-                        "unknown";
-
+                    if (collaborators && collaborators.length > 0) {
                       return (
-                        <span
+                        <div
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            background: "#e8f5e8",
-                            color: "#2d5a2d",
-                            borderRadius: "12px",
-                            padding: "0.15rem 0.5rem",
-                            fontWeight: 500,
-                            fontSize: "0.8rem",
-                            marginLeft: "0.5rem",
-                            border: "1px solid #c3e6c3",
+                            fontSize: "0.75rem",
+                            color: "#666",
+                            fontStyle: "italic",
+                            marginTop: "0.15rem",
                           }}
-                          title={`Collaborating with ${packOwnerUsername}`}
                         >
-                          🤝 collab with {packOwnerUsername}
-                        </span>
+                          Collaboration with: {collaborators.join(", ")}
+                        </div>
                       );
                     }
                     return null;
                   })()}
-                </span>
+                </div>
               )}
               {/* Progress bar and percent always visible in header */}
               <div
@@ -826,7 +865,7 @@ function WipPage() {
               <div
                 style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}
               >
-                {/* Invite Collab Button - Only show for pack owners */}
+                {/* Manage Collaborations Button - Only show for pack owners */}
                 {grouped.find((p) => p.pack === packName)?.allSongs[0]
                   ?.pack_owner_id === user?.id && (
                   <button
@@ -871,9 +910,9 @@ function WipPage() {
                       gap: "0.25rem",
                       fontWeight: 500,
                     }}
-                    title="Invite collaborators to this pack"
+                    title="Manage collaborations for this pack"
                   >
-                    👥 Invite Collab
+                    👥 Manage Collaborations
                   </button>
                 )}
 
@@ -1553,11 +1592,22 @@ function WipPage() {
         }}
         currentUser={user}
         onCollaborationSaved={() => {
-          // Refresh collaborations data and reload songs
-          apiGet("/collaborations/my-collaborations")
-            .then((data) => {
-              console.log("WipPage - Refreshed user collaborations:", data);
-              setUserCollaborations(data);
+          // Refresh both types of collaborations data and reload songs
+          Promise.all([
+            apiGet("/collaborations/my-collaborations"),
+            apiGet("/collaborations/on-my-packs"),
+          ])
+            .then(([userCollabs, myPackCollabs]) => {
+              console.log(
+                "WipPage - Refreshed user collaborations:",
+                userCollabs
+              );
+              console.log(
+                "WipPage - Refreshed collaborations on my packs:",
+                myPackCollabs
+              );
+              setUserCollaborations(userCollabs);
+              setCollaborationsOnMyPacks(myPackCollabs);
               // Reload songs to get updated permissions
               apiGet("/songs/?status=In%20Progress")
                 .then((songsData) => {
@@ -1566,7 +1616,7 @@ function WipPage() {
                 .catch((err) => console.error("Failed to refresh songs:", err));
             })
             .catch((err) =>
-              console.error("Failed to refresh user collaborations:", err)
+              console.error("Failed to refresh collaborations:", err)
             );
         }}
       />

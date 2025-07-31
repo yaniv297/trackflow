@@ -28,7 +28,7 @@ const collaboratorColors = [
 
 // Function to get consistent color for each collaborator
 const getCollaboratorColor = (collaboratorName) => {
-  // Safety check for undefined or null values
+  // Handle undefined or null collaborator names
   if (!collaboratorName || typeof collaboratorName !== "string") {
     return collaboratorColors[0]; // Return first color as fallback
   }
@@ -202,8 +202,8 @@ export default function SongRow({
                 editValues[`${song.id}_collaborations`] ??
                 (song.collaborations && song.collaborations.length > 0
                   ? song.collaborations
-                      .filter((collab) => collab.author !== user.username)
-                      .map((collab) => collab.author)
+                      .filter((collab) => collab.username !== user.username)
+                      .map((collab) => collab.username)
                       .join(", ")
                   : "")
               }
@@ -230,12 +230,12 @@ export default function SongRow({
             >
               {song.collaborations && song.collaborations.length > 0 ? (
                 song.collaborations
-                  .filter((collab) => collab.author !== user.username)
+                  .filter((collab) => collab.username !== user.username)
                   .map((collab) => (
                     <span
                       key={collab.id}
                       style={{
-                        background: getCollaboratorColor(collab.author),
+                        background: getCollaboratorColor(collab.username),
                         color: "white",
                         padding: "2px 6px",
                         borderRadius: "12px",
@@ -244,7 +244,7 @@ export default function SongRow({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {collab.author}
+                      {collab.username}
                     </span>
                   ))
               ) : (

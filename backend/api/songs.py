@@ -33,6 +33,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
 def get_filtered_songs(
     status: Optional[SongStatus] = Query(None),
     query: Optional[str] = Query(None),
+    pack_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_active_user)
 ):
@@ -72,6 +73,9 @@ def get_filtered_songs(
 
     if status:
         q = q.filter(Song.status == status)
+
+    if pack_id:
+        q = q.filter(Song.pack_id == pack_id)
 
     if query:
         pattern = f"%{query}%"
@@ -199,9 +203,10 @@ def delete_song(song_id: int, db: Session = Depends(get_db), current_user = Depe
     # Check if user has permission to delete this song
     can_delete = (
         song.user_id == current_user.id or  # User owns the song
-        db.query(SongCollaboration).filter(
-            SongCollaboration.song_id == song_id,
-            SongCollaboration.collaborator_id == current_user.id
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
         ).first() is not None  # User is a collaborator
     )
     
@@ -251,8 +256,7 @@ def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), c
     song_ids = [song.id for song in new_songs]
     songs_with_relations = db.query(Song).options(
         joinedload(Song.user),
-        joinedload(Song.pack_obj),
-        joinedload(Song.authoring)
+        joinedload(Song.pack_obj)
     ).filter(Song.id.in_(song_ids)).all()
     
     formatted_songs = []
@@ -283,10 +287,9 @@ def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), c
 def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     # Check if the song exists
     song = db.query(Song).options(
-        joinedload(Song.collaborations).joinedload(SongCollaboration.collaborator),
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
         joinedload(Song.user),  # Load the song owner
         joinedload(Song.pack_obj),  # Load the pack relationship
-        joinedload(Song.authoring)
     ).filter(Song.id == song_id).first()
     
     if not song:
@@ -295,14 +298,15 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
     # Check if user has permission to edit this song
     can_edit = (
         song.user_id == current_user.id or  # User owns the song
-        db.query(SongCollaboration).filter(
-            SongCollaboration.song_id == song_id,
-            SongCollaboration.collaborator_id == current_user.id
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
         ).first() is not None or  # User is a direct collaborator
-        db.query(SongPackCollaboration).filter(
-            SongPackCollaboration.song_id == song_id,
-            SongPackCollaboration.collaborator_id == current_user.id,
-            SongPackCollaboration.can_edit == True
+        db.query(Collaboration).filter(
+            Collaboration.pack_id == song.pack_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
         ).first() is not None  # User has edit access via pack collaboration
     )
     
@@ -312,7 +316,10 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
     # Handle collaborations update if provided
     if "collaborations" in updates:
         # Delete existing collaborations
-        db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).delete()
         
         # Add new collaborations
         collaborations = updates["collaborations"]
@@ -340,10 +347,10 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
                 # Find user by username
                 collaborator_user = db.query(User).filter(User.username == author).first()
                 if collaborator_user:
-                    db_collab = SongCollaboration(
+                    db_collab = Collaboration(
                         song_id=song_id,
-                        collaborator_id=collaborator_user.id,
-                        role=None
+                        user_id=collaborator_user.id,
+                        collaboration_type=CollaborationType.SONG_EDIT
                     )
                     db.add(db_collab)
         
@@ -366,19 +373,15 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
     if song.user:
         song_dict["author"] = song.user.username
     
-    # Attach authoring if it exists
-    if hasattr(song, "authoring") and song.authoring:
-        song_dict["authoring"] = song.authoring
-    
     # Attach collaborations with username lookup
     if hasattr(song, "collaborations"):
         collaborations_with_username = []
         for collab in song.collaborations:
             collab_dict = {
                 "id": collab.id,
-                "collaborator_id": collab.collaborator_id,
-                "author": collab.collaborator.username,  # Add username for frontend compatibility
-                "role": collab.role,
+                "user_id": collab.user_id,
+                "username": collab.user.username,  # Add username for frontend compatibility
+                "collaboration_type": collab.collaboration_type.value,
                 "created_at": collab.created_at
             }
             collaborations_with_username.append(collab_dict)
@@ -401,34 +404,37 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
     
     # Determine if song is editable and add collaboration info (same logic as get_filtered_songs)
     is_owner = song.user_id == current_user.id
-    is_song_collaborator = db.query(SongCollaboration).filter(
-        SongCollaboration.song_id == song.id,
-        SongCollaboration.collaborator_id == current_user.id
+    is_song_collaborator = db.query(Collaboration).filter(
+        Collaboration.song_id == song.id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
     ).first() is not None
     
-    # Check song-level pack collaboration
-    song_pack_collab = db.query(SongPackCollaboration).filter(
-        SongPackCollaboration.song_id == song.id,
-        SongPackCollaboration.collaborator_id == current_user.id
-    ).first()
+    # Check if user has pack edit collaboration
+    has_pack_edit = db.query(Collaboration).filter(
+        Collaboration.pack_id == song.pack_id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+    ).first() is not None
     
-    # Check if user has any collaboration on this pack (for read-only access)
-    has_pack_collaboration = db.query(SongPackCollaboration).filter(
-        SongPackCollaboration.pack_id == song.pack_id,
-        SongPackCollaboration.collaborator_id == current_user.id
+    # Check if user has any pack collaboration (for read-only access)
+    has_pack_collaboration = db.query(Collaboration).filter(
+        Collaboration.pack_id == song.pack_id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
     ).first() is not None
     
     # Song is editable if user owns it, is a direct collaborator, or has edit access via pack collaboration
-    song_dict["is_editable"] = is_owner or is_song_collaborator or (song_pack_collab and song_pack_collab.can_edit)
+    song_dict["is_editable"] = is_owner or is_song_collaborator or has_pack_edit
     
     # Add pack collaboration info if user has access via pack collaboration
-    if song_pack_collab:
+    if has_pack_edit:
         song_dict["pack_collaboration"] = {
-            "can_edit": song_pack_collab.can_edit,
-            "pack_id": song_pack_collab.pack_id
+            "can_edit": True,
+            "pack_id": song.pack_id
         }
     elif has_pack_collaboration and song.pack_id:
-        # User has collaboration on this pack but not this specific song (read-only)
+        # User has collaboration on this pack but not edit access (read-only)
         song_dict["pack_collaboration"] = {
             "can_edit": False,
             "pack_id": song.pack_id
@@ -472,9 +478,10 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
     # Check if user has permission to modify collaborations
     can_modify = (
         song.user_id == current_user.id or  # User owns the song
-        db.query(SongCollaboration).filter(
-            SongCollaboration.song_id == song_id,
-            SongCollaboration.collaborator_id == current_user.id
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
         ).first() is not None  # User is a collaborator
     )
     
@@ -482,7 +489,10 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
         raise HTTPException(status_code=403, detail="You don't have permission to modify this song's collaborations")
     
     # Delete existing collaborations
-    db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+    db.query(Collaboration).filter(
+        Collaboration.song_id == song_id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).delete()
     
     # Add new collaborations
     collaborations = data.get("collaborations", [])
@@ -490,10 +500,10 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
         # Find user by username
         collaborator_user = db.query(User).filter(User.username == collab_data["author"]).first()
         if collaborator_user and collaborator_user.id != current_user.id:  # Don't add self as collaborator
-            db_collab = SongCollaboration(
+            db_collab = Collaboration(
                 song_id=song_id,
-                collaborator_id=collaborator_user.id,
-                role=None
+                user_id=collaborator_user.id,
+                collaboration_type=CollaborationType.SONG_EDIT
             )
             db.add(db_collab)
     
@@ -532,7 +542,9 @@ def get_collaborators_autocomplete(query: str = Query(""), db: Session = Depends
     if not query:
         return []
     
-    collaborators = db.query(User.username).join(SongCollaboration, User.id == SongCollaboration.collaborator_id).join(Song).filter(
+    collaborators = db.query(User.username).join(Collaboration, User.id == Collaboration.user_id).join(Song).filter(
+        Collaboration.song_id == Song.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
         Song.user_id == current_user.id,
         User.username.ilike(f"%{query}%"),
         User.username != current_user.username

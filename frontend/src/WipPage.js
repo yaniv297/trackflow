@@ -3,7 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import WipSongCard from "./components/WipSongCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
-import SongPackCollaborationModal from "./components/SongPackCollaborationModal";
+import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
 // Utility function to capitalize artist and album names
@@ -106,11 +106,11 @@ function WipPage() {
     cover_image_url: "",
     description: "",
   });
-  const [showPackCollaborationModal, setShowPackCollaborationModal] =
-    useState(false);
-  const [selectedPackForCollaboration, setSelectedPackForCollaboration] =
+  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
+  const [selectedItemForCollaboration, setSelectedItemForCollaboration] =
     useState(null);
-  const [packCollaborations, setPackCollaborations] = useState([]);
+  const [collaborationType, setCollaborationType] = useState("pack");
+  const [userCollaborations, setUserCollaborations] = useState([]);
   const [fireworksTrigger, setFireworksTrigger] = useState(0);
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
@@ -158,16 +158,16 @@ function WipPage() {
       });
   }, []);
 
-  // Load pack collaborations for the current user
+  // Load user collaborations for the current user
   useEffect(() => {
-    apiGet("/song-pack-collaborations/my-collaborations/")
+    apiGet("/collaborations/my-collaborations")
       .then((data) => {
-        console.log("WipPage - Loaded song pack collaborations:", data);
+        console.log("WipPage - Loaded user collaborations:", data);
         console.log("WipPage - Current user:", user);
-        setPackCollaborations(data);
+        setUserCollaborations(data);
       })
       .catch((err) =>
-        console.error("Failed to fetch song pack collaborations:", err)
+        console.error("Failed to fetch user collaborations:", err)
       );
   }, [user]);
 
@@ -735,13 +735,16 @@ function WipPage() {
 
                     const isCollaborator =
                       packId &&
-                      packCollaborations.some(
-                        (collab) => collab.pack_id === packId
+                      userCollaborations.some(
+                        (collab) =>
+                          collab.pack_id === packId &&
+                          (collab.collaboration_type === "pack_view" ||
+                            collab.collaboration_type === "pack_edit")
                       );
                     console.log(
                       `WipPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
                       {
-                        packCollaborations: packCollaborations,
+                        userCollaborations: userCollaborations,
                         packId: packId,
                         songsInPack: grouped
                           .find((p) => p.pack === packName)
@@ -847,11 +850,12 @@ function WipPage() {
                       }
 
                       if (packId) {
-                        setSelectedPackForCollaboration({
+                        setSelectedItemForCollaboration({
                           id: packId,
                           name: packName,
                         });
-                        setShowPackCollaborationModal(true);
+                        setCollaborationType("pack");
+                        setShowCollaborationModal(true);
                       }
                     }}
                     style={{
@@ -1523,17 +1527,29 @@ function WipPage() {
         </div>
       )}
 
-      {/* Song Pack Collaboration Modal */}
-      <SongPackCollaborationModal
-        packId={selectedPackForCollaboration?.id}
-        packName={selectedPackForCollaboration?.name}
-        songs={songs.filter(
-          (song) => song.pack_id === selectedPackForCollaboration?.id
-        )}
-        isOpen={showPackCollaborationModal}
+      {/* Unified Collaboration Modal */}
+      <UnifiedCollaborationModal
+        packId={
+          collaborationType === "pack" ? selectedItemForCollaboration?.id : null
+        }
+        packName={
+          collaborationType === "pack"
+            ? selectedItemForCollaboration?.name
+            : null
+        }
+        songId={
+          collaborationType === "song" ? selectedItemForCollaboration?.id : null
+        }
+        songTitle={
+          collaborationType === "song"
+            ? selectedItemForCollaboration?.name
+            : null
+        }
+        collaborationType={collaborationType}
+        isOpen={showCollaborationModal}
         onClose={() => {
-          setShowPackCollaborationModal(false);
-          setSelectedPackForCollaboration(null);
+          setShowCollaborationModal(false);
+          setSelectedItemForCollaboration(null);
         }}
       />
 

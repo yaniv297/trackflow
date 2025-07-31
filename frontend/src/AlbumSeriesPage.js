@@ -111,8 +111,8 @@ const AlbumSeriesPage = () => {
     }
     if (song.collaborations) {
       song.collaborations.forEach((collab) => {
-        if (collab.author && !authors.includes(collab.author)) {
-          authors.push(collab.author);
+        if (collab.username && !authors.includes(collab.username)) {
+          authors.push(collab.username);
         }
       });
     }

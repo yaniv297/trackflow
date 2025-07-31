@@ -5,7 +5,8 @@ import BulkActions from "./components/BulkActions";
 import CustomAlert from "./components/CustomAlert";
 import CustomPrompt from "./components/CustomPrompt";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
-import SongPackCollaborationModal from "./components/SongPackCollaborationModal";
+import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
+import UserDropdown from "./components/UserDropdown";
 import Fireworks from "./components/Fireworks";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
@@ -37,11 +38,11 @@ function SongPage({ status }) {
     onConfirm: null,
     placeholder: "",
   });
-  const [showPackCollaborationModal, setShowPackCollaborationModal] =
-    useState(false);
-  const [selectedPackForCollaboration, setSelectedPackForCollaboration] =
+  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
+  const [selectedItemForCollaboration, setSelectedItemForCollaboration] =
     useState(null);
-  const [packCollaborations, setPackCollaborations] = useState([]);
+  const [collaborationType, setCollaborationType] = useState("pack");
+  const [userCollaborations, setUserCollaborations] = useState([]);
 
   const statusOptions = [
     { label: "Future Plans", value: "Future Plans" },
@@ -643,24 +644,16 @@ function SongPage({ status }) {
     return () => clearTimeout(handler);
   }, [status, search]);
 
-  // Load pack collaborations for the current user
+  // Load user collaborations for the current user
   useEffect(() => {
-    apiGet("/song-pack-collaborations/my-collaborations/")
+    apiGet("/collaborations/my-collaborations")
       .then((data) => {
-        console.log("SongPage - Loaded song pack collaborations:", data);
+        console.log("SongPage - Loaded user collaborations:", data);
         console.log("SongPage - Current user:", user);
-        console.log(
-          "SongPage - Collaboration details:",
-          data.map((c) => ({
-            pack_id: c.pack_id,
-            pack_name: c.pack_name,
-            song_id: c.song_id,
-          }))
-        );
-        setPackCollaborations(data);
+        setUserCollaborations(data);
       })
       .catch((err) =>
-        console.error("Failed to fetch song pack collaborations:", err)
+        console.error("Failed to fetch user collaborations:", err)
       );
   }, [user]);
 
@@ -903,6 +896,12 @@ function SongPage({ status }) {
                     </option>
                   ))}
                 </select>
+              ) : bulkEditField === "collaborations" ? (
+                <UserDropdown
+                  value={bulkEditValue}
+                  onChange={(e) => setBulkEditValue(e.target.value)}
+                  placeholder="Select collaborators..."
+                />
               ) : (
                 <input
                   type={
@@ -1456,13 +1455,18 @@ function SongPage({ status }) {
 
                                     const isCollaborator =
                                       packId &&
-                                      packCollaborations.some(
-                                        (collab) => collab.pack_id === packId
+                                      userCollaborations.some(
+                                        (collab) =>
+                                          collab.pack_id === packId &&
+                                          (collab.collaboration_type ===
+                                            "pack_view" ||
+                                            collab.collaboration_type ===
+                                              "pack_edit")
                                       );
                                     console.log(
                                       `SongPage - Album Series Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
                                       {
-                                        packCollaborations: packCollaborations,
+                                        userCollaborations: userCollaborations,
                                         packId: packId,
                                         validSongsInPack:
                                           validSongsInPack.slice(0, 2), // First 2 songs for debugging
@@ -1560,13 +1564,18 @@ function SongPage({ status }) {
 
                                     const isCollaborator =
                                       packId &&
-                                      packCollaborations.some(
-                                        (collab) => collab.pack_id === packId
+                                      userCollaborations.some(
+                                        (collab) =>
+                                          collab.pack_id === packId &&
+                                          (collab.collaboration_type ===
+                                            "pack_view" ||
+                                            collab.collaboration_type ===
+                                              "pack_edit")
                                       );
                                     console.log(
                                       `SongPage - Double Album Series Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
                                       {
-                                        packCollaborations: packCollaborations,
+                                        userCollaborations: userCollaborations,
                                         packId: packId,
                                         validSongsInPack:
                                           validSongsInPack.slice(0, 2), // First 2 songs for debugging
@@ -1627,13 +1636,18 @@ function SongPage({ status }) {
 
                                     const isCollaborator =
                                       packId &&
-                                      packCollaborations.some(
-                                        (collab) => collab.pack_id === packId
+                                      userCollaborations.some(
+                                        (collab) =>
+                                          collab.pack_id === packId &&
+                                          (collab.collaboration_type ===
+                                            "pack_view" ||
+                                            collab.collaboration_type ===
+                                              "pack_edit")
                                       );
                                     console.log(
                                       `SongPage - Pack: "${packName}" (ID: ${packId}), isCollaborator: ${isCollaborator}`,
                                       {
-                                        packCollaborations: packCollaborations,
+                                        userCollaborations: userCollaborations,
                                         packId: packId,
                                         validSongsInPack:
                                           validSongsInPack.slice(0, 2), // First 2 songs for debugging
@@ -1645,10 +1659,12 @@ function SongPage({ status }) {
                                       console.log(
                                         `SongPage - Pack: "${packName}" (ID: ${packId}) - NO COLLABORATION`,
                                         {
-                                          packCollaborations:
-                                            packCollaborations.map((c) => ({
+                                          userCollaborations:
+                                            userCollaborations.map((c) => ({
                                               pack_id: c.pack_id,
-                                              pack_name: c.pack_name,
+                                              song_id: c.song_id,
+                                              collaboration_type:
+                                                c.collaboration_type,
                                             })),
                                           packId: packId,
                                           validSongsInPack:
@@ -1722,11 +1738,12 @@ function SongPage({ status }) {
                                       }
 
                                       if (packId) {
-                                        setSelectedPackForCollaboration({
+                                        setSelectedItemForCollaboration({
                                           id: packId,
                                           name: packName,
                                         });
-                                        setShowPackCollaborationModal(true);
+                                        setCollaborationType("pack");
+                                        setShowCollaborationModal(true);
                                       }
                                     }}
                                     style={{
@@ -2336,17 +2353,29 @@ function SongPage({ status }) {
         </div>
       )}
 
-      {/* Song Pack Collaboration Modal */}
-      <SongPackCollaborationModal
-        packId={selectedPackForCollaboration?.id}
-        packName={selectedPackForCollaboration?.name}
-        songs={songs.filter(
-          (song) => song.pack_id === selectedPackForCollaboration?.id
-        )}
-        isOpen={showPackCollaborationModal}
+      {/* Unified Collaboration Modal */}
+      <UnifiedCollaborationModal
+        packId={
+          collaborationType === "pack" ? selectedItemForCollaboration?.id : null
+        }
+        packName={
+          collaborationType === "pack"
+            ? selectedItemForCollaboration?.name
+            : null
+        }
+        songId={
+          collaborationType === "song" ? selectedItemForCollaboration?.id : null
+        }
+        songTitle={
+          collaborationType === "song"
+            ? selectedItemForCollaboration?.name
+            : null
+        }
+        collaborationType={collaborationType}
+        isOpen={showCollaborationModal}
         onClose={() => {
-          setShowPackCollaborationModal(false);
-          setSelectedPackForCollaboration(null);
+          setShowCollaborationModal(false);
+          setSelectedItemForCollaboration(null);
         }}
       />
 

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "./utils/api";
+import UserDropdown from "./components/UserDropdown";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -313,39 +314,11 @@ function NewSongForm() {
             >
               Collaborations (Optional)
             </label>
-            <input
-              name="collaborations"
-              placeholder="e.g., jphn, EdTanguy"
+            <UserDropdown
               value={form.collaborations}
               onChange={handleChange}
-              style={{
-                width: "100%",
-                padding: "0.75rem 1rem",
-                border: "2px solid #e1e5e9",
-                borderRadius: "8px",
-                fontSize: "1rem",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#007bff";
-                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "#e1e5e9";
-                e.target.style.boxShadow = "none";
-              }}
+              placeholder="Select collaborators..."
             />
-            <small
-              style={{
-                color: "#666",
-                fontSize: "0.85rem",
-                marginTop: "0.25rem",
-                display: "block",
-              }}
-            >
-              Format: author, author (e.g., jphn, EdTanguy)
-            </small>
           </div>
 
           <button

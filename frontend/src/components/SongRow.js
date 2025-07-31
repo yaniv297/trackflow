@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import EditableCell from "./EditableCell";
 import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
 import UserDropdown from "./UserDropdown";
 import { useAuth } from "../contexts/AuthContext";
-
-const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL || "http://localhost:8000";
 
 // Color palette for collaborators
 const collaboratorColors = [

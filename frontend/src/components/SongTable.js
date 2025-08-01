@@ -35,6 +35,7 @@ const SongTable = ({
   onBulkDelete,
   onBulkEnhance,
   onCleanTitles,
+  onSongAdded,
 }) => {
   const renderPackGroup = (packName, songsInPack) => {
     const validSongsInPack = songsInPack.filter(
@@ -114,6 +115,7 @@ const SongTable = ({
           setShowCollaborationModal={setShowCollaborationModal}
           setSelectedItemForCollaboration={setSelectedItemForCollaboration}
           setCollaborationType={setCollaborationType}
+          onSongAdded={onSongAdded}
         />
 
         {!collapsedGroups[packName] &&

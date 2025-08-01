@@ -300,6 +300,7 @@ function SongPage({ status }) {
         onBulkDelete={() => {}} // Placeholder for now
         onBulkEnhance={() => {}} // Placeholder for now
         onCleanTitles={() => {}} // Placeholder for now
+        onSongAdded={fetchSongs}
       />
 
       {/* Modals */}

@@ -23,11 +23,50 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     
     # Remove fields that don't exist in the Song model
     cleaned_song_data = {k: v for k, v in song_data.items() 
-                        if k in ['title', 'artist', 'album', 'pack', 'status', 'year', 'album_cover']}
+                        if k in ['title', 'artist', 'album', 'pack', 'pack_id', 'status', 'year', 'album_cover']}
     
     song_with_author = SongCreate(**cleaned_song_data)
     
-    return create_song_in_db(db, song_with_author, current_user)
+    # Create song and convert to proper response format
+    db_song = create_song_in_db(db, song_with_author, current_user)
+    
+    # Re-fetch the song with all relationships loaded
+    from sqlalchemy.orm import joinedload
+    db_song = db.query(Song).options(
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.user),  # Load the song owner
+        joinedload(Song.pack_obj).joinedload(Pack.user),  # Load the pack relationship and its owner
+    ).filter(Song.id == db_song.id).first()
+    
+    # Build result with proper formatting (similar to PATCH endpoint)
+    song_dict = db_song.__dict__.copy()
+    
+    # Set author from user relationship
+    if db_song.user:
+        song_dict["author"] = db_song.user.username
+    
+    # Attach collaborations if any
+    song_dict["collaborations"] = []
+    if hasattr(db_song, "collaborations"):
+        collaborations_with_username = []
+        for collab in db_song.collaborations:
+            collab_dict = {
+                "id": collab.id,
+                "user_id": collab.user_id,
+                "username": collab.user.username,
+                "collaboration_type": collab.collaboration_type.value,
+                "created_at": collab.created_at
+            }
+            collaborations_with_username.append(collab_dict)
+        song_dict["collaborations"] = collaborations_with_username
+    
+    # Attach pack data if it exists
+    if db_song.pack_obj:
+        song_dict["pack_name"] = db_song.pack_obj.name
+        song_dict["pack_owner_id"] = db_song.pack_obj.user_id
+        song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
+    
+    return SongOut(**song_dict)
 
 @router.get("/", response_model=list[SongOut])
 def get_filtered_songs(

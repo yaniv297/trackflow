@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { apiGet } from "../utils/api";
+import { useAuth } from "../contexts/AuthContext";
 
 const SmartDropdown = ({
   type,
@@ -13,6 +14,7 @@ const SmartDropdown = ({
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const { user: currentUser } = useAuth();
 
   const fetchOptions = async () => {
     setLoading(true);
@@ -53,7 +55,11 @@ const SmartDropdown = ({
         case "collaborations":
           const usersResponse = await apiGet("/auth/users/");
           const users = usersResponse.data || usersResponse;
-          data = users.map((user) => ({
+          // Filter out the current user
+          const filteredUsers = users.filter(
+            (user) => !currentUser || user.username !== currentUser.username
+          );
+          data = filteredUsers.map((user) => ({
             value: user.username,
             label: user.username,
           }));

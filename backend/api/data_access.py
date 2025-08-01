@@ -45,14 +45,16 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
             detail=f"Song '{song_data.get('title')}' by {song_data.get('artist')} already exists in your database"
         )
     
-    print(f"Creating song: {song_data.get('title')} by {song_data.get('artist')} with author: {song_data.get('author')}")
+    print(f"Creating song: {song_data.get('title')} by {song_data.get('artist')} with pack_id: {song_data.get('pack_id')}")
     
     # Ensure user_id is set
     song_data['user_id'] = user.id
     
     # Clean up song_data to remove fields that don't exist in the Song model
-    valid_fields = ['title', 'artist', 'album', 'pack', 'status', 'year', 'album_cover', 'user_id']
+    valid_fields = ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'user_id']
     cleaned_song_data = {k: v for k, v in song_data.items() if k in valid_fields}
+    
+    print(f"Cleaned song data: {cleaned_song_data}")
     
     db_song = Song(**cleaned_song_data)
     db.add(db_song)
@@ -84,7 +86,7 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
         db.commit()
     
     # Auto-create authoring row if song is "In Progress"
-    if db_song.status.value == "In Progress":
+    if db_song.status == "In Progress":
         db_authoring = AuthoringProgress(song_id=db_song.id)
         db.add(db_authoring)
         db.commit()
@@ -95,6 +97,23 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
         from api.spotify import auto_enhance_song
         if auto_enhance_song(db_song.id, db):
             print(f"Auto-enhanced song {db_song.id} with Spotify data")
+            
+            # Auto-clean remaster tags after enhancement
+            try:
+                from api.tools import clean_string
+                db.refresh(db_song)  # Refresh to get updated data from Spotify
+                
+                cleaned_title = clean_string(db_song.title)
+                cleaned_album = clean_string(db_song.album or "")
+                
+                if cleaned_title != db_song.title or cleaned_album != db_song.album:
+                    print(f"Cleaning remaster tags for song {db_song.id}")
+                    db_song.title = cleaned_title
+                    db_song.album = cleaned_album
+                    db.commit()
+                    print(f"Cleaned song {db_song.id}: title='{cleaned_title}', album='{cleaned_album}'")
+            except Exception as clean_error:
+                print(f"Failed to clean remaster tags for song {db_song.id}: {clean_error}")
         else:
             print(f"Auto-enhancement skipped for song {db_song.id}")
     except Exception as e:

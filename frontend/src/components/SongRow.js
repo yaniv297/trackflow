@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import EditableCell from "./EditableCell";
 import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
 import SmartDropdown from "./SmartDropdown";
+import CustomAlert from "./CustomAlert";
 import { useAuth } from "../contexts/AuthContext";
 
 // Color palette for collaborators
@@ -57,6 +58,7 @@ export default function SongRow({
   applySpotifyEnhancement,
   status,
 }) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { user } = useAuth();
   return (
     <>
@@ -287,7 +289,7 @@ export default function SongRow({
               <button onClick={() => fetchSpotifyOptions(song)}>Enhance</button>
             )}
             <button
-              onClick={() => handleDelete(song.id)}
+              onClick={() => setShowDeleteConfirm(true)}
               style={{
                 background: "transparent",
                 border: "none",
@@ -307,6 +309,20 @@ export default function SongRow({
         songId={song.id}
         options={spotifyOptions[song.id]}
         onApply={applySpotifyEnhancement}
+      />
+
+      <CustomAlert
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          handleDelete(song.id);
+          setShowDeleteConfirm(false);
+        }}
+        title="Delete Song"
+        message={`Are you sure you want to delete "${song.title}" by ${song.artist}?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
       />
     </>
   );

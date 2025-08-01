@@ -41,8 +41,7 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
       };
 
       // Create the song (auto-enhancement and auto-cleaning happen automatically)
-      const response = await apiPost("/songs/", songData);
-      const newSong = response;
+      await apiPost("/songs/", songData);
 
       window.showNotification?.(
         `Added "${formData.title}" to ${packName}`,

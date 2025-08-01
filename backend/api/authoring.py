@@ -5,7 +5,7 @@ from typing import List
 from database import get_db
 from schemas import AuthoringOut
 from api.data_access import get_authoring_by_song_id
-from models import Song, AuthoringProgress, WipCollaboration
+from models import Song, AuthoringProgress, WipCollaboration, Authoring
 from auth import get_current_active_user
 
 class EditPartsRequest(BaseModel):
@@ -31,9 +31,9 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
 
-    # Ensure authoring progress exists
+    # Ensure authoring exists
     if not song.authoring:
-        authoring = AuthoringProgress(song_id=song.id)
+        authoring = Authoring(song_id=song.id)
         db.add(authoring)
         db.commit()
         db.refresh(authoring)

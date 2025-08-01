@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { apiGet, apiPost, apiPatch } from "../utils/api";
-import WipCollaborationModal from "./WipCollaborationModal";
+import { apiGet, apiPost, apiPatch, apiPut } from "../utils/api";
+import UnifiedCollaborationModal from "./UnifiedCollaborationModal";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function WipSongCard({
   song,
@@ -31,14 +32,12 @@ export default function WipSongCard({
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [wipCollaborations, setWipCollaborations] = useState([]);
   const isOptional = song.optional;
+  const { user: currentUser } = useAuth();
 
   const loadWipCollaborations = useCallback(async () => {
     try {
       const response = await apiGet(`/authoring/${song.id}/wip-collaborations`);
-      if (response.ok) {
-        const data = await response.json();
-        setWipCollaborations(data.assignments || []);
-      }
+      setWipCollaborations(response.assignments || []);
     } catch (error) {
       console.error("Error loading WIP collaborations:", error);
     }
@@ -87,24 +86,30 @@ export default function WipSongCard({
     song.authoring[field] = !currentValue;
     setLocalAuthoring((prev) => ({ ...prev, [field]: newValue })); // trigger re-render
 
-    // Backend update
-    await apiPatch(`/authoring/${song.id}/`, { [field]: !currentValue });
+    // Backend update - use PUT method
+    try {
+      await apiPut(`/authoring/${song.id}`, { [field]: !currentValue });
 
-    setLocalAuthoring((prev) => ({
-      ...prev,
-      [field]: newValue,
-    }));
+      setLocalAuthoring((prev) => ({
+        ...prev,
+        [field]: newValue,
+      }));
 
-    if (onAuthoringUpdate) {
-      onAuthoringUpdate(song.id, field, newValue);
+      if (onAuthoringUpdate) {
+        onAuthoringUpdate(song.id, field, newValue);
+      }
+    } catch (error) {
+      console.error(`Error updating ${field}:`, error);
+      // Revert optimistic update on error
+      song.authoring[field] = currentValue;
+      setLocalAuthoring((prev) => ({ ...prev, [field]: currentValue }));
     }
   };
 
   const fetchSpotifyOptions = async () => {
     setLoadingSpotify(true);
     try {
-      const res = await apiGet(`/spotify/${song.id}/spotify-options`);
-      const data = await res.json();
+      const data = await apiGet(`/spotify/${song.id}/spotify-options`);
       setSpotifyOptions(data || []);
     } catch (err) {
       console.error("Spotify fetch failed", err);
@@ -116,8 +121,7 @@ export default function WipSongCard({
 
   const enhanceFromSpotify = async () => {
     try {
-      const response = await apiGet(`/spotify/${song.id}/spotify-options`);
-      const options = await response.json();
+      const options = await apiGet(`/spotify/${song.id}/spotify-options`);
       if (options.length === 0) {
         window.showNotification("Failed to fetch Spotify options.", "error");
         return;
@@ -144,12 +148,20 @@ export default function WipSongCard({
     }
     setEditing((prev) => ({ ...prev, [field]: false }));
 
-    apiPatch(`/songs/${song.id}/`, { [field]: value })
-      .then((res) => res.json())
+    apiPatch(`/songs/${song.id}`, { [field]: value })
       .then((updated) => {
-        setEditValues((prev) => ({ ...prev, [field]: updated[field] }));
+        // Update the local edit values and the song object
+        setEditValues((prev) => ({
+          ...prev,
+          [field]: updated[field] || value,
+        }));
+        // Also update the song object for immediate UI reflection
+        song[field] = updated[field] || value;
       })
-      .catch(() => window.showNotification("Update failed", "error"));
+      .catch((error) => {
+        console.error("Update failed:", error);
+        window.showNotification("Update failed", "error");
+      });
   };
 
   const renderEditable = (field, style = {}) => {
@@ -343,7 +355,7 @@ export default function WipSongCard({
                 <input
                   type="checkbox"
                   checked={isOptional}
-                  onChange={onToggleOptional}
+                  onChange={() => onToggleOptional(song.id, isOptional)}
                   style={{
                     marginRight: "0.25em",
                     accentColor: "#b0c4de",
@@ -656,98 +668,105 @@ export default function WipSongCard({
                   })}
                 </div>
               )}
-            </div>
 
-            {/* Action Links */}
-            <div
-              style={{
-                marginLeft: "0.2rem",
-                marginTop: "0.4rem",
-                fontSize: "0.91rem",
-                color: "#5a8fcf",
-                fontWeight: 400,
-                textAlign: "left",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              <button
-                onClick={() => setShowCollaborationModal(true)}
+              {/* Action Links */}
+              <div
                 style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "block",
-                  padding: 0,
-                  textDecoration: "none",
+                  marginLeft: "0.2rem",
+                  marginTop: "0.4rem",
+                  fontSize: "0.91rem",
+                  color: "#5a8fcf",
+                  fontWeight: 400,
                   textAlign: "left",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
                 }}
-                onMouseEnter={(e) =>
-                  (e.target.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
               >
-                {wipCollaborations.length > 0 ? "Edit Collab" : "Make Collab"}
-              </button>
-              <button
-                onClick={markAllDone}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "block",
-                  padding: 0,
-                  textDecoration: "none",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
-              >
-                Mark All Done
-              </button>
-              <button
-                onClick={fetchSpotifyOptions}
-                disabled={loadingSpotify}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "block",
-                  padding: 0,
-                  textDecoration: "none",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
-              >
-                {loadingSpotify ? "⏳ Loading..." : "Enhance from Spotify"}
-              </button>
+                <button
+                  onClick={() => setShowCollaborationModal(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "block",
+                    padding: 0,
+                    textDecoration: "none",
+                    textAlign: "left",
+                    color: "#5a8fcf",
+                    fontSize: "0.91rem",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.textDecoration = "underline")
+                  }
+                  onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
+                >
+                  {wipCollaborations.length > 0 ? "Edit Collab" : "Make Collab"}
+                </button>
+                <button
+                  onClick={markAllDone}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "block",
+                    padding: 0,
+                    textDecoration: "none",
+                    textAlign: "left",
+                    color: "#5a8fcf",
+                    fontSize: "0.91rem",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.textDecoration = "underline")
+                  }
+                  onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
+                >
+                  Mark All Done
+                </button>
+                <button
+                  onClick={fetchSpotifyOptions}
+                  disabled={loadingSpotify}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "block",
+                    padding: 0,
+                    textDecoration: "none",
+                    textAlign: "left",
+                    color: "#5a8fcf",
+                    fontSize: "0.91rem",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.textDecoration = "underline")
+                  }
+                  onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
+                >
+                  {loadingSpotify ? "⏳ Loading..." : "Enhance from Spotify"}
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* WIP Collaboration Modal */}
-      <WipCollaborationModal
-        song={song}
-        isOpen={showCollaborationModal}
-        onClose={() => setShowCollaborationModal(false)}
-        onSave={() => {
-          loadWipCollaborations();
-          if (onAuthoringUpdate) {
-            onAuthoringUpdate(
-              song.id,
-              "demucs",
-              localAuthoring.demucs || false
-            );
-          }
-        }}
-      />
+      {/* Enhanced Collaboration Modal */}
+      {showCollaborationModal && (
+        <UnifiedCollaborationModal
+          isOpen={showCollaborationModal}
+          onClose={() => setShowCollaborationModal(false)}
+          songId={song.id}
+          songTitle={song.title}
+          collaborationType="song"
+          currentUser={currentUser}
+          onCollaborationSaved={() => {
+            loadWipCollaborations();
+            if (onAuthoringUpdate) {
+              onAuthoringUpdate(song.id, "collaboration", true);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -60,12 +60,6 @@ export default function WipCollaborationModal({
 
   // Load existing WIP collaborations when modal opens
   useEffect(() => {
-    console.log(
-      "Modal useEffect triggered - isOpen:",
-      isOpen,
-      "song:",
-      song?.id
-    );
     if (isOpen && song) {
       loadWipCollaborations();
     }
@@ -182,10 +176,6 @@ export default function WipCollaborationModal({
     acc[assignment.collaborator].push(assignment.field);
     return acc;
   }, {});
-
-  console.log("Assignments state:", assignments);
-  console.log("Grouped assignments:", groupedAssignments);
-  console.log("Grouped assignments keys:", Object.keys(groupedAssignments));
 
   if (!isOpen) return null;
 

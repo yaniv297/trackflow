@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Artist', 'SongStatus', 'WipCollaboration']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -62,6 +62,7 @@ class Song(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     pack_id = Column(Integer, ForeignKey("packs.id"))
     album_series_id = Column(Integer, ForeignKey("album_series.id"))
+    optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -70,6 +71,7 @@ class Song(Base):
     album_series_obj = relationship("AlbumSeries", back_populates="songs")
     collaborations = relationship("Collaboration", back_populates="song")
     artist_obj = relationship("Artist", back_populates="songs")
+    authoring = relationship("Authoring", back_populates="song", uselist=False)
 
 class Collaboration(Base):
     __tablename__ = "collaborations"
@@ -128,13 +130,36 @@ class WipCollaboration(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     song_id = Column(Integer, ForeignKey("songs.id"))
-    collaborator_id = Column(Integer, ForeignKey("users.id"))
+    collaborator = Column(String)  # Username string for now
     field = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
     song = relationship("Song")
-    collaborator = relationship("User")
+
+class Authoring(Base):
+    __tablename__ = "authoring"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), unique=True)
+    demucs = Column(Boolean, default=False)
+    midi = Column(Boolean, default=False)
+    tempo_map = Column(Boolean, default=False)
+    fake_ending = Column(Boolean, default=False)
+    drums = Column(Boolean, default=False)
+    bass = Column(Boolean, default=False)
+    guitar = Column(Boolean, default=False)
+    vocals = Column(Boolean, default=False)
+    harmonies = Column(Boolean, default=False)
+    pro_keys = Column(Boolean, default=False)
+    keys = Column(Boolean, default=False)
+    animations = Column(Boolean, default=False)
+    drum_fills = Column(Boolean, default=False)
+    overdrive = Column(Boolean, default=False)
+    compile = Column(Boolean, default=False)
+    
+    # Relationships
+    song = relationship("Song", back_populates="authoring")
 
 class AuthoringProgress(Base):
     __tablename__ = "authoring_progress"

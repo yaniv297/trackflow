@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType
+from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring
 from auth import get_current_active_user
 from typing import Optional
 from typing import List
@@ -23,7 +23,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     
     # Remove fields that don't exist in the Song model
     cleaned_song_data = {k: v for k, v in song_data.items() 
-                        if k in ['title', 'artist', 'album', 'pack', 'pack_id', 'status', 'year', 'album_cover']}
+                        if k in ['title', 'artist', 'album', 'pack', 'pack_id', 'status', 'year', 'album_cover', 'optional']}
     
     song_with_author = SongCreate(**cleaned_song_data)
     
@@ -36,6 +36,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
         joinedload(Song.collaborations).joinedload(Collaboration.user),
         joinedload(Song.user),  # Load the song owner
         joinedload(Song.pack_obj).joinedload(Pack.user),  # Load the pack relationship and its owner
+        joinedload(Song.authoring)  # Load the authoring data
     ).filter(Song.id == db_song.id).first()
     
     # Build result with proper formatting (similar to PATCH endpoint)
@@ -81,7 +82,8 @@ def get_filtered_songs(
         joinedload(Song.artist_obj),
         joinedload(Song.user),  # Load the song owner
         joinedload(Song.pack_obj),  # Load the pack relationship
-        joinedload(Song.collaborations).joinedload(Collaboration.user)
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.authoring)  # Load the authoring data
     )
 
     # Filter to show songs owned by the current user OR where the current user is a collaborator
@@ -156,7 +158,13 @@ def get_filtered_songs(
         if song.user:
             song_dict["author"] = song.user.username
         
-        # Note: authoring relationship was removed in the unified collaboration system
+        # Include authoring data for completion tracking
+        if hasattr(song, "authoring") and song.authoring:
+            song_dict["authoring"] = song.authoring.__dict__.copy()
+            # Remove SQLAlchemy internal fields
+            song_dict["authoring"].pop("_sa_instance_state", None)
+        else:
+            song_dict["authoring"] = None
         
         # Attach collaborations with username lookup
         if hasattr(song, "collaborations"):

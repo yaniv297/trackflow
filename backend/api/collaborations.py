@@ -123,14 +123,25 @@ def remove_pack_collaborator(
         raise HTTPException(status_code=403, detail="Only pack owner can remove collaborators")
     
     # Remove all collaborations for this user on this pack
-    deleted = db.query(Collaboration).filter(
+    pack_collaborations_deleted = db.query(Collaboration).filter(
         Collaboration.pack_id == pack_id,
         Collaboration.user_id == user_id
     ).delete()
     
+    # Also remove any song-level collaborations for songs in this pack
+    song_collaborations_deleted = db.query(Collaboration).filter(
+        Collaboration.song_id.in_(
+            db.query(Song.id).filter(Song.pack_id == pack_id)
+        ),
+        Collaboration.user_id == user_id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).delete(synchronize_session=False)
+    
+    total_deleted = pack_collaborations_deleted + song_collaborations_deleted
+    
     db.commit()
     
-    return {"message": f"Removed {deleted} collaborations"}
+    return {"message": f"Removed {total_deleted} collaborations (pack: {pack_collaborations_deleted}, songs: {song_collaborations_deleted})"}
 
 @router.post("/songs/{song_id}/collaborate", response_model=CollaborationResponse)
 def add_song_collaborator(

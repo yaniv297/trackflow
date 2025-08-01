@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "./config";
 import UserDropdown from "./components/UserDropdown";
+import { apiPost } from "./utils/api";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -173,18 +174,7 @@ function NewPackForm() {
     }
 
     // First, create the songs
-    fetch(`${API_BASE_URL}/songs/batch/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.detail || "Failed to add songs");
-        }
-        return res.json();
-      })
+    apiPost("/songs/batch", payload)
       .then(async (createdSongs) => {
         const newIds = createdSongs.map((s) => s.id);
 

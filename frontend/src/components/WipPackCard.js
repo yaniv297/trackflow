@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import SmartDropdown from "./SmartDropdown";
 import WipSongCard from "./WipSongCard";
 
 const WipPackCard = ({
@@ -24,23 +25,42 @@ const WipPackCard = ({
   onUpdateAuthoringField,
   onToggleOptional,
   onDeleteSong,
-  onBulkEnhancePack,
   onReleasePack,
   onHandleCreateAlbumSeries,
   onHandleMakeDoubleAlbumSeries,
   onSetSelectedSongs,
   selectedSongs,
 }) => {
-  // Sort core and optional songs by completion (filledCount) descending
-  const sortedCoreSongs = coreSongs
+  // Separate songs by ownership and collaboration status
+  const userOwnedSongs = allSongs.filter((song) => song.user_id === user?.id);
+  const collaboratorOwnedSongs = allSongs.filter(
+    (song) => song.user_id !== user?.id
+  );
+
+  // Further separate user's songs into core and optional
+  const userCoreSongs = userOwnedSongs.filter((song) => !song.optional);
+  const userOptionalSongs = userOwnedSongs.filter((song) => song.optional);
+
+  // State for collapsing sections
+  const [optionalCollapsed, setOptionalCollapsed] = React.useState(true);
+  const [collaboratorSongsCollapsed, setCollaboratorSongsCollapsed] =
+    React.useState(true);
+  const [completedSongsCollapsed, setCompletedSongsCollapsed] =
+    React.useState(true); // Collapsed by default
+
+  // Sort songs by completion (filledCount) descending
+  const sortedUserCoreSongs = userCoreSongs
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
-  const optionalSongs = allSongs
-    .filter((s) => s.optional)
+  const sortedUserOptionalSongs = userOptionalSongs
+    .slice()
+    .sort((a, b) => b.filledCount - a.filledCount);
+  const sortedCollaboratorSongs = collaboratorOwnedSongs
+    .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
 
-  // Only count core songs for header
-  const mainSongs = sortedCoreSongs;
+  // Only count user's core songs for header percentage
+  const mainSongs = sortedUserCoreSongs;
   const totalSongs = mainSongs.length;
 
   // Before rendering the pack header, find the most common artist and their image URL
@@ -117,17 +137,6 @@ const WipPackCard = ({
   const validSongsInPack =
     grouped.find((p) => p.pack === packName)?.allSongs || [];
   const collaborators = getPackCollaborators(packId, validSongsInPack);
-
-  const handleCollaborationClick = () => {
-    if (packId) {
-      onSetSelectedItemForCollaboration({
-        id: packId,
-        name: packName,
-      });
-      onSetCollaborationType("pack");
-      onSetShowCollaborationModal(true);
-    }
-  };
 
   return (
     <div
@@ -285,29 +294,39 @@ const WipPackCard = ({
 
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
-          {/* Manage Collaborations Button - Only show for pack owners */}
-          {grouped.find((p) => p.pack === packName)?.allSongs[0]
-            ?.pack_owner_id === user?.id && (
-            <button
-              onClick={handleCollaborationClick}
-              style={{
-                background: "#17a2b8",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                padding: "0.25rem 0.5rem",
-                fontSize: "0.8rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                fontWeight: 500,
-              }}
-              title="Manage collaborations for this pack"
-            >
-              👥 Manage Collaborations
-            </button>
-          )}
+          {/* Share Pack Button */}
+          <button
+            onClick={() => {
+              // Get pack_id from the first song in the pack
+              let packId = grouped.find((p) => p.pack === packName)?.allSongs[0]
+                ?.pack_id;
+
+              if (packId) {
+                onSetSelectedItemForCollaboration({
+                  id: packId,
+                  name: packName,
+                });
+                onSetCollaborationType("pack_share");
+                onSetShowCollaborationModal(true);
+              }
+            }}
+            style={{
+              background: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "50%",
+              width: "24px",
+              height: "24px",
+              fontSize: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            title="Make Pack a Collaboration"
+          >
+            📤
+          </button>
 
           {/* Add Song Button */}
           <button
@@ -366,25 +385,27 @@ const WipPackCard = ({
                 flex: 1,
               }}
             />
-            <input
-              type="text"
-              placeholder="Artist"
+            <SmartDropdown
+              type="artist"
               value={newSongData.artist || ""}
-              onChange={(e) =>
-                setNewSongData((prev) => ({ ...prev, artist: e.target.value }))
+              onChange={(value) =>
+                setNewSongData((prev) => ({ ...prev, artist: value }))
               }
+              placeholder="Artist"
               style={{
+                flex: 1,
+              }}
+              inputStyle={{
                 padding: "0.5rem",
                 border: "1px solid #ced4da",
                 borderRadius: "4px",
                 fontSize: "0.9rem",
-                flex: 1,
               }}
             />
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
-              onClick={() => onAddSongToPack(packName, newSongData)}
+              onClick={() => onAddSongToPack(packId, newSongData)}
               disabled={!newSongData.title || !newSongData.artist}
               style={{
                 background:
@@ -434,21 +455,6 @@ const WipPackCard = ({
               flexWrap: "wrap",
             }}
           >
-            <button
-              onClick={() => onBulkEnhancePack(allSongs)}
-              style={{
-                background: "#17a2b8",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                padding: "0.5rem 1rem",
-                fontSize: "0.9rem",
-                cursor: "pointer",
-              }}
-            >
-              🎵 Bulk Enhance Pack
-            </button>
-
             {percent === 100 && (
               <button
                 onClick={() => onReleasePack(packName)}
@@ -468,75 +474,226 @@ const WipPackCard = ({
             )}
           </div>
 
-          {/* Core Songs */}
-          {sortedCoreSongs.map((song) => {
-            // Calculate if song is finished (100% authoring complete)
-            const songFilledParts = authoringFields.reduce((count, field) => {
-              return count + (song.authoring?.[field] === true ? 1 : 0);
-            }, 0);
-            const songPercent =
-              authoringFields.length > 0
-                ? Math.round((songFilledParts / authoringFields.length) * 100)
-                : 0;
-            const isFinished = songPercent === 100;
+          {/* Core Songs - Active (In Progress) */}
+          {(() => {
+            // Separate core songs into active and completed
+            const activeCoreSongs = sortedUserCoreSongs.filter((song) => {
+              const songFilledParts = authoringFields.reduce((count, field) => {
+                return count + (song.authoring?.[field] === true ? 1 : 0);
+              }, 0);
+              const songPercent =
+                authoringFields.length > 0
+                  ? Math.round((songFilledParts / authoringFields.length) * 100)
+                  : 0;
+              return songPercent < 100; // Not finished
+            });
+
+            const completedCoreSongs = sortedUserCoreSongs.filter((song) => {
+              const songFilledParts = authoringFields.reduce((count, field) => {
+                return count + (song.authoring?.[field] === true ? 1 : 0);
+              }, 0);
+              const songPercent =
+                authoringFields.length > 0
+                  ? Math.round((songFilledParts / authoringFields.length) * 100)
+                  : 0;
+              return songPercent === 100; // Finished
+            });
 
             return (
-              <WipSongCard
-                key={song.id}
-                song={song}
-                authoringFields={authoringFields}
-                onAuthoringUpdate={onUpdateAuthoringField}
-                onToggleOptional={onToggleOptional}
-                onDelete={onDeleteSong}
-                selectedSongs={selectedSongs}
-                setSelectedSongs={onSetSelectedSongs}
-                defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
-              />
+              <>
+                {/* Completed Core Songs - AT THE TOP */}
+                {completedCoreSongs.length > 0 && (
+                  <>
+                    <h4
+                      style={{
+                        marginTop: "0",
+                        marginBottom: "1rem",
+                        color: "#6c757d",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }}
+                      onClick={() =>
+                        setCompletedSongsCollapsed(!completedSongsCollapsed)
+                      }
+                    >
+                      <span>{completedSongsCollapsed ? "▶" : "▼"}</span>
+                      Completed Songs ({completedCoreSongs.length})
+                    </h4>
+                    {!completedSongsCollapsed &&
+                      completedCoreSongs.map((song) => {
+                        const songFilledParts = authoringFields.reduce(
+                          (count, field) => {
+                            return (
+                              count + (song.authoring?.[field] === true ? 1 : 0)
+                            );
+                          },
+                          0
+                        );
+                        const songPercent =
+                          authoringFields.length > 0
+                            ? Math.round(
+                                (songFilledParts / authoringFields.length) * 100
+                              )
+                            : 0;
+                        const isFinished = songPercent === 100;
+
+                        return (
+                          <WipSongCard
+                            key={song.id}
+                            song={song}
+                            authoringFields={authoringFields}
+                            onAuthoringUpdate={onUpdateAuthoringField}
+                            onToggleOptional={onToggleOptional}
+                            onDelete={onDeleteSong}
+                            selectedSongs={selectedSongs}
+                            setSelectedSongs={onSetSelectedSongs}
+                            defaultExpanded={false} // Keep completed songs collapsed
+                          />
+                        );
+                      })}
+                  </>
+                )}
+
+                {/* Active Core Songs - IN THE MIDDLE */}
+                {activeCoreSongs.map((song) => {
+                  const songFilledParts = authoringFields.reduce(
+                    (count, field) => {
+                      return count + (song.authoring?.[field] === true ? 1 : 0);
+                    },
+                    0
+                  );
+                  const songPercent =
+                    authoringFields.length > 0
+                      ? Math.round(
+                          (songFilledParts / authoringFields.length) * 100
+                        )
+                      : 0;
+                  const isFinished = songPercent === 100;
+
+                  return (
+                    <WipSongCard
+                      key={song.id}
+                      song={song}
+                      authoringFields={authoringFields}
+                      onAuthoringUpdate={onUpdateAuthoringField}
+                      onToggleOptional={onToggleOptional}
+                      onDelete={onDeleteSong}
+                      selectedSongs={selectedSongs}
+                      setSelectedSongs={onSetSelectedSongs}
+                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                    />
+                  );
+                })}
+              </>
             );
-          })}
+          })()}
 
           {/* Optional Songs */}
-          {optionalSongs.length > 0 && (
+          {userOptionalSongs.length > 0 && (
             <>
               <h4
                 style={{
                   marginTop: "1.5rem",
                   marginBottom: "1rem",
                   color: "#6c757d",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
                 }}
+                onClick={() => setOptionalCollapsed(!optionalCollapsed)}
               >
-                Optional Songs
+                <span>{optionalCollapsed ? "▶" : "▼"}</span>
+                Optional Songs ({userOptionalSongs.length})
               </h4>
-              {optionalSongs.map((song) => {
-                // Calculate if optional song is finished (100% authoring complete)
-                const songFilledParts = authoringFields.reduce(
-                  (count, field) => {
-                    return count + (song.authoring?.[field] === true ? 1 : 0);
-                  },
-                  0
-                );
-                const songPercent =
-                  authoringFields.length > 0
-                    ? Math.round(
-                        (songFilledParts / authoringFields.length) * 100
-                      )
-                    : 0;
-                const isFinished = songPercent === 100;
+              {!optionalCollapsed &&
+                sortedUserOptionalSongs.map((song) => {
+                  // Calculate if optional song is finished (100% authoring complete)
+                  const songFilledParts = authoringFields.reduce(
+                    (count, field) => {
+                      return count + (song.authoring?.[field] === true ? 1 : 0);
+                    },
+                    0
+                  );
+                  const songPercent =
+                    authoringFields.length > 0
+                      ? Math.round(
+                          (songFilledParts / authoringFields.length) * 100
+                        )
+                      : 0;
+                  const isFinished = songPercent === 100;
 
-                return (
-                  <WipSongCard
-                    key={song.id}
-                    song={song}
-                    authoringFields={authoringFields}
-                    onAuthoringUpdate={onUpdateAuthoringField}
-                    onToggleOptional={onToggleOptional}
-                    onDelete={onDeleteSong}
-                    selectedSongs={selectedSongs}
-                    setSelectedSongs={onSetSelectedSongs}
-                    defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
-                  />
-                );
-              })}
+                  return (
+                    <WipSongCard
+                      key={song.id}
+                      song={song}
+                      authoringFields={authoringFields}
+                      onAuthoringUpdate={onUpdateAuthoringField}
+                      onToggleOptional={onToggleOptional}
+                      onDelete={onDeleteSong}
+                      selectedSongs={selectedSongs}
+                      setSelectedSongs={onSetSelectedSongs}
+                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                    />
+                  );
+                })}
+            </>
+          )}
+
+          {/* Collaborator Songs */}
+          {collaboratorOwnedSongs.length > 0 && (
+            <>
+              <h4
+                style={{
+                  marginTop: "1.5rem",
+                  marginBottom: "1rem",
+                  color: "#6c757d",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+                onClick={() =>
+                  setCollaboratorSongsCollapsed(!collaboratorSongsCollapsed)
+                }
+              >
+                <span>{collaboratorSongsCollapsed ? "▶" : "▼"}</span>
+                Songs by Collaborators ({collaboratorOwnedSongs.length})
+              </h4>
+              {!collaboratorSongsCollapsed &&
+                sortedCollaboratorSongs.map((song) => {
+                  // Calculate if collaborator song is finished (100% authoring complete)
+                  const songFilledParts = authoringFields.reduce(
+                    (count, field) => {
+                      return count + (song.authoring?.[field] === true ? 1 : 0);
+                    },
+                    0
+                  );
+                  const songPercent =
+                    authoringFields.length > 0
+                      ? Math.round(
+                          (songFilledParts / authoringFields.length) * 100
+                        )
+                      : 0;
+                  const isFinished = songPercent === 100;
+
+                  return (
+                    <WipSongCard
+                      key={song.id}
+                      song={song}
+                      authoringFields={authoringFields}
+                      onAuthoringUpdate={onUpdateAuthoringField}
+                      onToggleOptional={onToggleOptional}
+                      onDelete={onDeleteSong}
+                      selectedSongs={selectedSongs}
+                      setSelectedSongs={onSetSelectedSongs}
+                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      readOnly={!song.is_editable} // Use the backend-provided is_editable flag
+                    />
+                  );
+                })}
             </>
           )}
         </div>

@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import API_BASE_URL from "./config";
 import UserDropdown from "./components/UserDropdown";
-import { apiPost } from "./utils/api";
+import SmartDropdown from "./components/SmartDropdown";
+import { apiPost, apiGet } from "./utils/api";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -434,28 +435,11 @@ function NewPackForm() {
                 >
                   Artist *
                 </label>
-                <input
-                  type="text"
+                <SmartDropdown
+                  type="artist"
                   value={meta.artist}
-                  onChange={(e) => setMeta({ ...meta, artist: e.target.value })}
-                  placeholder="e.g., The Beatles"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    border: "2px solid #e1e5e9",
-                    borderRadius: "8px",
-                    fontSize: "1rem",
-                    transition: "border-color 0.2s, box-shadow 0.2s",
-                    boxSizing: "border-box",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#007bff";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "#e1e5e9";
-                    e.target.style.boxShadow = "none";
-                  }}
+                  onChange={(value) => setMeta({ ...meta, artist: value })}
+                  placeholder="Select or add artist name"
                 />
               </div>
             )}

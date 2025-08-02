@@ -253,40 +253,19 @@ function WipPage() {
       title: "Delete Song",
       message:
         "Are you sure you want to delete this song? This action cannot be undone.",
-      type: "danger",
-      onConfirm: () => {
-        apiDelete(`/songs/${songId}`)
-          .then(() => {
-            setSongs((prev) => prev.filter((s) => s.id !== songId));
-            setSelectedSongs((prev) => prev.filter((id) => id !== songId));
-            window.showNotification("Song deleted successfully", "success");
-          })
-          .catch((error) => {
-            console.error("Failed to delete song:", error);
-            window.showNotification("Failed to delete song", "error");
-          });
+      type: "warning",
+      onConfirm: async () => {
+        try {
+          await apiDelete(`/songs/${songId}`);
+          setSongs((prev) => prev.filter((song) => song.id !== songId));
+          window.showNotification("Song deleted successfully", "success");
+        } catch (error) {
+          console.error("Failed to delete song:", error);
+          window.showNotification("Failed to delete song", "error");
+        }
         setAlertConfig((prev) => ({ ...prev, isOpen: false }));
       },
     });
-  };
-
-  // Pack Actions
-  const bulkEnhancePack = async (songs) => {
-    for (const song of songs) {
-      try {
-        const options = await apiGet(`/spotify/${song.id}/spotify-options`);
-        if (options && options.length > 0) {
-          await apiPost(`/songs/${song.id}/enhance`, {
-            selected_option: options[0],
-          });
-        }
-      } catch (error) {
-        console.error(`Failed to enhance song ${song.id}:`, error);
-      }
-    }
-
-    window.showNotification("Bulk enhancement completed", "success");
-    refreshSongs();
   };
 
   const releasePack = (pack) => {
@@ -320,7 +299,7 @@ function WipPage() {
     });
   };
 
-  const addSongToPack = async (packName, songData) => {
+  const addSongToPack = async (packId, songData) => {
     try {
       if (!songData.title || !songData.artist) {
         window.showNotification(
@@ -333,7 +312,7 @@ function WipPage() {
       const payload = {
         title: songData.title,
         artist: songData.artist,
-        pack_name: packName,
+        pack_id: packId, // Use pack_id instead of pack_name
         status: "In Progress",
       };
 
@@ -360,10 +339,7 @@ function WipPage() {
 
       setShowAddForm(null);
       setNewSongData({});
-      window.showNotification(
-        `Added "${songData.title}" to ${packName}`,
-        "success"
-      );
+      window.showNotification(`Added "${songData.title}" to pack`, "success");
     } catch (error) {
       window.showNotification(error.message, "error");
     }
@@ -462,7 +438,6 @@ function WipPage() {
           onUpdateAuthoringField={updateAuthoringField}
           onToggleOptional={toggleOptional}
           onDeleteSong={handleDeleteSong}
-          onBulkEnhancePack={bulkEnhancePack}
           onReleasePack={releasePack}
           onHandleCreateAlbumSeries={handleCreateAlbumSeries}
           onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
@@ -582,10 +557,12 @@ function WipPage() {
       {/* Unified Collaboration Modal */}
       <UnifiedCollaborationModal
         packId={
-          collaborationType === "pack" ? selectedItemForCollaboration?.id : null
+          collaborationType === "pack" || collaborationType === "pack_share"
+            ? selectedItemForCollaboration?.id
+            : null
         }
         packName={
-          collaborationType === "pack"
+          collaborationType === "pack" || collaborationType === "pack_share"
             ? selectedItemForCollaboration?.name
             : null
         }

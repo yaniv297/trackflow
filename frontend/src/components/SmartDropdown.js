@@ -9,6 +9,8 @@ const SmartDropdown = ({
   placeholder,
   onBlur,
   onKeyDown,
+  style = {},
+  inputStyle = {},
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState([]);
@@ -23,15 +25,8 @@ const SmartDropdown = ({
 
       switch (type) {
         case "artist":
-          const artistsResponse = await apiGet("/songs/");
-          const allSongs = artistsResponse.data || artistsResponse;
-          const uniqueArtists = [
-            ...new Set(allSongs.map((song) => song.artist).filter(Boolean)),
-          ];
-          data = uniqueArtists.map((artist) => ({
-            value: artist,
-            label: artist,
-          }));
+          const artistsResponse = await apiGet("/songs/all-artists");
+          data = artistsResponse.data || artistsResponse;
           break;
 
         case "album":
@@ -128,24 +123,38 @@ const SmartDropdown = ({
   };
 
   return (
-    <div ref={dropdownRef} style={{ position: "relative", width: "100%" }}>
+    <div
+      ref={dropdownRef}
+      style={{ position: "relative", width: "100%", ...style }}
+    >
       <input
         type="text"
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
         }}
-        onFocus={() => setIsOpen(true)}
-        onBlur={onBlur}
+        onFocus={(e) => {
+          setIsOpen(true);
+          e.target.style.borderColor = "#007bff";
+          e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+        }}
+        onBlur={(e) => {
+          if (onBlur) onBlur(e);
+          e.target.style.borderColor = "#e1e5e9";
+          e.target.style.boxShadow = "none";
+        }}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         style={{
           width: "100%",
-          padding: "0.75rem",
-          border: "1px solid #ccc",
+          padding: "0.75rem 1rem",
+          border: "2px solid #e1e5e9",
           borderRadius: "8px",
           fontSize: "1rem",
+          transition: "border-color 0.2s, box-shadow 0.2s",
+          boxSizing: "border-box",
           cursor: "text",
+          ...inputStyle,
         }}
       />
 
@@ -157,7 +166,7 @@ const SmartDropdown = ({
             left: 0,
             right: 0,
             backgroundColor: "white",
-            border: "1px solid #ccc",
+            border: "2px solid #e1e5e9",
             borderRadius: "8px",
             maxHeight: "300px",
             overflowY: "auto",

@@ -341,3 +341,34 @@ def get_my_collaborations(
         )
         for c in collaborations
     ] 
+
+@router.get("/on-my-packs", response_model=List[CollaborationResponse])
+def get_collaborations_on_my_packs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all collaborations on packs owned by the current user."""
+    
+    # Find all collaborations on packs owned by current user
+    collaborations = db.query(Collaboration).join(
+        Pack, Collaboration.pack_id == Pack.id
+    ).filter(
+        Pack.user_id == current_user.id
+    ).all()
+    
+    # Get usernames for all collaborator user IDs
+    user_ids = list(set([c.user_id for c in collaborations]))
+    users = {u.id: u.username for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+    
+    return [
+        CollaborationResponse(
+            id=c.id,
+            pack_id=c.pack_id,
+            song_id=c.song_id,
+            user_id=c.user_id,
+            username=users.get(c.user_id, "Unknown"),
+            collaboration_type=c.collaboration_type.value,
+            created_at=c.created_at
+        )
+        for c in collaborations
+    ] 

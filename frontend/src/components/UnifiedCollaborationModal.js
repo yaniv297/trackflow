@@ -16,6 +16,7 @@ const UnifiedCollaborationModal = ({
   // UI flow state
   const [step, setStep] = useState(1); // 1: select user, 2: choose permissions, 3: assign instruments
   const [selectedUser, setSelectedUser] = useState("");
+  const [selectedUsersForShare, setSelectedUsersForShare] = useState(""); // For pack_share
   const [permissionType, setPermissionType] = useState(""); // "full", "song-by-song", or "instruments"
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
@@ -67,9 +68,9 @@ const UnifiedCollaborationModal = ({
     try {
       let endpoint;
       if (collaborationType === "pack") {
-        endpoint = `/collaborations/pack/${packId}`;
+        endpoint = `/collaborations/packs/${packId}/collaborators`;
       } else {
-        endpoint = `/collaborations/song/${songId}`;
+        endpoint = `/collaborations/songs/${songId}/collaborators`;
       }
       const response = await apiGet(endpoint);
       setCollaborators(response);
@@ -84,7 +85,7 @@ const UnifiedCollaborationModal = ({
   // Load users for dropdown
   const loadUsers = useCallback(async () => {
     try {
-      const response = await apiGet("/users");
+      const response = await apiGet("/auth/users/");
       setUsers(
         response.filter((user) => user.username !== currentUser?.username)
       );
@@ -180,6 +181,7 @@ const UnifiedCollaborationModal = ({
     if (isOpen) {
       setStep(1);
       setSelectedUser("");
+      setSelectedUsersForShare("");
       setPermissionType("");
       setSelectedSongs([]);
       setSelectedInstruments([]);
@@ -191,17 +193,21 @@ const UnifiedCollaborationModal = ({
 
   const handleUserSelect = (username) => {
     setSelectedUser(username);
-    setStep(2);
+    if (collaborationType === "song") {
+      // For songs, skip to instrument assignment directly
+      setPermissionType("specific");
+      setSelectedSongs([songId]);
+      setStep(3);
+    } else {
+      // For packs, go to permission selection
+      setStep(2);
+    }
   };
 
   const handlePermissionSelect = (type) => {
     setPermissionType(type);
 
-    if (collaborationType === "song" && type === "instruments") {
-      // For single song, automatically select it and go to instruments
-      setSelectedSongs([songId]);
-      setStep(3);
-    } else if (type === "full") {
+    if (type === "full") {
       // Add to pending collaborations and reset to step 1
       const user = users.find((u) => u.username === selectedUser);
       if (user) {
@@ -231,9 +237,12 @@ const UnifiedCollaborationModal = ({
       setSelectedUser("");
       setPermissionType("");
       setStep(1);
-    } else if (type === "song-by-song") {
-      setStep(3);
-    } else if (type === "instruments") {
+    } else if (type === "specific") {
+      // For both pack and song, go to instrument assignment
+      if (collaborationType === "song") {
+        // For single song, automatically select it and go to instruments
+        setSelectedSongs([songId]);
+      }
       setStep(3);
     }
   };
@@ -254,22 +263,7 @@ const UnifiedCollaborationModal = ({
     const user = users.find((u) => u.username === selectedUser);
     if (!user) return;
 
-    if (permissionType === "song-by-song") {
-      const selectedSongObjects = packSongs.filter((song) =>
-        selectedSongs.includes(song.id)
-      );
-
-      setPendingCollaborations((prev) => [
-        ...prev,
-        {
-          type: "song-by-song",
-          user_id: user.id,
-          username: user.username,
-          permissions: ["pack_view"],
-          songs: selectedSongObjects,
-        },
-      ]);
-    } else if (permissionType === "instruments") {
+    if (permissionType === "specific") {
       let selectedSongObjects;
 
       if (collaborationType === "song") {
@@ -286,10 +280,23 @@ const UnifiedCollaborationModal = ({
         setPendingCollaborations((prev) => [
           ...prev,
           {
-            type: "instruments",
+            type: "specific",
             user_id: user.id,
             username: user.username,
             permissions: ["pack_view"], // Give pack view for instrument collaborators
+            songs: selectedSongObjects,
+            instruments: selectedInstruments,
+          },
+        ]);
+      } else if (collaborationType === "song") {
+        // For song collaboration, add to pending collaborations
+        setPendingCollaborations((prev) => [
+          ...prev,
+          {
+            type: "specific",
+            user_id: user.id,
+            username: user.username,
+            songId: songId,
             songs: selectedSongObjects,
             instruments: selectedInstruments,
           },
@@ -366,32 +373,35 @@ const UnifiedCollaborationModal = ({
           await apiPost(`/collaborations/songs/${collab.songId}/collaborate`, {
             user_id: collab.user_id,
           });
-        } else if (collab.type === "song-by-song") {
-          // Give pack view permission
+        } else if (collab.type === "specific") {
+          if (collaborationType === "pack") {
+            // Give pack view permission
+            await apiPost(`/collaborations/packs/${packId}/collaborate`, {
+              user_id: collab.user_id,
+              permissions: collab.permissions,
+            });
+
+            // Give song edit permissions for specific songs
+            for (const song of collab.songs) {
+              await apiPost(`/collaborations/songs/${song.id}/collaborate`, {
+                user_id: collab.user_id,
+              });
+            }
+          } else if (collaborationType === "song") {
+            // For song-level collaboration, give song edit permission
+            await apiPost(
+              `/collaborations/songs/${collab.songId}/collaborate`,
+              {
+                user_id: collab.user_id,
+              }
+            );
+          }
+        } else if (collab.type === "pack_share") {
+          // Share pack with read-only access
           await apiPost(`/collaborations/packs/${packId}/collaborate`, {
             user_id: collab.user_id,
             permissions: collab.permissions,
           });
-
-          // Give song edit permissions for selected songs
-          for (const song of collab.songs) {
-            await apiPost(`/collaborations/songs/${song.id}/collaborate`, {
-              user_id: collab.user_id,
-            });
-          }
-        } else if (collab.type === "instruments") {
-          // Give pack view permission
-          await apiPost(`/collaborations/packs/${packId}/collaborate`, {
-            user_id: collab.user_id,
-            permissions: collab.permissions,
-          });
-
-          // Give song edit permissions for instrument songs
-          for (const song of collab.songs) {
-            await apiPost(`/collaborations/songs/${song.id}/collaborate`, {
-              user_id: collab.user_id,
-            });
-          }
         }
       }
 
@@ -454,6 +464,10 @@ const UnifiedCollaborationModal = ({
               assignments: filteredAssignments,
             });
           }
+        } else if (collaborationType === "pack_share") {
+          await apiDelete(
+            `/collaborations/packs/${packId}/collaborate/${removal.user_id}`
+          );
         }
       }
 
@@ -528,6 +542,8 @@ const UnifiedCollaborationModal = ({
       }
     } else if (collaborationType === "song") {
       return "Song edit permission";
+    } else if (collaborationType === "pack_share") {
+      return "Pack view permission (read-only)";
     }
     return collab.collaboration_type?.replace("_", " ") || "Unknown";
   };
@@ -549,15 +565,19 @@ const UnifiedCollaborationModal = ({
   const getTitle = () => {
     if (collaborationType === "pack") {
       return `Manage Collaborations - ${packName}`;
+    } else if (collaborationType === "pack_share") {
+      return `Share Pack - ${packName}`;
     }
     return `Manage Collaborations - ${songTitle}`;
   };
 
   const getDescription = () => {
     if (collaborationType === "pack") {
-      return "Add collaborators to this pack. You can give them full access, specific song permissions, or assign them to specific instruments.";
+      return "Add collaborators to this pack. You can give them full access to all songs, or assign them to specific songs and instruments.";
+    } else if (collaborationType === "pack_share") {
+      return "Share this pack with another user. They will be able to view all songs (read-only) and add their own songs to the pack.";
     }
-    return "Add collaborators to this song. You can give them full song edit access or assign them to specific instruments.";
+    return "Add a collaborator to this song and assign them to specific instruments.";
   };
 
   const getStepDescription = () => {
@@ -567,12 +587,9 @@ const UnifiedCollaborationModal = ({
       case 2:
         return `Choose the type of collaboration for ${selectedUser}`;
       case 3:
-        if (permissionType === "song-by-song") {
-          return "Select which songs they can edit";
-        } else if (permissionType === "instruments") {
-          if (collaborationType === "song") {
-            return "Select instruments to assign";
-          }
+        if (collaborationType === "song") {
+          return "Select instruments to assign";
+        } else if (permissionType === "specific") {
           return "Select songs and instruments to assign";
         }
         return "";
@@ -666,13 +683,63 @@ const UnifiedCollaborationModal = ({
             </h3>
 
             <UserDropdown
-              value=""
+              value={
+                collaborationType === "pack_share"
+                  ? selectedUsersForShare
+                  : selectedUser
+              }
               onChange={(e) => {
                 const newUsers = e.target.value
                   .split(",")
                   .map((s) => s.trim())
                   .filter((s) => s);
-                if (newUsers.length > 0) {
+
+                if (collaborationType === "pack_share") {
+                  // For pack sharing, update the selectedUsersForShare and add to pending immediately
+                  const oldUsernames = selectedUsersForShare
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter((s) => s);
+
+                  setSelectedUsersForShare(e.target.value);
+
+                  // Add any new users to pending collaborations
+                  const newUsernames = newUsers.filter(
+                    (username) => !oldUsernames.includes(username)
+                  );
+
+                  newUsernames.forEach((username) => {
+                    const user = users.find((u) => u.username === username);
+                    if (user) {
+                      setPendingCollaborations((prev) => [
+                        ...prev,
+                        {
+                          type: "pack_share",
+                          user_id: user.id,
+                          username: user.username,
+                          permissions: ["pack_view"],
+                        },
+                      ]);
+                    }
+                  });
+
+                  // Remove any deselected users from pending collaborations
+                  const removedUsernames = oldUsernames.filter(
+                    (username) => !newUsers.includes(username)
+                  );
+
+                  if (removedUsernames.length > 0) {
+                    setPendingCollaborations((prev) =>
+                      prev.filter(
+                        (collab) =>
+                          !(
+                            collab.type === "pack_share" &&
+                            removedUsernames.includes(collab.username)
+                          )
+                      )
+                    );
+                  }
+                } else if (newUsers.length > 0) {
                   handleUserSelect(newUsers[newUsers.length - 1]);
                 }
               }}
@@ -682,8 +749,8 @@ const UnifiedCollaborationModal = ({
           </div>
         )}
 
-        {/* Step 2: Choose Permission Type */}
-        {step === 2 && (
+        {/* Step 2: Choose Permission Type (only for regular pack collaborations) */}
+        {step === 2 && collaborationType === "pack" && (
           <div style={{ marginBottom: "1.5rem" }}>
             <h3
               style={{
@@ -708,22 +775,27 @@ const UnifiedCollaborationModal = ({
                   padding: "0.75rem",
                   border: "1px solid #ddd",
                   borderRadius: "4px",
-                  background: "#f8f9fa",
+                  background: "#f0f8ff",
                   cursor: "pointer",
                   textAlign: "left",
+                  marginBottom: "0.5rem",
                 }}
               >
-                <strong>Full Permissions</strong>
+                <strong>
+                  {collaborationType === "pack"
+                    ? "Full Pack Access"
+                    : "Full Song Access"}
+                </strong>
                 <br />
                 <small style={{ color: "#666" }}>
                   {collaborationType === "pack"
-                    ? "Can view and edit the entire pack"
-                    : "Can edit this song completely"}
+                    ? "Can edit all songs in this pack"
+                    : "Can edit all instruments in this song"}
                 </small>
               </button>
 
               <button
-                onClick={() => handlePermissionSelect("instruments")}
+                onClick={() => handlePermissionSelect("specific")}
                 style={{
                   padding: "0.75rem",
                   border: "1px solid #ddd",
@@ -733,34 +805,18 @@ const UnifiedCollaborationModal = ({
                   textAlign: "left",
                 }}
               >
-                <strong>Instrument Assignment</strong>
+                <strong>
+                  {collaborationType === "pack"
+                    ? "Choose Songs & Instruments"
+                    : "Choose Instruments"}
+                </strong>
                 <br />
                 <small style={{ color: "#666" }}>
                   {collaborationType === "pack"
-                    ? "Assign specific instruments/parts for specific songs"
-                    : "Assign specific instruments/parts for this song"}
+                    ? "Select specific songs and assign instruments"
+                    : "Assign specific instruments only"}
                 </small>
               </button>
-
-              {collaborationType === "pack" && (
-                <button
-                  onClick={() => handlePermissionSelect("song-by-song")}
-                  style={{
-                    padding: "0.75rem",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    background: "#f8f9fa",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                >
-                  <strong>Song-by-Song Permissions</strong>
-                  <br />
-                  <small style={{ color: "#666" }}>
-                    Can view pack and edit specific songs
-                  </small>
-                </button>
-              )}
             </div>
 
             <div style={{ marginTop: "1rem" }}>
@@ -781,8 +837,8 @@ const UnifiedCollaborationModal = ({
           </div>
         )}
 
-        {/* Step 3: Select Songs and/or Instruments */}
-        {step === 3 && (
+        {/* Step 3: Select Songs and Instruments (only for specific permissions) */}
+        {step === 3 && collaborationType !== "pack_share" && (
           <div style={{ marginBottom: "1.5rem" }}>
             <h3
               style={{
@@ -795,48 +851,46 @@ const UnifiedCollaborationModal = ({
             </h3>
 
             {/* Song Selection (only show for pack collaboration or song-by-song) */}
-            {collaborationType === "pack" &&
-              (permissionType === "song-by-song" ||
-                permissionType === "instruments") && (
-                <div style={{ marginBottom: "1rem" }}>
-                  <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
-                    Select Songs:
-                  </h4>
-                  <div
-                    style={{
-                      maxHeight: "150px",
-                      overflow: "auto",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      padding: "0.5rem",
-                    }}
-                  >
-                    {packSongs.map((song) => (
-                      <label
-                        key={song.id}
-                        style={{
-                          display: "block",
-                          padding: "0.25rem 0",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedSongs.includes(song.id)}
-                          onChange={(e) =>
-                            handleSongSelection(song.id, e.target.checked)
-                          }
-                          style={{ marginRight: "0.5rem" }}
-                        />
-                        {song.title} - {song.artist}
-                      </label>
-                    ))}
-                  </div>
+            {collaborationType === "pack" && permissionType === "specific" && (
+              <div style={{ marginBottom: "1rem" }}>
+                <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+                  Select Songs:
+                </h4>
+                <div
+                  style={{
+                    maxHeight: "150px",
+                    overflow: "auto",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    padding: "0.5rem",
+                  }}
+                >
+                  {packSongs.map((song) => (
+                    <label
+                      key={song.id}
+                      style={{
+                        display: "block",
+                        padding: "0.25rem 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSongs.includes(song.id)}
+                        onChange={(e) =>
+                          handleSongSelection(song.id, e.target.checked)
+                        }
+                        style={{ marginRight: "0.5rem" }}
+                      />
+                      {song.title} - {song.artist}
+                    </label>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
             {/* Instrument Selection (for instrument assignments) */}
-            {permissionType === "instruments" && (
+            {permissionType === "specific" && (
               <div style={{ marginBottom: "1rem" }}>
                 <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
                   Select Instruments:
@@ -894,9 +948,11 @@ const UnifiedCollaborationModal = ({
               <button
                 onClick={handleAddCollaboration}
                 disabled={
-                  (permissionType === "song-by-song" &&
-                    selectedSongs.length === 0) ||
-                  (permissionType === "instruments" &&
+                  (permissionType === "specific" &&
+                    (selectedSongs.length === 0 ||
+                      (collaborationType === "pack" &&
+                        selectedSongs.length === 0))) ||
+                  (permissionType === "specific" &&
                     (selectedInstruments.length === 0 ||
                       (collaborationType === "pack" &&
                         selectedSongs.length === 0)))
@@ -904,9 +960,11 @@ const UnifiedCollaborationModal = ({
                 style={{
                   padding: "0.5rem 1rem",
                   background:
-                    (permissionType === "song-by-song" &&
-                      selectedSongs.length === 0) ||
-                    (permissionType === "instruments" &&
+                    (permissionType === "specific" &&
+                      (selectedSongs.length === 0 ||
+                        (collaborationType === "pack" &&
+                          selectedSongs.length === 0))) ||
+                    (permissionType === "specific" &&
                       (selectedInstruments.length === 0 ||
                         (collaborationType === "pack" &&
                           selectedSongs.length === 0)))
@@ -916,9 +974,11 @@ const UnifiedCollaborationModal = ({
                   border: "none",
                   borderRadius: "4px",
                   cursor:
-                    (permissionType === "song-by-song" &&
-                      selectedSongs.length === 0) ||
-                    (permissionType === "instruments" &&
+                    (permissionType === "specific" &&
+                      (selectedSongs.length === 0 ||
+                        (collaborationType === "pack" &&
+                          selectedSongs.length === 0))) ||
+                    (permissionType === "specific" &&
                       (selectedInstruments.length === 0 ||
                         (collaborationType === "pack" &&
                           selectedSongs.length === 0)))
@@ -1112,14 +1172,12 @@ const UnifiedCollaborationModal = ({
                       <div style={{ fontSize: "0.8rem", color: "#666" }}>
                         {collab.type === "full" && "Full permissions"}
                         {collab.type === "song_edit" && "Song edit permission"}
-                        {collab.type === "song-by-song" &&
-                          `Song edit for: ${collab.songs
-                            .map((s) => s.title)
-                            .join(", ")}`}
-                        {collab.type === "instruments" &&
+                        {collab.type === "specific" &&
                           `${collab.instruments.join(", ")} for: ${collab.songs
                             .map((s) => s.title)
                             .join(", ")}`}
+                        {collab.type === "pack_share" &&
+                          "Pack view permission (read-only)"}
                       </div>
                     </div>
                     <button

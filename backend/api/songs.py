@@ -581,6 +581,16 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
     db.commit()
     return {"message": f"Updated collaborations for song {song_id}"}
 
+@router.get("/all-artists")
+def get_all_artists(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Get all unique artists in the system for dropdown usage"""
+    artists = db.query(Song.artist).filter(
+        Song.artist.isnot(None),
+        Song.artist != ""
+    ).distinct().order_by(Song.artist).all()
+    
+    return [{"value": artist[0], "label": artist[0]} for artist in artists if artist[0]]
+
 @router.get("/autocomplete/artists")
 def get_artists_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get artists for auto-complete"""

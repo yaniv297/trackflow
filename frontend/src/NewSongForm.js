@@ -1,16 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "./utils/api";
+import SmartDropdown from "./components/SmartDropdown";
 import UserDropdown from "./components/UserDropdown";
 
 // Utility function to capitalize artist and album names
-const capitalizeName = (name) => {
-  if (!name) return "";
-  return name
+const capitalizeName = (str) =>
+  str
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
-};
 
 function NewSongForm() {
   const navigate = useNavigate();
@@ -114,29 +113,11 @@ function NewSongForm() {
               >
                 Artist *
               </label>
-              <input
-                name="artist"
-                placeholder="e.g., The Beatles"
+              <SmartDropdown
+                type="artist"
                 value={form.artist}
-                onChange={handleChange}
-                required
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem",
-                  border: "2px solid #e1e5e9",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#007bff";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.boxShadow = "none";
-                }}
+                onChange={(value) => setForm({ ...form, artist: value })}
+                placeholder="Select or add artist name"
               />
             </div>
 
@@ -235,28 +216,11 @@ function NewSongForm() {
               >
                 Pack
               </label>
-              <input
-                name="pack"
-                placeholder="e.g., Classic Rock Pack"
+              <SmartDropdown
+                type="pack"
                 value={form.pack}
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem",
-                  border: "2px solid #e1e5e9",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#007bff";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.boxShadow = "none";
-                }}
+                onChange={(value) => setForm({ ...form, pack: value })}
+                placeholder="Select or add pack name"
               />
             </div>
           </div>
@@ -316,7 +280,9 @@ function NewSongForm() {
             </label>
             <UserDropdown
               value={form.collaborations}
-              onChange={handleChange}
+              onChange={(e) =>
+                setForm({ ...form, collaborations: e.target.value })
+              }
               placeholder="Select collaborators..."
             />
           </div>

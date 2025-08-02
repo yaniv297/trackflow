@@ -59,9 +59,9 @@ const WipPackCard = ({
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
 
-  // Only count user's core songs for header percentage
-  const mainSongs = sortedUserCoreSongs;
-  const totalSongs = mainSongs.length;
+  // Count ALL non-optional songs in the pack (by any author) for header
+  const allNonOptionalSongs = allSongs.filter((song) => !song.optional);
+  const totalSongs = allNonOptionalSongs.length;
 
   // Before rendering the pack header, find the most common artist and their image URL
   const artistCounts = {};
@@ -643,7 +643,7 @@ const WipPackCard = ({
           )}
 
           {/* Collaborator Songs */}
-          {collaboratorOwnedSongs.length > 0 && (
+          {collaborators && collaborators.length > 0 && (
             <>
               <h4
                 style={{

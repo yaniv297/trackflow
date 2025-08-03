@@ -152,13 +152,22 @@ def add_song_collaborator(
 ):
     """Add a collaborator to a song."""
     
-    # Check if song exists and current user owns it
+    # Check if song exists and current user owns it OR owns the pack it belongs to
     song = db.query(Song).filter(Song.id == song_id).first()
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     
-    if song.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only song owner can add collaborators")
+    # Check if current user owns the song OR owns the pack the song belongs to
+    can_add_collaborator = song.user_id == current_user.id
+    
+    if not can_add_collaborator and song.pack_id:
+        # Check if user owns the pack
+        pack = db.query(Pack).filter(Pack.id == song.pack_id).first()
+        if pack and pack.user_id == current_user.id:
+            can_add_collaborator = True
+    
+    if not can_add_collaborator:
+        raise HTTPException(status_code=403, detail="Only song owner or pack owner can add collaborators")
     
     # Check if target user exists
     target_user = db.query(User).filter(User.id == request.user_id).first()

@@ -368,6 +368,45 @@ const UnifiedCollaborationModal = ({
             user_id: collab.user_id,
             permissions: collab.permissions,
           });
+
+          // Also create song-level collaborations for all songs in the pack
+          // so the user can actually edit the songs
+          console.log(
+            "Creating song collaborations for pack songs:",
+            packSongs
+          );
+          
+          // If packSongs is empty, try to load them first
+          let songsToCollaborate = packSongs;
+          if (songsToCollaborate.length === 0) {
+            console.log("packSongs is empty, loading songs from API...");
+            try {
+              const response = await apiGet(`/songs?pack_id=${packId}`);
+              songsToCollaborate = response;
+              console.log("Loaded songs from API:", songsToCollaborate);
+            } catch (error) {
+              console.error("Failed to load pack songs:", error);
+            }
+          }
+          
+          for (const song of songsToCollaborate) {
+            try {
+              console.log(
+                `Creating collaboration for song ${song.id} (${song.title})`
+              );
+              await apiPost(`/collaborations/songs/${song.id}/collaborate`, {
+                user_id: collab.user_id,
+              });
+              console.log(
+                `Successfully created collaboration for song ${song.id}`
+              );
+            } catch (error) {
+              console.error(
+                `Failed to create collaboration for song ${song.id}:`,
+                error
+              );
+            }
+          }
         } else if (collab.type === "song_edit") {
           // Give song edit permission for single song
           await apiPost(`/collaborations/songs/${collab.songId}/collaborate`, {

@@ -6,7 +6,7 @@ from models import Pack, User
 from auth import get_current_active_user
 from pydantic import BaseModel
 
-router = APIRouter()
+router = APIRouter(prefix="/packs", tags=["Packs"])
 
 class PackCreate(BaseModel):
     name: str

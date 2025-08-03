@@ -33,8 +33,29 @@ const WipPackCard = ({
 }) => {
   // Separate songs by ownership and collaboration status
   const userOwnedSongs = allSongs.filter((song) => song.user_id === user?.id);
+
+  // Songs owned by others that the current user is a collaborator on
+  const collaborationSongs = allSongs.filter(
+    (song) =>
+      song.user_id !== user?.id &&
+      song.collaborations &&
+      song.collaborations.some(
+        (collab) =>
+          collab.username === user?.username &&
+          collab.collaboration_type === "song_edit"
+      )
+  );
+
+  // Songs owned by others that the current user has NO collaboration on (read-only)
   const collaboratorOwnedSongs = allSongs.filter(
-    (song) => song.user_id !== user?.id
+    (song) =>
+      song.user_id !== user?.id &&
+      (!song.collaborations ||
+        !song.collaborations.some(
+          (collab) =>
+            collab.username === user?.username &&
+            collab.collaboration_type === "song_edit"
+        ))
   );
 
   // Further separate user's songs into core and optional
@@ -43,6 +64,7 @@ const WipPackCard = ({
 
   // State for collapsing sections
   const [optionalCollapsed, setOptionalCollapsed] = React.useState(true);
+  const [collaborationSongsCollapsed, setCollaborationSongsCollapsed] = React.useState(false); // Expanded by default for collaboration songs
   const [collaboratorSongsCollapsed, setCollaboratorSongsCollapsed] =
     React.useState(true);
   const [completedSongsCollapsed, setCompletedSongsCollapsed] =
@@ -53,6 +75,9 @@ const WipPackCard = ({
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
   const sortedUserOptionalSongs = userOptionalSongs
+    .slice()
+    .sort((a, b) => b.filledCount - a.filledCount);
+  const sortedCollaborationSongs = collaborationSongs
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
   const sortedCollaboratorSongs = collaboratorOwnedSongs
@@ -589,6 +614,58 @@ const WipPackCard = ({
               </>
             );
           })()}
+
+          {/* Collaboration Songs - Songs where current user is a collaborator */}
+          {collaborationSongs.length > 0 && (
+            <>
+              <h4
+                style={{
+                  marginTop: "1.5rem",
+                  marginBottom: "1rem",
+                  color: "#28a745",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+                onClick={() => setCollaborationSongsCollapsed(!collaborationSongsCollapsed)}
+              >
+                <span>{collaborationSongsCollapsed ? "▶" : "▼"}</span>
+                Collaboration Songs ({collaborationSongs.length})
+              </h4>
+              {!collaborationSongsCollapsed &&
+                sortedCollaborationSongs.map((song) => {
+                  // Calculate if collaboration song is finished (100% authoring complete)
+                  const songFilledParts = authoringFields.reduce(
+                    (count, field) => {
+                      return count + (song.authoring?.[field] === true ? 1 : 0);
+                    },
+                    0
+                  );
+                  const songPercent =
+                    authoringFields.length > 0
+                      ? Math.round(
+                          (songFilledParts / authoringFields.length) * 100
+                        )
+                      : 0;
+                  const isFinished = songPercent === 100;
+
+                  return (
+                    <WipSongCard
+                      key={song.id}
+                      song={song}
+                      authoringFields={authoringFields}
+                      onAuthoringUpdate={onUpdateAuthoringField}
+                      onToggleOptional={onToggleOptional}
+                      onDelete={onDeleteSong}
+                      selectedSongs={selectedSongs}
+                      setSelectedSongs={onSetSelectedSongs}
+                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                    />
+                  );
+                })}
+            </>
+          )}
 
           {/* Optional Songs */}
           {userOptionalSongs.length > 0 && (

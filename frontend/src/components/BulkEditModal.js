@@ -274,6 +274,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 value={inputValue}
                 onChange={setInputValue}
                 placeholder="Select or add username"
+                includeCurrentUser={true}
               />
             )}
             {(selectedAction === "edit_year" ||

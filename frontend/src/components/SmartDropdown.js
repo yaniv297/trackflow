@@ -11,6 +11,7 @@ const SmartDropdown = ({
   onKeyDown,
   style = {},
   inputStyle = {},
+  includeCurrentUser = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState([]);
@@ -51,10 +52,10 @@ const SmartDropdown = ({
         case "users":
           const usersResponse = await apiGet("/auth/users/");
           const users = usersResponse.data || usersResponse;
-          // Filter out the current user
-          const filteredUsers = users.filter(
-            (user) => !currentUser || user.username !== currentUser.username
-          );
+          // Filter out the current user unless includeCurrentUser is true
+          const filteredUsers = includeCurrentUser 
+            ? users 
+            : users.filter((user) => !currentUser || user.username !== currentUser.username);
           data = filteredUsers.map((user) => ({
             value: user.username,
             label: user.username,

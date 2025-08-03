@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Song, SongStatus, Artist, Collaboration, CollaborationType, User, Pack
 from sqlalchemy import func, text, or_
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 
 router = APIRouter(prefix="/stats", tags=["Stats"])
 

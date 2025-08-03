@@ -8,7 +8,7 @@ from database import get_db, SessionLocal
 from models import Song, SongStatus, Artist, Collaboration, CollaborationType, Pack, User
 from schemas import SongOut, EnhanceRequest
 import os
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")

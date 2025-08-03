@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Song
 from schemas import SongOut
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 

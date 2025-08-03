@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 from models import Pack, User
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/packs", tags=["Packs"])

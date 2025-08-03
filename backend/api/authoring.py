@@ -6,7 +6,7 @@ from database import get_db
 from schemas import AuthoringOut
 from api.data_access import get_authoring_by_song_id
 from models import Song, AuthoringProgress, WipCollaboration, Authoring, Collaboration, CollaborationType
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 
 class EditPartsRequest(BaseModel):
     disabled_parts: List[str]

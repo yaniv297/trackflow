@@ -9,7 +9,7 @@ from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 import os
 from pydantic import BaseModel
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 
 # Spotify credentials
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "7939abf6b76d4fc7a627869350dbe3d7")

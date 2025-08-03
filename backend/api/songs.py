@@ -5,7 +5,7 @@ from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
 from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring
-from auth import get_current_active_user
+from api.auth import get_current_active_user
 from typing import Optional
 from typing import List
 

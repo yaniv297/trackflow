@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import SongRow from "./SongRow";
 import PackHeader from "./PackHeader";
 import BulkActions from "./BulkActions";
+import ColumnHeaders from "./ColumnHeaders";
 
 const SongTable = ({
   songs,
@@ -37,6 +38,41 @@ const SongTable = ({
   onCleanTitles,
   onSongAdded,
 }) => {
+  // Local sorting state for each group
+  const [localSortStates, setLocalSortStates] = useState({});
+
+  // Handle local sorting for a specific group
+  const handleLocalSort = (groupKey, key) => {
+    setLocalSortStates((prev) => {
+      const currentState = prev[groupKey] || { key: null, direction: "asc" };
+      const newDirection =
+        currentState.key === key && currentState.direction === "asc"
+          ? "desc"
+          : "asc";
+      return {
+        ...prev,
+        [groupKey]: { key, direction: newDirection },
+      };
+    });
+  };
+
+  // Sort songs within a group
+  const sortSongsInGroup = (songs, groupKey) => {
+    const sortState = localSortStates[groupKey];
+    if (!sortState || !sortState.key) return songs;
+
+    return [...songs].sort((a, b) => {
+      let aValue = a[sortState.key] || "";
+      let bValue = b[sortState.key] || "";
+
+      if (typeof aValue === "string") aValue = aValue.toLowerCase();
+      if (typeof bValue === "string") bValue = bValue.toLowerCase();
+
+      if (aValue < bValue) return sortState.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortState.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  };
   const renderPackGroup = (packName, songsInPack) => {
     const validSongsInPack = songsInPack.filter(
       (song) => song && typeof song === "object"
@@ -118,35 +154,44 @@ const SongTable = ({
           onSongAdded={onSongAdded}
         />
 
-        {!collapsedGroups[packName] &&
-          validSongsInPack.map((song) => (
-            <SongRow
-              key={song.id}
-              song={song}
-              selected={selectedSongs.includes(song.id)}
-              onSelect={(e) => {
-                if (e.target.checked) {
-                  setSelectedSongs((prev) => [...prev, song.id]);
-                } else {
-                  setSelectedSongs((prev) =>
-                    prev.filter((id) => id !== song.id)
-                  );
-                }
-              }}
-              editing={editing}
-              editValues={editValues}
-              setEditing={setEditing}
-              setEditValues={setEditValues}
-              saveEdit={saveEdit}
-              fetchSpotifyOptions={fetchSpotifyOptions}
-              handleDelete={handleDelete}
-              spotifyOptions={spotifyOptions}
-              setSpotifyOptions={setSpotifyOptions}
-              applySpotifyEnhancement={applySpotifyEnhancement}
-              status={status}
+        {!collapsedGroups[packName] && (
+          <>
+            <ColumnHeaders
               groupBy={groupBy}
+              handleSort={(key) => handleLocalSort(packName, key)}
+              sortKey={localSortStates[packName]?.key}
+              sortDirection={localSortStates[packName]?.direction}
             />
-          ))}
+            {sortSongsInGroup(validSongsInPack, packName).map((song) => (
+              <SongRow
+                key={song.id}
+                song={song}
+                selected={selectedSongs.includes(song.id)}
+                onSelect={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSongs((prev) => [...prev, song.id]);
+                  } else {
+                    setSelectedSongs((prev) =>
+                      prev.filter((id) => id !== song.id)
+                    );
+                  }
+                }}
+                editing={editing}
+                editValues={editValues}
+                setEditing={setEditing}
+                setEditValues={setEditValues}
+                saveEdit={saveEdit}
+                fetchSpotifyOptions={fetchSpotifyOptions}
+                handleDelete={handleDelete}
+                spotifyOptions={spotifyOptions}
+                setSpotifyOptions={setSpotifyOptions}
+                applySpotifyEnhancement={applySpotifyEnhancement}
+                status={status}
+                groupBy={groupBy}
+              />
+            ))}
+          </>
+        )}
       </React.Fragment>
     );
   };
@@ -235,99 +280,110 @@ const SongTable = ({
           </td>
         </tr>
 
-        {!collapsedGroups[artist] &&
-          Object.entries(albums).map(([album, songsInAlbum]) => (
-            <React.Fragment key={`${artist}-${album}`}>
-              {/* Album Header Row */}
-              <tr className="group-subheader">
-                <td colSpan="9">
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      paddingLeft: "2em",
-                      fontStyle: "italic",
-                      fontSize: "1rem",
-                      fontWeight: 500,
-                    }}
-                  >
-                    <div style={{ flex: "0 0 auto" }}>
-                      <input
-                        type="checkbox"
-                        checked={songsInAlbum.every((song) =>
-                          selectedSongs.includes(song.id)
-                        )}
-                        onChange={(e) => {
-                          const songIds = songsInAlbum.map((s) => s.id);
-                          if (e.target.checked) {
-                            setSelectedSongs((prev) => [
-                              ...new Set([...prev, ...songIds]),
-                            ]);
-                          } else {
-                            setSelectedSongs((prev) =>
-                              prev.filter((id) => !songIds.includes(id))
-                            );
-                          }
-                        }}
-                        className="pretty-checkbox"
-                      />
-                    </div>
-                    <div style={{ flex: "1 1 auto" }}>
-                      💿 <em>{album || "Unknown Album"}</em> (
-                      {songsInAlbum.length})
-                    </div>
-
-                    {/* Bulk actions for album group if any song in the album is selected */}
-                    {songsInAlbum.some((s) => selectedSongs.includes(s.id)) && (
-                      <div style={{ flex: "0 0 auto", marginLeft: "1rem" }}>
-                        <BulkActions
-                          selectedSongs={selectedSongs}
-                          onBulkEdit={onBulkEdit}
-                          onBulkDelete={onBulkDelete}
-                          onBulkEnhance={onBulkEnhance}
-                          onStartWork={onStartWork}
-                          onCleanTitles={onCleanTitles}
-                          showAlbumSeriesButton={false}
-                          showDoubleAlbumSeriesButton={false}
-                          status={status}
+        {!collapsedGroups[artist] && (
+          <>
+            <ColumnHeaders
+              groupBy={groupBy}
+              handleSort={(key) => handleLocalSort(artist, key)}
+              sortKey={localSortStates[artist]?.key}
+              sortDirection={localSortStates[artist]?.direction}
+            />
+            {Object.entries(albums).map(([album, songsInAlbum]) => (
+              <React.Fragment key={`${artist}-${album}`}>
+                {/* Album Header Row */}
+                <tr className="group-subheader">
+                  <td colSpan="9">
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        paddingLeft: "2em",
+                        fontStyle: "italic",
+                        fontSize: "1rem",
+                        fontWeight: 500,
+                      }}
+                    >
+                      <div style={{ flex: "0 0 auto" }}>
+                        <input
+                          type="checkbox"
+                          checked={songsInAlbum.every((song) =>
+                            selectedSongs.includes(song.id)
+                          )}
+                          onChange={(e) => {
+                            const songIds = songsInAlbum.map((s) => s.id);
+                            if (e.target.checked) {
+                              setSelectedSongs((prev) => [
+                                ...new Set([...prev, ...songIds]),
+                              ]);
+                            } else {
+                              setSelectedSongs((prev) =>
+                                prev.filter((id) => !songIds.includes(id))
+                              );
+                            }
+                          }}
+                          className="pretty-checkbox"
                         />
                       </div>
-                    )}
-                  </div>
-                </td>
-              </tr>
-              {/* Song Rows */}
-              {songsInAlbum.map((song) => (
-                <SongRow
-                  key={song.id}
-                  song={song}
-                  selected={selectedSongs.includes(song.id)}
-                  onSelect={(e) => {
-                    if (e.target.checked) {
-                      setSelectedSongs((prev) => [...prev, song.id]);
-                    } else {
-                      setSelectedSongs((prev) =>
-                        prev.filter((id) => id !== song.id)
-                      );
-                    }
-                  }}
-                  editing={editing}
-                  editValues={editValues}
-                  setEditing={setEditing}
-                  setEditValues={setEditValues}
-                  saveEdit={saveEdit}
-                  fetchSpotifyOptions={fetchSpotifyOptions}
-                  handleDelete={handleDelete}
-                  spotifyOptions={spotifyOptions}
-                  setSpotifyOptions={setSpotifyOptions}
-                  applySpotifyEnhancement={applySpotifyEnhancement}
-                  status={status}
-                  groupBy={groupBy}
-                />
-              ))}
-            </React.Fragment>
-          ))}
+                      <div style={{ flex: "1 1 auto" }}>
+                        💿 <em>{album || "Unknown Album"}</em> (
+                        {songsInAlbum.length})
+                      </div>
+
+                      {/* Bulk actions for album group if any song in the album is selected */}
+                      {songsInAlbum.some((s) =>
+                        selectedSongs.includes(s.id)
+                      ) && (
+                        <div style={{ flex: "0 0 auto", marginLeft: "1rem" }}>
+                          <BulkActions
+                            selectedSongs={selectedSongs}
+                            onBulkEdit={onBulkEdit}
+                            onBulkDelete={onBulkDelete}
+                            onBulkEnhance={onBulkEnhance}
+                            onStartWork={onStartWork}
+                            onCleanTitles={onCleanTitles}
+                            showAlbumSeriesButton={false}
+                            showDoubleAlbumSeriesButton={false}
+                            status={status}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {/* Song Rows */}
+                {sortSongsInGroup(songsInAlbum, artist).map((song) => (
+                  <SongRow
+                    key={song.id}
+                    song={song}
+                    selected={selectedSongs.includes(song.id)}
+                    onSelect={(e) => {
+                      if (e.target.checked) {
+                        setSelectedSongs((prev) => [...prev, song.id]);
+                      } else {
+                        setSelectedSongs((prev) =>
+                          prev.filter((id) => id !== song.id)
+                        );
+                      }
+                    }}
+                    editing={editing}
+                    editValues={editValues}
+                    setEditing={setEditing}
+                    setEditValues={setEditValues}
+                    saveEdit={saveEdit}
+                    fetchSpotifyOptions={fetchSpotifyOptions}
+                    handleDelete={handleDelete}
+                    spotifyOptions={spotifyOptions}
+                    setSpotifyOptions={setSpotifyOptions}
+                    applySpotifyEnhancement={applySpotifyEnhancement}
+                    status={status}
+                    groupBy={groupBy}
+                  />
+                ))}
+              </React.Fragment>
+            ))}
+          </>
+        )}
       </React.Fragment>
     );
   };
@@ -335,9 +391,17 @@ const SongTable = ({
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="song-table">
-        <thead>
-          <tr>
-            <th>
+        <tbody>
+          {/* Global select all row */}
+          <tr
+            style={{
+              backgroundColor: "#e9ecef",
+              borderBottom: "2px solid #dee2e6",
+            }}
+          >
+            <td
+              style={{ padding: "0.5rem", textAlign: "center", width: "40px" }}
+            >
               <input
                 type="checkbox"
                 checked={
@@ -353,32 +417,15 @@ const SongTable = ({
                 }}
                 className="pretty-checkbox"
               />
-            </th>
-            <th>Cover</th>
-            <th onClick={() => handleSort("title")} className="sortable">
-              Title{" "}
-              {sortKey === "title" && (sortDirection === "asc" ? "▲" : "▼")}
-            </th>
-            {groupBy !== "artist" && (
-              <th onClick={() => handleSort("artist")} className="sortable">
-                Artist{" "}
-                {sortKey === "artist" && (sortDirection === "asc" ? "▲" : "▼")}
-              </th>
-            )}
-            <th onClick={() => handleSort("album")} className="sortable">
-              Album{" "}
-              {sortKey === "album" && (sortDirection === "asc" ? "▲" : "▼")}
-            </th>
-            {groupBy !== "pack" && <th>Pack</th>}
-            <th>Owner</th>
-            <th onClick={() => handleSort("year")} className="sortable">
-              Year {sortKey === "year" && (sortDirection === "asc" ? "▲" : "▼")}
-            </th>
-            <th>Collaborations</th>
-            <th>Actions</th>
+            </td>
+            <td
+              colSpan={groupBy === "artist" ? 7 : 8}
+              style={{ padding: "0.5rem", fontWeight: "600" }}
+            >
+              Select All Songs
+            </td>
           </tr>
-        </thead>
-        <tbody>
+
           {groupBy === "artist"
             ? Object.entries(groupedSongs).map(([artist, albums]) =>
                 renderArtistGroup(artist, albums)

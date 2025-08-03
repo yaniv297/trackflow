@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { apiPost, apiPatch } from "../utils/api";
+import { apiPost, apiPatch, apiGet } from "../utils/api";
 import SmartDropdown from "./SmartDropdown";
 
 const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
@@ -23,6 +23,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
       "edit_year",
       "edit_cover_art",
       "edit_collaborations",
+      "edit_owner",
     ];
 
     if (actionsNeedingInput.includes(selectedAction) && !inputValue) {
@@ -67,6 +68,27 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 await apiPost(`/songs/${id}/collaborations/`, {
                   collaborations,
                 });
+              }
+            } catch {
+              failed++;
+            }
+          }
+          break;
+
+        case "edit_owner":
+          for (const id of selectedSongs) {
+            try {
+              // First, get the user ID for the username
+              const usersResponse = await apiGet("/auth/users/");
+              const users = usersResponse.data || usersResponse;
+              const targetUser = users.find(
+                (user) => user.username === inputValue
+              );
+
+              if (targetUser) {
+                await apiPatch(`/songs/${id}/`, { user_id: targetUser.id });
+              } else {
+                failed++;
               }
             } catch {
               failed++;
@@ -198,6 +220,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           <option value="edit_year">Edit Year</option>
           <option value="edit_cover_art">Edit Cover Art</option>
           <option value="edit_collaborations">Edit Collaborations</option>
+          <option value="edit_owner">Edit Owner</option>
           <option value="bulk_enhance">Bulk Enhance</option>
           <option value="bulk_delete">Bulk Delete</option>
           <option value="clean_remaster_tags">Clean Remaster Tags</option>
@@ -210,6 +233,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           "edit_year",
           "edit_cover_art",
           "edit_collaborations",
+          "edit_owner",
         ].includes(selectedAction) && (
           <div style={{ marginTop: "1rem" }}>
             {selectedAction === "edit_artist" && (
@@ -242,6 +266,14 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 value={inputValue}
                 onChange={setInputValue}
                 placeholder="Select or add usernames (comma-separated)"
+              />
+            )}
+            {selectedAction === "edit_owner" && (
+              <SmartDropdown
+                type="users"
+                value={inputValue}
+                onChange={setInputValue}
+                placeholder="Select or add username"
               />
             )}
             {(selectedAction === "edit_year" ||

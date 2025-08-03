@@ -48,6 +48,7 @@ const SmartDropdown = ({
           break;
 
         case "collaborations":
+        case "users":
           const usersResponse = await apiGet("/auth/users/");
           const users = usersResponse.data || usersResponse;
           // Filter out the current user
@@ -238,7 +239,7 @@ const SmartDropdown = ({
                     color: "#666",
                   }}
                 >
-                  No {type}s found
+                  No {type === "users" ? "users" : `${type}s`} found
                 </div>
               )}
             </>

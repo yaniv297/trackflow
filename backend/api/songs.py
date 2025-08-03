@@ -647,19 +647,77 @@ def get_packs_autocomplete(query: str = Query(""), db: Session = Depends(get_db)
     return [pack[0] for pack in packs if pack[0]]
 
 @router.get("/debug-songs")
-def debug_songs(db: Session = Depends(get_db)):
-    songs = db.query(Song).options(
-        joinedload(Song.pack_obj)
-    ).filter(Song.status == "wip").limit(5).all()
+def debug_songs(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Debug endpoint to see all songs and collaborations for current user"""
+    # Get all songs
+    all_songs = db.query(Song).all()
     
-    result = []
-    for song in songs:
-        result.append({
-            "id": song.id,
-            "title": song.title,
-            "pack_id": song.pack_id,
-            "pack_obj_loaded": song.pack_obj is not None,
-            "pack_name": song.pack_obj.name if song.pack_obj else None
-        })
+    # Get user's collaborations
+    user_collaborations = db.query(Collaboration).filter(
+        Collaboration.user_id == current_user.id
+    ).all()
     
-    return result
+    # Get songs user should see
+    visible_songs = db.query(Song).filter(
+        or_(
+            Song.user_id == current_user.id,  # Songs owned by current user
+            Song.id.in_(  # Songs where current user is a collaborator
+                db.query(Collaboration.song_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+                )
+                .subquery()
+            ),
+            # Songs in packs where current user has ANY collaboration access
+            Song.pack_id.in_(
+                db.query(Collaboration.pack_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+                )
+                .distinct()
+                .subquery()
+            )
+        )
+    ).all()
+    
+    return {
+        "current_user": {
+            "id": current_user.id,
+            "username": current_user.username
+        },
+        "all_songs": [
+            {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
+                "user_id": song.user_id,
+                "pack_id": song.pack_id,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
+                "status": song.status
+            }
+            for song in all_songs
+        ],
+        "user_collaborations": [
+            {
+                "id": collab.id,
+                "pack_id": collab.pack_id,
+                "song_id": collab.song_id,
+                "collaboration_type": collab.collaboration_type.value
+            }
+            for collab in user_collaborations
+        ],
+        "visible_songs": [
+            {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
+                "user_id": song.user_id,
+                "pack_id": song.pack_id,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
+                "status": song.status
+            }
+            for song in visible_songs
+        ]
+    }

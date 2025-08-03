@@ -34,15 +34,15 @@ export const useWipData = (user) => {
 
     const collaborators = new Set();
 
-    // Check if current user is a collaborator - add pack owner
-    const isCollaborator = userCollaborations.some(
+    // Check if current user is a collaborator on the pack - add pack owner
+    const isPackCollaborator = userCollaborations.some(
       (collab) =>
         collab.pack_id === packId &&
         (collab.collaboration_type === "pack_view" ||
           collab.collaboration_type === "pack_edit")
     );
 
-    if (isCollaborator) {
+    if (isPackCollaborator) {
       const packOwner =
         validSongsInPack[0]?.pack_owner_username ||
         validSongsInPack[0]?.author ||
@@ -62,7 +62,7 @@ export const useWipData = (user) => {
       collaborators.add(collab.username);
     });
 
-    // Also check for individual song collaborations within this pack
+    // Check for individual song collaborations within this pack
     validSongsInPack.forEach((song) => {
       if (song.collaborations && song.collaborations.length > 0) {
         song.collaborations.forEach((collab) => {
@@ -72,6 +72,25 @@ export const useWipData = (user) => {
         });
       }
     });
+
+    // Also check if current user is a collaborator on any song in this pack
+    // This is the key fix for the "make collab" scenario
+    const isSongCollaborator = userCollaborations.some(
+      (collab) =>
+        collab.song_id && 
+        collab.collaboration_type === "song_edit" &&
+        validSongsInPack.some(song => song.id === collab.song_id)
+    );
+
+    if (isSongCollaborator) {
+      // Add the song owner(s) as collaborators
+      validSongsInPack.forEach((song) => {
+        if (song.user_id !== user?.id) { // Don't add self
+          const songOwner = song.author || "unknown";
+          collaborators.add(songOwner);
+        }
+      });
+    }
 
     // Filter out current user - you don't collaborate with yourself
     collaborators.delete(user?.username);

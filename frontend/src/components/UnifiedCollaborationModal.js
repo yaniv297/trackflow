@@ -283,9 +283,8 @@ const UnifiedCollaborationModal = ({
             type: "specific",
             user_id: user.id,
             username: user.username,
-            permissions: ["pack_view"], // Give pack view for instrument collaborators
+            permissions: ["pack_view"], // Give pack view for song collaborators
             songs: selectedSongObjects,
-            instruments: selectedInstruments,
           },
         ]);
       } else if (collaborationType === "song") {
@@ -301,23 +300,23 @@ const UnifiedCollaborationModal = ({
             instruments: selectedInstruments,
           },
         ]);
-      }
 
-      // Track WIP changes for both pack and song collaboration types
-      const newWipChanges = { ...pendingWipChanges };
-      selectedSongObjects.forEach((song) => {
-        const actualSongId = song.id || song;
-        if (!newWipChanges[actualSongId]) {
-          newWipChanges[actualSongId] = [];
-        }
-        selectedInstruments.forEach((instrument) => {
-          newWipChanges[actualSongId].push({
-            collaborator: user.username,
-            field: instrument.toLowerCase().replace(/\s+/g, "_"),
+        // Track WIP changes only for song collaboration types (WIP songs)
+        const newWipChanges = { ...pendingWipChanges };
+        selectedSongObjects.forEach((song) => {
+          const actualSongId = song.id || song;
+          if (!newWipChanges[actualSongId]) {
+            newWipChanges[actualSongId] = [];
+          }
+          selectedInstruments.forEach((instrument) => {
+            newWipChanges[actualSongId].push({
+              collaborator: user.username,
+              field: instrument.toLowerCase().replace(/\s+/g, "_"),
+            });
           });
         });
-      });
-      setPendingWipChanges(newWipChanges);
+        setPendingWipChanges(newWipChanges);
+      }
     }
 
     // Reset to step 1
@@ -375,7 +374,7 @@ const UnifiedCollaborationModal = ({
             "Creating song collaborations for pack songs:",
             packSongs
           );
-          
+
           // If packSongs is empty, try to load them first
           let songsToCollaborate = packSongs;
           if (songsToCollaborate.length === 0) {
@@ -388,7 +387,7 @@ const UnifiedCollaborationModal = ({
               console.error("Failed to load pack songs:", error);
             }
           }
-          
+
           for (const song of songsToCollaborate) {
             try {
               console.log(
@@ -612,7 +611,7 @@ const UnifiedCollaborationModal = ({
 
   const getDescription = () => {
     if (collaborationType === "pack") {
-      return "Add collaborators to this pack. You can give them full access to all songs, or assign them to specific songs and instruments.";
+      return "Add collaborators to this pack. You can give them full access to all songs, or assign them to specific songs for editing.";
     } else if (collaborationType === "pack_share") {
       return "Share this pack with another user. They will be able to view all songs (read-only) and add their own songs to the pack.";
     }
@@ -629,7 +628,7 @@ const UnifiedCollaborationModal = ({
         if (collaborationType === "song") {
           return "Select instruments to assign";
         } else if (permissionType === "specific") {
-          return "Select songs and instruments to assign";
+          return "Select songs for collaboration";
         }
         return "";
       default:
@@ -928,8 +927,8 @@ const UnifiedCollaborationModal = ({
               </div>
             )}
 
-            {/* Instrument Selection (for instrument assignments) */}
-            {permissionType === "specific" && (
+            {/* Instrument Selection (only for WIP songs, not for Future Plans collaborations) */}
+            {permissionType === "specific" && collaborationType === "song" && (
               <div style={{ marginBottom: "1rem" }}>
                 <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
                   Select Instruments:
@@ -987,40 +986,31 @@ const UnifiedCollaborationModal = ({
               <button
                 onClick={handleAddCollaboration}
                 disabled={
-                  (permissionType === "specific" &&
-                    (selectedSongs.length === 0 ||
-                      (collaborationType === "pack" &&
-                        selectedSongs.length === 0))) ||
-                  (permissionType === "specific" &&
-                    (selectedInstruments.length === 0 ||
-                      (collaborationType === "pack" &&
-                        selectedSongs.length === 0)))
+                  permissionType === "specific" &&
+                  ((collaborationType === "pack" &&
+                    selectedSongs.length === 0) ||
+                    (collaborationType === "song" &&
+                      selectedInstruments.length === 0))
                 }
                 style={{
                   padding: "0.5rem 1rem",
                   background:
-                    (permissionType === "specific" &&
-                      (selectedSongs.length === 0 ||
-                        (collaborationType === "pack" &&
-                          selectedSongs.length === 0))) ||
-                    (permissionType === "specific" &&
-                      (selectedInstruments.length === 0 ||
-                        (collaborationType === "pack" &&
-                          selectedSongs.length === 0)))
+                    permissionType === "specific" &&
+                    ((collaborationType === "pack" &&
+                      selectedSongs.length === 0) ||
+                      (collaborationType === "song" &&
+                        selectedInstruments.length === 0))
                       ? "#ccc"
                       : "#28a745",
                   color: "white",
                   border: "none",
                   borderRadius: "4px",
                   cursor:
-                    (permissionType === "specific" &&
-                      (selectedSongs.length === 0 ||
-                        (collaborationType === "pack" &&
-                          selectedSongs.length === 0))) ||
-                    (permissionType === "specific" &&
-                      (selectedInstruments.length === 0 ||
-                        (collaborationType === "pack" &&
-                          selectedSongs.length === 0)))
+                    permissionType === "specific" &&
+                    ((collaborationType === "pack" &&
+                      selectedSongs.length === 0) ||
+                      (collaborationType === "song" &&
+                        selectedInstruments.length === 0))
                       ? "not-allowed"
                       : "pointer",
                 }}
@@ -1212,7 +1202,7 @@ const UnifiedCollaborationModal = ({
                         {collab.type === "full" && "Full permissions"}
                         {collab.type === "song_edit" && "Song edit permission"}
                         {collab.type === "specific" &&
-                          `${collab.instruments.join(", ")} for: ${collab.songs
+                          `${collab.instruments ? collab.instruments.join(", ") : "Song edit"} for: ${collab.songs
                             .map((s) => s.title)
                             .join(", ")}`}
                         {collab.type === "pack_share" &&

@@ -49,7 +49,7 @@ const ColumnHeaders = ({ groupBy, handleSort, sortKey, sortDirection }) => {
       >
         Album {sortKey === "album" && (sortDirection === "asc" ? "▲" : "▼")}
       </th>
-      {groupBy !== "pack" && <th style={{ padding: "0.5rem" }}>Pack</th>}
+      <th style={{ padding: "0.5rem" }}>Pack</th>
       <th style={{ padding: "0.5rem" }}>Owner</th>
       <th
         onClick={() => handleSort("year")}

@@ -152,19 +152,17 @@ export default function SongRow({
           saveEdit={saveEdit}
           isEditable={song.is_editable}
         />
-        {groupBy !== "pack" && (
-          <EditableCell
-            value={song.pack_name || ""}
-            songId={song.id}
-            field="pack"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        )}
+        <EditableCell
+          value={song.pack_name || ""}
+          songId={song.id}
+          field="pack"
+          editing={editing}
+          editValues={editValues}
+          setEditing={setEditing}
+          setEditValues={setEditValues}
+          saveEdit={saveEdit}
+          isEditable={song.is_editable}
+        />
 
         {/* Owner */}
         <td>
@@ -218,29 +216,59 @@ export default function SongRow({
           }}
         >
           {editing[`${song.id}_collaborations`] && status !== "Future Plans" ? (
-            <SmartDropdown
-              type="collaborations"
-              value={
-                editValues[`${song.id}_collaborations`] ??
-                (song.collaborations && song.collaborations.length > 0
-                  ? song.collaborations
-                      .filter((collab) => collab.username !== user.username)
-                      .map((collab) => collab.username)
-                      .join(", ")
-                  : "")
-              }
-              onChange={(value) =>
-                setEditValues((prev) => ({
-                  ...prev,
-                  [`${song.id}_collaborations`]: value,
-                }))
-              }
-              onBlur={() => saveEdit(song.id, "collaborations")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveEdit(song.id, "collaborations");
-              }}
-              placeholder="Select or add collaborators..."
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                value={
+                  editValues[`${song.id}_collaborations`] ??
+                  (song.collaborations && song.collaborations.length > 0
+                    ? song.collaborations
+                        .filter((collab) => collab.username !== user.username)
+                        .map((collab) => collab.username)
+                        .join(", ")
+                    : "")
+                }
+                onChange={(e) =>
+                  setEditValues((prev) => ({
+                    ...prev,
+                    [`${song.id}_collaborations`]: e.target.value,
+                  }))
+                }
+                onBlur={() => saveEdit(song.id, "collaborations")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEdit(song.id, "collaborations");
+                }}
+                placeholder="Enter usernames (comma-separated)..."
+                style={{
+                  width: "100%",
+                  padding: "0.75rem 1rem",
+                  border: "2px solid #e1e5e9",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#007bff";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "#e1e5e9";
+                  e.target.style.boxShadow = "none";
+                  saveEdit(song.id, "collaborations");
+                }}
+              />
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#666",
+                  marginTop: "0.25rem",
+                  fontStyle: "italic",
+                }}
+              >
+                Type usernames separated by commas (e.g., "user1, user2, user3")
+              </div>
+            </div>
           ) : (
             <div
               style={{

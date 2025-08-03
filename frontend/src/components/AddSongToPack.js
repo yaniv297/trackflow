@@ -56,18 +56,30 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed) {
-        // Require "Artist - Title" format
+        // Try to parse "Artist - Title" or "Artist – Title" format
         const dashIndex = trimmed.indexOf(" - ");
-        if (dashIndex > 0) {
-          const artist = trimmed.substring(0, dashIndex).trim();
-          const title = trimmed.substring(dashIndex + 3).trim();
+        const enDashIndex = trimmed.indexOf(" – ");
+
+        // Use whichever dash appears first, or the regular dash if both are present
+        let separatorIndex = -1;
+        if (dashIndex !== -1 && enDashIndex !== -1) {
+          separatorIndex = Math.min(dashIndex, enDashIndex);
+        } else if (dashIndex !== -1) {
+          separatorIndex = dashIndex;
+        } else if (enDashIndex !== -1) {
+          separatorIndex = enDashIndex;
+        }
+
+        if (separatorIndex > 0) {
+          const artist = trimmed.substring(0, separatorIndex).trim();
+          const title = trimmed.substring(separatorIndex + 3).trim(); // +3 for " - " or " – "
           if (artist && title) {
             songs.push({ artist, title });
           }
         } else {
           // If no dash, skip this line (invalid format)
           console.warn(
-            `Skipping invalid format: "${trimmed}". Use "Artist - Title" format.`
+            `Skipping invalid format: "${trimmed}". Use "Artist - Title" or "Artist – Title" format.`
           );
         }
       }
@@ -86,7 +98,7 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
         const songs = parseMultipleSongs(multipleSongs);
         if (songs.length === 0) {
           window.showNotification?.(
-            "Please enter at least one song in 'Artist - Title' format",
+            "Please enter at least one song in 'Artist - Title' or 'Artist – Title' format",
             "error"
           );
           return;
@@ -354,17 +366,17 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
                   color: "#555",
                 }}
               >
-                Songs (Artist - Title format) *
+                Songs (Artist - Title or Artist – Title format) *
               </label>
               <textarea
                 value={multipleSongs}
                 onChange={(e) => setMultipleSongs(e.target.value)}
-                placeholder={`Enter songs in "Artist - Title" format, one per line:
+                placeholder={`Enter songs in "Artist - Title" or "Artist – Title" format, one per line:
 
 The Beatles - Hey Jude
-The Beatles - Let It Be
+The Beatles – Let It Be
 Pink Floyd - Comfortably Numb
-Queen - Bohemian Rhapsody`}
+Queen – Bohemian Rhapsody`}
                 required
                 rows={8}
                 style={{

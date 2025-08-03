@@ -80,6 +80,7 @@ const WipPackCard = ({
     React.useState(true);
   const [completedSongsCollapsed, setCompletedSongsCollapsed] =
     React.useState(true); // Collapsed by default
+  const [activeSongsCollapsed, setActiveSongsCollapsed] = React.useState(false); // Expanded by default for active songs
 
   // Sort songs by completion (filledCount) descending
   const sortedUserCoreSongs = userCoreSongs
@@ -596,35 +597,59 @@ const WipPackCard = ({
                 )}
 
                 {/* Active Core Songs - IN THE MIDDLE */}
-                {activeCoreSongs.map((song) => {
-                  const songFilledParts = authoringFields.reduce(
-                    (count, field) => {
-                      return count + (song.authoring?.[field] === true ? 1 : 0);
-                    },
-                    0
-                  );
-                  const songPercent =
-                    authoringFields.length > 0
-                      ? Math.round(
-                          (songFilledParts / authoringFields.length) * 100
-                        )
-                      : 0;
-                  const isFinished = songPercent === 100;
+                {activeCoreSongs.length > 0 && (
+                  <>
+                    <h4
+                      style={{
+                        marginTop: "0",
+                        marginBottom: "1rem",
+                        color: "#007bff",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }}
+                      onClick={() =>
+                        setActiveSongsCollapsed(!activeSongsCollapsed)
+                      }
+                    >
+                      <span>{activeSongsCollapsed ? "▶" : "▼"}</span>
+                      In Progress Songs ({activeCoreSongs.length})
+                    </h4>
+                    {!activeSongsCollapsed &&
+                      activeCoreSongs.map((song) => {
+                        const songFilledParts = authoringFields.reduce(
+                          (count, field) => {
+                            return (
+                              count + (song.authoring?.[field] === true ? 1 : 0)
+                            );
+                          },
+                          0
+                        );
+                        const songPercent =
+                          authoringFields.length > 0
+                            ? Math.round(
+                                (songFilledParts / authoringFields.length) * 100
+                              )
+                            : 0;
+                        const isFinished = songPercent === 100;
 
-                  return (
-                    <WipSongCard
-                      key={song.id}
-                      song={song}
-                      authoringFields={authoringFields}
-                      onAuthoringUpdate={onUpdateAuthoringField}
-                      onToggleOptional={onToggleOptional}
-                      onDelete={onDeleteSong}
-                      selectedSongs={selectedSongs}
-                      setSelectedSongs={onSetSelectedSongs}
-                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
-                    />
-                  );
-                })}
+                        return (
+                          <WipSongCard
+                            key={song.id}
+                            song={song}
+                            authoringFields={authoringFields}
+                            onAuthoringUpdate={onUpdateAuthoringField}
+                            onToggleOptional={onToggleOptional}
+                            onDelete={onDeleteSong}
+                            selectedSongs={selectedSongs}
+                            setSelectedSongs={onSetSelectedSongs}
+                            defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                          />
+                        );
+                      })}
+                  </>
+                )}
               </>
             );
           })()}

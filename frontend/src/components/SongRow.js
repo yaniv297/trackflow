@@ -57,6 +57,7 @@ export default function SongRow({
   setSpotifyOptions,
   applySpotifyEnhancement,
   status,
+  groupBy,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { user } = useAuth();
@@ -127,17 +128,19 @@ export default function SongRow({
           saveEdit={saveEdit}
           isEditable={song.is_editable}
         />
-        <EditableCell
-          value={song.artist}
-          songId={song.id}
-          field="artist"
-          editing={editing}
-          editValues={editValues}
-          setEditing={setEditing}
-          setEditValues={setEditValues}
-          saveEdit={saveEdit}
-          isEditable={song.is_editable}
-        />
+        {groupBy !== "artist" && (
+          <EditableCell
+            value={song.artist}
+            songId={song.id}
+            field="artist"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
+        )}
         <EditableCell
           value={song.album}
           songId={song.id}
@@ -149,17 +152,19 @@ export default function SongRow({
           saveEdit={saveEdit}
           isEditable={song.is_editable}
         />
-        <EditableCell
-          value={song.pack_name || ""}
-          songId={song.id}
-          field="pack"
-          editing={editing}
-          editValues={editValues}
-          setEditing={setEditing}
-          setEditValues={setEditValues}
-          saveEdit={saveEdit}
-          isEditable={song.is_editable}
-        />
+        {groupBy !== "pack" && (
+          <EditableCell
+            value={song.pack_name || ""}
+            songId={song.id}
+            field="pack"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
+        )}
 
         {/* Owner */}
         <td>
@@ -246,30 +251,27 @@ export default function SongRow({
               }}
             >
               {/* Show collaborators (excluding the song owner) */}
-              {song.collaborations && song.collaborations.length > 0 ? (
-                song.collaborations
-                  .filter((collab) => 
-                    collab.username !== user.username && 
-                    collab.username !== song.author
-                  )
-                  .map((collab) => (
-                    <span
-                      key={collab.id}
-                      style={{
-                        background: getCollaboratorColor(collab.username),
-                        color: "white",
-                        padding: "2px 6px",
-                        borderRadius: "12px",
-                        fontSize: "0.75rem",
-                        fontWeight: "500",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {collab.username}
-                    </span>
-                  ))
-              ) : null}
-              
+              {song.collaborations && song.collaborations.length > 0
+                ? song.collaborations
+                    .filter((collab) => collab.username !== song.author)
+                    .map((collab) => (
+                      <span
+                        key={collab.id}
+                        style={{
+                          background: getCollaboratorColor(collab.username),
+                          color: "white",
+                          padding: "2px 6px",
+                          borderRadius: "12px",
+                          fontSize: "0.75rem",
+                          fontWeight: "500",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {collab.username}
+                      </span>
+                    ))
+                : null}
+
               {/* Show "None" if no collaborators */}
               {(!song.collaborations || song.collaborations.length === 0) && (
                 <span style={{ color: "#ccc", fontSize: "0.85rem" }}>
@@ -302,7 +304,9 @@ export default function SongRow({
                   Cancel
                 </button>
               ) : (
-                <button onClick={() => fetchSpotifyOptions(song)}>Enhance</button>
+                <button onClick={() => fetchSpotifyOptions(song)}>
+                  Enhance
+                </button>
               )}
               <button
                 onClick={() => setShowDeleteConfirm(true)}

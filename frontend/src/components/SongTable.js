@@ -144,6 +144,7 @@ const SongTable = ({
               setSpotifyOptions={setSpotifyOptions}
               applySpotifyEnhancement={applySpotifyEnhancement}
               status={status}
+              groupBy={groupBy}
             />
           ))}
       </React.Fragment>
@@ -321,6 +322,8 @@ const SongTable = ({
                   spotifyOptions={spotifyOptions}
                   setSpotifyOptions={setSpotifyOptions}
                   applySpotifyEnhancement={applySpotifyEnhancement}
+                  status={status}
+                  groupBy={groupBy}
                 />
               ))}
             </React.Fragment>
@@ -356,15 +359,17 @@ const SongTable = ({
               Title{" "}
               {sortKey === "title" && (sortDirection === "asc" ? "▲" : "▼")}
             </th>
-            <th onClick={() => handleSort("artist")} className="sortable">
-              Artist{" "}
-              {sortKey === "artist" && (sortDirection === "asc" ? "▲" : "▼")}
-            </th>
+            {groupBy !== "artist" && (
+              <th onClick={() => handleSort("artist")} className="sortable">
+                Artist{" "}
+                {sortKey === "artist" && (sortDirection === "asc" ? "▲" : "▼")}
+              </th>
+            )}
             <th onClick={() => handleSort("album")} className="sortable">
               Album{" "}
               {sortKey === "album" && (sortDirection === "asc" ? "▲" : "▼")}
             </th>
-            <th>Pack</th>
+            {groupBy !== "pack" && <th>Pack</th>}
             <th>Owner</th>
             <th onClick={() => handleSort("year")} className="sortable">
               Year {sortKey === "year" && (sortDirection === "asc" ? "▲" : "▼")}

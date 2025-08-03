@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Song, SongStatus, Artist, Collaboration, CollaborationType, User, Pack
-from sqlalchemy import func, text
+from sqlalchemy import func, text, or_
 from auth import get_current_active_user
 
 router = APIRouter(prefix="/stats", tags=["Stats"])
@@ -11,37 +11,50 @@ router = APIRouter(prefix="/stats", tags=["Stats"])
 def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     included_statuses = [SongStatus.released, SongStatus.wip]
 
-    # Get all stats in optimized queries - filter by current user
+    # Build base filter for songs the user has access to (owner OR collaborator)
+    song_access_filter = or_(
+        Song.user_id == current_user.id,  # Songs owned by current user
+        Song.id.in_(  # Songs where current user is a collaborator
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+
+    # Get all stats in optimized queries - filter by user access
     total = db.query(Song).filter(
         Song.status.in_(included_statuses),
-        Song.user_id == current_user.id
+        song_access_filter
     ).count()
 
     by_status = dict(
         db.query(Song.status, func.count())
           .filter(
               Song.status.in_(included_statuses),
-              Song.user_id == current_user.id
+              song_access_filter
           )
           .group_by(Song.status)
           .all()
     )
 
-    # Get top artists with a single optimized query - filter by current user
+    # Get top artists with a single optimized query - filter by user access
     top_artists_data = db.query(
         Song.artist, 
         func.count().label('count')
     ).filter(
         Song.status.in_(included_statuses),
         Song.artist.isnot(None),
-        Song.user_id == current_user.id
+        song_access_filter
     ).group_by(
         Song.artist
     ).order_by(
         func.count().desc()
     ).limit(50).all()
 
-    # Get all unique artists for batch lookup - filter by current user
+    # Get all unique artists for batch lookup - filter by user access
     artist_names = [row.artist for row in top_artists_data]
     artist_images = dict(
         db.query(Artist.name, Artist.image_url)
@@ -61,7 +74,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         for row in top_artists_data
     ]
 
-    # Get top albums - filter by current user
+    # Get top albums - filter by user access
     top_albums = [
         {"album": album, "count": count, "album_cover": album_cover, "artist": artist}
         for album, count, album_cover, artist in db.query(
@@ -72,7 +85,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         ).filter(
             Song.status.in_(included_statuses),
             Song.album.isnot(None),
-            Song.user_id == current_user.id
+            song_access_filter
         ).group_by(
             Song.album, Song.album_cover, Song.artist
         ).order_by(
@@ -80,7 +93,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         ).limit(50).all()
     ]
 
-    # Optimized pack processing with single query - filter by current user
+    # Optimized pack processing with single query - filter by user access
     pack_artist_counts = db.query(
         Pack.name.label('pack'),
         Song.artist,
@@ -88,7 +101,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
     ).join(Song, Pack.id == Song.pack_id).filter(
         Song.status.in_(included_statuses),
         Song.artist.isnot(None),
-        Song.user_id == current_user.id
+        song_access_filter
     ).group_by(
         Pack.name, Song.artist
     ).subquery()
@@ -107,7 +120,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         db.query(Pack.name, func.count())
           .join(Song, Pack.id == Song.pack_id).filter(
               Song.status.in_(included_statuses), 
-              Song.user_id == current_user.id
+              song_access_filter
           )
           .group_by(Pack.name)
           .order_by(func.count().desc())
@@ -145,38 +158,38 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
     total_artists = db.query(Song.artist).filter(
         Song.status.in_(included_statuses),
         Song.artist.isnot(None),
-        Song.user_id == current_user.id
+        song_access_filter
     ).distinct().count()
     
     total_albums = db.query(Song.album).filter(
         Song.status.in_(included_statuses),
         Song.album.isnot(None),
-        Song.user_id == current_user.id
+        song_access_filter
     ).distinct().count()
     
     total_packs = db.query(Pack.name).join(Song, Pack.id == Song.pack_id).filter(
         Song.status.in_(included_statuses),
-        Song.user_id == current_user.id
+        song_access_filter
     ).distinct().count()
 
-    # Get collaboration stats - filter by current user's songs
+    # Get collaboration stats - include collaborations on songs the user has access to
     total_collaborations = db.query(Collaboration).join(Song).filter(
-        Song.user_id == current_user.id,
+        song_access_filter,
         Collaboration.collaboration_type == CollaborationType.SONG_EDIT
     ).count()
     
-    # Get unique collaborators count - filter by current user's songs
+    # Get unique collaborators count - include collaborations on songs the user has access to
     total_collaborators = db.query(Collaboration.user_id).join(Song).filter(
-        Song.user_id == current_user.id,
+        song_access_filter,
         Collaboration.collaboration_type == CollaborationType.SONG_EDIT
     ).distinct().count()
     
-    # Get top collaborators (excluding the current user) - filter by current user's songs
+    # Get top collaborators (excluding the current user) - include collaborations on songs the user has access to
     top_collaborators_data = db.query(
         User.username,
         func.count().label('count')
     ).join(Collaboration).join(Song).filter(
-        Song.user_id == current_user.id,
+        song_access_filter,
         Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
         User.username != current_user.username  # Exclude current user
     ).group_by(
@@ -198,7 +211,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         ).filter(
             Song.status.in_(included_statuses),
             Song.year.isnot(None),
-            Song.user_id == current_user.id
+            song_access_filter
         ).group_by(
             Song.year
         ).order_by(
@@ -209,7 +222,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
     # Optimized WIP processing - only load necessary fields
     wip_songs = db.query(Song).filter(
         Song.status == SongStatus.wip,
-        Song.user_id == current_user.id
+        song_access_filter
     ).all()
     
     total_wips = len(wip_songs)
@@ -266,11 +279,24 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
 def get_year_details(year: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     included_statuses = [SongStatus.released, SongStatus.wip]
     
+    # Build base filter for songs the user has access to (owner OR collaborator)
+    song_access_filter = or_(
+        Song.user_id == current_user.id,  # Songs owned by current user
+        Song.id.in_(  # Songs where current user is a collaborator
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
     # Get total songs for the year
     total_songs = db.query(Song).filter(
         Song.year == year,
         Song.status.in_(included_statuses),
-        Song.user_id == current_user.id
+        song_access_filter
     ).count()
     
     # Get top artists with optimized query
@@ -281,7 +307,7 @@ def get_year_details(year: int, db: Session = Depends(get_db), current_user = De
         Song.year == year,
         Song.status.in_(included_statuses),
         Song.artist.isnot(None),
-        Song.user_id == current_user.id
+        song_access_filter
     ).group_by(
         Song.artist
     ).order_by(
@@ -317,7 +343,7 @@ def get_year_details(year: int, db: Session = Depends(get_db), current_user = De
         Song.year == year,
         Song.status.in_(included_statuses),
         Song.album.isnot(None),
-        Song.user_id == current_user.id
+        song_access_filter
     ).group_by(
         Song.album, Song.album_cover
     ).order_by(

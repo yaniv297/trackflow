@@ -62,11 +62,21 @@ const WipPackCard = ({
   const userCoreSongs = userOwnedSongs.filter((song) => !song.optional);
   const userOptionalSongs = userOwnedSongs.filter((song) => song.optional);
 
+  // Separate collaborator songs into core and optional
+  const collaboratorCoreSongs = collaboratorOwnedSongs.filter(
+    (song) => !song.optional
+  );
+  const collaboratorOptionalSongs = collaboratorOwnedSongs.filter(
+    (song) => song.optional
+  );
+
   // State for collapsing sections
   const [optionalCollapsed, setOptionalCollapsed] = React.useState(true);
   const [collaborationSongsCollapsed, setCollaborationSongsCollapsed] =
     React.useState(false); // Expanded by default for collaboration songs
   const [collaboratorSongsCollapsed, setCollaboratorSongsCollapsed] =
+    React.useState(true);
+  const [collaboratorOptionalCollapsed, setCollaboratorOptionalCollapsed] =
     React.useState(true);
   const [completedSongsCollapsed, setCompletedSongsCollapsed] =
     React.useState(true); // Collapsed by default
@@ -81,7 +91,10 @@ const WipPackCard = ({
   const sortedCollaborationSongs = collaborationSongs
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
-  const sortedCollaboratorSongs = collaboratorOwnedSongs
+  const sortedCollaboratorCoreSongs = collaboratorCoreSongs
+    .slice()
+    .sort((a, b) => b.filledCount - a.filledCount);
+  const sortedCollaboratorOptionalSongs = collaboratorOptionalSongs
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
 
@@ -740,11 +753,69 @@ const WipPackCard = ({
                 }
               >
                 <span>{collaboratorSongsCollapsed ? "▶" : "▼"}</span>
-                Songs by Collaborators ({collaboratorOwnedSongs.length})
+                Songs by Collaborators ({collaboratorCoreSongs.length})
               </h4>
               {!collaboratorSongsCollapsed &&
-                sortedCollaboratorSongs.map((song) => {
+                sortedCollaboratorCoreSongs.map((song) => {
                   // Calculate if collaborator song is finished (100% authoring complete)
+                  const songFilledParts = authoringFields.reduce(
+                    (count, field) => {
+                      return count + (song.authoring?.[field] === true ? 1 : 0);
+                    },
+                    0
+                  );
+                  const songPercent =
+                    authoringFields.length > 0
+                      ? Math.round(
+                          (songFilledParts / authoringFields.length) * 100
+                        )
+                      : 0;
+                  const isFinished = songPercent === 100;
+
+                  return (
+                    <WipSongCard
+                      key={song.id}
+                      song={song}
+                      authoringFields={authoringFields}
+                      onAuthoringUpdate={onUpdateAuthoringField}
+                      onToggleOptional={onToggleOptional}
+                      onDelete={onDeleteSong}
+                      selectedSongs={selectedSongs}
+                      setSelectedSongs={onSetSelectedSongs}
+                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      readOnly={true} // Songs by collaborators are read-only
+                    />
+                  );
+                })}
+            </>
+          )}
+
+          {/* Collaborator Optional Songs */}
+          {collaboratorOptionalSongs.length > 0 && (
+            <>
+              <h4
+                style={{
+                  marginTop: "1.5rem",
+                  marginBottom: "1rem",
+                  color: "#6c757d",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+                onClick={() =>
+                  setCollaboratorOptionalCollapsed(
+                    !collaboratorOptionalCollapsed
+                  )
+                }
+              >
+                <span>{collaboratorOptionalCollapsed ? "▶" : "▼"}</span>
+                Optional Songs by Collaborators (
+                {collaboratorOptionalSongs.length})
+              </h4>
+              {!collaboratorOptionalCollapsed &&
+                sortedCollaboratorOptionalSongs.map((song) => {
+                  // Calculate if collaborator optional song is finished (100% authoring complete)
                   const songFilledParts = authoringFields.reduce(
                     (count, field) => {
                       return count + (song.authoring?.[field] === true ? 1 : 0);

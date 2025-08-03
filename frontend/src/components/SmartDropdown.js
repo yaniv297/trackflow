@@ -53,9 +53,11 @@ const SmartDropdown = ({
           const usersResponse = await apiGet("/auth/users/");
           const users = usersResponse.data || usersResponse;
           // Filter out the current user unless includeCurrentUser is true
-          const filteredUsers = includeCurrentUser 
-            ? users 
-            : users.filter((user) => !currentUser || user.username !== currentUser.username);
+          const filteredUsers = includeCurrentUser
+            ? users
+            : users.filter(
+                (user) => !currentUser || user.username !== currentUser.username
+              );
           data = filteredUsers.map((user) => ({
             value: user.username,
             label: user.username,
@@ -141,7 +143,10 @@ const SmartDropdown = ({
           e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
         }}
         onBlur={(e) => {
-          if (onBlur) onBlur(e);
+          // Add a small delay to allow click events to complete first
+          setTimeout(() => {
+            if (onBlur) onBlur(e);
+          }, 150);
           e.target.style.borderColor = "#e1e5e9";
           e.target.style.boxShadow = "none";
         }}

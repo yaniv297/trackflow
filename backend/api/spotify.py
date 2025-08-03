@@ -8,6 +8,7 @@ from database import get_db, SessionLocal
 from models import Song, SongStatus, Artist, Collaboration, CollaborationType, Pack, User
 from schemas import SongOut, EnhanceRequest
 import os
+from auth import get_current_active_user
 
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
@@ -229,7 +230,7 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session):
     return song
 
 @router.post("/{song_id}/enhance", response_model=SongOut)
-def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Depends(get_db)):
+def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     # Enhance the song
     db_song = enhance_song_with_track_data(song_id, req.track_id, db)
     
@@ -269,6 +270,33 @@ def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Dep
         song_dict["pack_name"] = db_song.pack_obj.name
         song_dict["pack_owner_id"] = db_song.pack_obj.user_id
         song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
+    
+    # Determine if song is editable based on unified collaboration system (same logic as songs endpoint)
+    is_owner = db_song.user_id == current_user.id
+    
+    # Check if user has song-level collaboration
+    has_song_collaboration = db.query(Collaboration).filter(
+        Collaboration.song_id == db_song.id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).first() is not None
+    
+    # Check if user has pack-level collaboration
+    has_pack_collaboration = db.query(Collaboration).filter(
+        Collaboration.pack_id == db_song.pack_id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+    ).first() is not None
+    
+    # Song is editable if user owns it or has song-level edit collaboration
+    song_dict["is_editable"] = is_owner or has_song_collaboration
+    
+    # Add pack collaboration info if user has access via pack collaboration
+    if has_pack_collaboration and db_song.pack_id:
+        song_dict["pack_collaboration"] = {
+            "can_edit": has_song_collaboration,  # Only editable if direct song collaboration
+            "pack_id": db_song.pack_id
+        }
     
     return SongOut(**song_dict)
 

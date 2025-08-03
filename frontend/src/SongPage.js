@@ -113,7 +113,7 @@ function SongPage({ status }) {
     });
 
     if (groupBy === "artist") {
-      return filteredSongs.reduce((acc, song) => {
+      const grouped = filteredSongs.reduce((acc, song) => {
         if (!song || typeof song !== "object") return acc;
 
         const artist = song.artist || "Unknown Artist";
@@ -125,8 +125,23 @@ function SongPage({ status }) {
         acc[artist][album].push(song);
         return acc;
       }, {});
+
+      // Sort songs within each album (editable first)
+      Object.keys(grouped).forEach((artist) => {
+        Object.keys(grouped[artist]).forEach((album) => {
+          grouped[artist][album].sort((a, b) => {
+            // Editable songs first
+            if (a.is_editable && !b.is_editable) return -1;
+            if (!a.is_editable && b.is_editable) return 1;
+            // Then by title
+            return (a.title || "").localeCompare(b.title || "");
+          });
+        });
+      });
+
+      return grouped;
     } else {
-      return filteredSongs.reduce((acc, song) => {
+      const grouped = filteredSongs.reduce((acc, song) => {
         if (!song || typeof song !== "object") return acc;
 
         const packName = song.pack_name || "(no pack)";
@@ -134,6 +149,19 @@ function SongPage({ status }) {
         acc[packName].push(song);
         return acc;
       }, {});
+
+      // Sort songs within each pack (editable first)
+      Object.keys(grouped).forEach((packName) => {
+        grouped[packName].sort((a, b) => {
+          // Editable songs first
+          if (a.is_editable && !b.is_editable) return -1;
+          if (!a.is_editable && b.is_editable) return 1;
+          // Then by title
+          return (a.title || "").localeCompare(b.title || "");
+        });
+      });
+
+      return grouped;
     }
   }, [sortedSongs, search, groupBy]);
 

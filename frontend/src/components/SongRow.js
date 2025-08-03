@@ -65,16 +65,14 @@ export default function SongRow({
       <tr>
         {/* Checkbox */}
         <td>
-          <input
-            type="checkbox"
-            className="pretty-checkbox"
-            checked={selected}
-            onChange={onSelect}
-            disabled={!song.is_editable}
-            style={{
-              opacity: song.is_editable ? 1 : 0.5,
-            }}
-          />
+          {song.is_editable && (
+            <input
+              type="checkbox"
+              className="pretty-checkbox"
+              checked={selected}
+              onChange={onSelect}
+            />
+          )}
         </td>
 
         {/* Album Cover */}

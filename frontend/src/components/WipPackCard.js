@@ -64,7 +64,8 @@ const WipPackCard = ({
 
   // State for collapsing sections
   const [optionalCollapsed, setOptionalCollapsed] = React.useState(true);
-  const [collaborationSongsCollapsed, setCollaborationSongsCollapsed] = React.useState(false); // Expanded by default for collaboration songs
+  const [collaborationSongsCollapsed, setCollaborationSongsCollapsed] =
+    React.useState(false); // Expanded by default for collaboration songs
   const [collaboratorSongsCollapsed, setCollaboratorSongsCollapsed] =
     React.useState(true);
   const [completedSongsCollapsed, setCompletedSongsCollapsed] =
@@ -628,7 +629,9 @@ const WipPackCard = ({
                   alignItems: "center",
                   gap: "0.5rem",
                 }}
-                onClick={() => setCollaborationSongsCollapsed(!collaborationSongsCollapsed)}
+                onClick={() =>
+                  setCollaborationSongsCollapsed(!collaborationSongsCollapsed)
+                }
               >
                 <span>{collaborationSongsCollapsed ? "▶" : "▼"}</span>
                 Collaboration Songs ({collaborationSongs.length})
@@ -767,7 +770,7 @@ const WipPackCard = ({
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
-                      readOnly={!song.is_editable} // Use the backend-provided is_editable flag
+                      readOnly={true} // Songs by collaborators are read-only
                     />
                   );
                 })}

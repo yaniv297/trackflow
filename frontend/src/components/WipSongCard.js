@@ -351,7 +351,7 @@ export default function WipSongCard({
             <small style={{ fontSize: "0.8rem", color: "#444" }}>
               {filled} / {safeParts.length} parts
             </small>
-            {!isComplete && (
+            {!isComplete && !readOnly && (
               <label
                 style={{
                   display: "inline-flex",
@@ -397,25 +397,27 @@ export default function WipSongCard({
             {expanded ? "▼" : "▶"}
           </button>
 
-          <button
-            onClick={handleDelete}
-            aria-label="Delete Song"
-            style={{
-              background: "none",
-              border: "none",
-              color: "#aaa",
-              fontSize: "1rem",
-              cursor: "pointer",
-              marginLeft: "0.25rem",
-              alignSelf: "flex-start",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.target.style.color = "#e74c3c")}
-            onMouseLeave={(e) => (e.target.style.color = "#aaa")}
-            title="Delete song"
-          >
-            ❌
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleDelete}
+              aria-label="Delete Song"
+              style={{
+                background: "none",
+                border: "none",
+                color: "#aaa",
+                fontSize: "1rem",
+                cursor: "pointer",
+                marginLeft: "0.25rem",
+                alignSelf: "flex-start",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) => (e.target.style.color = "#e74c3c")}
+              onMouseLeave={(e) => (e.target.style.color = "#aaa")}
+              title="Delete song"
+            >
+              ❌
+            </button>
+          )}
         </div>
 
         {/* Expanded Section */}

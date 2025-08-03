@@ -18,6 +18,20 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     song_data = song.dict()
     song_data["user_id"] = current_user.id
     
+    # Validate pack exists if provided (for "Add New Song" form)
+    if song_data.get('pack') and not song_data.get('pack_id'):
+        pack_name = song_data['pack']
+        existing_pack = db.query(Pack).filter(
+            Pack.name == pack_name,
+            Pack.user_id == current_user.id
+        ).first()
+        
+        if not existing_pack:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pack '{pack_name}' does not exist. To create a new pack, please use the 'Create New Pack' feature."
+            )
+    
     # Clean up song_data to remove fields that don't exist in the Song model
     from schemas import SongCreate
     

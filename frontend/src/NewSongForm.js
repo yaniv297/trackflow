@@ -16,10 +16,8 @@ function NewSongForm() {
   const [form, setForm] = useState({
     title: "",
     artist: "",
-    album: "",
     pack: "",
     status: "Future Plans",
-    collaborations: "",
   });
 
   const handleChange = (e) => {
@@ -29,25 +27,17 @@ function NewSongForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Parse collaborations if provided
-    const songData = { ...form };
-    if (form.collaborations.trim()) {
-      const collaborations = form.collaborations.split(",").map((collab) => {
-        const author = collab.trim();
-        return {
-          author: author,
-          parts: null,
-        };
-      });
-      songData.collaborations = collaborations;
-    } else {
-      delete songData.collaborations;
+    // Validate that pack exists (if one is selected)
+    if (form.pack && form.pack.trim()) {
+      // We'll let the backend handle the validation and return an appropriate error
+      // The backend will check if the pack exists and return an error if it doesn't
     }
+
+    const songData = { ...form };
 
     // Capitalize names
     songData.artist = capitalizeName(songData.artist);
     songData.title = capitalizeName(songData.title);
-    songData.album = capitalizeName(songData.album);
 
     apiPost("/songs/", songData)
       .then(() => {
@@ -160,69 +150,24 @@ function NewSongForm() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1rem",
-            }}
-          >
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "#555",
-                  fontSize: "0.95rem",
-                }}
-              >
-                Album
-              </label>
-              <input
-                name="album"
-                placeholder="e.g., Abbey Road"
-                value={form.album}
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem",
-                  border: "2px solid #e1e5e9",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#007bff";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "#555",
-                  fontSize: "0.95rem",
-                }}
-              >
-                Pack
-              </label>
-              <SmartDropdown
-                type="pack"
-                value={form.pack}
-                onChange={(value) => setForm({ ...form, pack: value })}
-                placeholder="Select or add pack name"
-              />
-            </div>
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                color: "#555",
+                fontSize: "0.95rem",
+              }}
+            >
+              Pack
+            </label>
+            <SmartDropdown
+              type="pack"
+              value={form.pack}
+              onChange={(value) => setForm({ ...form, pack: value })}
+              placeholder="Select existing pack name"
+            />
           </div>
 
           <div>
@@ -266,26 +211,7 @@ function NewSongForm() {
             </select>
           </div>
 
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-                color: "#555",
-                fontSize: "0.95rem",
-              }}
-            >
-              Collaborations (Optional)
-            </label>
-            <UserDropdown
-              value={form.collaborations}
-              onChange={(e) =>
-                setForm({ ...form, collaborations: e.target.value })
-              }
-              placeholder="Select collaborators..."
-            />
-          </div>
+
 
           <button
             type="submit"

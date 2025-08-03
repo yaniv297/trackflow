@@ -95,9 +95,7 @@ function NewPackForm() {
   const [meta, setMeta] = useState({
     pack: "",
     artist: "",
-    album: "",
     status: "Future Plans",
-    collaborations: "",
     isAlbumSeries: false,
     albumSeriesArtist: "",
     albumSeriesAlbum: "",
@@ -126,18 +124,6 @@ function NewPackForm() {
 
     setIsSubmitting(true);
 
-    // Parse collaborations if provided
-    let collaborations = [];
-    if (meta.collaborations.trim()) {
-      collaborations = meta.collaborations.split(",").map((collab) => {
-        const author = collab.trim();
-        return {
-          author: author,
-          parts: null,
-        };
-      });
-    }
-
     let payload;
     if (mode === "artist") {
       // Artist mode: one artist, multiple titles
@@ -149,10 +135,8 @@ function NewPackForm() {
       payload = titles.map((title) => ({
         title,
         artist: capitalizeName(meta.artist),
-        album: capitalizeName(meta.album),
         pack_name: meta.pack,
         status: meta.status,
-        collaborations: collaborations.length > 0 ? collaborations : undefined,
       }));
     } else {
       // Mixed mode: "Artist - Title" format
@@ -165,11 +149,8 @@ function NewPackForm() {
           return {
             title: capitalizeName(title || "Unknown Title"),
             artist: capitalizeName(artist || "Unknown Artist"),
-            album: capitalizeName(meta.album),
             pack_name: meta.pack,
             status: meta.status,
-            collaborations:
-              collaborations.length > 0 ? collaborations : undefined,
           };
         });
     }
@@ -452,45 +433,6 @@ function NewPackForm() {
               gap: "1rem",
             }}
           >
-            {mode === "artist" && (
-              <div>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "0.5rem",
-                    fontWeight: "500",
-                    color: "#555",
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  Album
-                </label>
-                <input
-                  type="text"
-                  value={meta.album}
-                  onChange={(e) => setMeta({ ...meta, album: e.target.value })}
-                  placeholder="e.g., Abbey Road"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem 1rem",
-                    border: "2px solid #e1e5e9",
-                    borderRadius: "8px",
-                    fontSize: "1rem",
-                    transition: "border-color 0.2s, box-shadow 0.2s",
-                    boxSizing: "border-box",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "#007bff";
-                    e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "#e1e5e9";
-                    e.target.style.boxShadow = "none";
-                  }}
-                />
-              </div>
-            )}
-
             <div>
               <label
                 style={{
@@ -529,28 +471,6 @@ function NewPackForm() {
                 <option value="Released">Released</option>
               </select>
             </div>
-          </div>
-
-          {/* Collaborations */}
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-                color: "#555",
-                fontSize: "0.95rem",
-              }}
-            >
-              Collaborations (Optional)
-            </label>
-            <UserDropdown
-              value={meta.collaborations}
-              onChange={(e) =>
-                setMeta({ ...meta, collaborations: e.target.value })
-              }
-              placeholder="Select collaborators..."
-            />
           </div>
 
           {/* Album Series Option */}

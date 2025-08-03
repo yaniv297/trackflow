@@ -21,6 +21,9 @@ const UnifiedCollaborationModal = ({
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
 
+  // Edit mode state
+  const [editingCollaborator, setEditingCollaborator] = useState(null);
+
   // Data state
   const [collaborators, setCollaborators] = useState([]);
   const [users, setUsers] = useState([]);
@@ -345,6 +348,75 @@ const UnifiedCollaborationModal = ({
     setPendingRemovals((prev) =>
       prev.filter((removal) => removal.user_id !== userId)
     );
+  };
+
+  const handleEditCollaborator = (collaborator) => {
+    setEditingCollaborator(collaborator);
+
+    // Pre-populate with existing data
+    if (collaborationType === "song") {
+      // For song collaborations, get existing instrument assignments
+      const existingAssignments = wipCollaborations[songId] || [];
+      const userAssignments = existingAssignments.filter(
+        (a) => a.collaborator === collaborator.username
+      );
+      const existingInstruments = userAssignments.map((a) => a.field);
+      setSelectedInstruments(existingInstruments);
+    } else {
+      setSelectedInstruments([]);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingCollaborator) return;
+
+    setLoading(true);
+    try {
+      if (collaborationType === "song") {
+        // Update WIP collaborations for the song
+        const existingAssignments = wipCollaborations[songId] || [];
+        const otherAssignments = existingAssignments.filter(
+          (a) => a.collaborator !== editingCollaborator.username
+        );
+
+        const newAssignments = selectedInstruments.map((instrument) => ({
+          collaborator: editingCollaborator.username,
+          field: instrument,
+        }));
+
+        const updatedAssignments = [...otherAssignments, ...newAssignments];
+
+        await apiPut(`/authoring/${songId}/wip-collaborations`, {
+          assignments: updatedAssignments,
+        });
+
+        // Update local state
+        setWipCollaborations((prev) => ({
+          ...prev,
+          [songId]: updatedAssignments,
+        }));
+      }
+
+      // Exit edit mode
+      setEditingCollaborator(null);
+      setSelectedInstruments([]);
+
+      // Refresh collaborators
+      await loadCollaborators();
+
+      if (onCollaborationSaved) {
+        onCollaborationSaved();
+      }
+    } catch (error) {
+      console.error("Error saving edit:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCollaborator(null);
+    setSelectedInstruments([]);
   };
 
   const handleSaveAll = async () => {
@@ -1119,7 +1191,7 @@ const UnifiedCollaborationModal = ({
                           </div>
                         )}
                       </div>
-                      <div>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
                         {isPendingRemoval ? (
                           <button
                             onClick={() =>
@@ -1138,22 +1210,40 @@ const UnifiedCollaborationModal = ({
                             Undo Remove
                           </button>
                         ) : (
-                          <button
-                            onClick={() =>
-                              handleRemoveCollaborator(collab.user_id)
-                            }
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              background: "#dc3545",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "3px",
-                              fontSize: "0.75rem",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Remove
-                          </button>
+                          <>
+                            {collaborationType === "song" && (
+                              <button
+                                onClick={() => handleEditCollaborator(collab)}
+                                style={{
+                                  padding: "0.25rem 0.5rem",
+                                  background: "#007bff",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "3px",
+                                  fontSize: "0.75rem",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            <button
+                              onClick={() =>
+                                handleRemoveCollaborator(collab.user_id)
+                              }
+                              style={{
+                                padding: "0.25rem 0.5rem",
+                                background: "#dc3545",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "3px",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1202,7 +1292,11 @@ const UnifiedCollaborationModal = ({
                         {collab.type === "full" && "Full permissions"}
                         {collab.type === "song_edit" && "Song edit permission"}
                         {collab.type === "specific" &&
-                          `${collab.instruments ? collab.instruments.join(", ") : "Song edit"} for: ${collab.songs
+                          `${
+                            collab.instruments
+                              ? collab.instruments.join(", ")
+                              : "Song edit"
+                          } for: ${collab.songs
                             .map((s) => s.title)
                             .join(", ")}`}
                         {collab.type === "pack_share" &&
@@ -1226,6 +1320,100 @@ const UnifiedCollaborationModal = ({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Edit Mode UI */}
+        {editingCollaborator && (
+          <div
+            style={{
+              marginBottom: "1.5rem",
+              padding: "1rem",
+              border: "2px solid #007bff",
+              borderRadius: "4px",
+              backgroundColor: "#f8f9fa",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 1rem 0",
+                fontSize: "1rem",
+                color: "#007bff",
+              }}
+            >
+              Edit Collaboration - {editingCollaborator.username}
+            </h3>
+
+            <div>
+              <p style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+                Select instruments to assign to {editingCollaborator.username}
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                  gap: "0.5rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                {instrumentFields.map((instrument) => (
+                  <label
+                    key={instrument}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.5rem",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      backgroundColor: selectedInstruments.includes(instrument)
+                        ? "#e3f2fd"
+                        : "white",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedInstruments.includes(instrument)}
+                      onChange={(e) =>
+                        handleInstrumentSelection(instrument, e.target.checked)
+                      }
+                    />
+                    {instrument}
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={loading}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    opacity: loading ? 0.6 : 1,
+                  }}
+                >
+                  {loading ? "Saving..." : "Save Changes"}
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

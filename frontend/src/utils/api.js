@@ -30,6 +30,14 @@ export const apiCall = async (endpoint, options = {}) => {
     console.log("Forced HTTPS for API call:", url);
   }
 
+  // Additional safety check - if we're on HTTPS page, ensure API calls are HTTPS
+  if (window.location.hostname !== "localhost" && !url.startsWith("https:")) {
+    url = url.replace("http:", "https:");
+    console.log("Additional HTTPS enforcement for production:", url);
+  }
+
+  console.log("Making API call to:", url);
+
   const headers = createHeaders(options.headers);
 
   const config = {

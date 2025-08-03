@@ -2,6 +2,10 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Add build argument to force rebuild
+ARG BUILD_DATE=unknown
+ARG VCS_REF=unknown
+
 COPY package*.json ./
 RUN npm install
 
@@ -11,6 +15,9 @@ RUN npm install -g serve
 
 EXPOSE 3000
 
-RUN echo "This is the FRONTEND Dockerfile"
+# Add build info to force cache invalidation
+RUN echo "Build date: ${BUILD_DATE}" > /app/build-info.txt
+RUN echo "VCS ref: ${VCS_REF}" >> /app/build-info.txt
+RUN echo "This is the FRONTEND Dockerfile - REBUILD REQUIRED FOR HTTPS FIX" >> /app/build-info.txt
 
 CMD ["sh", "-c", "serve -s build -l 3000"]

@@ -542,7 +542,11 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
     return {"message": f"Released pack: {pack_name}"}
 
 @router.post("/bulk-delete")
-def bulk_delete(song_ids: list[int], db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+def bulk_delete(data: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    song_ids = data.get("ids", [])
+    if not song_ids:
+        raise HTTPException(status_code=400, detail="No song IDs provided")
+    
     # Verify all songs belong to the current user
     user_songs = db.query(Song).filter(Song.id.in_(song_ids), Song.user_id == current_user.id).all()
     if len(user_songs) != len(song_ids):

@@ -64,6 +64,43 @@ const UnifiedCollaborationModal = ({
     "Compile",
   ];
 
+  // Mapping between database field names and UI field names
+  const dbToUiFieldMap = {
+    demucs: "Demucs",
+    midi: "Midi",
+    tempo_map: "Tempo Map",
+    fake_ending: "Fake Ending",
+    drums: "Drums",
+    bass: "Bass",
+    guitar: "Guitar",
+    vocals: "Vocals",
+    harmonies: "Harmonies",
+    pro_keys: "Pro Keys",
+    keys: "Keys",
+    animations: "Animations",
+    drum_fills: "Drum Fills",
+    overdrive: "Overdrive",
+    compile: "Compile",
+  };
+
+  const uiToDbFieldMap = {
+    Demucs: "demucs",
+    Midi: "midi",
+    "Tempo Map": "tempo_map",
+    "Fake Ending": "fake_ending",
+    Drums: "drums",
+    Bass: "bass",
+    Guitar: "guitar",
+    Vocals: "vocals",
+    Harmonies: "harmonies",
+    "Pro Keys": "pro_keys",
+    Keys: "keys",
+    Animations: "animations",
+    "Drum Fills": "drum_fills",
+    Overdrive: "overdrive",
+    Compile: "compile",
+  };
+
   // Load collaborators
   const loadCollaborators = useCallback(async () => {
     if (loadingCollaborators) return;
@@ -350,17 +387,36 @@ const UnifiedCollaborationModal = ({
     );
   };
 
-  const handleEditCollaborator = (collaborator) => {
+  const handleEditCollaborator = async (collaborator) => {
     setEditingCollaborator(collaborator);
 
     // Pre-populate with existing data
     if (collaborationType === "song") {
+      // Ensure WIP collaborations are loaded
+      if (!wipCollaborations[songId]) {
+        console.log("WIP collaborations not loaded, loading now...");
+        await loadWipCollaborations();
+      }
+
       // For song collaborations, get existing instrument assignments
       const existingAssignments = wipCollaborations[songId] || [];
       const userAssignments = existingAssignments.filter(
         (a) => a.collaborator === collaborator.username
       );
-      const existingInstruments = userAssignments.map((a) => a.field);
+      const existingInstruments = userAssignments.map(
+        (a) => dbToUiFieldMap[a.field] || a.field
+      );
+
+      console.log("Edit collaborator debug:", {
+        collaborator: collaborator.username,
+        songId,
+        wipCollaborations,
+        existingAssignments,
+        userAssignments,
+        existingInstruments,
+        selectedInstruments: existingInstruments,
+      });
+
       setSelectedInstruments(existingInstruments);
     } else {
       setSelectedInstruments([]);
@@ -381,7 +437,7 @@ const UnifiedCollaborationModal = ({
 
         const newAssignments = selectedInstruments.map((instrument) => ({
           collaborator: editingCollaborator.username,
-          field: instrument,
+          field: uiToDbFieldMap[instrument] || instrument,
         }));
 
         const updatedAssignments = [...otherAssignments, ...newAssignments];

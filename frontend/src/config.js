@@ -10,8 +10,7 @@ const getApiUrl = () => {
     return "http://localhost:8001";
   }
 
-  // For production, you'll need to update this with your Railway URL
-  // This will be replaced after you deploy to Railway
+  // For production, always use HTTPS
   return "https://trackflow-api.up.railway.app";
 };
 

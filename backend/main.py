@@ -15,22 +15,28 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add GZip compression for better performance
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
+# Add CORS middleware FIRST (before routes)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "https://trackflow-front.onrender.com",
         "https://frontend-production-4e01.up.railway.app",
         "https://*.up.railway.app",  # Allow all Railway subdomains
         "https://*.railway.app",     # Allow all Railway domains
+        "https://trackflow-frontend.up.railway.app",
+        "https://trackflow-frontend.railway.app",
+        "*",  # Temporarily allow all origins for debugging
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Add GZip compression for better performance
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Create tables with error handling - don't block startup
 def init_db():

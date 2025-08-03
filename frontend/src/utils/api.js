@@ -22,7 +22,14 @@ const createHeaders = (customHeaders = {}) => {
 
 // Generic API call function
 export const apiCall = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  let url = `${API_BASE_URL}${endpoint}`;
+
+  // Force HTTPS in production to prevent mixed content issues
+  if (window.location.protocol === "https:" && url.startsWith("http:")) {
+    url = url.replace("http:", "https:");
+    console.log("Forced HTTPS for API call:", url);
+  }
+
   const headers = createHeaders(options.headers);
 
   const config = {

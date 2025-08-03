@@ -50,22 +50,6 @@ const PageHeader = ({
           }}
         >
           <button
-            onClick={() => setGroupBy("artist")}
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: groupBy === "artist" ? "#2ecc71" : "white",
-              color: groupBy === "artist" ? "white" : "black",
-              border: "none",
-              fontWeight: "bold",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
-            👤 Group by Artist
-          </button>
-          <button
             onClick={() => setGroupBy("pack")}
             style={{
               padding: "0.5rem 1rem",
@@ -80,6 +64,22 @@ const PageHeader = ({
             }}
           >
             📦 Group by Pack
+          </button>
+          <button
+            onClick={() => setGroupBy("artist")}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: groupBy === "artist" ? "#2ecc71" : "white",
+              color: groupBy === "artist" ? "white" : "black",
+              border: "none",
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            👤 Group by Artist
           </button>
         </div>
 

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AlbumSeries, SongCollaboration
+from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring
+from auth import get_current_active_user
 from typing import Optional
 from typing import List
 
@@ -12,35 +13,174 @@ router = APIRouter(prefix="/songs", tags=["Songs"])
 
 
 @router.post("/", response_model=SongOut)
-def create_song(song: SongCreate, db: Session = Depends(get_db)):
-    # Force the author to be yaniv297 for all new songs
+def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Set the user_id to the current user's ID (author field will be populated from user.username)
     song_data = song.dict()
-    song_data["author"] = "yaniv297"
+    song_data["user_id"] = current_user.id
     
-    # Create a new SongCreate object with the forced author
-    from schemas import SongCreate
-    song_with_author = SongCreate(**song_data)
+    # Handle pack creation if pack name is provided but pack_id is not
+    if song_data.get('pack') and not song_data.get('pack_id'):
+        pack_name = song_data['pack']
+        existing_pack = db.query(Pack).filter(
+            Pack.name == pack_name,
+            Pack.user_id == current_user.id
+        ).first()
+        
+        if existing_pack:
+            # If pack exists, determine its status from existing songs
+            pack_songs = db.query(Song).filter(Song.pack_id == existing_pack.id).all()
+            
+            if pack_songs:
+                # Get the most common status in the pack
+                status_counts = db.query(Song.status, func.count(Song.id)).filter(
+                    Song.pack_id == existing_pack.id
+                ).group_by(Song.status).order_by(func.count(Song.id).desc()).all()
+                
+                if status_counts:
+                    pack_status = status_counts[0][0]  # Most common status
+                    # Override the song status with the pack's status
+                    song_data['status'] = pack_status
+            
+            # Set the pack_id to the existing pack
+            song_data['pack_id'] = existing_pack.id
+            song_data.pop('pack', None)  # Remove pack name since we have pack_id
+        else:
+            # Create new pack - the pack_id will be set in create_song_in_db
+            # Keep the pack name in song_data for create_song_in_db to handle
+            pass
     
-    return create_song_in_db(db, song_with_author)
+    # Also handle case where pack_id is provided directly
+    elif song_data.get('pack_id'):
+        pack_id = song_data['pack_id']
+        # Get the most common status in the pack
+        status_counts = db.query(Song.status, func.count(Song.id)).filter(
+            Song.pack_id == pack_id
+        ).group_by(Song.status).order_by(func.count(Song.id).desc()).all()
+        
+        if status_counts:
+            pack_status = status_counts[0][0]  # Most common status
+            # Override the song status with the pack's status
+            song_data['status'] = pack_status
+    
+    # Clean up song_data to remove fields that don't exist in the Song model
+    cleaned_song_data = {k: v for k, v in song_data.items() 
+                        if k in ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'optional']}
+    
+    # If we have a pack name but no pack_id, add it to cleaned_song_data for create_song_in_db to handle
+    if song_data.get('pack') and not song_data.get('pack_id'):
+        cleaned_song_data['pack'] = song_data['pack']
+    
+    song_with_author = SongCreate(**cleaned_song_data)
+    
+    # Create song and convert to proper response format
+    db_song = create_song_in_db(db, song_with_author, current_user)
+    
+    # Re-fetch the song with all relationships loaded
+    db_song = db.query(Song).options(
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.user),  # Load the song owner
+        joinedload(Song.pack_obj).joinedload(Pack.user),  # Load the pack relationship and its owner
+        joinedload(Song.authoring)  # Load the authoring data
+    ).filter(Song.id == db_song.id).first()
+    
+    # Build result with proper formatting (similar to PATCH endpoint)
+    song_dict = db_song.__dict__.copy()
+    
+    # Set author from user relationship
+    if db_song.user:
+        song_dict["author"] = db_song.user.username
+    
+    # Attach collaborations if any
+    song_dict["collaborations"] = []
+    if hasattr(db_song, "collaborations"):
+        collaborations_with_username = []
+        for collab in db_song.collaborations:
+            collab_dict = {
+                "id": collab.id,
+                "user_id": collab.user_id,
+                "username": collab.user.username,
+                "collaboration_type": collab.collaboration_type.value,
+                "created_at": collab.created_at
+            }
+            collaborations_with_username.append(collab_dict)
+        song_dict["collaborations"] = collaborations_with_username
+    
+    # Attach pack data if it exists
+    if db_song.pack_obj:
+        song_dict["pack_name"] = db_song.pack_obj.name
+        song_dict["pack_owner_id"] = db_song.pack_obj.user_id
+        song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
+    
+    return SongOut(**song_dict)
 
 @router.get("/", response_model=list[SongOut])
 def get_filtered_songs(
     status: Optional[SongStatus] = Query(None),
     query: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
+    pack_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
     # Build base query with all necessary joins
     q = db.query(Song).options(
-        joinedload(Song.authoring), 
         joinedload(Song.artist_obj),
-        joinedload(Song.collaborations)
+        joinedload(Song.user),  # Load the song owner
+        joinedload(Song.pack_obj),  # Load the pack relationship
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.authoring)  # Load the authoring data
     )
 
-    # Filter to only show songs authored by yaniv297
-    q = q.filter(Song.author == "yaniv297")
+    # Filter to show songs owned by the current user OR where the current user is a collaborator
+    # OR songs in packs where the current user has ANY collaboration access (including read-only)
+    # OR songs in packs where ANY song has a collaboration with the current user
+    # OR songs in packs owned by the current user (so pack owners can see all songs in their packs)
+    q = q.filter(
+        or_(
+            Song.user_id == current_user.id,  # Songs owned by current user
+            Song.id.in_(  # Songs where current user is a collaborator
+                db.query(Collaboration.song_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+                )
+                .subquery()
+            ),
+            # Songs in packs where current user has pack-level collaboration access
+            Song.pack_id.in_(
+                db.query(Collaboration.pack_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+                )
+                .distinct()
+                .subquery()
+            ),
+            # Songs in packs where ANY song in the pack has a collaboration with the current user
+            Song.pack_id.in_(
+                db.query(Song.pack_id)
+                .join(Collaboration, Song.id == Collaboration.song_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+                    Song.pack_id.isnot(None)
+                )
+                .distinct()
+                .subquery()
+            ),
+            # Songs in packs owned by the current user (so pack owners can see all songs in their packs)
+            Song.pack_id.in_(
+                db.query(Pack.id)
+                .filter(Pack.user_id == current_user.id)
+                .subquery()
+            )
+        )
+    )
 
     if status:
         q = q.filter(Song.status == status)
+
+    if pack_id:
+        q = q.filter(Song.pack_id == pack_id)
 
     if query:
         pattern = f"%{query}%"
@@ -50,11 +190,11 @@ def get_filtered_songs(
                 Song.title.ilike(pattern),
                 Song.artist.ilike(pattern),
                 Song.album.ilike(pattern),
-                Song.pack.ilike(pattern),
                 # Search in collaborations using EXISTS subquery
                 Song.id.in_(
-                    db.query(SongCollaboration.song_id)
-                    .filter(SongCollaboration.author.ilike(pattern))
+                    db.query(Collaboration.song_id)
+                    .join(User, Collaboration.user_id == User.id)
+                    .filter(User.username.ilike(pattern))
                     .subquery()
                 )
             )
@@ -70,52 +210,140 @@ def get_filtered_songs(
         series_list = db.query(AlbumSeries).filter(AlbumSeries.id.in_(album_series_ids)).all()
         album_series_map = {series.id: series for series in series_list}
     
+
+    
     # Build result efficiently
     result = []
     for song in songs:
         song_dict = song.__dict__.copy()
         song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
         
-        # Attach authoring
-        if hasattr(song, "authoring") and song.authoring:
-            song_dict["authoring"] = song.authoring
+        # Set author from user relationship
+        if song.user:
+            song_dict["author"] = song.user.username
         
-        # Attach collaborations
+        # Include authoring data for completion tracking
+        if hasattr(song, "authoring") and song.authoring:
+            song_dict["authoring"] = song.authoring.__dict__.copy()
+            # Remove SQLAlchemy internal fields
+            song_dict["authoring"].pop("_sa_instance_state", None)
+        else:
+            song_dict["authoring"] = None
+        
+        # Attach collaborations with username lookup
         if hasattr(song, "collaborations"):
-            song_dict["collaborations"] = song.collaborations
+            collaborations_with_username = []
+            for collab in song.collaborations:
+                collab_dict = {
+                    "id": collab.id,
+                    "user_id": collab.user_id,
+                    "username": collab.user.username,  # Add username for frontend compatibility
+                    "collaboration_type": collab.collaboration_type.value,
+                    "created_at": collab.created_at
+                }
+                collaborations_with_username.append(collab_dict)
+            song_dict["collaborations"] = collaborations_with_username
         
         # Attach album series data from pre-fetched map
         if song.album_series_id and song.album_series_id in album_series_map:
             series = album_series_map[song.album_series_id]
             song_dict["album_series_number"] = series.series_number
             song_dict["album_series_name"] = series.album_name
+            
+            # If album series has a pack_id, use that for pack information
+            if series.pack_id:
+                # Find the pack by ID
+                pack = db.query(Pack).filter(Pack.id == series.pack_id).first()
+                if pack:
+                    song_dict["pack_id"] = pack.id
+                    song_dict["pack_name"] = pack.name
+                    song_dict["pack_owner_id"] = pack.user_id
+                    # Get pack owner username
+                    pack_owner = db.query(User).filter(User.id == pack.user_id).first()
+                    if pack_owner:
+                        song_dict["pack_owner_username"] = pack_owner.username
+        
+        # Attach pack data from loaded relationship (only if not already set by album series)
+        if not song_dict.get("pack_name") and song.pack_obj:
+            song_dict["pack_id"] = song.pack_obj.id
+            song_dict["pack_name"] = song.pack_obj.name
+            song_dict["pack_owner_id"] = song.pack_obj.user_id
+            # Get pack owner username
+            pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()
+            if pack_owner:
+                song_dict["pack_owner_username"] = pack_owner.username
+        
+        # Determine if song is editable based on unified collaboration system
+        is_owner = song.user_id == current_user.id
+        
+        # Check if user has song-level collaboration
+        has_song_collaboration = db.query(Collaboration).filter(
+            Collaboration.song_id == song.id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).first() is not None
+        
+        # Check if user has pack-level collaboration
+        has_pack_collaboration = db.query(Collaboration).filter(
+            Collaboration.pack_id == song.pack_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+        ).first() is not None
+        
+        # Song is editable if user owns it or has song-level edit collaboration
+        song_dict["is_editable"] = is_owner or has_song_collaboration
+        
+        # Add pack collaboration info if user has access via pack collaboration
+        if has_pack_collaboration and song.pack_id:
+            song_dict["pack_collaboration"] = {
+                "can_edit": has_song_collaboration,  # Only editable if direct song collaboration
+                "pack_id": song.pack_id
+            }
         
         result.append(SongOut.model_validate(song_dict, from_attributes=True))
     
     return result
 
 @router.delete("/{song_id}", status_code=204)
-def delete_song(song_id: int, db: Session = Depends(get_db)):
+def delete_song(song_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Check if the song exists
+    song = db.query(Song).filter(Song.id == song_id).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    # Check if user has permission to delete this song
+    can_delete = (
+        song.user_id == current_user.id or  # User owns the song
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).first() is not None  # User is a collaborator
+    )
+    
+    if not can_delete:
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this song")
+    
     success = delete_song_from_db(db, song_id)
     if not success:
         raise HTTPException(status_code=404, detail="Song not found")
 
 @router.post("/batch", response_model=list[SongOut])
-def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db)):
+def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     new_songs = []
     errors = []
     
     for i, song_data in enumerate(songs):
         try:
-            # Force the author to be yaniv297 for all new songs
+            # Set the user_id to the current user's ID (author field will be populated from user.username)
             song_dict = song_data.dict()
-            song_dict["author"] = "yaniv297"
+            song_dict["user_id"] = current_user.id
             
-            # Create a new SongCreate object with the forced author
+            # Create a new SongCreate object with the current user
             from schemas import SongCreate
             song_with_author = SongCreate(**song_dict)
             
-            new_song = create_song_in_db(db, song_with_author)
+            new_song = create_song_in_db(db, song_with_author, current_user)
             new_songs.append(new_song)
         except HTTPException as e:
             # If it's a duplicate error, add it to errors list but continue
@@ -134,20 +362,75 @@ def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db)):
             detail=f"Some songs could not be created: {'; '.join(errors)}"
         )
     
-    return new_songs
+    # Return properly formatted songs with pack data
+    # Reload songs with relationships
+    song_ids = [song.id for song in new_songs]
+    songs_with_relations = db.query(Song).options(
+        joinedload(Song.user),
+        joinedload(Song.pack_obj)
+    ).filter(Song.id.in_(song_ids)).all()
+    
+    formatted_songs = []
+    for song in songs_with_relations:
+        song_dict = song.__dict__.copy()
+        
+        # Set author from user relationship
+        if song.user:
+            song_dict["author"] = song.user.username
+        
+        # Attach pack data if it exists
+        if song.pack_obj:
+            song_dict["pack_id"] = song.pack_obj.id
+            song_dict["pack_name"] = song.pack_obj.name
+        
+        # Attach album series data if it exists
+        if song.album_series_id:
+            series = db.query(AlbumSeries).filter(AlbumSeries.id == song.album_series_id).first()
+            if series:
+                song_dict["album_series_number"] = series.series_number
+                song_dict["album_series_name"] = series.album_name
+        
+        formatted_songs.append(SongOut.model_validate(song_dict, from_attributes=True))
+    
+    return formatted_songs
 
 @router.patch("/{song_id}", response_model=SongOut)
-def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(get_db)):
+def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Check if the song exists
     song = db.query(Song).options(
-        joinedload(Song.collaborations)
-    ).get(song_id)
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.user),  # Load the song owner
+        joinedload(Song.pack_obj),  # Load the pack relationship
+    ).filter(Song.id == song_id).first()
+    
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
+    
+    # Check if user has permission to edit this song
+    can_edit = (
+        song.user_id == current_user.id or  # User owns the song
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).first() is not None or  # User is a direct collaborator
+        db.query(Collaboration).filter(
+            Collaboration.pack_id == song.pack_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+        ).first() is not None  # User has edit access via pack collaboration
+    )
+    
+    if not can_edit:
+        raise HTTPException(status_code=403, detail="You don't have permission to edit this song")
 
     # Handle collaborations update if provided
     if "collaborations" in updates:
         # Delete existing collaborations
-        db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).delete()
         
         # Add new collaborations
         collaborations = updates["collaborations"]
@@ -171,16 +454,43 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
         
         # Add collaborations to database
         for author in collab_names:
-            if author and author != "yaniv297":  # Don't add self as collaborator
-                db_collab = SongCollaboration(
-                    song_id=song_id,
-                    author=author,
-                    parts=None
-                )
-                db.add(db_collab)
+            if author and author != current_user.username:  # Don't add self as collaborator
+                # Find user by username
+                collaborator_user = db.query(User).filter(User.username == author).first()
+                if collaborator_user:
+                    db_collab = Collaboration(
+                        song_id=song_id,
+                        user_id=collaborator_user.id,
+                        collaboration_type=CollaborationType.SONG_EDIT
+                    )
+                    db.add(db_collab)
         
         # Remove collaborations from updates dict to avoid setting it as an attribute
         del updates["collaborations"]
+
+    # Handle pack update specially (convert pack name to pack_id)
+    if "pack" in updates:
+        pack_name = updates["pack"]
+        if pack_name:
+            # Find existing pack or create new one
+            existing_pack = db.query(Pack).filter(
+                Pack.name == pack_name,
+                Pack.user_id == current_user.id
+            ).first()
+            
+            if existing_pack:
+                song.pack_id = existing_pack.id
+            else:
+                # Create new pack
+                new_pack = Pack(name=pack_name, user_id=current_user.id)
+                db.add(new_pack)
+                db.flush()  # Flush to get the ID
+                song.pack_id = new_pack.id
+        else:
+            # Empty pack name, remove from pack
+            song.pack_id = None
+        
+        del updates["pack"]
 
     # Update other fields
     for key, value in updates.items():
@@ -189,100 +499,293 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
 
     db.commit()
     db.refresh(song)
-    result = SongOut.model_validate(song, from_attributes=True)
-    result.artist_image_url = song.artist_obj.image_url if song.artist_obj else None
+    
+    # Build result with proper collaboration formatting
+    song_dict = song.__dict__.copy()
+    song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
+    
+    # Set author from user relationship
+    if song.user:
+        song_dict["author"] = song.user.username
+    
+    # Attach collaborations with username lookup
+    if hasattr(song, "collaborations"):
+        collaborations_with_username = []
+        for collab in song.collaborations:
+            collab_dict = {
+                "id": collab.id,
+                "user_id": collab.user_id,
+                "username": collab.user.username,  # Add username for frontend compatibility
+                "collaboration_type": collab.collaboration_type.value,
+                "created_at": collab.created_at
+            }
+            collaborations_with_username.append(collab_dict)
+        song_dict["collaborations"] = collaborations_with_username
+    
+    # Attach album series data if it exists
+    if song.album_series_id and hasattr(song, "album_series_obj") and song.album_series_obj:
+        song_dict["album_series_number"] = song.album_series_obj.series_number
+        song_dict["album_series_name"] = song.album_series_obj.album_name
+    
+    # Attach pack data if it exists
+    if song.pack_obj:
+        song_dict["pack_id"] = song.pack_obj.id
+        song_dict["pack_name"] = song.pack_obj.name
+        song_dict["pack_owner_id"] = song.pack_obj.user_id
+        # Get pack owner username
+        pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()
+        if pack_owner:
+            song_dict["pack_owner_username"] = pack_owner.username
+    
+    # Determine if song is editable and add collaboration info (same logic as get_filtered_songs)
+    is_owner = song.user_id == current_user.id
+    is_song_collaborator = db.query(Collaboration).filter(
+        Collaboration.song_id == song.id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).first() is not None
+    
+    # Check if user has pack edit collaboration
+    has_pack_edit = db.query(Collaboration).filter(
+        Collaboration.pack_id == song.pack_id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+    ).first() is not None
+    
+    # Check if user has any pack collaboration (for read-only access)
+    has_pack_collaboration = db.query(Collaboration).filter(
+        Collaboration.pack_id == song.pack_id,
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+    ).first() is not None
+    
+    # Song is editable if user owns it, is a direct collaborator, or has edit access via pack collaboration
+    song_dict["is_editable"] = is_owner or is_song_collaborator or has_pack_edit
+    
+    # Add pack collaboration info if user has access via pack collaboration
+    if has_pack_edit:
+        song_dict["pack_collaboration"] = {
+            "can_edit": True,
+            "pack_id": song.pack_id
+        }
+    elif has_pack_collaboration and song.pack_id:
+        # User has collaboration on this pack but not edit access (read-only)
+        song_dict["pack_collaboration"] = {
+            "can_edit": False,
+            "pack_id": song.pack_id
+        }
+    
+    result = SongOut.model_validate(song_dict, from_attributes=True)
     return result
 
 @router.post("/release-pack")
-def release_pack(pack: str, db: Session = Depends(get_db)):
-    songs = db.query(Song).filter(Song.pack == pack).all()
+def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Find the pack by name
+    pack = db.query(Pack).filter(Pack.name == pack_name, Pack.user_id == current_user.id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Pack not found or not owned by user")
+    
+    # Update all songs in this pack
+    songs = db.query(Song).filter(Song.pack_id == pack.id).all()
     for song in songs:
         song.status = SongStatus.released
     db.commit()
-    return {"message": f"Released pack: {pack}"}
+    return {"message": f"Released pack: {pack_name}"}
 
 @router.post("/bulk-delete")
-def bulk_delete(song_ids: list[int], db: Session = Depends(get_db)):
+def bulk_delete(data: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    song_ids = data.get("ids", [])
+    if not song_ids:
+        raise HTTPException(status_code=400, detail="No song IDs provided")
+    
+    # Verify all songs belong to the current user
+    user_songs = db.query(Song).filter(Song.id.in_(song_ids), Song.user_id == current_user.id).all()
+    if len(user_songs) != len(song_ids):
+        raise HTTPException(status_code=404, detail="Some songs not found or not owned by user")
+    
     for song_id in song_ids:
         delete_song_from_db(db, song_id)
     return {"message": f"Deleted {len(song_ids)} songs"}
 
 @router.post("/{song_id}/collaborations")
-def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depends(get_db)):
-    song = db.query(Song).get(song_id)
+def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Check if the song exists
+    song = db.query(Song).filter(Song.id == song_id).first()
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     
+    # Check if user has permission to modify collaborations
+    can_modify = (
+        song.user_id == current_user.id or  # User owns the song
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).first() is not None  # User is a collaborator
+    )
+    
+    if not can_modify:
+        raise HTTPException(status_code=403, detail="You don't have permission to modify this song's collaborations")
+    
     # Delete existing collaborations
-    db.query(SongCollaboration).filter(SongCollaboration.song_id == song_id).delete()
+    db.query(Collaboration).filter(
+        Collaboration.song_id == song_id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).delete()
     
     # Add new collaborations
     collaborations = data.get("collaborations", [])
     for collab_data in collaborations:
-        db_collab = SongCollaboration(
-            song_id=song_id,
-            author=collab_data["author"],
-            parts=None  # No longer using parts
-        )
-        db.add(db_collab)
+        # Find user by username
+        collaborator_user = db.query(User).filter(User.username == collab_data["author"]).first()
+        if collaborator_user and collaborator_user.id != current_user.id:  # Don't add self as collaborator
+            db_collab = Collaboration(
+                song_id=song_id,
+                user_id=collaborator_user.id,
+                collaboration_type=CollaborationType.SONG_EDIT
+            )
+            db.add(db_collab)
     
     db.commit()
     return {"message": f"Updated collaborations for song {song_id}"}
 
+@router.get("/all-artists")
+def get_all_artists(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Get all unique artists in the system for dropdown usage"""
+    artists = db.query(Song.artist).filter(
+        Song.artist.isnot(None),
+        Song.artist != ""
+    ).distinct().order_by(Song.artist).all()
+    
+    return [{"value": artist[0], "label": artist[0]} for artist in artists if artist[0]]
+
 @router.get("/autocomplete/artists")
-def get_artists_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+def get_artists_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get artists for auto-complete"""
     if not query:
         return []
     
     artists = db.query(Song.artist).filter(
-        Song.author == "yaniv297",
+        Song.user_id == current_user.id,
         Song.artist.ilike(f"%{query}%")
     ).distinct().limit(10).all()
     
     return [artist[0] for artist in artists if artist[0]]
 
 @router.get("/autocomplete/albums")
-def get_albums_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+def get_albums_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get albums for auto-complete"""
     if not query:
         return []
     
     albums = db.query(Song.album).filter(
-        Song.author == "yaniv297",
+        Song.user_id == current_user.id,
         Song.album.ilike(f"%{query}%")
     ).distinct().limit(10).all()
     
     return [album[0] for album in albums if album[0]]
 
 @router.get("/autocomplete/collaborators")
-def get_collaborators_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+def get_collaborators_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get collaborators for auto-complete"""
     if not query:
         return []
     
-    collaborators = db.query(SongCollaboration.author).filter(
-        SongCollaboration.author.ilike(f"%{query}%"),
-        SongCollaboration.author != "yaniv297"
+    collaborators = db.query(User.username).join(Collaboration, User.id == Collaboration.user_id).join(Song).filter(
+        Collaboration.song_id == Song.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+        Song.user_id == current_user.id,
+        User.username.ilike(f"%{query}%"),
+        User.username != current_user.username
     ).distinct().limit(10).all()
     
     return [collab[0] for collab in collaborators if collab[0]]
 
 @router.get("/autocomplete/packs")
-def get_packs_autocomplete(query: str = Query(""), db: Session = Depends(get_db)):
+def get_packs_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get packs for auto-complete"""
     if not query:
         return []
     
-    packs = db.query(Song.pack).filter(
-        Song.author == "yaniv297",
-        Song.pack.ilike(f"%{query}%"),
-        Song.pack.isnot(None)
+    packs = db.query(Pack.name).filter(
+        Pack.user_id == current_user.id,
+        Pack.name.ilike(f"%{query}%")
     ).distinct().limit(10).all()
     
     return [pack[0] for pack in packs if pack[0]]
 
 @router.get("/debug-songs")
-def debug_songs(db: Session = Depends(get_db)):
-    songs = db.query(Song).all()
-    return {"count": len(songs), "titles": [song.title for song in songs]}
+def debug_songs(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Debug endpoint to see all songs and collaborations for current user"""
+    # Get all songs
+    all_songs = db.query(Song).all()
+    
+    # Get user's collaborations
+    user_collaborations = db.query(Collaboration).filter(
+        Collaboration.user_id == current_user.id
+    ).all()
+    
+    # Get songs user should see
+    visible_songs = db.query(Song).filter(
+        or_(
+            Song.user_id == current_user.id,  # Songs owned by current user
+            Song.id.in_(  # Songs where current user is a collaborator
+                db.query(Collaboration.song_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+                )
+                .subquery()
+            ),
+            # Songs in packs where current user has ANY collaboration access
+            Song.pack_id.in_(
+                db.query(Collaboration.pack_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+                )
+                .distinct()
+                .subquery()
+            )
+        )
+    ).all()
+    
+    return {
+        "current_user": {
+            "id": current_user.id,
+            "username": current_user.username
+        },
+        "all_songs": [
+            {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
+                "user_id": song.user_id,
+                "pack_id": song.pack_id,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
+                "status": song.status
+            }
+            for song in all_songs
+        ],
+        "user_collaborations": [
+            {
+                "id": collab.id,
+                "pack_id": collab.pack_id,
+                "song_id": collab.song_id,
+                "collaboration_type": collab.collaboration_type.value
+            }
+            for collab in user_collaborations
+        ],
+        "visible_songs": [
+            {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
+                "user_id": song.user_id,
+                "pack_id": song.pack_id,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
+                "status": song.status
+            }
+            for song in visible_songs
+        ]
+    }

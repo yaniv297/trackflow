@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Song
 from schemas import SongOut
+from auth import get_current_active_user
 
 router = APIRouter(prefix="/tools", tags=["Tools"])
 
@@ -51,13 +52,37 @@ def clean_string(title: str) -> str:
     return title.strip()
 
 
-
-@router.post("/bulk-clean", response_model=list[SongOut])
-def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depends(get_db)):
+def bulk_clean_remaster_tags_function(song_ids: list[int], db: Session, current_user_id: int):
+    """Standalone function for bulk cleaning remaster tags"""
     updated = []
 
     for song_id in song_ids:
-        song = db.query(Song).get(song_id)
+        # Check if the song belongs to the current user
+        song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user_id).first()
+        if not song:
+            continue
+
+        cleaned_title = clean_string(song.title)
+        cleaned_album = clean_string(song.album or "")
+
+        if cleaned_title != song.title or cleaned_album != song.album:
+            song.title = cleaned_title
+            song.album = cleaned_album
+            db.add(song)
+            updated.append(song)
+
+    db.commit()
+    print(f"Updated {len(updated)} songs with clean remaster tags")
+    return updated
+
+
+@router.post("/bulk-clean", response_model=list[SongOut])
+def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    updated = []
+
+    for song_id in song_ids:
+        # Check if the song belongs to the current user
+        song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user.id).first()
         if not song:
             continue
 
@@ -75,8 +100,12 @@ def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depe
     return updated
 
 @router.post("/fix-broken-titles", response_model=list[SongOut])
-def fix_mangled_titles(db: Session = Depends(get_db)):
-    affected = db.query(Song).filter(Song.title.op("LIKE")("% - 20%")).all()
+def fix_mangled_titles(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Only fix songs belonging to the current user
+    affected = db.query(Song).filter(
+        Song.title.op("LIKE")("% - 20%"),
+        Song.user_id == current_user.id
+    ).all()
     updated = []
 
     for song in affected:

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import API_BASE_URL from "../config";
-import WipCollaborationModal from "./WipCollaborationModal";
+import { apiGet, apiPost, apiPatch, apiPut } from "../utils/api";
+import UnifiedCollaborationModal from "./UnifiedCollaborationModal";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function WipSongCard({
   song,
@@ -9,6 +10,7 @@ export default function WipSongCard({
   onToggleOptional,
   expanded: expandedProp,
   defaultExpanded,
+  readOnly = false,
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -31,16 +33,12 @@ export default function WipSongCard({
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [wipCollaborations, setWipCollaborations] = useState([]);
   const isOptional = song.optional;
+  const { user: currentUser } = useAuth();
 
   const loadWipCollaborations = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/authoring/${song.id}/wip-collaborations`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setWipCollaborations(data.assignments || []);
-      }
+      const response = await apiGet(`/authoring/${song.id}/wip-collaborations`);
+      setWipCollaborations(response.assignments || []);
     } catch (error) {
       console.error("Error loading WIP collaborations:", error);
     }
@@ -89,30 +87,30 @@ export default function WipSongCard({
     song.authoring[field] = !currentValue;
     setLocalAuthoring((prev) => ({ ...prev, [field]: newValue })); // trigger re-render
 
-    // Backend update
-    await fetch(`${API_BASE_URL}/authoring/${song.id}/`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: !currentValue }),
-    });
+    // Backend update - use PUT method
+    try {
+      await apiPut(`/authoring/${song.id}`, { [field]: !currentValue });
 
-    setLocalAuthoring((prev) => ({
-      ...prev,
-      [field]: newValue,
-    }));
+      setLocalAuthoring((prev) => ({
+        ...prev,
+        [field]: newValue,
+      }));
 
-    if (onAuthoringUpdate) {
-      onAuthoringUpdate(song.id, field, newValue);
+      if (onAuthoringUpdate) {
+        onAuthoringUpdate(song.id, field, newValue);
+      }
+    } catch (error) {
+      console.error(`Error updating ${field}:`, error);
+      // Revert optimistic update on error
+      song.authoring[field] = currentValue;
+      setLocalAuthoring((prev) => ({ ...prev, [field]: currentValue }));
     }
   };
 
   const fetchSpotifyOptions = async () => {
     setLoadingSpotify(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/spotify/${song.id}/spotify-options`
-      );
-      const data = await res.json();
+      const data = await apiGet(`/spotify/${song.id}/spotify-options`);
       setSpotifyOptions(data || []);
     } catch (err) {
       console.error("Spotify fetch failed", err);
@@ -124,20 +122,15 @@ export default function WipSongCard({
 
   const enhanceFromSpotify = async () => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/spotify/${song.id}/spotify-options`
-      );
-      const options = await response.json();
+      const options = await apiGet(`/spotify/${song.id}/spotify-options`);
       if (options.length === 0) {
         window.showNotification("Failed to fetch Spotify options.", "error");
         return;
       }
 
       const firstOption = options[0];
-      await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track_id: firstOption.track_id }),
+      await apiPost(`/spotify/${song.id}/enhance`, {
+        track_id: firstOption.track_id,
       });
 
       window.showNotification("✅ Song enhanced!", "success");
@@ -156,19 +149,31 @@ export default function WipSongCard({
     }
     setEditing((prev) => ({ ...prev, [field]: false }));
 
-    fetch(`${API_BASE_URL}/songs/${song.id}/`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
-    })
-      .then((res) => res.json())
+    apiPatch(`/songs/${song.id}`, { [field]: value })
       .then((updated) => {
-        setEditValues((prev) => ({ ...prev, [field]: updated[field] }));
+        // Update the local edit values and the song object
+        setEditValues((prev) => ({
+          ...prev,
+          [field]: updated[field] || value,
+        }));
+        // Also update the song object for immediate UI reflection
+        song[field] = updated[field] || value;
       })
-      .catch(() => window.showNotification("Update failed", "error"));
+      .catch((error) => {
+        console.error("Update failed:", error);
+        window.showNotification("Update failed", "error");
+      });
   };
 
   const renderEditable = (field, style = {}) => {
+    if (readOnly) {
+      return (
+        <span style={{ cursor: "default", color: "#666", ...style }}>
+          {editValues[field]}
+        </span>
+      );
+    }
+
     return editing[field] ? (
       <input
         value={editValues[field]}
@@ -209,11 +214,8 @@ export default function WipSongCard({
         updates[f] = true;
       });
 
-      await fetch(`${API_BASE_URL}/authoring/${song.id}/`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
+      // Use PUT method like toggleAuthoringField
+      await apiPut(`/authoring/${song.id}`, updates);
 
       // Update UI state manually
       const updatedFields = { ...localAuthoring };
@@ -227,8 +229,12 @@ export default function WipSongCard({
           onAuthoringUpdate(song.id, f, true);
         });
       }
+
+      // Show success notification
+      window.showNotification("All parts marked as complete!", "success");
     } catch (err) {
       console.error("Failed to mark all complete", err);
+      window.showNotification("Failed to mark all parts complete", "error");
     }
   };
 
@@ -345,7 +351,7 @@ export default function WipSongCard({
             <small style={{ fontSize: "0.8rem", color: "#444" }}>
               {filled} / {safeParts.length} parts
             </small>
-            {!isComplete && (
+            {!isComplete && !readOnly && (
               <label
                 style={{
                   display: "inline-flex",
@@ -363,7 +369,7 @@ export default function WipSongCard({
                 <input
                   type="checkbox"
                   checked={isOptional}
-                  onChange={onToggleOptional}
+                  onChange={() => onToggleOptional(song.id, isOptional)}
                   style={{
                     marginRight: "0.25em",
                     accentColor: "#b0c4de",
@@ -391,25 +397,27 @@ export default function WipSongCard({
             {expanded ? "▼" : "▶"}
           </button>
 
-          <button
-            onClick={handleDelete}
-            aria-label="Delete Song"
-            style={{
-              background: "none",
-              border: "none",
-              color: "#aaa",
-              fontSize: "1rem",
-              cursor: "pointer",
-              marginLeft: "0.25rem",
-              alignSelf: "flex-start",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) => (e.target.style.color = "#e74c3c")}
-            onMouseLeave={(e) => (e.target.style.color = "#aaa")}
-            title="Delete song"
-          >
-            ❌
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleDelete}
+              aria-label="Delete Song"
+              style={{
+                background: "none",
+                border: "none",
+                color: "#aaa",
+                fontSize: "1rem",
+                cursor: "pointer",
+                marginLeft: "0.25rem",
+                alignSelf: "flex-start",
+                transition: "color 0.2s",
+              }}
+              onMouseEnter={(e) => (e.target.style.color = "#e74c3c")}
+              onMouseLeave={(e) => (e.target.style.color = "#aaa")}
+              title="Delete song"
+            >
+              ❌
+            </button>
+          )}
         </div>
 
         {/* Expanded Section */}
@@ -546,7 +554,9 @@ export default function WipSongCard({
                               return (
                                 <span
                                   key={field}
-                                  onClick={() => toggleAuthoringField(field)}
+                                  onClick={() =>
+                                    !readOnly && toggleAuthoringField(field)
+                                  }
                                   style={{
                                     padding: "0.25rem 0.6rem",
                                     borderRadius: "12px",
@@ -556,8 +566,9 @@ export default function WipSongCard({
                                     display: "inline-flex",
                                     alignItems: "center",
                                     lineHeight: "1",
-                                    cursor: "pointer",
+                                    cursor: readOnly ? "default" : "pointer",
                                     userSelect: "none",
+                                    opacity: readOnly ? 0.7 : 1,
                                   }}
                                 >
                                   {displayName}
@@ -609,7 +620,7 @@ export default function WipSongCard({
                                     <span
                                       key={field}
                                       onClick={() =>
-                                        toggleAuthoringField(field)
+                                        !readOnly && toggleAuthoringField(field)
                                       }
                                       style={{
                                         padding: "0.25rem 0.6rem",
@@ -620,7 +631,9 @@ export default function WipSongCard({
                                         display: "inline-flex",
                                         alignItems: "center",
                                         lineHeight: "1",
-                                        cursor: "pointer",
+                                        cursor: readOnly
+                                          ? "default"
+                                          : "pointer",
                                         userSelect: "none",
                                       }}
                                     >
@@ -656,7 +669,7 @@ export default function WipSongCard({
                     return (
                       <span
                         key={field}
-                        onClick={() => toggleAuthoringField(field)}
+                        onClick={() => !readOnly && toggleAuthoringField(field)}
                         style={{
                           padding: "0.25rem 0.6rem",
                           borderRadius: "12px",
@@ -666,7 +679,7 @@ export default function WipSongCard({
                           display: "inline-flex",
                           alignItems: "center",
                           lineHeight: "1",
-                          cursor: "pointer",
+                          cursor: readOnly ? "default" : "pointer",
                           userSelect: "none",
                         }}
                       >
@@ -676,98 +689,129 @@ export default function WipSongCard({
                   })}
                 </div>
               )}
-            </div>
 
-            {/* Action Links */}
-            <div
-              style={{
-                marginLeft: "0.2rem",
-                marginTop: "0.4rem",
-                fontSize: "0.91rem",
-                color: "#5a8fcf",
-                fontWeight: 400,
-                textAlign: "left",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              <button
-                onClick={() => setShowCollaborationModal(true)}
+              {/* Action Links */}
+              <div
                 style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "block",
-                  padding: 0,
-                  textDecoration: "none",
+                  marginLeft: "0.2rem",
+                  marginTop: "0.4rem",
+                  fontSize: "0.91rem",
+                  color: readOnly ? "#999" : "#5a8fcf",
+                  fontWeight: 400,
                   textAlign: "left",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
                 }}
-                onMouseEnter={(e) =>
-                  (e.target.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
               >
-                {wipCollaborations.length > 0 ? "Edit Collab" : "Make Collab"}
-              </button>
-              <button
-                onClick={markAllDone}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "block",
-                  padding: 0,
-                  textDecoration: "none",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
-              >
-                Mark All Done
-              </button>
-              <button
-                onClick={fetchSpotifyOptions}
-                disabled={loadingSpotify}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "block",
-                  padding: 0,
-                  textDecoration: "none",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.textDecoration = "underline")
-                }
-                onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
-              >
-                {loadingSpotify ? "⏳ Loading..." : "Enhance from Spotify"}
-              </button>
+                {readOnly ? (
+                  <span
+                    style={{
+                      color: "#999",
+                      fontStyle: "italic",
+                      fontSize: "0.8rem",
+                    }}
+                  >
+                    Read-only (owned by collaborator)
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowCollaborationModal(true)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        padding: 0,
+                        textDecoration: "none",
+                        textAlign: "left",
+                        color: "#5a8fcf",
+                        fontSize: "0.91rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.textDecoration = "underline")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.textDecoration = "none")
+                      }
+                    >
+                      {wipCollaborations.length > 0
+                        ? "Edit Collab"
+                        : "Make Collab"}
+                    </button>
+                    <button
+                      onClick={markAllDone}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        padding: 0,
+                        textDecoration: "none",
+                        textAlign: "left",
+                        color: "#5a8fcf",
+                        fontSize: "0.91rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.textDecoration = "underline")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.textDecoration = "none")
+                      }
+                    >
+                      Mark All Done
+                    </button>
+                    <button
+                      onClick={fetchSpotifyOptions}
+                      disabled={loadingSpotify}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        padding: 0,
+                        textDecoration: "none",
+                        textAlign: "left",
+                        color: "#5a8fcf",
+                        fontSize: "0.91rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.textDecoration = "underline")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.textDecoration = "none")
+                      }
+                    >
+                      {loadingSpotify
+                        ? "⏳ Loading..."
+                        : "Enhance from Spotify"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* WIP Collaboration Modal */}
-      <WipCollaborationModal
-        song={song}
-        isOpen={showCollaborationModal}
-        onClose={() => setShowCollaborationModal(false)}
-        onSave={() => {
-          loadWipCollaborations();
-          if (onAuthoringUpdate) {
-            onAuthoringUpdate(
-              song.id,
-              "demucs",
-              localAuthoring.demucs || false
-            );
-          }
-        }}
-      />
+      {/* Enhanced Collaboration Modal */}
+      {showCollaborationModal && (
+        <UnifiedCollaborationModal
+          isOpen={showCollaborationModal}
+          onClose={() => setShowCollaborationModal(false)}
+          songId={song.id}
+          songTitle={song.title}
+          collaborationType="song"
+          currentUser={currentUser}
+          onCollaborationSaved={() => {
+            loadWipCollaborations();
+            if (onAuthoringUpdate) {
+              onAuthoringUpdate(song.id, "collaboration", true);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

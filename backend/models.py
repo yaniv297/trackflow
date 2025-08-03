@@ -1,90 +1,147 @@
-from sqlalchemy import Column, Integer, String, Boolean, Enum, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
-from database import Base
-import enum
+from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+import enum
+
+Base = declarative_base()
+
+# Re-export Base for compatibility
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
     wip = "In Progress"
     future = "Future Plans"
 
+class CollaborationType(enum.Enum):
+    PACK_VIEW = "pack_view"
+    PACK_EDIT = "pack_edit"
+    SONG_EDIT = "song_edit"
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    songs = relationship("Song", back_populates="user")
+    packs = relationship("Pack", back_populates="user")
+    collaborations = relationship("Collaboration", back_populates="user")
+    artists = relationship("Artist", back_populates="user")
+
+class Pack(Base):
+    __tablename__ = "packs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="packs")
+    songs = relationship("Song", back_populates="pack_obj")
+    collaborations = relationship("Collaboration", back_populates="pack")
+
+class Song(Base):
+    __tablename__ = "songs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    artist = Column(String, index=True)
+    artist_id = Column(Integer, ForeignKey("artists.id"), nullable=True)
+    album = Column(String, index=True)
+    year = Column(Integer)
+    status = Column(String, index=True)  # "Future Plans", "In Progress", "Released"
+    album_cover = Column(String)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    pack_id = Column(Integer, ForeignKey("packs.id"))
+    album_series_id = Column(Integer, ForeignKey("album_series.id"))
+    optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="songs")
+    pack_obj = relationship("Pack", back_populates="songs")
+    album_series_obj = relationship("AlbumSeries", back_populates="songs")
+    collaborations = relationship("Collaboration", back_populates="song")
+    artist_obj = relationship("Artist", back_populates="songs")
+    authoring = relationship("Authoring", back_populates="song", uselist=False)
+
+class Collaboration(Base):
+    __tablename__ = "collaborations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    collaboration_type = Column(Enum(CollaborationType))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Ensure either pack_id or song_id is set, but not both
+    __table_args__ = (
+        UniqueConstraint('pack_id', 'song_id', 'user_id', 'collaboration_type', name='unique_collaboration'),
+    )
+    
+    # Relationships
+    pack = relationship("Pack", back_populates="collaborations")
+    song = relationship("Song", back_populates="collaborations")
+    user = relationship("User", back_populates="collaborations")
+
 class Artist(Base):
     __tablename__ = "artists"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     image_url = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    # Relationships
     songs = relationship("Song", back_populates="artist_obj")
+    user = relationship("User", back_populates="artists")
 
 class AlbumSeries(Base):
     __tablename__ = "album_series"
     
     id = Column(Integer, primary_key=True, index=True)
-    series_number = Column(Integer, unique=True, nullable=True, index=True)  # Null for planned/in-progress
+    series_number = Column(Integer, unique=True, index=True)
     album_name = Column(String, nullable=False)
     artist_name = Column(String, nullable=False)
-    year = Column(Integer, nullable=True)
-    cover_image_url = Column(String, nullable=True)
-    status = Column(String, default="planned")  # planned, in_progress, released
-    description = Column(String, nullable=True)
+    year = Column(Integer)
+    cover_image_url = Column(String)
+    status = Column(String)
+    description = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    pack_id = Column(Integer, ForeignKey("packs.id"))
     
-    # Relationship to songs
+    # Relationships
+    pack = relationship("Pack")
     songs = relationship("Song", back_populates="album_series_obj")
 
-class Song(Base):
-    __tablename__ = "songs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    artist = Column(String, index=True)
-    artist_id = Column(Integer, ForeignKey("artists.id"), nullable=True)
-    title = Column(String, index=True)
-    album = Column(String, nullable=True)
-    pack = Column(String, nullable=True)
-    status = Column(Enum(SongStatus), default=SongStatus.future)
-    year = Column(Integer, nullable=True)
-    album_cover = Column(String, nullable=True)
-    notes = Column(String, nullable=True)
-    author = Column(String, nullable=True, index=True)  # Track who authored the song (for backward compatibility)
-    authoring = relationship("AuthoringProgress", uselist=False, back_populates="song")
-    optional = Column(Boolean, default=False)
-    artist_obj = relationship("Artist", back_populates="songs", foreign_keys=[artist_id])
-    album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True)
-    album_series_obj = relationship("AlbumSeries", back_populates="songs", foreign_keys=[album_series_id])
-    
-    # New relationship for collaborations
-    collaborations = relationship("SongCollaboration", back_populates="song", cascade="all, delete-orphan")
-    wip_collaborations = relationship("WipCollaboration", back_populates="song", cascade="all, delete-orphan")
-
-class SongCollaboration(Base):
-    __tablename__ = "song_collaborations"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    author = Column(String, nullable=False, index=True)
-    parts = Column(String, nullable=True)  # e.g., "drums, bass" or "vocals, harmonies"
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    song = relationship("Song", back_populates="collaborations")
+# Legacy SongCollaboration model removed - use unified Collaboration model instead
 
 class WipCollaboration(Base):
     __tablename__ = "wip_collaborations"
     
     id = Column(Integer, primary_key=True, index=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False)
-    collaborator = Column(String, nullable=False, index=True)
-    field = Column(String, nullable=False)  # e.g., "drums", "bass", "vocals"
+    song_id = Column(Integer, ForeignKey("songs.id"))
+    collaborator = Column(String)  # Username string for now
+    field = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    song = relationship("Song", back_populates="wip_collaborations")
-    
-class AuthoringProgress(Base):
-    __tablename__ = "authoring"
+    # Relationships
+    song = relationship("Song")
 
+class Authoring(Base):
+    __tablename__ = "authoring"
+    
     id = Column(Integer, primary_key=True, index=True)
     song_id = Column(Integer, ForeignKey("songs.id"), unique=True)
-
     demucs = Column(Boolean, default=False)
     midi = Column(Boolean, default=False)
     tempo_map = Column(Boolean, default=False)
@@ -100,5 +157,26 @@ class AuthoringProgress(Base):
     drum_fills = Column(Boolean, default=False)
     overdrive = Column(Boolean, default=False)
     compile = Column(Boolean, default=False)
-
+    
+    # Relationships
     song = relationship("Song", back_populates="authoring")
+
+class AuthoringProgress(Base):
+    __tablename__ = "authoring_progress"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"))
+    lyrics_progress = Column(Integer, default=0)
+    melody_progress = Column(Integer, default=0)
+    arrangement_progress = Column(Integer, default=0)
+    recording_progress = Column(Integer, default=0)
+    mixing_progress = Column(Integer, default=0)
+    mastering_progress = Column(Integer, default=0)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    song = relationship("Song")
+
+# Legacy tables have been removed - all collaboration data is now in the unified Collaboration table

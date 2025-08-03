@@ -10,6 +10,7 @@ export default function EditableCell({
   setEditing,
   setEditValues,
   saveEdit,
+  isEditable = true,
 }) {
   const key = `${songId}_${field}`;
   const isEditing = editing[key];
@@ -40,7 +41,15 @@ export default function EditableCell({
   };
 
   return (
-    <td className="editable-cell" onClick={() => setEditing({ [key]: true })}>
+    <td 
+      className="editable-cell" 
+      onClick={() => isEditable && setEditing({ [key]: true })}
+      style={{
+        cursor: isEditable ? "pointer" : "default",
+        opacity: isEditable ? 1 : 0.6,
+        backgroundColor: isEditable ? "transparent" : "#f8f9fa",
+      }}
+    >
       {isEditing ? (
         shouldUseAutocomplete ? (
           <AutoComplete

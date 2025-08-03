@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import AlbumSeries, Song, SongCollaboration, SongStatus
+from models import AlbumSeries, Song, Collaboration, CollaborationType, SongStatus, User, Pack
 from schemas import AlbumSeriesResponse, AlbumSeriesDetailResponse, CreateAlbumSeriesRequest
 from typing import List
 from datetime import datetime
@@ -9,6 +9,7 @@ from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 import os
 from pydantic import BaseModel
+from auth import get_current_active_user
 
 # Spotify credentials
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "7939abf6b76d4fc7a627869350dbe3d7")
@@ -21,41 +22,71 @@ class UpdateAlbumSeriesStatusRequest(BaseModel):
 
 def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     """Get unique authors for a series from both songs and collaborations"""
-    # Get authors from songs
-    song_authors = db.query(Song.author).filter(
+    # Get authors from songs (using user relationship)
+    song_authors = db.query(User.username).join(Song).filter(
         Song.album_series_id == series_id,
-        Song.author.isnot(None)
+        User.username.isnot(None)
     ).distinct().all()
     
-    # Get authors from collaborations
-    collab_authors = db.query(SongCollaboration.author).join(Song).filter(
+    # Get authors from collaborations (using the new unified collaboration structure)
+    collab_authors = db.query(User.username).join(Collaboration).join(Song).filter(
         Song.album_series_id == series_id,
-        SongCollaboration.author.isnot(None)
+        User.username.isnot(None)
     ).distinct().all()
     
     # Combine and deduplicate
     all_authors = set()
-    for (author,) in song_authors:
-        if author:
-            all_authors.add(author)
-    for (author,) in collab_authors:
-        if author:
-            all_authors.add(author)
+    for (username,) in song_authors:
+        if username:
+            all_authors.add(username)
+    for (username,) in collab_authors:
+        if username:
+            all_authors.add(username)
     
     return sorted(list(all_authors))
 
 @router.get("/", response_model=List[AlbumSeriesResponse])
-def get_album_series(db: Session = Depends(get_db)):
+def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get all album series, with song count and authors"""
-    # Order by series_number (nulls last), then by created_at for planned/in-progress
-    series = db.query(AlbumSeries).order_by(
+    # For released series, show all
+    # For in_progress and planned series, only show if user is involved
+    
+    # Get all series
+    all_series = db.query(AlbumSeries).order_by(
         AlbumSeries.series_number.nulls_last(),
         AlbumSeries.created_at.desc()
     ).all()
     
+    # Filter series based on user involvement
+    filtered_series = []
+    for s in all_series:
+        # Always include released series
+        if s.status == "released":
+            filtered_series.append(s)
+            continue
+            
+        # For in_progress and planned series, check if user is involved
+        # User is involved if they own any song in the series OR are a collaborator on any song
+        user_involved = db.query(Song).filter(
+            Song.album_series_id == s.id,
+            Song.user_id == current_user.id
+        ).first() is not None
+        
+        if not user_involved:
+            # Check if user is a collaborator on any song in this series
+            user_collaboration = db.query(Collaboration).join(Song).filter(
+                Song.album_series_id == s.id,
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            ).first()
+            user_involved = user_collaboration is not None
+            
+        if user_involved:
+            filtered_series.append(s)
+    
     # Add song count and authors to each series
     result = []
-    for s in series:
+    for s in filtered_series:
         song_count = db.query(Song).filter(Song.album_series_id == s.id).count()
         authors = get_unique_authors_for_series(db, s.id)
         
@@ -80,22 +111,107 @@ def get_album_series(db: Session = Depends(get_db)):
 @router.get("/{series_id}", response_model=AlbumSeriesDetailResponse)
 def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
     """Get detailed information about a specific album series"""
-    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
-    if not series:
-        raise HTTPException(status_code=404, detail="Album series not found")
+    try:
+        series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+        if not series:
+            raise HTTPException(status_code=404, detail="Album series not found")
+    except Exception as e:
+        print(f"Error fetching series {series_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching series: {str(e)}")
     
     # Get all songs for this series with collaborations and authoring data
-    songs = db.query(Song).options(
-        joinedload(Song.collaborations),
-        joinedload(Song.authoring)
-    ).filter(Song.album_series_id == series_id).all()
+    try:
+        songs = db.query(Song).options(
+            joinedload(Song.collaborations).joinedload(Collaboration.user),
+            joinedload(Song.user),  # Load the song owner
+            joinedload(Song.pack_obj),  # Load the pack relationship
+            joinedload(Song.authoring)
+        ).filter(Song.album_series_id == series_id).all()
+    except Exception as e:
+        print(f"Error fetching songs for series {series_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching songs: {str(e)}")
     
     # Split songs into album songs and bonus songs based on album field
     album_songs = [song for song in songs if song.album and song.album.lower() == series.album_name.lower()]
     bonus_songs = [song for song in songs if song not in album_songs]
     
+    # Format songs with properly structured collaborations
+    def format_song_for_response(song):
+        try:
+            song_dict = {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
+                "album": song.album,
+                "status": song.status,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
+                "year": song.year,
+                "album_cover": song.album_cover,
+                "author": song.user.username if song.user else None,
+                "user_id": song.user_id,
+                "optional": song.optional,
+                "album_series_id": song.album_series_id,
+                "collaborations": [],
+                "authoring": song.authoring
+            }
+            
+            # Format collaborations with author field for backward compatibility
+            if song.collaborations:
+                song_dict["collaborations"] = [
+                    {
+                        "id": collab.id,
+                        "collaborator_id": collab.collaborator_id,
+                        "author": collab.collaborator.username if collab.collaborator else None,
+                        "role": collab.role,
+                        "created_at": collab.created_at
+                    }
+                    for collab in song.collaborations
+                    if collab.collaborator  # Only include collaborations with valid collaborators
+                ]
+            
+            return song_dict
+        except Exception as e:
+            print(f"Error formatting song {song.id}: {e}")
+            # Return a minimal song dict if there's an error
+            return {
+                "id": song.id,
+                "title": song.title or "Unknown",
+                "artist": song.artist or "Unknown",
+                "album": song.album,
+                "status": song.status,
+                "pack_name": song.pack_obj.name if song.pack_obj else None,
+                "year": song.year,
+                "album_cover": song.album_cover,
+                "author": song.user.username if song.user else None,
+                "user_id": song.user_id,
+                "optional": song.optional,
+                "album_series_id": song.album_series_id,
+                "collaborations": [],
+                "authoring": song.authoring
+            }
+    
+    try:
+        formatted_album_songs = [format_song_for_response(song) for song in album_songs]
+        formatted_bonus_songs = [format_song_for_response(song) for song in bonus_songs]
+    except Exception as e:
+        print(f"Error formatting songs for series {series_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error formatting songs: {str(e)}")
+    
     # Get unique authors
-    authors = get_unique_authors_for_series(db, series_id)
+    try:
+        authors = get_unique_authors_for_series(db, series_id)
+    except Exception as e:
+        print(f"Error getting authors for series {series_id}: {e}")
+        authors = []
+    
+    # Get pack data if available
+    pack_id = None
+    pack_name = None
+    if series.pack_id:
+        pack = db.query(Pack).filter(Pack.id == series.pack_id).first()
+        if pack:
+            pack_id = pack.id
+            pack_name = pack.name
     
     return {
         "id": series.id,
@@ -108,8 +224,10 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
         "description": series.description,
         "created_at": series.created_at,
         "updated_at": series.updated_at,
-        "album_songs": album_songs,
-        "bonus_songs": bonus_songs,
+        "pack_id": pack_id,
+        "pack_name": pack_name,
+        "album_songs": formatted_album_songs,
+        "bonus_songs": formatted_bonus_songs,
         "total_songs": len(songs),
         "authors": authors
     }
@@ -122,7 +240,8 @@ def get_album_series_songs(series_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Album series not found")
     
     songs = db.query(Song).options(
-        joinedload(Song.collaborations),
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.pack_obj),  # Load the pack relationship
         joinedload(Song.authoring)
     ).filter(Song.album_series_id == series_id).all()
     return songs
@@ -144,8 +263,15 @@ def create_album_series_from_pack(
     description = request.description
     
     # Check if pack exists and has WIP/Future songs
+    pack = db.query(Pack).filter(Pack.name == pack_name).first()
+    if not pack:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Pack '{pack_name}' not found"
+        )
+    
     songs = db.query(Song).filter(
-        Song.pack == pack_name,
+        Song.pack_id == pack.id,
         Song.status.in_([SongStatus.wip, SongStatus.future])
     ).all()
     

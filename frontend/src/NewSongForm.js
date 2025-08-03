@@ -1,71 +1,112 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API_BASE_URL from "./config";
+import { apiPost, apiGet } from "./utils/api";
+import SmartDropdown from "./components/SmartDropdown";
+import UserDropdown from "./components/UserDropdown";
 
 // Utility function to capitalize artist and album names
-const capitalizeName = (name) => {
-  if (!name) return "";
-  return name
+const capitalizeName = (str) =>
+  str
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
-};
 
 function NewSongForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     title: "",
     artist: "",
-    album: "",
     pack: "",
     status: "Future Plans",
-    collaborations: "",
   });
+  const [packStatus, setPackStatus] = useState(null);
+  const [isLoadingPackStatus, setIsLoadingPackStatus] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handlePackChange = async (packName) => {
+    setForm({ ...form, pack: packName });
+
+    if (packName && packName.trim()) {
+      setIsLoadingPackStatus(true);
+      try {
+        // First, try to get the pack by name to see if it exists
+        const packsResponse = await apiGet(
+          `/packs/autocomplete?query=${encodeURIComponent(packName)}`
+        );
+        const existingPack = packsResponse.find(
+          (pack) => pack.name === packName
+        );
+
+        if (existingPack) {
+          // Pack exists, fetch its songs to determine status
+          const response = await apiGet(`/songs/?pack_id=${existingPack.id}`);
+          if (response && response.length > 0) {
+            // Count status occurrences
+            const statusCounts = {};
+            response.forEach((song) => {
+              statusCounts[song.status] = (statusCounts[song.status] || 0) + 1;
+            });
+
+            // Get the most common status
+            const mostCommonStatus = Object.entries(statusCounts).sort(
+              ([, a], [, b]) => b - a
+            )[0][0];
+
+            setPackStatus(mostCommonStatus);
+            // Update the form status to match the pack
+            setForm((prev) => ({ ...prev, status: mostCommonStatus }));
+          } else {
+            setPackStatus(null);
+            setForm((prev) => ({ ...prev, status: "Future Plans" }));
+          }
+        } else {
+          // Pack doesn't exist, it will be created as a new pack
+          setPackStatus(null);
+          setForm((prev) => ({ ...prev, status: "Future Plans" }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch pack status:", error);
+        setPackStatus(null);
+        setForm((prev) => ({ ...prev, status: "Future Plans" }));
+      } finally {
+        setIsLoadingPackStatus(false);
+      }
+    } else {
+      setPackStatus(null);
+      setForm((prev) => ({ ...prev, status: "Future Plans" }));
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Parse collaborations if provided
-    const songData = { ...form };
-    if (form.collaborations.trim()) {
-      const collaborations = form.collaborations.split(",").map((collab) => {
-        const author = collab.trim();
-        return {
-          author: author,
-          parts: null,
-        };
-      });
-      songData.collaborations = collaborations;
-    } else {
-      delete songData.collaborations;
+    // Validate that pack exists (if one is selected)
+    if (form.pack && form.pack.trim()) {
+      // We'll let the backend handle the validation and return an appropriate error
+      // The backend will check if the pack exists and return an error if it doesn't
     }
+
+    const songData = { ...form };
 
     // Capitalize names
     songData.artist = capitalizeName(songData.artist);
     songData.title = capitalizeName(songData.title);
-    songData.album = capitalizeName(songData.album);
 
-    fetch(`${API_BASE_URL}/songs/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(songData),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.detail || "Failed to add song");
-        }
-        return res.json();
-      })
+    apiPost("/songs/", songData)
       .then(() => {
         window.showNotification("Song added successfully!", "success");
         navigate(
           `/${
-            form.status === "In Progress" ? "wip" : form.status.toLowerCase()
+            form.status === "In Progress"
+              ? "wip"
+              : form.status === "Future Plans"
+              ? "future"
+              : form.status === "Released"
+              ? "released"
+              : "future"
           }`
         );
       })
@@ -124,29 +165,11 @@ function NewSongForm() {
               >
                 Artist *
               </label>
-              <input
-                name="artist"
-                placeholder="e.g., The Beatles"
+              <SmartDropdown
+                type="artist"
                 value={form.artist}
-                onChange={handleChange}
-                required
-                style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem",
-                  border: "2px solid #e1e5e9",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#007bff";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.boxShadow = "none";
-                }}
+                onChange={(value) => setForm({ ...form, artist: value })}
+                placeholder="Select or add artist name"
               />
             </div>
 
@@ -189,86 +212,57 @@ function NewSongForm() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1rem",
-            }}
-          >
-            <div>
-              <label
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                color: "#555",
+                fontSize: "0.95rem",
+              }}
+            >
+              Pack
+            </label>
+            <SmartDropdown
+              type="pack"
+              value={form.pack}
+              onChange={handlePackChange}
+              placeholder="Select existing pack or type new pack name"
+            />
+            {isLoadingPackStatus && (
+              <div
                 style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "#555",
-                  fontSize: "0.95rem",
+                  fontSize: "0.8rem",
+                  color: "#666",
+                  marginTop: "0.25rem",
                 }}
               >
-                Album
-              </label>
-              <input
-                name="album"
-                placeholder="e.g., Abbey Road"
-                value={form.album}
-                onChange={handleChange}
+                Loading pack status...
+              </div>
+            )}
+            {packStatus && (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem",
-                  border: "2px solid #e1e5e9",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#007bff";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "500",
-                  color: "#555",
-                  fontSize: "0.95rem",
+                  fontSize: "0.8rem",
+                  color: "#28a745",
+                  marginTop: "0.25rem",
                 }}
               >
-                Pack
-              </label>
-              <input
-                name="pack"
-                placeholder="e.g., Classic Rock Pack"
-                value={form.pack}
-                onChange={handleChange}
+                Pack status: {packStatus}
+              </div>
+            )}
+            {form.pack && !packStatus && !isLoadingPackStatus && (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "0.75rem 1rem",
-                  border: "2px solid #e1e5e9",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  transition: "border-color 0.2s, box-shadow 0.2s",
-                  boxSizing: "border-box",
+                  fontSize: "0.8rem",
+                  color: "#007bff",
+                  marginTop: "0.25rem",
                 }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "#007bff";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.boxShadow = "none";
-                }}
-              />
-            </div>
+              >
+                New pack will be created
+              </div>
+            )}
           </div>
 
           <div>
@@ -287,19 +281,23 @@ function NewSongForm() {
               name="status"
               value={form.status}
               onChange={handleChange}
+              disabled={!!packStatus}
               style={{
                 width: "100%",
                 padding: "0.75rem 1rem",
                 border: "2px solid #e1e5e9",
                 borderRadius: "8px",
                 fontSize: "1rem",
-                backgroundColor: "#fff",
+                backgroundColor: packStatus ? "#f8f9fa" : "#fff",
                 transition: "border-color 0.2s, box-shadow 0.2s",
-                cursor: "pointer",
+                cursor: packStatus ? "not-allowed" : "pointer",
+                opacity: packStatus ? 0.7 : 1,
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = "#007bff";
-                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                if (!packStatus) {
+                  e.target.style.borderColor = "#007bff";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                }
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = "#e1e5e9";
@@ -310,53 +308,6 @@ function NewSongForm() {
               <option value="In Progress">In Progress</option>
               <option value="Released">Released</option>
             </select>
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-                color: "#555",
-                fontSize: "0.95rem",
-              }}
-            >
-              Collaborations (Optional)
-            </label>
-            <input
-              name="collaborations"
-              placeholder="e.g., jphn, EdTanguy"
-              value={form.collaborations}
-              onChange={handleChange}
-              style={{
-                width: "100%",
-                padding: "0.75rem 1rem",
-                border: "2px solid #e1e5e9",
-                borderRadius: "8px",
-                fontSize: "1rem",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#007bff";
-                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "#e1e5e9";
-                e.target.style.boxShadow = "none";
-              }}
-            />
-            <small
-              style={{
-                color: "#666",
-                fontSize: "0.85rem",
-                marginTop: "0.25rem",
-                display: "block",
-              }}
-            >
-              Format: author, author (e.g., jphn, EdTanguy)
-            </small>
           </div>
 
           <button

@@ -4,7 +4,7 @@ load_dotenv()
 from fastapi import FastAPI
 from database import engine
 from models import Base
-from api import songs, authoring, spotify, tools, stats, album_series
+from api import songs, authoring, spotify, tools, stats, album_series, auth, packs, collaborations
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import os
@@ -42,12 +42,15 @@ def init_db():
         print("The app will start but database operations may fail")
 
 # Register route modules
+app.include_router(auth.router)
 app.include_router(songs.router)
 app.include_router(authoring.router)
 app.include_router(spotify.router)
 app.include_router(tools.router)
 app.include_router(stats.router)
 app.include_router(album_series.router)
+app.include_router(packs.router)
+app.include_router(collaborations.router)
 
 @app.on_event("startup")
 async def startup_event():
@@ -66,7 +69,7 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8001))
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 

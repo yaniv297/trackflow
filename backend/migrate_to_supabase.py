@@ -17,7 +17,7 @@ from psycopg2.extras import RealDictCursor
 import time
 
 # Load environment variables
-load_dotenv(".env.production")
+load_dotenv("../.env.production")
 
 # Database URLs
 LOCAL_DB_URL = "sqlite:///./songs.db"
@@ -103,45 +103,85 @@ def insert_data_to_supabase(conn, table_name, data):
         
         print(f"   ✅ Inserted {len(data)} rows into {table_name}")
 
-def migrate_table(engine, conn, table_name):
-    """Migrate a single table from SQLite to Supabase"""
-    print(f"\n🔄 Migrating {table_name}...")
-    
-    try:
-        # Export data from SQLite
-        data = export_table_data(engine, table_name)
-        print(f"   📤 Exported {len(data)} rows from local {table_name}")
-        
-        # Clear Supabase table
-        clear_supabase_table(conn, table_name)
-        
-        # Insert data into Supabase
-        insert_data_to_supabase(conn, table_name, data)
-        
-    except Exception as e:
-        print(f"   ❌ Error migrating {table_name}: {e}")
-        return False
-    
-    return True
-
 def create_missing_tables(conn):
     """Create missing tables in Supabase if they don't exist"""
     print("\n🔨 Creating missing tables and columns...")
     
     tables_sql = {
-        "song_collaborations": """
-            CREATE TABLE IF NOT EXISTS song_collaborations (
+        "users": """
+            CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
-                song_id INTEGER NOT NULL,
-                author VARCHAR NOT NULL,
-                parts VARCHAR,
+                username VARCHAR UNIQUE NOT NULL,
+                email VARCHAR UNIQUE NOT NULL,
+                hashed_password VARCHAR,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        "packs": """
+            CREATE TABLE IF NOT EXISTS packs (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR NOT NULL,
+                user_id INTEGER REFERENCES users(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        "artists": """
+            CREATE TABLE IF NOT EXISTS artists (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR UNIQUE NOT NULL,
+                image_url VARCHAR,
+                user_id INTEGER REFERENCES users(id)
+            );
+        """,
+        "album_series": """
+            CREATE TABLE IF NOT EXISTS album_series (
+                id SERIAL PRIMARY KEY,
+                series_number INTEGER UNIQUE NOT NULL,
+                album_name VARCHAR NOT NULL,
+                artist_name VARCHAR NOT NULL,
+                year INTEGER,
+                cover_image_url VARCHAR,
+                status VARCHAR,
+                description VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                pack_id INTEGER REFERENCES packs(id)
+            );
+        """,
+        "songs": """
+            CREATE TABLE IF NOT EXISTS songs (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR NOT NULL,
+                artist VARCHAR NOT NULL,
+                artist_id INTEGER REFERENCES artists(id),
+                album VARCHAR,
+                year INTEGER,
+                status VARCHAR NOT NULL,
+                album_cover VARCHAR,
+                user_id INTEGER REFERENCES users(id),
+                pack_id INTEGER REFERENCES packs(id),
+                album_series_id INTEGER REFERENCES album_series(id),
+                optional BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        "collaborations": """
+            CREATE TABLE IF NOT EXISTS collaborations (
+                id SERIAL PRIMARY KEY,
+                pack_id INTEGER REFERENCES packs(id),
+                song_id INTEGER REFERENCES songs(id),
+                user_id INTEGER REFERENCES users(id),
+                collaboration_type VARCHAR NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(pack_id, song_id, user_id, collaboration_type)
             );
         """,
         "wip_collaborations": """
             CREATE TABLE IF NOT EXISTS wip_collaborations (
                 id SERIAL PRIMARY KEY,
-                song_id INTEGER NOT NULL,
+                song_id INTEGER REFERENCES songs(id),
                 collaborator VARCHAR NOT NULL,
                 field VARCHAR NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -150,7 +190,7 @@ def create_missing_tables(conn):
         "authoring": """
             CREATE TABLE IF NOT EXISTS authoring (
                 id SERIAL PRIMARY KEY,
-                song_id INTEGER UNIQUE NOT NULL,
+                song_id INTEGER UNIQUE REFERENCES songs(id),
                 demucs BOOLEAN DEFAULT FALSE,
                 midi BOOLEAN DEFAULT FALSE,
                 tempo_map BOOLEAN DEFAULT FALSE,
@@ -167,17 +207,23 @@ def create_missing_tables(conn):
                 overdrive BOOLEAN DEFAULT FALSE,
                 compile BOOLEAN DEFAULT FALSE
             );
+        """,
+        "authoring_progress": """
+            CREATE TABLE IF NOT EXISTS authoring_progress (
+                id SERIAL PRIMARY KEY,
+                song_id INTEGER REFERENCES songs(id),
+                lyrics_progress INTEGER DEFAULT 0,
+                melody_progress INTEGER DEFAULT 0,
+                arrangement_progress INTEGER DEFAULT 0,
+                recording_progress INTEGER DEFAULT 0,
+                mixing_progress INTEGER DEFAULT 0,
+                mastering_progress INTEGER DEFAULT 0,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """
     }
-    
-    # Add missing columns to existing tables
-    columns_sql = [
-        "ALTER TABLE songs ADD COLUMN IF NOT EXISTS album_series_id INTEGER;",
-        "ALTER TABLE songs ADD COLUMN IF NOT EXISTS pack VARCHAR;",
-        "ALTER TABLE songs ADD COLUMN IF NOT EXISTS notes VARCHAR;",
-        "ALTER TABLE songs ADD COLUMN IF NOT EXISTS author VARCHAR;",
-        "ALTER TABLE songs ADD COLUMN IF NOT EXISTS optional BOOLEAN DEFAULT FALSE;"
-    ]
     
     with conn.cursor() as cursor:
         # Create tables
@@ -187,32 +233,55 @@ def create_missing_tables(conn):
                 print(f"   ✅ Created/verified {table_name}")
             except Exception as e:
                 print(f"   ⚠️  Could not create {table_name}: {e}")
+                # Rollback and continue
+                conn.rollback()
+
+def migrate_table(engine, conn, table_name):
+    """Migrate a single table from SQLite to Supabase"""
+    print(f"\n🔄 Migrating {table_name}...")
+    
+    try:
+        # Export data from SQLite
+        data = export_table_data(engine, table_name)
+        print(f"   📤 Exported {len(data)} rows from local {table_name}")
         
-        # Add missing columns
-        for sql in columns_sql:
-            try:
-                cursor.execute(sql)
-                print(f"   ✅ Added column: {sql.split()[-1]}")
-            except Exception as e:
-                print(f"   ⚠️  Could not add column: {e}")
+        # Clear Supabase table
+        clear_supabase_table(conn, table_name)
+        
+        # Insert data into Supabase
+        insert_data_to_supabase(conn, table_name, data)
+        
+        # Commit this table's changes
+        conn.commit()
+        
+    except Exception as e:
+        print(f"   ❌ Error migrating {table_name}: {e}")
+        # Rollback and continue with next table
+        conn.rollback()
+        return False
+    
+    return True
 
 def reset_sequences(conn):
     """Reset PostgreSQL sequences after data insertion"""
     print("\n🔄 Resetting sequences...")
     
     sequences = [
-        ("songs_id_seq", "songs"),
+        ("users_id_seq", "users"),
+        ("packs_id_seq", "packs"),
         ("artists_id_seq", "artists"),
         ("album_series_id_seq", "album_series"),
-        ("song_collaborations_id_seq", "song_collaborations"),
+        ("songs_id_seq", "songs"),
+        ("collaborations_id_seq", "collaborations"),
         ("wip_collaborations_id_seq", "wip_collaborations"),
-        ("authoring_id_seq", "authoring")
+        ("authoring_id_seq", "authoring"),
+        ("authoring_progress_id_seq", "authoring_progress")
     ]
     
     with conn.cursor() as cursor:
         for seq_name, table_name in sequences:
             try:
-                cursor.execute(f"SELECT setval('{seq_name}', (SELECT MAX(id) FROM {table_name}))")
+                cursor.execute(f"SELECT setval('{seq_name}', COALESCE((SELECT MAX(id) FROM {table_name}), 1))")
                 print(f"   ✅ Reset {seq_name}")
             except Exception as e:
                 print(f"   ⚠️  Could not reset {seq_name}: {e}")
@@ -229,12 +298,15 @@ def main():
     
     # Tables to migrate (in order to respect foreign key constraints)
     tables = [
+        "users",
+        "packs",
         "artists",
         "album_series", 
         "songs",
-        "song_collaborations",
+        "collaborations",
         "wip_collaborations",
-        "authoring"
+        "authoring",
+        "authoring_progress"
     ]
     
     print(f"📋 Tables to migrate: {', '.join(tables)}")
@@ -254,9 +326,6 @@ def main():
         # Reset sequences
         reset_sequences(supabase_conn)
         
-        # Commit all changes
-        supabase_conn.commit()
-        
         end_time = time.time()
         duration = end_time - start_time
         
@@ -269,13 +338,15 @@ def main():
         # Show row counts
         with supabase_conn.cursor(cursor_factory=RealDictCursor) as cursor:
             for table in tables:
-                cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
-                result = cursor.fetchone()
-                print(f"   {table}: {result['count']} rows")
+                try:
+                    cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
+                    result = cursor.fetchone()
+                    print(f"   {table}: {result['count']} rows")
+                except Exception as e:
+                    print(f"   {table}: Error getting count - {e}")
         
     except Exception as e:
         print(f"\n❌ Migration failed: {e}")
-        supabase_conn.rollback()
         sys.exit(1)
     
     finally:

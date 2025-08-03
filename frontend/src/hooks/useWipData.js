@@ -37,7 +37,7 @@ export const useWipData = (user) => {
     // Check if current user is a collaborator on the pack - add pack owner
     const isPackCollaborator = userCollaborations.some(
       (collab) =>
-        collab.pack_id === packId &&
+        collab.pack_id === parseInt(packId) &&
         (collab.collaboration_type === "pack_view" ||
           collab.collaboration_type === "pack_edit")
     );
@@ -53,7 +53,7 @@ export const useWipData = (user) => {
     // Check if current user owns pack - add all collaborators
     const myPackCollabs = collaborationsOnMyPacks.filter(
       (collab) =>
-        collab.pack_id === packId &&
+        collab.pack_id === parseInt(packId) &&
         (collab.collaboration_type === "pack_view" ||
           collab.collaboration_type === "pack_edit")
     );
@@ -77,15 +77,16 @@ export const useWipData = (user) => {
     // This is the key fix for the "make collab" scenario
     const isSongCollaborator = userCollaborations.some(
       (collab) =>
-        collab.song_id && 
+        collab.song_id &&
         collab.collaboration_type === "song_edit" &&
-        validSongsInPack.some(song => song.id === collab.song_id)
+        validSongsInPack.some((song) => song.id === collab.song_id)
     );
 
     if (isSongCollaborator) {
       // Add the song owner(s) as collaborators
       validSongsInPack.forEach((song) => {
-        if (song.user_id !== user?.id) { // Don't add self
+        if (song.user_id !== user?.id) {
+          // Don't add self
           const songOwner = song.author || "unknown";
           collaborators.add(songOwner);
         }
@@ -136,9 +137,15 @@ export const useWipData = (user) => {
           console.error("Failed to fetch user collaborations:", err)
         );
 
-      // Note: There's no "on-my-packs" endpoint, collaborations are handled differently
-      // For now, we'll use an empty array for collaborationsOnMyPacks
-      setCollaborationsOnMyPacks([]);
+      // Fetch collaborations on packs owned by current user
+      apiGet("/collaborations/on-my-packs")
+        .then((data) => {
+          console.log("WipPage - Loaded collaborations on my packs:", data);
+          setCollaborationsOnMyPacks(data);
+        })
+        .catch((err) =>
+          console.error("Failed to fetch collaborations on my packs:", err)
+        );
     }
   }, [user]);
 
@@ -185,9 +192,12 @@ export const useWipData = (user) => {
   const refreshCollaborations = async () => {
     if (user) {
       try {
-        const userCollabs = await apiGet("/collaborations/my-collaborations");
+        const [userCollabs, myPackCollabs] = await Promise.all([
+          apiGet("/collaborations/my-collaborations"),
+          apiGet("/collaborations/on-my-packs"),
+        ]);
         setUserCollaborations(userCollabs);
-        setCollaborationsOnMyPacks([]); // No "on-my-packs" endpoint available
+        setCollaborationsOnMyPacks(myPackCollabs);
       } catch (error) {
         console.error("Failed to refresh collaborations:", error);
       }

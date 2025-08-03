@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { apiGet } from "../utils/api";
+import { apiGet, apiPost } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
 const SmartDropdown = ({
@@ -119,10 +119,34 @@ const SmartDropdown = ({
     setIsOpen(false);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
     if (value.trim()) {
-      onChange(value.trim());
-      setIsOpen(false);
+      if (type === "users") {
+        try {
+          // Create the new user first
+          await apiPost("/auth/users/", {
+            username: value.trim(),
+            email: `${value.trim()}@example.com`, // Temporary email
+            password: "temp123", // Temporary password
+          });
+
+          // User created successfully, now update the value
+          onChange(value.trim());
+          setIsOpen(false);
+          // Refresh the options to include the new user
+          fetchOptions();
+        } catch (error) {
+          console.error("Error creating user:", error);
+          // Still update the value even if user creation fails
+          // (the backend will handle this gracefully)
+          onChange(value.trim());
+          setIsOpen(false);
+        }
+      } else {
+        // For other types, just update the value
+        onChange(value.trim());
+        setIsOpen(false);
+      }
     }
   };
 

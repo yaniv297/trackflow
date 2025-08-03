@@ -126,6 +126,7 @@ def get_filtered_songs(
     # Filter to show songs owned by the current user OR where the current user is a collaborator
     # OR songs in packs where the current user has ANY collaboration access (including read-only)
     # OR songs in packs where ANY song has a collaboration with the current user
+    # OR songs in packs owned by the current user (so pack owners can see all songs in their packs)
     q = q.filter(
         or_(
             Song.user_id == current_user.id,  # Songs owned by current user
@@ -157,6 +158,12 @@ def get_filtered_songs(
                     Song.pack_id.isnot(None)
                 )
                 .distinct()
+                .subquery()
+            ),
+            # Songs in packs owned by the current user (so pack owners can see all songs in their packs)
+            Song.pack_id.in_(
+                db.query(Pack.id)
+                .filter(Pack.user_id == current_user.id)
                 .subquery()
             )
         )

@@ -24,11 +24,6 @@ function ImportSpotifyPage() {
       return;
     }
 
-    if (!pack.trim()) {
-      window.showNotification("Please enter a pack name", "error");
-      return;
-    }
-
     setIsSubmitting(true);
     setProgress({ phase: "Importing playlist...", current: 0, total: 0 });
 
@@ -37,7 +32,7 @@ function ImportSpotifyPage() {
       const result = await apiPost(`/spotify/import-playlist`, {
         playlist_url: playlistUrl,
         status: status,
-        pack: pack,
+        pack: pack.trim() || null,
       });
 
       // Show success notification
@@ -130,7 +125,7 @@ function ImportSpotifyPage() {
             <li>Choose the status for imported songs</li>
             <li>
               Enter a pack name to group the songs (will create new pack if it
-              doesn't exist)
+              doesn't exist), or leave empty for no pack
             </li>
             <li>Songs will be automatically cleaned of remaster tags</li>
           </ul>
@@ -209,7 +204,7 @@ function ImportSpotifyPage() {
                 display: "block",
               }}
             >
-              Pack Name *
+              Pack Name
             </label>
             <input
               type="text"

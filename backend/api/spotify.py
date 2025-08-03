@@ -60,7 +60,7 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
         
         # Handle pack creation/finding
         pack_id = None
-        if pack_name:
+        if pack_name and pack_name.strip():
             # Try to find existing pack
             existing_pack = db.query(Pack).filter(Pack.name == pack_name).first()
             if existing_pack:
@@ -124,7 +124,7 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
 def import_spotify_playlist(
     playlist_url: str = Body(...),
     status: str = Body(...),
-    pack: str = Body(...),
+    pack: Optional[str] = Body(None),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_active_user)
 ):
@@ -134,15 +134,12 @@ def import_spotify_playlist(
     if not playlist_url.strip():
         raise HTTPException(status_code=400, detail="Playlist URL is required")
     
-    if not pack.strip():
-        raise HTTPException(status_code=400, detail="Pack name is required")
-    
     valid_statuses = ["Future Plans", "In Progress", "Released"]
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
     
     try:
-        created_songs, count = import_playlist_songs(playlist_url, status, pack, current_user, db)
+        created_songs, count = import_playlist_songs(playlist_url, status, pack or "", current_user, db)
         
         # Run clean remaster tags on all created songs
         from api.tools import bulk_clean_remaster_tags_function

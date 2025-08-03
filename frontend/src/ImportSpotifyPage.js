@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API_BASE_URL from "./config";
+import { apiPost } from "./utils/api";
 
 const statuses = [
   { label: "Future Plans", value: "Future Plans" },
@@ -24,29 +24,21 @@ function ImportSpotifyPage() {
       return;
     }
 
+    if (!pack.trim()) {
+      window.showNotification("Please enter a pack name", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     setProgress({ phase: "Importing playlist...", current: 0, total: 0 });
 
     try {
       // Call the backend API
-      const response = await fetch(`${API_BASE_URL}/spotify/import-playlist`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          playlist_url: playlistUrl,
-          status: status,
-          pack: pack || null,
-        }),
+      const result = await apiPost(`/spotify/import-playlist`, {
+        playlist_url: playlistUrl,
+        status: status,
+        pack: pack,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to import playlist");
-      }
-
-      const result = await response.json();
 
       // Show success notification
       window.showNotification(
@@ -136,7 +128,10 @@ function ImportSpotifyPage() {
               https://open.spotify.com/playlist/...)
             </li>
             <li>Choose the status for imported songs</li>
-            <li>Optionally add a pack name to group the songs</li>
+            <li>
+              Enter a pack name to group the songs (will create new pack if it
+              doesn't exist)
+            </li>
             <li>Songs will be automatically cleaned of remaster tags</li>
           </ul>
         </div>
@@ -214,7 +209,7 @@ function ImportSpotifyPage() {
                 display: "block",
               }}
             >
-              Pack Name (optional)
+              Pack Name *
             </label>
             <input
               type="text"

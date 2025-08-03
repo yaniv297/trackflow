@@ -52,6 +52,29 @@ def clean_string(title: str) -> str:
     return title.strip()
 
 
+def bulk_clean_remaster_tags_function(song_ids: list[int], db: Session, current_user_id: int):
+    """Standalone function for bulk cleaning remaster tags"""
+    updated = []
+
+    for song_id in song_ids:
+        # Check if the song belongs to the current user
+        song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user_id).first()
+        if not song:
+            continue
+
+        cleaned_title = clean_string(song.title)
+        cleaned_album = clean_string(song.album or "")
+
+        if cleaned_title != song.title or cleaned_album != song.album:
+            song.title = cleaned_title
+            song.album = cleaned_album
+            db.add(song)
+            updated.append(song)
+
+    db.commit()
+    print(f"Updated {len(updated)} songs with clean remaster tags")
+    return updated
+
 
 @router.post("/bulk-clean", response_model=list[SongOut])
 def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):

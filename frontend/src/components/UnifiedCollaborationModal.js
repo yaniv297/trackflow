@@ -394,7 +394,6 @@ const UnifiedCollaborationModal = ({
     if (collaborationType === "song") {
       // Ensure WIP collaborations are loaded
       if (!wipCollaborations[songId]) {
-        console.log("WIP collaborations not loaded, loading now...");
         await loadWipCollaborations();
       }
 
@@ -406,16 +405,6 @@ const UnifiedCollaborationModal = ({
       const existingInstruments = userAssignments.map(
         (a) => dbToUiFieldMap[a.field] || a.field
       );
-
-      console.log("Edit collaborator debug:", {
-        collaborator: collaborator.username,
-        songId,
-        wipCollaborations,
-        existingAssignments,
-        userAssignments,
-        existingInstruments,
-        selectedInstruments: existingInstruments,
-      });
 
       setSelectedInstruments(existingInstruments);
     } else {

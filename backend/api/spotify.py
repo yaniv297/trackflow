@@ -31,7 +31,7 @@ def extract_playlist_id(playlist_url: str) -> str:
     
     raise HTTPException(status_code=400, detail="Invalid Spotify playlist URL")
 
-def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = None, db: Session = None):
+def import_playlist_songs(playlist_url: str, status: str, pack_name: str, current_user, db: Session = None):
     """Import songs from Spotify playlist"""
     if not db:
         db = SessionLocal()
@@ -45,7 +45,9 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
         
         # Extract playlist ID and get tracks
         playlist_id = extract_playlist_id(playlist_url)
+        print(f"Extracted playlist ID: {playlist_id}")
         results = sp.playlist_tracks(playlist_id)
+        print(f"Playlist tracks response: {len(results.get('items', []))} items")
         
         created_songs = []
         count = 0
@@ -58,10 +60,26 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
         }
         song_status = status_map.get(status, SongStatus.future)
         
+        # Handle pack creation/finding
+        pack_id = None
+        if pack_name:
+            # Try to find existing pack
+            existing_pack = db.query(Pack).filter(Pack.name == pack_name).first()
+            if existing_pack:
+                pack_id = existing_pack.id
+            else:
+                # Create new pack
+                new_pack = Pack(name=pack_name, user_id=current_user.id)
+                db.add(new_pack)
+                db.flush()  # Get the ID without committing
+                pack_id = new_pack.id
+        
         while results:
+            print(f"Processing batch of {len(results.get('items', []))} tracks")
             for item in results['items']:
                 track = item['track']
                 if not track:
+                    print("Skipping null track")
                     continue
                 
                 title = track['name']
@@ -70,9 +88,12 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
                 year = int(track['album']['release_date'][:4]) if track['album'].get('release_date') else None
                 cover = track['album']['images'][0]['url'] if track['album']['images'] else None
                 
+                print(f"Processing track: {artist} - {title}")
+                
                 # Check if song already exists
                 exists = db.query(Song).filter_by(title=title, artist=artist).first()
                 if exists:
+                    print(f"Skipping existing song: {artist} - {title}")
                     continue
                 
                 # Create new song
@@ -83,13 +104,14 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
                     year=year,
                     album_cover=cover,
                     status=song_status,
-                    pack=pack,
-                    author="yaniv297"  # Force author to be yaniv297
+                    pack_id=pack_id,
+                    user_id=current_user.id
                 )
                 
                 db.add(song)
                 created_songs.append(song)
                 count += 1
+                print(f"Added new song: {artist} - {title}")
             
             db.commit()
             
@@ -100,6 +122,7 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
             else:
                 break
         
+        print(f"Import completed. Total songs processed: {len(results['items']) if results else 0}, New songs added: {count}")
         return created_songs, count
         
     except Exception as e:
@@ -110,8 +133,9 @@ def import_playlist_songs(playlist_url: str, status: str, pack: Optional[str] = 
 def import_spotify_playlist(
     playlist_url: str = Body(...),
     status: str = Body(...),
-    pack: Optional[str] = Body(None),
-    db: Session = Depends(get_db)
+    pack: str = Body(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
 ):
     """Import songs from Spotify playlist"""
     
@@ -119,18 +143,21 @@ def import_spotify_playlist(
     if not playlist_url.strip():
         raise HTTPException(status_code=400, detail="Playlist URL is required")
     
+    if not pack.strip():
+        raise HTTPException(status_code=400, detail="Pack name is required")
+    
     valid_statuses = ["Future Plans", "In Progress", "Released"]
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
     
     try:
-        created_songs, count = import_playlist_songs(playlist_url, status, pack, db)
+        created_songs, count = import_playlist_songs(playlist_url, status, pack, current_user, db)
         
         # Run clean remaster tags on all created songs
-        from api.tools import bulk_clean_remaster_tags
+        from api.tools import bulk_clean_remaster_tags_function
         song_ids = [song.id for song in created_songs]
         if song_ids:
-            bulk_clean_remaster_tags(song_ids, db)
+            bulk_clean_remaster_tags_function(song_ids, db, current_user.id)
         
         return {
             "message": f"Successfully imported {count} songs from playlist",

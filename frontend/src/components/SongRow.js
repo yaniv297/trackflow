@@ -163,10 +163,20 @@ export default function SongRow({
           isEditable={song.is_editable}
         />
 
-        {/* Status */}
+        {/* Owner */}
         <td>
-          <span className={`status ${song.status.replaceAll(" ", "-")}`}>
-            {song.status}
+          <span
+            style={{
+              background: getCollaboratorColor(song.author || "Unknown"),
+              color: "white",
+              padding: "2px 6px",
+              borderRadius: "12px",
+              fontSize: "0.75rem",
+              fontWeight: "500",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {song.author || "Unknown"}
           </span>
         </td>
 
@@ -237,9 +247,13 @@ export default function SongRow({
                 minHeight: "20px",
               }}
             >
+              {/* Show collaborators (excluding the song owner) */}
               {song.collaborations && song.collaborations.length > 0 ? (
                 song.collaborations
-                  .filter((collab) => collab.username !== user.username)
+                  .filter((collab) => 
+                    collab.username !== user.username && 
+                    collab.username !== song.author
+                  )
                   .map((collab) => (
                     <span
                       key={collab.id}
@@ -256,7 +270,10 @@ export default function SongRow({
                       {collab.username}
                     </span>
                   ))
-              ) : (
+              ) : null}
+              
+              {/* Show "None" if no collaborators */}
+              {(!song.collaborations || song.collaborations.length === 0) && (
                 <span style={{ color: "#ccc", fontSize: "0.85rem" }}>
                   {status === "Future Plans" ? "Managed via pack" : "None"}
                 </span>
@@ -267,40 +284,42 @@ export default function SongRow({
 
         {/* Enhance + Delete */}
         <td>
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              alignItems: "center",
-            }}
-          >
-            {spotifyOptions[song.id] ? (
-              <button
-                onClick={() =>
-                  setSpotifyOptions((prev) => ({
-                    ...prev,
-                    [song.id]: undefined,
-                  }))
-                }
-              >
-                Cancel
-              </button>
-            ) : (
-              <button onClick={() => fetchSpotifyOptions(song)}>Enhance</button>
-            )}
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
+          {song.is_editable && (
+            <div
               style={{
-                background: "transparent",
-                border: "none",
-                color: "red",
-                cursor: "pointer",
-                fontWeight: "bold",
+                display: "flex",
+                gap: "0.5rem",
+                alignItems: "center",
               }}
             >
-              ❌
-            </button>
-          </div>
+              {spotifyOptions[song.id] ? (
+                <button
+                  onClick={() =>
+                    setSpotifyOptions((prev) => ({
+                      ...prev,
+                      [song.id]: undefined,
+                    }))
+                  }
+                >
+                  Cancel
+                </button>
+              ) : (
+                <button onClick={() => fetchSpotifyOptions(song)}>Enhance</button>
+              )}
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "red",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ❌
+              </button>
+            </div>
+          )}
         </td>
       </tr>
 

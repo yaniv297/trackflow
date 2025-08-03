@@ -365,7 +365,7 @@ const SongTable = ({
               {sortKey === "album" && (sortDirection === "asc" ? "▲" : "▼")}
             </th>
             <th>Pack</th>
-            <th>Status</th>
+            <th>Owner</th>
             <th onClick={() => handleSort("year")} className="sortable">
               Year {sortKey === "year" && (sortDirection === "asc" ? "▲" : "▼")}
             </th>

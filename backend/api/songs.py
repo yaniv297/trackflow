@@ -18,7 +18,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     song_data = song.dict()
     song_data["user_id"] = current_user.id
     
-    # Validate pack exists if provided (for "Add New Song" form)
+    # Handle pack creation if pack name is provided but pack_id is not
     if song_data.get('pack') and not song_data.get('pack_id'):
         pack_name = song_data['pack']
         existing_pack = db.query(Pack).filter(
@@ -26,25 +26,28 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
             Pack.user_id == current_user.id
         ).first()
         
-        if not existing_pack:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Pack '{pack_name}' does not exist. To create a new pack, please use the 'Create New Pack' feature."
-            )
-        
-        # If pack exists, determine its status from existing songs
-        pack_songs = db.query(Song).filter(Song.pack_id == existing_pack.id).all()
-        
-        if pack_songs:
-            # Get the most common status in the pack
-            status_counts = db.query(Song.status, func.count(Song.id)).filter(
-                Song.pack_id == existing_pack.id
-            ).group_by(Song.status).order_by(func.count(Song.id).desc()).all()
+        if existing_pack:
+            # If pack exists, determine its status from existing songs
+            pack_songs = db.query(Song).filter(Song.pack_id == existing_pack.id).all()
             
-            if status_counts:
-                pack_status = status_counts[0][0]  # Most common status
-                # Override the song status with the pack's status
-                song_data['status'] = pack_status
+            if pack_songs:
+                # Get the most common status in the pack
+                status_counts = db.query(Song.status, func.count(Song.id)).filter(
+                    Song.pack_id == existing_pack.id
+                ).group_by(Song.status).order_by(func.count(Song.id).desc()).all()
+                
+                if status_counts:
+                    pack_status = status_counts[0][0]  # Most common status
+                    # Override the song status with the pack's status
+                    song_data['status'] = pack_status
+            
+            # Set the pack_id to the existing pack
+            song_data['pack_id'] = existing_pack.id
+            song_data.pop('pack', None)  # Remove pack name since we have pack_id
+        else:
+            # Create new pack - the pack_id will be set in create_song_in_db
+            # Keep the pack name in song_data for create_song_in_db to handle
+            pass
     
     # Also handle case where pack_id is provided directly
     elif song_data.get('pack_id'):
@@ -61,7 +64,11 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     
     # Clean up song_data to remove fields that don't exist in the Song model
     cleaned_song_data = {k: v for k, v in song_data.items() 
-                        if k in ['title', 'artist', 'album', 'pack', 'pack_id', 'status', 'year', 'album_cover', 'optional']}
+                        if k in ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'optional']}
+    
+    # If we have a pack name but no pack_id, add it to cleaned_song_data for create_song_in_db to handle
+    if song_data.get('pack') and not song_data.get('pack_id'):
+        cleaned_song_data['pack'] = song_data['pack']
     
     song_with_author = SongCreate(**cleaned_song_data)
     

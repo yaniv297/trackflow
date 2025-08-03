@@ -32,31 +32,45 @@ function NewSongForm() {
     if (packName && packName.trim()) {
       setIsLoadingPackStatus(true);
       try {
-        // Fetch songs in the pack to determine its status
-        const response = await apiGet(
-          `/songs/?pack_name=${encodeURIComponent(packName)}`
+        // First, try to get the pack by name to see if it exists
+        const packsResponse = await apiGet(
+          `/packs/autocomplete?query=${encodeURIComponent(packName)}`
         );
-        if (response && response.length > 0) {
-          // Count status occurrences
-          const statusCounts = {};
-          response.forEach((song) => {
-            statusCounts[song.status] = (statusCounts[song.status] || 0) + 1;
-          });
+        const existingPack = packsResponse.find(
+          (pack) => pack.name === packName
+        );
 
-          // Get the most common status
-          const mostCommonStatus = Object.entries(statusCounts).sort(
-            ([, a], [, b]) => b - a
-          )[0][0];
+        if (existingPack) {
+          // Pack exists, fetch its songs to determine status
+          const response = await apiGet(`/songs/?pack_id=${existingPack.id}`);
+          if (response && response.length > 0) {
+            // Count status occurrences
+            const statusCounts = {};
+            response.forEach((song) => {
+              statusCounts[song.status] = (statusCounts[song.status] || 0) + 1;
+            });
 
-          setPackStatus(mostCommonStatus);
-          // Update the form status to match the pack
-          setForm((prev) => ({ ...prev, status: mostCommonStatus }));
+            // Get the most common status
+            const mostCommonStatus = Object.entries(statusCounts).sort(
+              ([, a], [, b]) => b - a
+            )[0][0];
+
+            setPackStatus(mostCommonStatus);
+            // Update the form status to match the pack
+            setForm((prev) => ({ ...prev, status: mostCommonStatus }));
+          } else {
+            setPackStatus(null);
+            setForm((prev) => ({ ...prev, status: "Future Plans" }));
+          }
         } else {
+          // Pack doesn't exist, it will be created as a new pack
           setPackStatus(null);
+          setForm((prev) => ({ ...prev, status: "Future Plans" }));
         }
       } catch (error) {
         console.error("Failed to fetch pack status:", error);
         setPackStatus(null);
+        setForm((prev) => ({ ...prev, status: "Future Plans" }));
       } finally {
         setIsLoadingPackStatus(false);
       }
@@ -86,7 +100,13 @@ function NewSongForm() {
         window.showNotification("Song added successfully!", "success");
         navigate(
           `/${
-            form.status === "In Progress" ? "wip" : form.status.toLowerCase()
+            form.status === "In Progress"
+              ? "wip"
+              : form.status === "Future Plans"
+              ? "future"
+              : form.status === "Released"
+              ? "released"
+              : "future"
           }`
         );
       })
@@ -208,7 +228,7 @@ function NewSongForm() {
               type="pack"
               value={form.pack}
               onChange={handlePackChange}
-              placeholder="Select existing pack name"
+              placeholder="Select existing pack or type new pack name"
             />
             {isLoadingPackStatus && (
               <div
@@ -230,6 +250,17 @@ function NewSongForm() {
                 }}
               >
                 Pack status: {packStatus}
+              </div>
+            )}
+            {form.pack && !packStatus && !isLoadingPackStatus && (
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#007bff",
+                  marginTop: "0.25rem",
+                }}
+              >
+                New pack will be created
               </div>
             )}
           </div>

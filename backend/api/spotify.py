@@ -45,9 +45,7 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
         
         # Extract playlist ID and get tracks
         playlist_id = extract_playlist_id(playlist_url)
-        print(f"Extracted playlist ID: {playlist_id}")
         results = sp.playlist_tracks(playlist_id)
-        print(f"Playlist tracks response: {len(results.get('items', []))} items")
         
         created_songs = []
         count = 0
@@ -75,11 +73,9 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
                 pack_id = new_pack.id
         
         while results:
-            print(f"Processing batch of {len(results.get('items', []))} tracks")
             for item in results['items']:
                 track = item['track']
                 if not track:
-                    print("Skipping null track")
                     continue
                 
                 title = track['name']
@@ -88,12 +84,9 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
                 year = int(track['album']['release_date'][:4]) if track['album'].get('release_date') else None
                 cover = track['album']['images'][0]['url'] if track['album']['images'] else None
                 
-                print(f"Processing track: {artist} - {title}")
-                
-                # Check if song already exists
-                exists = db.query(Song).filter_by(title=title, artist=artist).first()
-                if exists:
-                    print(f"Skipping existing song: {artist} - {title}")
+                # Check if song already exists for this user (as owner or collaborator)
+                from api.data_access import check_song_duplicate_for_user
+                if check_song_duplicate_for_user(db, title, artist, current_user):
                     continue
                 
                 # Create new song
@@ -111,7 +104,6 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
                 db.add(song)
                 created_songs.append(song)
                 count += 1
-                print(f"Added new song: {artist} - {title}")
             
             db.commit()
             
@@ -122,7 +114,6 @@ def import_playlist_songs(playlist_url: str, status: str, pack_name: str, curren
             else:
                 break
         
-        print(f"Import completed. Total songs processed: {len(results['items']) if results else 0}, New songs added: {count}")
         return created_songs, count
         
     except Exception as e:

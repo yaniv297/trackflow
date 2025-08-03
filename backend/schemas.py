@@ -23,6 +23,7 @@ class SongCreate(BaseModel):
     album: Optional[str] = None
     pack_id: Optional[int] = None
     pack_name: Optional[str] = None
+    pack: Optional[str] = None  # For new pack creation
     status: SongStatus
     year: Optional[int] = None
     album_cover: Optional[str] = None

@@ -13,36 +13,37 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
     song_data = song.dict()
     collaborations = song_data.pop('collaborations', [])
     
-    # Handle pack creation if pack_id is not provided but pack_name is
-    if not song_data.get('pack_id') and song_data.get('pack_name'):
-        pack_name = song_data.pop('pack_name')
-        # Check if pack already exists for this user
-        existing_pack = db.query(Pack).filter(
-            Pack.name == pack_name,
-            Pack.user_id == user.id
-        ).first()
-        
-        if existing_pack:
-            song_data['pack_id'] = existing_pack.id
+    # Handle pack creation if pack_id is not provided but pack_name or pack is
+    if not song_data.get('pack_id'):
+        pack_name = song_data.pop('pack_name', None) or song_data.pop('pack', None)
+        print(f"Pack creation debug: pack_name={pack_name}, song_data={song_data}")
+        if pack_name:
+            # Check if pack already exists for this user
+            existing_pack = db.query(Pack).filter(
+                Pack.name == pack_name,
+                Pack.user_id == user.id
+            ).first()
+            
+            if existing_pack:
+                print(f"Using existing pack: {existing_pack.id}")
+                song_data['pack_id'] = existing_pack.id
+            else:
+                # Create new pack
+                print(f"Creating new pack: {pack_name}")
+                new_pack = Pack(name=pack_name, user_id=user.id)
+                db.add(new_pack)
+                db.commit()
+                db.refresh(new_pack)
+                song_data['pack_id'] = new_pack.id
+                print(f"Created pack with ID: {new_pack.id}")
         else:
-            # Create new pack
-            new_pack = Pack(name=pack_name, user_id=user.id)
-            db.add(new_pack)
-            db.commit()
-            db.refresh(new_pack)
-            song_data['pack_id'] = new_pack.id
+            print("No pack name provided")
     
-    # Check if song already exists for this user (same title and artist)
-    existing_song = db.query(Song).filter(
-        Song.title == song_data.get('title'),
-        Song.artist == song_data.get('artist'),
-        Song.user_id == user.id
-    ).first()
-    
-    if existing_song:
+    # Check if song already exists for this user (as owner or collaborator)
+    if check_song_duplicate_for_user(db, song_data.get('title'), song_data.get('artist'), user):
         raise HTTPException(
             status_code=400,
-            detail=f"Song '{song_data.get('title')}' by {song_data.get('artist')} already exists in your database"
+            detail=f"Song '{song_data.get('title')}' by {song_data.get('artist')} already exists in your database (as owner or collaborator)"
         )
     
     print(f"Creating song: {song_data.get('title')} by {song_data.get('artist')} with pack_id: {song_data.get('pack_id')}")
@@ -173,5 +174,29 @@ def delete_song_from_db(db: Session, song_id: int) -> bool:
             else:
                 print(f"All {max_retries} attempts failed for song {song_id}")
                 return False
+    
+    return False
+
+def check_song_duplicate_for_user(db: Session, title: str, artist: str, current_user: User) -> bool:
+    """
+    Check if a song already exists for the current user (as owner or collaborator).
+    Returns True if the user already has access to this song, False otherwise.
+    """
+    # Check if user owns this song
+    existing_song = db.query(Song).filter_by(title=title, artist=artist).first()
+    if existing_song:
+        # Check if user owns this song
+        if existing_song.user_id == current_user.id:
+            return True
+        
+        # Check if user is a collaborator on this song
+        collaboration = db.query(Collaboration).filter(
+            Collaboration.song_id == existing_song.id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).first()
+        
+        if collaboration:
+            return True
     
     return False

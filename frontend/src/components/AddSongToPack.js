@@ -1,52 +1,154 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import SmartDropdown from "./SmartDropdown";
-import { apiPost } from "../utils/api";
+import { apiPost, apiGet } from "../utils/api";
 
 const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
   const [loading, setLoading] = useState(false);
+  const [isMultipleMode, setIsMultipleMode] = useState(false);
+  const [packStatus, setPackStatus] = useState(null);
+  const [isLoadingPackStatus, setIsLoadingPackStatus] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     artist: "",
     collaborations: "",
   });
+  const [multipleSongs, setMultipleSongs] = useState("");
+
+  // Fetch pack status when packId changes
+  useEffect(() => {
+    if (packId && isOpen) {
+      fetchPackStatus();
+    }
+  }, [packId, isOpen]);
+
+  const fetchPackStatus = async () => {
+    setIsLoadingPackStatus(true);
+    try {
+      const response = await apiGet(`/songs/?pack_id=${packId}`);
+      if (response && response.length > 0) {
+        // Count status occurrences
+        const statusCounts = {};
+        response.forEach((song) => {
+          statusCounts[song.status] = (statusCounts[song.status] || 0) + 1;
+        });
+
+        // Get the most common status
+        const mostCommonStatus = Object.entries(statusCounts).sort(
+          ([, a], [, b]) => b - a
+        )[0][0];
+
+        setPackStatus(mostCommonStatus);
+      } else {
+        setPackStatus("Future Plans");
+      }
+    } catch (error) {
+      console.error("Failed to fetch pack status:", error);
+      setPackStatus("Future Plans");
+    } finally {
+      setIsLoadingPackStatus(false);
+    }
+  };
+
+  const parseMultipleSongs = (text) => {
+    const lines = text.split("\n").filter((line) => line.trim());
+    const songs = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed) {
+        // Require "Artist - Title" format
+        const dashIndex = trimmed.indexOf(" - ");
+        if (dashIndex > 0) {
+          const artist = trimmed.substring(0, dashIndex).trim();
+          const title = trimmed.substring(dashIndex + 3).trim();
+          if (artist && title) {
+            songs.push({ artist, title });
+          }
+        } else {
+          // If no dash, skip this line (invalid format)
+          console.warn(
+            `Skipping invalid format: "${trimmed}". Use "Artist - Title" format.`
+          );
+        }
+      }
+    }
+
+    return songs;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title.trim() || !formData.artist.trim()) {
-      window.showNotification?.(
-        "Please fill in song title and artist",
-        "error"
-      );
-      return;
-    }
-
     setLoading(true);
+
     try {
-      // Create the song data
-      const collaborations = formData.collaborations.trim()
-        ? formData.collaborations
-            .split(",")
-            .map((name) => ({ author: name.trim() }))
-            .filter((c) => c.author)
-        : [];
+      if (isMultipleMode) {
+        // Handle multiple songs
+        const songs = parseMultipleSongs(multipleSongs);
+        if (songs.length === 0) {
+          window.showNotification?.(
+            "Please enter at least one song in 'Artist - Title' format",
+            "error"
+          );
+          return;
+        }
 
-      const songData = {
-        title: formData.title.trim(),
-        artist: formData.artist.trim(),
-        album: "", // Will be filled by Spotify enhancement
-        pack_id: packId,
-        status: "Future Plans",
-        year: null,
-        collaborations: collaborations,
-      };
+        // Prepare songs data
+        const songsData = songs.map((song) => ({
+          title: song.title.trim(),
+          artist: song.artist.trim(),
+          pack_id: packId,
+          status: packStatus || "Future Plans",
+          collaborations: formData.collaborations.trim()
+            ? formData.collaborations
+                .split(",")
+                .map((name) => ({ author: name.trim() }))
+                .filter((c) => c.author)
+            : [],
+        }));
 
-      // Create the song (auto-enhancement and auto-cleaning happen automatically)
-      await apiPost("/songs/", songData);
+        // Create songs in batch
+        const createdSongs = await apiPost("/songs/batch", songsData);
 
-      window.showNotification?.(
-        `Added "${formData.title}" to ${packName}`,
-        "success"
-      );
+        window.showNotification?.(
+          `Added ${createdSongs.length} song(s) to ${packName}`,
+          "success"
+        );
+      } else {
+        // Handle single song
+        if (!formData.title.trim() || !formData.artist.trim()) {
+          window.showNotification?.(
+            "Please fill in song title and artist",
+            "error"
+          );
+          return;
+        }
+
+        // Create the song data
+        const collaborations = formData.collaborations.trim()
+          ? formData.collaborations
+              .split(",")
+              .map((name) => ({ author: name.trim() }))
+              .filter((c) => c.author)
+          : [];
+
+        const songData = {
+          title: formData.title.trim(),
+          artist: formData.artist.trim(),
+          album: "", // Will be filled by Spotify enhancement
+          pack_id: packId,
+          status: packStatus || "Future Plans",
+          year: null,
+          collaborations: collaborations,
+        };
+
+        // Create the song (auto-enhancement and auto-cleaning happen automatically)
+        await apiPost("/songs/", songData);
+
+        window.showNotification?.(
+          `Added "${formData.title}" to ${packName}`,
+          "success"
+        );
+      }
 
       // Reset form
       setFormData({
@@ -54,13 +156,14 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
         artist: "",
         collaborations: "",
       });
+      setMultipleSongs("");
 
       // Close modal and notify parent
       onClose();
       onSongAdded?.();
     } catch (error) {
-      console.error("Error adding song:", error);
-      window.showNotification?.("Failed to add song", "error");
+      console.error("Error adding song(s):", error);
+      window.showNotification?.("Failed to add song(s)", "error");
     } finally {
       setLoading(false);
     }
@@ -72,6 +175,7 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
       artist: "",
       collaborations: "",
     });
+    setMultipleSongs("");
     onClose();
   };
 
@@ -100,8 +204,8 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
           backgroundColor: "white",
           borderRadius: "12px",
           padding: "2rem",
-          minWidth: "400px",
-          maxWidth: "500px",
+          minWidth: "450px",
+          maxWidth: "550px",
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -114,63 +218,169 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
             color: "#333",
           }}
         >
-          ➕ Add Song to "{packName}"
+          ➕ Add Song{isMultipleMode ? "s" : ""} to "{packName}"
         </h3>
 
-        <form onSubmit={handleSubmit}>
-          {/* Song Title */}
-          <div style={{ marginBottom: "1rem" }}>
-            <label
+        {/* Pack Status Display */}
+        {isLoadingPackStatus ? (
+          <div
+            style={{ marginBottom: "1rem", fontSize: "0.9rem", color: "#666" }}
+          >
+            Loading pack status...
+          </div>
+        ) : (
+          packStatus && (
+            <div
               style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-                color: "#555",
+                marginBottom: "1rem",
+                fontSize: "0.9rem",
+                color: "#28a745",
               }}
             >
-              Song Title *
-            </label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, title: e.target.value }))
-              }
-              placeholder="Enter song title"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                border: "1px solid #ddd",
-                borderRadius: "6px",
-                fontSize: "1rem",
-                boxSizing: "border-box",
-              }}
-              autoFocus
-              disabled={loading}
-            />
-          </div>
+              Pack status: {packStatus}
+            </div>
+          )
+        )}
 
-          {/* Artist */}
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-                color: "#555",
-              }}
-            >
-              Artist *
-            </label>
-            <SmartDropdown
-              type="artist"
-              value={formData.artist}
-              onChange={(value) =>
-                setFormData((prev) => ({ ...prev, artist: value }))
-              }
-              placeholder="Select or add artist name"
-            />
-          </div>
+        {/* Mode Toggle */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: "1.5rem",
+            gap: "0.5rem",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setIsMultipleMode(false)}
+            style={{
+              padding: "0.4rem 0.8rem",
+              border: "2px solid #e1e5e9",
+              borderRadius: "6px",
+              background: !isMultipleMode ? "#007bff" : "#fff",
+              color: !isMultipleMode ? "#fff" : "#333",
+              cursor: "pointer",
+              fontSize: "0.85rem",
+              fontWeight: "500",
+            }}
+          >
+            Single Song
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsMultipleMode(true)}
+            style={{
+              padding: "0.4rem 0.8rem",
+              border: "2px solid #e1e5e9",
+              borderRadius: "6px",
+              background: isMultipleMode ? "#007bff" : "#fff",
+              color: isMultipleMode ? "#fff" : "#333",
+              cursor: "pointer",
+              fontSize: "0.85rem",
+              fontWeight: "500",
+            }}
+          >
+            Multiple Songs
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {!isMultipleMode ? (
+            // Single song mode
+            <>
+              {/* Song Title */}
+              <div style={{ marginBottom: "1rem" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "#555",
+                  }}
+                >
+                  Song Title *
+                </label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, title: e.target.value }))
+                  }
+                  placeholder="Enter song title"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    fontSize: "1rem",
+                    boxSizing: "border-box",
+                  }}
+                  autoFocus
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Artist */}
+              <div style={{ marginBottom: "1rem" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "500",
+                    color: "#555",
+                  }}
+                >
+                  Artist *
+                </label>
+                <SmartDropdown
+                  type="artist"
+                  value={formData.artist}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, artist: value }))
+                  }
+                  placeholder="Select or add artist name"
+                />
+              </div>
+            </>
+          ) : (
+            // Multiple songs mode
+            <div style={{ marginBottom: "1rem" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "#555",
+                }}
+              >
+                Songs (Artist - Title format) *
+              </label>
+              <textarea
+                value={multipleSongs}
+                onChange={(e) => setMultipleSongs(e.target.value)}
+                placeholder={`Enter songs in "Artist - Title" format, one per line:
+
+The Beatles - Hey Jude
+The Beatles - Let It Be
+Pink Floyd - Comfortably Numb
+Queen - Bohemian Rhapsody`}
+                required
+                rows={8}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "1px solid #ddd",
+                  borderRadius: "6px",
+                  fontSize: "1rem",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                }}
+                disabled={loading}
+              />
+            </div>
+          )}
 
           {/* Collaborations */}
           <div style={{ marginBottom: "1.5rem" }}>
@@ -222,26 +432,39 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
             <button
               type="submit"
               disabled={
-                loading || !formData.title.trim() || !formData.artist.trim()
+                loading ||
+                (isMultipleMode
+                  ? !multipleSongs.trim()
+                  : !formData.title.trim() || !formData.artist.trim())
               }
               style={{
                 padding: "0.75rem 1.5rem",
                 border: "none",
                 borderRadius: "6px",
                 backgroundColor:
-                  loading || !formData.title.trim() || !formData.artist.trim()
+                  loading ||
+                  (isMultipleMode
+                    ? !multipleSongs.trim()
+                    : !formData.title.trim() || !formData.artist.trim())
                     ? "#ccc"
                     : "#28a745",
                 color: "white",
                 cursor:
-                  loading || !formData.title.trim() || !formData.artist.trim()
+                  loading ||
+                  (isMultipleMode
+                    ? !multipleSongs.trim()
+                    : !formData.title.trim() || !formData.artist.trim())
                     ? "not-allowed"
                     : "pointer",
                 fontSize: "1rem",
                 fontWeight: "500",
               }}
             >
-              {loading ? "Adding..." : "Add Song"}
+              {loading
+                ? "Adding..."
+                : isMultipleMode
+                ? "Add Songs"
+                : "Add Song"}
             </button>
           </div>
         </form>
@@ -255,8 +478,8 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
             fontStyle: "italic",
           }}
         >
-          Song will be auto-enhanced with Spotify data and cleaned for remaster
-          tags.
+          Song{isMultipleMode ? "s will" : " will"} be auto-enhanced with
+          Spotify data and cleaned for remaster tags.
         </p>
       </div>
     </div>

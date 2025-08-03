@@ -216,17 +216,29 @@ const PackHeader = ({
                     background: "#007bff",
                     color: "white",
                     border: "none",
-                    borderRadius: "6px",
-                    padding: "0.28rem 0.9rem",
+                    borderRadius: "50%",
+                    width: "32px",
+                    height: "32px",
                     cursor: "pointer",
-                    fontSize: "0.98rem",
-                    fontWeight: 600,
-                    transition: "background 0.2s, border 0.2s",
+                    fontSize: "1.2rem",
+                    fontWeight: "600",
+                    transition: "background 0.2s, transform 0.2s",
                     marginRight: "0.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                   title="Add song to this pack"
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#0056b3";
+                    e.target.style.transform = "scale(1.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#007bff";
+                    e.target.style.transform = "scale(1)";
+                  }}
                 >
-                  ➕ Add Song
+                  +
                 </button>
               )}
 

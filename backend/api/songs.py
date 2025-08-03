@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
@@ -31,11 +31,35 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
                 status_code=400,
                 detail=f"Pack '{pack_name}' does not exist. To create a new pack, please use the 'Create New Pack' feature."
             )
+        
+        # If pack exists, determine its status from existing songs
+        pack_songs = db.query(Song).filter(Song.pack_id == existing_pack.id).all()
+        
+        if pack_songs:
+            # Get the most common status in the pack
+            status_counts = db.query(Song.status, func.count(Song.id)).filter(
+                Song.pack_id == existing_pack.id
+            ).group_by(Song.status).order_by(func.count(Song.id).desc()).all()
+            
+            if status_counts:
+                pack_status = status_counts[0][0]  # Most common status
+                # Override the song status with the pack's status
+                song_data['status'] = pack_status
+    
+    # Also handle case where pack_id is provided directly
+    elif song_data.get('pack_id'):
+        pack_id = song_data['pack_id']
+        # Get the most common status in the pack
+        status_counts = db.query(Song.status, func.count(Song.id)).filter(
+            Song.pack_id == pack_id
+        ).group_by(Song.status).order_by(func.count(Song.id).desc()).all()
+        
+        if status_counts:
+            pack_status = status_counts[0][0]  # Most common status
+            # Override the song status with the pack's status
+            song_data['status'] = pack_status
     
     # Clean up song_data to remove fields that don't exist in the Song model
-    from schemas import SongCreate
-    
-    # Remove fields that don't exist in the Song model
     cleaned_song_data = {k: v for k, v in song_data.items() 
                         if k in ['title', 'artist', 'album', 'pack', 'pack_id', 'status', 'year', 'album_cover', 'optional']}
     
@@ -45,7 +69,6 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     db_song = create_song_in_db(db, song_with_author, current_user)
     
     # Re-fetch the song with all relationships loaded
-    from sqlalchemy.orm import joinedload
     db_song = db.query(Song).options(
         joinedload(Song.collaborations).joinedload(Collaboration.user),
         joinedload(Song.user),  # Load the song owner

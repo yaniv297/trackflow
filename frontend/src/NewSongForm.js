@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPost } from "./utils/api";
+import { apiPost, apiGet } from "./utils/api";
 import SmartDropdown from "./components/SmartDropdown";
 import UserDropdown from "./components/UserDropdown";
 
@@ -19,9 +19,51 @@ function NewSongForm() {
     pack: "",
     status: "Future Plans",
   });
+  const [packStatus, setPackStatus] = useState(null);
+  const [isLoadingPackStatus, setIsLoadingPackStatus] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handlePackChange = async (packName) => {
+    setForm({ ...form, pack: packName });
+
+    if (packName && packName.trim()) {
+      setIsLoadingPackStatus(true);
+      try {
+        // Fetch songs in the pack to determine its status
+        const response = await apiGet(
+          `/songs/?pack_name=${encodeURIComponent(packName)}`
+        );
+        if (response && response.length > 0) {
+          // Count status occurrences
+          const statusCounts = {};
+          response.forEach((song) => {
+            statusCounts[song.status] = (statusCounts[song.status] || 0) + 1;
+          });
+
+          // Get the most common status
+          const mostCommonStatus = Object.entries(statusCounts).sort(
+            ([, a], [, b]) => b - a
+          )[0][0];
+
+          setPackStatus(mostCommonStatus);
+          // Update the form status to match the pack
+          setForm((prev) => ({ ...prev, status: mostCommonStatus }));
+        } else {
+          setPackStatus(null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch pack status:", error);
+        setPackStatus(null);
+      } finally {
+        setIsLoadingPackStatus(false);
+      }
+    } else {
+      setPackStatus(null);
+      setForm((prev) => ({ ...prev, status: "Future Plans" }));
+    }
   };
 
   const handleSubmit = (e) => {
@@ -165,9 +207,31 @@ function NewSongForm() {
             <SmartDropdown
               type="pack"
               value={form.pack}
-              onChange={(value) => setForm({ ...form, pack: value })}
+              onChange={handlePackChange}
               placeholder="Select existing pack name"
             />
+            {isLoadingPackStatus && (
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#666",
+                  marginTop: "0.25rem",
+                }}
+              >
+                Loading pack status...
+              </div>
+            )}
+            {packStatus && (
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#28a745",
+                  marginTop: "0.25rem",
+                }}
+              >
+                Pack status: {packStatus}
+              </div>
+            )}
           </div>
 
           <div>
@@ -186,19 +250,23 @@ function NewSongForm() {
               name="status"
               value={form.status}
               onChange={handleChange}
+              disabled={!!packStatus}
               style={{
                 width: "100%",
                 padding: "0.75rem 1rem",
                 border: "2px solid #e1e5e9",
                 borderRadius: "8px",
                 fontSize: "1rem",
-                backgroundColor: "#fff",
+                backgroundColor: packStatus ? "#f8f9fa" : "#fff",
                 transition: "border-color 0.2s, box-shadow 0.2s",
-                cursor: "pointer",
+                cursor: packStatus ? "not-allowed" : "pointer",
+                opacity: packStatus ? 0.7 : 1,
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = "#007bff";
-                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                if (!packStatus) {
+                  e.target.style.borderColor = "#007bff";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                }
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = "#e1e5e9";
@@ -210,8 +278,6 @@ function NewSongForm() {
               <option value="Released">Released</option>
             </select>
           </div>
-
-
 
           <button
             type="submit"

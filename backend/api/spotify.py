@@ -5,7 +5,7 @@ from spotipy import Spotify, SpotifyClientCredentials
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
-from models import Song, SongStatus, Artist
+from models import Song, SongStatus, Artist, Collaboration, CollaborationType, Pack, User
 from schemas import SongOut, EnhanceRequest
 import os
 
@@ -208,11 +208,69 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session):
 
     db.commit()
     db.refresh(song)
+    
+    # Auto-clean remaster tags after enhancement
+    try:
+        from api.tools import clean_string
+        db.refresh(song)  # Refresh to get updated data from Spotify
+        
+        cleaned_title = clean_string(song.title)
+        cleaned_album = clean_string(song.album or "")
+        
+        if cleaned_title != song.title or cleaned_album != song.album:
+            print(f"Cleaning remaster tags for song {song.id}")
+            song.title = cleaned_title
+            song.album = cleaned_album
+            db.commit()
+            print(f"Cleaned song {song.id}: title='{cleaned_title}', album='{cleaned_album}'")
+    except Exception as clean_error:
+        print(f"Failed to clean remaster tags for song {song.id}: {clean_error}")
+    
     return song
 
 @router.post("/{song_id}/enhance", response_model=SongOut)
 def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Depends(get_db)):
-    return enhance_song_with_track_data(song_id, req.track_id, db)
+    # Enhance the song
+    db_song = enhance_song_with_track_data(song_id, req.track_id, db)
+    
+    # Re-fetch the song with all relationships loaded
+    from sqlalchemy.orm import joinedload
+    db_song = db.query(Song).options(
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.user),  # Load the song owner
+        joinedload(Song.pack_obj).joinedload(Pack.user),  # Load the pack relationship and its owner
+        joinedload(Song.authoring)  # Load the authoring data
+    ).filter(Song.id == db_song.id).first()
+    
+    # Build result with proper formatting (similar to songs endpoint)
+    song_dict = db_song.__dict__.copy()
+    
+    # Set author from user relationship
+    if db_song.user:
+        song_dict["author"] = db_song.user.username
+    
+    # Attach collaborations if any
+    song_dict["collaborations"] = []
+    if hasattr(db_song, "collaborations"):
+        collaborations_with_username = []
+        for collab in db_song.collaborations:
+            collab_dict = {
+                "id": collab.id,
+                "user_id": collab.user_id,
+                "username": collab.user.username,
+                "collaboration_type": collab.collaboration_type.value,
+                "created_at": collab.created_at
+            }
+            collaborations_with_username.append(collab_dict)
+        song_dict["collaborations"] = collaborations_with_username
+    
+    # Attach pack data if it exists
+    if db_song.pack_obj:
+        song_dict["pack_name"] = db_song.pack_obj.name
+        song_dict["pack_owner_id"] = db_song.pack_obj.user_id
+        song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
+    
+    return SongOut(**song_dict)
 
 def auto_enhance_song(song_id: int, db: Session):
     """Automatically enhance a song with the best Spotify match"""

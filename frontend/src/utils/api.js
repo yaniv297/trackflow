@@ -24,6 +24,14 @@ const createHeaders = (customHeaders = {}) => {
 export const apiCall = async (endpoint, options = {}) => {
   let url = `${API_BASE_URL}${endpoint}`;
 
+  console.log("=== API CALL DEBUG ===");
+  console.log("Original endpoint:", endpoint);
+  console.log("API_BASE_URL:", API_BASE_URL);
+  console.log("Initial URL:", url);
+  console.log("Window location:", window.location.href);
+  console.log("Window protocol:", window.location.protocol);
+  console.log("Window hostname:", window.location.hostname);
+
   // Force HTTPS in production to prevent mixed content issues
   if (window.location.protocol === "https:" && url.startsWith("http:")) {
     url = url.replace("http:", "https:");
@@ -36,16 +44,35 @@ export const apiCall = async (endpoint, options = {}) => {
     console.log("Additional HTTPS enforcement for production:", url);
   }
 
-  console.log("Making API call to:", url);
+  // Final safety check - ALWAYS use HTTPS in production
+  if (
+    window.location.hostname.includes("railway.app") &&
+    url.startsWith("http:")
+  ) {
+    url = url.replace("http:", "https:");
+    console.log("Railway HTTPS enforcement:", url);
+  }
+
+  // Add cache-busting timestamp for production
+  if (window.location.hostname.includes("railway.app")) {
+    const separator = url.includes("?") ? "&" : "?";
+    url += `${separator}_t=${Date.now()}`;
+  }
+
+  console.log("Final URL being used:", url);
+  console.log("=== END DEBUG ===");
 
   const headers = createHeaders(options.headers);
 
   const config = {
     ...options,
     headers,
+    // Add mode: 'cors' to ensure CORS is handled properly
+    mode: "cors",
   };
 
   try {
+    console.log("About to make fetch request to:", url);
     const response = await fetch(url, config);
 
     // Handle 401 Unauthorized - token might be expired

@@ -510,7 +510,7 @@ export default function WipSongCard({
                       );
                     });
 
-                    // Get all fields that are NOT assigned to any collaborator (these belong to yaniv297)
+                    // Get all fields that are NOT assigned to any collaborator (these belong to the current user)
                     const assignedFields = new Set(
                       wipCollaborations.map((collab) => collab.field)
                     );
@@ -520,10 +520,13 @@ export default function WipSongCard({
 
                     const result = [];
 
-                    // Add yaniv297's unassigned fields first
+                    // Add current user's unassigned fields first
                     if (unassignedFields.length > 0) {
                       result.push(
-                        <div key="yaniv297" style={{ marginBottom: "0.5rem" }}>
+                        <div
+                          key={currentUser?.username || "current-user"}
+                          style={{ marginBottom: "0.5rem" }}
+                        >
                           <div
                             style={{
                               fontSize: "0.8rem",
@@ -532,7 +535,7 @@ export default function WipSongCard({
                               color: "#666",
                             }}
                           >
-                            yaniv297:
+                            {currentUser?.username || "Current User"}:
                           </div>
                           <div
                             style={{
@@ -583,7 +586,7 @@ export default function WipSongCard({
                     // Add other collaborators' fields
                     Object.entries(collaboratorGroups).forEach(
                       ([collaborator, assignedFields]) => {
-                        if (collaborator !== "yaniv297") {
+                        if (collaborator !== currentUser?.username) {
                           result.push(
                             <div
                               key={collaborator}

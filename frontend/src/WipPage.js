@@ -124,6 +124,7 @@ function WipPage() {
   const {
     songs,
     setSongs,
+    userCollaborations,
     collapsedPacks,
     setCollapsedPacks,
     grouped,
@@ -410,6 +411,117 @@ function WipPage() {
     });
   };
 
+  // Pack Settings Handlers
+  const handleRenamePack = async (oldPackName, newPackName) => {
+    try {
+      // Find the pack ID by looking at songs in the pack
+      const packSongs = songs.filter(
+        (s) => (s.pack_name || "(no pack)") === oldPackName
+      );
+      if (packSongs.length === 0) {
+        window.showNotification("No songs found in pack", "error");
+        return;
+      }
+
+      const packId = packSongs[0].pack_id;
+      if (!packId) {
+        window.showNotification("Pack ID not found", "error");
+        return;
+      }
+
+      await apiPatch(`/packs/${packId}`, { name: newPackName });
+
+      // Refresh songs to get updated data from server
+      await refreshSongs();
+
+      window.showNotification(`Pack renamed to "${newPackName}"`, "success");
+    } catch (error) {
+      console.error("Failed to rename pack:", error);
+      window.showNotification("Failed to rename pack", "error");
+    }
+  };
+
+  const handleMovePackToFuturePlans = async (packName) => {
+    try {
+      // Find the pack ID by looking at songs in the pack
+      const packSongs = songs.filter(
+        (s) => (s.pack_name || "(no pack)") === packName
+      );
+      if (packSongs.length === 0) {
+        window.showNotification("No songs found in pack", "error");
+        return;
+      }
+
+      const packId = packSongs[0].pack_id;
+      if (!packId) {
+        window.showNotification("Pack ID not found", "error");
+        return;
+      }
+
+      await apiPatch(`/packs/${packId}/status`, { status: "Future Plans" });
+
+      // Refresh songs to get updated data from server
+      await refreshSongs();
+
+      window.showNotification(
+        `Pack "${packName}" moved back to Future Plans`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Failed to move pack to Future Plans:", error);
+      window.showNotification("Failed to move pack to Future Plans", "error");
+    }
+  };
+
+  const handleCreateAlbumSeriesFromPack = async (packName, albumSeriesForm) => {
+    try {
+      // Find the pack ID by looking at songs in the pack
+      const packSongs = songs.filter(
+        (s) => (s.pack_name || "(no pack)") === packName
+      );
+      if (packSongs.length === 0) {
+        window.showNotification("No songs found in pack", "error");
+        return;
+      }
+
+      const packId = packSongs[0].pack_id;
+      if (!packId) {
+        window.showNotification("Pack ID not found", "error");
+        return;
+      }
+
+      // Check if pack has at least 4 songs from the specified album
+      const songsFromAlbum = packSongs.filter(
+        (song) =>
+          song.artist?.toLowerCase() ===
+            albumSeriesForm.artist_name.toLowerCase() &&
+          song.album?.toLowerCase() === albumSeriesForm.album_name.toLowerCase()
+      );
+
+      if (songsFromAlbum.length < 4) {
+        window.showNotification(
+          `Pack must have at least 4 songs from "${albumSeriesForm.artist_name} - ${albumSeriesForm.album_name}" (found ${songsFromAlbum.length})`,
+          "error"
+        );
+        return;
+      }
+
+      await apiPost("/album-series/", {
+        pack_id: packId,
+        artist_name: albumSeriesForm.artist_name,
+        album_name: albumSeriesForm.album_name,
+      });
+
+      window.showNotification(
+        `Album series created for "${albumSeriesForm.artist_name} - ${albumSeriesForm.album_name}"`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Failed to create album series:", error);
+      window.showNotification("Failed to create album series", "error");
+    }
+  };
+
   return (
     <div style={{ padding: "2rem" }}>
       <Fireworks trigger={fireworksTrigger} />
@@ -451,6 +563,11 @@ function WipPage() {
           onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
           onSetSelectedSongs={setSelectedSongs}
           onSongUpdate={updateSongData}
+          // Pack settings handlers
+          onRenamePack={handleRenamePack}
+          onMovePackToFuturePlans={handleMovePackToFuturePlans}
+          onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
+          userCollaborations={userCollaborations}
         />
       ))}
 

@@ -31,6 +31,12 @@ const WipPackCard = ({
   onSetSelectedSongs,
   selectedSongs,
   onSongUpdate,
+  // Pack settings handlers
+  onRenamePack,
+  onMovePackToFuturePlans,
+  onCreateAlbumSeries,
+  // Collaboration data
+  userCollaborations,
 }) => {
   // Separate songs by ownership and collaboration status
   const userOwnedSongs = allSongs.filter((song) => song.user_id === user?.id);
@@ -82,6 +88,15 @@ const WipPackCard = ({
   const [completedSongsCollapsed, setCompletedSongsCollapsed] =
     React.useState(true); // Collapsed by default
   const [activeSongsCollapsed, setActiveSongsCollapsed] = React.useState(false); // Expanded by default for active songs
+
+  // State for pack settings modal
+  const [showPackSettings, setShowPackSettings] = React.useState(false);
+  const [packSettingsMode, setPackSettingsMode] = React.useState(null); // 'rename', 'status', 'album-series'
+  const [newPackName, setNewPackName] = React.useState(packName);
+  const [albumSeriesForm, setAlbumSeriesForm] = React.useState({
+    artist_name: "",
+    album_name: "",
+  });
 
   // Sort songs by completion (filledCount) descending
   const sortedUserCoreSongs = userCoreSongs
@@ -391,6 +406,47 @@ const WipPackCard = ({
           >
             +
           </button>
+
+          {/* Pack Settings Button - Only show for pack owners or PACK_EDIT collaborators */}
+          {(() => {
+            // Get pack_id from the first song in the pack
+            const packId = allSongs[0]?.pack_id;
+            if (!packId) return false;
+
+            // Check if user is the pack owner (pack_owner_id should be in song data)
+            const isPackOwner = allSongs.some(
+              (song) => song.pack_owner_id === user?.id
+            );
+
+            // Check if user has PACK_EDIT permissions on this pack
+            const hasPackEditPermission = userCollaborations?.some(
+              (collab) =>
+                collab.pack_id === packId &&
+                collab.collaboration_type === "pack_edit"
+            );
+
+            return isPackOwner || hasPackEditPermission;
+          })() && (
+            <button
+              onClick={() => setShowPackSettings(true)}
+              style={{
+                background: "#17a2b8",
+                color: "white",
+                border: "none",
+                borderRadius: "50%",
+                width: "24px",
+                height: "24px",
+                fontSize: "12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              title="Pack settings"
+            >
+              ⚙️
+            </button>
+          )}
         </div>
       </h3>
 
@@ -879,6 +935,380 @@ const WipPackCard = ({
                 })}
             </>
           )}
+        </div>
+      )}
+
+      {/* Pack Settings Modal */}
+      {showPackSettings && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "2rem",
+              borderRadius: "8px",
+              width: "90%",
+              maxWidth: "500px",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "1rem",
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Pack Settings: {packName}</h3>
+              <button
+                onClick={() => {
+                  setShowPackSettings(false);
+                  setPackSettingsMode(null);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.5rem",
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {!packSettingsMode && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                <button
+                  onClick={() => setPackSettingsMode("rename")}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    background: "#f8f9fa",
+                    color: "#495057",
+                    border: "1px solid #dee2e6",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    textAlign: "left",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#e9ecef";
+                    e.target.style.borderColor = "#adb5bd";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#f8f9fa";
+                    e.target.style.borderColor = "#dee2e6";
+                  }}
+                >
+                  ✏️ Change Pack Name
+                </button>
+                <button
+                  onClick={() => setPackSettingsMode("status")}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    background: "#f8f9fa",
+                    color: "#495057",
+                    border: "1px solid #dee2e6",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    textAlign: "left",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#e9ecef";
+                    e.target.style.borderColor = "#adb5bd";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#f8f9fa";
+                    e.target.style.borderColor = "#dee2e6";
+                  }}
+                >
+                  📋 Move back to Future Plans
+                </button>
+                <button
+                  onClick={() => setPackSettingsMode("album-series")}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    background: "#f8f9fa",
+                    color: "#495057",
+                    border: "1px solid #dee2e6",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    textAlign: "left",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#e9ecef";
+                    e.target.style.borderColor = "#adb5bd";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#f8f9fa";
+                    e.target.style.borderColor = "#dee2e6";
+                  }}
+                >
+                  🎵 Make Album Series
+                </button>
+              </div>
+            )}
+
+            {packSettingsMode === "rename" && (
+              <div>
+                <h4 style={{ marginBottom: "1rem" }}>Change Pack Name</h4>
+                <input
+                  type="text"
+                  value={newPackName}
+                  onChange={(e) => setNewPackName(e.target.value)}
+                  placeholder="New pack name"
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    marginBottom: "1rem",
+                  }}
+                />
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => {
+                      onRenamePack(packName, newPackName);
+                      setShowPackSettings(false);
+                      setPackSettingsMode(null);
+                    }}
+                    disabled={
+                      !newPackName.trim() || newPackName.trim() === packName
+                    }
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background:
+                        newPackName.trim() && newPackName.trim() !== packName
+                          ? "#007bff"
+                          : "#e9ecef",
+                      color:
+                        newPackName.trim() && newPackName.trim() !== packName
+                          ? "white"
+                          : "#6c757d",
+                      border: "1px solid #dee2e6",
+                      borderRadius: "6px",
+                      cursor:
+                        newPackName.trim() && newPackName.trim() !== packName
+                          ? "pointer"
+                          : "not-allowed",
+                      fontSize: "0.9rem",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPackSettingsMode(null);
+                      setNewPackName(packName);
+                    }}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#f8f9fa",
+                      color: "#495057",
+                      border: "1px solid #dee2e6",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {packSettingsMode === "status" && (
+              <div>
+                <h4 style={{ marginBottom: "1rem" }}>
+                  Move Pack back to Future Plans
+                </h4>
+                <p style={{ marginBottom: "1rem", color: "#666" }}>
+                  This will change all songs in "{packName}" from "In Progress"
+                  to "Future Plans" status.
+                </p>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => {
+                      onMovePackToFuturePlans(packName);
+                      setShowPackSettings(false);
+                      setPackSettingsMode(null);
+                    }}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#28a745",
+                      color: "white",
+                      border: "1px solid #28a745",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setPackSettingsMode(null)}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#f8f9fa",
+                      color: "#495057",
+                      border: "1px solid #dee2e6",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {packSettingsMode === "album-series" && (
+              <div>
+                <h4 style={{ marginBottom: "1rem" }}>Create Album Series</h4>
+                <p style={{ marginBottom: "1rem", color: "#666" }}>
+                  Create an album series from songs in this pack. The pack must
+                  have at least 4 songs from the same album.
+                </p>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem" }}>
+                    Artist Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={albumSeriesForm.artist_name}
+                    onChange={(e) =>
+                      setAlbumSeriesForm((prev) => ({
+                        ...prev,
+                        artist_name: e.target.value,
+                      }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "1rem" }}>
+                  <label style={{ display: "block", marginBottom: "0.5rem" }}>
+                    Album Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={albumSeriesForm.album_name}
+                    onChange={(e) =>
+                      setAlbumSeriesForm((prev) => ({
+                        ...prev,
+                        album_name: e.target.value,
+                      }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "0.5rem",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => {
+                      onCreateAlbumSeries(packName, albumSeriesForm);
+                      setShowPackSettings(false);
+                      setPackSettingsMode(null);
+                      setAlbumSeriesForm({ artist_name: "", album_name: "" });
+                    }}
+                    disabled={
+                      !albumSeriesForm.artist_name.trim() ||
+                      !albumSeriesForm.album_name.trim()
+                    }
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background:
+                        albumSeriesForm.artist_name.trim() &&
+                        albumSeriesForm.album_name.trim()
+                          ? "#6f42c1"
+                          : "#e9ecef",
+                      color:
+                        albumSeriesForm.artist_name.trim() &&
+                        albumSeriesForm.album_name.trim()
+                          ? "white"
+                          : "#6c757d",
+                      border: "1px solid #dee2e6",
+                      borderRadius: "6px",
+                      cursor:
+                        albumSeriesForm.artist_name.trim() &&
+                        albumSeriesForm.album_name.trim()
+                          ? "pointer"
+                          : "not-allowed",
+                      fontSize: "0.9rem",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPackSettingsMode(null);
+                      setAlbumSeriesForm({ artist_name: "", album_name: "" });
+                    }}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#f8f9fa",
+                      color: "#495057",
+                      border: "1px solid #dee2e6",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

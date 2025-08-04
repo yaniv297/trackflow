@@ -540,7 +540,7 @@ export default function WipSongCard({
                       );
                     });
 
-                    // Get all fields that are NOT assigned to any collaborator (these belong to the current user)
+                    // Get all fields that are NOT assigned to any collaborator (these belong to the song owner)
                     const assignedFields = new Set(
                       wipCollaborations.map((collab) => collab.field)
                     );
@@ -550,11 +550,11 @@ export default function WipSongCard({
 
                     const result = [];
 
-                    // Add current user's unassigned fields first
+                    // Add song owner's unassigned fields
                     if (unassignedFields.length > 0) {
                       result.push(
                         <div
-                          key={currentUser?.username || "current-user"}
+                          key={song.author || "song-owner"}
                           style={{ marginBottom: "0.5rem" }}
                         >
                           <div
@@ -565,7 +565,7 @@ export default function WipSongCard({
                               color: "#666",
                             }}
                           >
-                            {currentUser?.username || "Current User"}:
+                            {song.author || "Song Owner"}:
                           </div>
                           <div
                             style={{
@@ -613,71 +613,68 @@ export default function WipSongCard({
                       );
                     }
 
-                    // Add other collaborators' fields
+                    // Add collaborators' explicitly assigned fields
                     Object.entries(collaboratorGroups).forEach(
                       ([collaborator, assignedFields]) => {
-                        if (collaborator !== currentUser?.username) {
-                          result.push(
+                        result.push(
+                          <div
+                            key={collaborator}
+                            style={{ marginBottom: "0.5rem" }}
+                          >
                             <div
-                              key={collaborator}
-                              style={{ marginBottom: "0.5rem" }}
+                              style={{
+                                fontSize: "0.8rem",
+                                fontWeight: "bold",
+                                marginBottom: "0.25rem",
+                                color: "#666",
+                              }}
                             >
-                              <div
-                                style={{
-                                  fontSize: "0.8rem",
-                                  fontWeight: "bold",
-                                  marginBottom: "0.25rem",
-                                  color: "#666",
-                                }}
-                              >
-                                {collaborator}:
-                              </div>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  gap: "0.5rem",
-                                }}
-                              >
-                                {assignedFields.map((field) => {
-                                  const filled = localAuthoring?.[field];
-                                  const displayName = field
-                                    .split("_")
-                                    .map((w) => w[0].toUpperCase() + w.slice(1))
-                                    .join(" ");
-
-                                  const bg = filled ? "#4caf50" : "#ddd";
-                                  const color = filled ? "white" : "black";
-
-                                  return (
-                                    <span
-                                      key={field}
-                                      onClick={() =>
-                                        !readOnly && toggleAuthoringField(field)
-                                      }
-                                      style={{
-                                        padding: "0.25rem 0.6rem",
-                                        borderRadius: "12px",
-                                        fontSize: "0.85rem",
-                                        backgroundColor: bg,
-                                        color,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        lineHeight: "1",
-                                        cursor: readOnly
-                                          ? "default"
-                                          : "pointer",
-                                        userSelect: "none",
-                                      }}
-                                    >
-                                      {displayName}
-                                    </span>
-                                  );
-                                })}
-                              </div>
+                              {collaborator}:
                             </div>
-                          );
-                        }
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "0.5rem",
+                              }}
+                            >
+                              {assignedFields.map((field) => {
+                                const filled = localAuthoring?.[field];
+                                const displayName = field
+                                  .split("_")
+                                  .map((w) => w[0].toUpperCase() + w.slice(1))
+                                  .join(" ");
+
+                                const bg = filled ? "#4caf50" : "#ddd";
+                                const color = filled ? "white" : "black";
+
+                                return (
+                                  <span
+                                    key={field}
+                                    onClick={() =>
+                                      !readOnly && toggleAuthoringField(field)
+                                    }
+                                    style={{
+                                      padding: "0.25rem 0.6rem",
+                                      borderRadius: "12px",
+                                      fontSize: "0.85rem",
+                                      backgroundColor: bg,
+                                      color,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      lineHeight: "1",
+                                      cursor: readOnly ? "default" : "pointer",
+                                      userSelect: "none",
+                                      opacity: readOnly ? 0.7 : 1,
+                                    }}
+                                  >
+                                    {displayName}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
                       }
                     );
 

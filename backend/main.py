@@ -7,12 +7,19 @@ from models import Base
 from api import songs, authoring, spotify, tools, stats, album_series, auth, packs, collaborations
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import os
 
 app = FastAPI(
     title="TrackFlow API",
     description="API for TrackFlow music management system",
     version="1.0.0"
+)
+
+# Add trusted host middleware to handle Railway's forwarded headers
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["*"]  # Allow all hosts in production
 )
 
 # Add CORS middleware FIRST (before routes)
@@ -76,6 +83,13 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8001))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port,
+        forwarded_allow_ips="*",  # Trust all forwarded IPs (Railway)
+        proxy_headers=True,       # Handle proxy headers
+        server_header=False       # Don't expose server info
+    )
 
 

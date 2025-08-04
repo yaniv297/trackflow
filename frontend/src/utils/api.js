@@ -53,6 +53,18 @@ export const apiCall = async (endpoint, options = {}) => {
     console.log("Railway HTTPS enforcement:", url);
   }
 
+  // Special handling for bulk-delete endpoint to prevent Railway redirects
+  if (
+    endpoint.includes("bulk-delete") &&
+    window.location.hostname.includes("railway.app")
+  ) {
+    // Force HTTPS and add extra cache-busting
+    url = url.replace("http:", "https:");
+    const separator = url.includes("?") ? "&" : "?";
+    url += `${separator}_t=${Date.now()}&_cb=${Math.random()}`;
+    console.log("Special bulk-delete HTTPS enforcement:", url);
+  }
+
   // Add cache-busting timestamp for production
   if (window.location.hostname.includes("railway.app")) {
     const separator = url.includes("?") ? "&" : "?";

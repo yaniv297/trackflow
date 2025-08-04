@@ -30,6 +30,7 @@ const WipPackCard = ({
   onHandleMakeDoubleAlbumSeries,
   onSetSelectedSongs,
   selectedSongs,
+  onSongUpdate,
 }) => {
   // Separate songs by ownership and collaboration status
   const userOwnedSongs = allSongs.filter((song) => song.user_id === user?.id);
@@ -590,6 +591,7 @@ const WipPackCard = ({
                             selectedSongs={selectedSongs}
                             setSelectedSongs={onSetSelectedSongs}
                             defaultExpanded={false} // Keep completed songs collapsed
+                            onSongUpdate={onSongUpdate}
                           />
                         );
                       })}
@@ -645,6 +647,7 @@ const WipPackCard = ({
                             selectedSongs={selectedSongs}
                             setSelectedSongs={onSetSelectedSongs}
                             defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                            onSongUpdate={onSongUpdate}
                           />
                         );
                       })}
@@ -702,6 +705,7 @@ const WipPackCard = ({
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      onSongUpdate={onSongUpdate}
                     />
                   );
                 })}
@@ -754,6 +758,7 @@ const WipPackCard = ({
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      onSongUpdate={onSongUpdate}
                     />
                   );
                 })}
@@ -809,6 +814,7 @@ const WipPackCard = ({
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
                       readOnly={true} // Songs by collaborators are read-only
+                      onSongUpdate={onSongUpdate}
                     />
                   );
                 })}
@@ -867,6 +873,7 @@ const WipPackCard = ({
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
                       readOnly={true} // Songs by collaborators are read-only
+                      onSongUpdate={onSongUpdate}
                     />
                   );
                 })}

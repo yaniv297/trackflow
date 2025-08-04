@@ -204,6 +204,14 @@ function WipPage() {
     });
   };
 
+  const updateSongData = (songId, updatedSongData) => {
+    setSongs((prev) =>
+      prev.map((song) =>
+        song.id === songId ? { ...song, ...updatedSongData } : song
+      )
+    );
+  };
+
   const toggleOptional = async (songId, isCurrentlyOptional) => {
     const newOptionalValue = !isCurrentlyOptional;
 
@@ -442,6 +450,7 @@ function WipPage() {
           onHandleCreateAlbumSeries={handleCreateAlbumSeries}
           onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
           onSetSelectedSongs={setSelectedSongs}
+          onSongUpdate={updateSongData}
         />
       ))}
 

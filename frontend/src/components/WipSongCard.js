@@ -11,6 +11,7 @@ export default function WipSongCard({
   expanded: expandedProp,
   defaultExpanded,
   readOnly = false,
+  onSongUpdate,
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -120,23 +121,52 @@ export default function WipSongCard({
     }
   };
 
-  const enhanceFromSpotify = async () => {
+  const enhanceFromSpotify = async (trackId = null) => {
     try {
-      const options = await apiGet(`/spotify/${song.id}/spotify-options`);
-      if (options.length === 0) {
-        window.showNotification("Failed to fetch Spotify options.", "error");
-        return;
+      let track_id;
+
+      if (trackId) {
+        // Use the provided track_id
+        track_id = trackId;
+      } else {
+        // Fallback to first option (for backward compatibility)
+        const options = await apiGet(`/spotify/${song.id}/spotify-options`);
+        if (options.length === 0) {
+          window.showNotification("Failed to fetch Spotify options.", "error");
+          return;
+        }
+        track_id = options[0].track_id;
       }
 
-      const firstOption = options[0];
-      await apiPost(`/spotify/${song.id}/enhance`, {
-        track_id: firstOption.track_id,
+      const enhancedSong = await apiPost(`/spotify/${song.id}/enhance`, {
+        track_id: track_id,
       });
 
+      console.log("Enhanced song response:", enhancedSong);
+
       window.showNotification("✅ Song enhanced!", "success");
-      // Refresh the page to show updated data
-      window.location.reload();
+
+      // Update the song data in the parent component
+      if (onSongUpdate && enhancedSong) {
+        onSongUpdate(song.id, enhancedSong);
+      }
+
+      // Also update local state
+      if (enhancedSong) {
+        // Update the song object with new data
+        Object.assign(song, enhancedSong);
+
+        // Update edit values
+        setEditValues((prev) => ({
+          ...prev,
+          title: enhancedSong.title || prev.title,
+          artist: enhancedSong.artist || prev.artist,
+          album: enhancedSong.album || prev.album,
+          year: enhancedSong.year || prev.year,
+        }));
+      }
     } catch (error) {
+      console.error("Enhancement failed:", error);
       window.showNotification("Enhancement failed.", "error");
     }
   };
@@ -466,7 +496,7 @@ export default function WipSongCard({
                     </div>
                     <button
                       onClick={() => {
-                        enhanceFromSpotify();
+                        enhanceFromSpotify(opt.track_id);
                         setSpotifyOptions([]); // hide options after apply
                       }}
                       style={{

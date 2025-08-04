@@ -402,7 +402,6 @@ function WipPage() {
   const handleMakeDoubleAlbumSeries = async (pack, albumsWithEnoughSongs) => {
     // Implementation for double album series
     // This is a complex function that would need to be extracted from the original
-    console.log("Double album series creation", pack, albumsWithEnoughSongs);
   };
 
   const handleCollaborationSaved = () => {

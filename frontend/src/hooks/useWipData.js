@@ -130,7 +130,6 @@ export const useWipData = (user) => {
       // Fetch collaborations where current user is a collaborator
       apiGet("/collaborations/my-collaborations")
         .then((data) => {
-          console.log("WipPage - Loaded user collaborations:", data);
           setUserCollaborations(data);
         })
         .catch((err) =>
@@ -140,7 +139,6 @@ export const useWipData = (user) => {
       // Fetch collaborations on packs owned by current user
       apiGet("/collaborations/on-my-packs")
         .then((data) => {
-          console.log("WipPage - Loaded collaborations on my packs:", data);
           setCollaborationsOnMyPacks(data);
         })
         .catch((err) =>

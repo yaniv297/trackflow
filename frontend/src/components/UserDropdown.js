@@ -23,9 +23,8 @@ const UserDropdown = ({
     const loadUsers = async () => {
       setLoading(true);
       try {
-        console.log("UserDropdown: Loading users...");
         const data = await apiGet("/auth/users/");
-        console.log("UserDropdown: Loaded users:", data);
+
         setUsers(data);
       } catch (error) {
         console.error("UserDropdown: Error loading users:", error);
@@ -53,14 +52,13 @@ const UserDropdown = ({
   );
 
   const handleUserSelect = (username) => {
-    console.log("UserDropdown: User selected:", username);
     const newSelections = [...currentSelections, username];
     const newValue = newSelections.join(", ");
 
     const syntheticEvent = {
       target: { value: newValue },
     };
-    console.log("UserDropdown: Calling onChange with:", newValue);
+
     onChange(syntheticEvent);
     setSearchTerm("");
     setShowDropdown(false);
@@ -199,10 +197,6 @@ const UserDropdown = ({
                 <div
                   key={user.id}
                   onClick={(e) => {
-                    console.log(
-                      "UserDropdown: User div clicked:",
-                      user.username
-                    );
                     e.stopPropagation();
                     handleUserSelect(user.username);
                   }}

@@ -191,27 +191,29 @@ const CustomAlert = ({
             borderTop: "1px solid #e5e7eb",
           }}
         >
-          <button
-            onClick={handleCancel}
-            style={{
-              padding: "8px 16px",
-              color: "#374151",
-              backgroundColor: "#f3f4f6",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontWeight: "500",
-              transition: "background-color 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#e5e7eb";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#f3f4f6";
-            }}
-          >
-            {cancelText}
-          </button>
+          {cancelText && (
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: "8px 16px",
+                color: "#374151",
+                backgroundColor: "#f3f4f6",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontWeight: "500",
+                transition: "background-color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "#e5e7eb";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#f3f4f6";
+              }}
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             onClick={handleConfirm}
             style={{

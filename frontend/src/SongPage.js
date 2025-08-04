@@ -204,10 +204,13 @@ function SongPage({ status }) {
 
   // Bulk action handlers
 
-  const handleStartWork = async () => {
+  const handleStartWork = async (songIds = null) => {
     // Move songs from Future Plans to In Progress
     try {
-      const songsToMove = songs.filter((s) => selectedSongs.includes(s.id));
+      const songsToMove = songIds
+        ? songs.filter((s) => songIds.includes(s.id))
+        : songs.filter((s) => selectedSongs.includes(s.id));
+
       await Promise.all(
         songsToMove.map((song) =>
           apiPatch(`/songs/${song.id}`, { status: "In Progress" })

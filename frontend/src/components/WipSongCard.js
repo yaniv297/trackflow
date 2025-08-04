@@ -142,8 +142,6 @@ export default function WipSongCard({
         track_id: track_id,
       });
 
-      console.log("Enhanced song response:", enhancedSong);
-
       window.showNotification("✅ Song enhanced!", "success");
 
       // Update the song data in the parent component

@@ -39,14 +39,13 @@ export default function WipCollaborationModal({
 
   const loadWipCollaborations = useCallback(async () => {
     try {
-      console.log("Loading WIP collaborations for song:", song.id);
       const response = await fetch(
         `${API_BASE_URL}/authoring/${song.id}/wip-collaborations`
       );
-      console.log("Response status:", response.status);
+
       if (response.ok) {
         const data = await response.json();
-        console.log("Loaded WIP collaborations data:", data);
+
         setAssignments(data.assignments || []);
       } else {
         console.error("Failed to load WIP collaborations:", response.status);
@@ -73,19 +72,13 @@ export default function WipCollaborationModal({
       field: field.toLowerCase().replace(/\s+/g, "_"),
     }));
 
-    console.log("Bulk assign - editingCollaborator:", editingCollaborator);
-    console.log("Bulk assign - newAssignments:", newAssignments);
-
     setAssignments((prev) => {
-      console.log("Bulk assign - previous assignments:", prev);
       // If editing, remove existing assignments for this collaborator first
       const filtered = editingCollaborator
         ? prev.filter((a) => a.collaborator !== editingCollaborator)
         : prev;
 
-      console.log("Bulk assign - filtered assignments:", filtered);
       const result = [...filtered, ...newAssignments];
-      console.log("Bulk assign - final assignments:", result);
       return result;
     });
 
@@ -116,7 +109,6 @@ export default function WipCollaborationModal({
   const handleSave = async () => {
     setLoading(true);
     try {
-      console.log("Saving assignments:", assignments);
       const response = await fetch(
         `${API_BASE_URL}/authoring/${song.id}/wip-collaborations`,
         {
@@ -127,7 +119,6 @@ export default function WipCollaborationModal({
       );
 
       if (response.ok) {
-        console.log("Save successful");
         onSave();
         onClose();
       } else {
@@ -396,13 +387,7 @@ export default function WipCollaborationModal({
         </div>
 
         {/* Current Assignments Section */}
-        {(() => {
-          console.log(
-            "Checking if assignments should show:",
-            Object.keys(groupedAssignments).length > 0
-          );
-          return Object.keys(groupedAssignments).length > 0;
-        })() && (
+        {Object.keys(groupedAssignments).length > 0 && (
           <div
             style={{
               marginBottom: "1.5rem",

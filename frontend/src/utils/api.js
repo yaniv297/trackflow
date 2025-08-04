@@ -24,24 +24,14 @@ const createHeaders = (customHeaders = {}) => {
 export const apiCall = async (endpoint, options = {}) => {
   let url = `${API_BASE_URL}${endpoint}`;
 
-  console.log("=== API CALL DEBUG ===");
-  console.log("Original endpoint:", endpoint);
-  console.log("API_BASE_URL:", API_BASE_URL);
-  console.log("Initial URL:", url);
-  console.log("Window location:", window.location.href);
-  console.log("Window protocol:", window.location.protocol);
-  console.log("Window hostname:", window.location.hostname);
-
   // Force HTTPS in production to prevent mixed content issues
   if (window.location.protocol === "https:" && url.startsWith("http:")) {
     url = url.replace("http:", "https:");
-    console.log("Forced HTTPS for API call:", url);
   }
 
   // Additional safety check - if we're on HTTPS page, ensure API calls are HTTPS
   if (window.location.hostname !== "localhost" && !url.startsWith("https:")) {
     url = url.replace("http:", "https:");
-    console.log("Additional HTTPS enforcement for production:", url);
   }
 
   // Final safety check - ALWAYS use HTTPS in production
@@ -50,7 +40,6 @@ export const apiCall = async (endpoint, options = {}) => {
     url.startsWith("http:")
   ) {
     url = url.replace("http:", "https:");
-    console.log("Railway HTTPS enforcement:", url);
   }
 
   // Special handling for bulk-delete endpoint to prevent Railway redirects
@@ -62,7 +51,6 @@ export const apiCall = async (endpoint, options = {}) => {
     url = url.replace("http:", "https:");
     const separator = url.includes("?") ? "&" : "?";
     url += `${separator}_t=${Date.now()}&_cb=${Math.random()}`;
-    console.log("Special bulk-delete HTTPS enforcement:", url);
   }
 
   // Add cache-busting timestamp for production
@@ -70,9 +58,6 @@ export const apiCall = async (endpoint, options = {}) => {
     const separator = url.includes("?") ? "&" : "?";
     url += `${separator}_t=${Date.now()}`;
   }
-
-  console.log("Final URL being used:", url);
-  console.log("=== END DEBUG ===");
 
   const headers = createHeaders(options.headers);
 
@@ -84,7 +69,6 @@ export const apiCall = async (endpoint, options = {}) => {
   };
 
   try {
-    console.log("About to make fetch request to:", url);
     const response = await fetch(url, config);
 
     // Handle 401 Unauthorized - token might be expired

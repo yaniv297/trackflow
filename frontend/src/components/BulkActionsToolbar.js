@@ -37,34 +37,26 @@ const BulkActionsToolbar = ({
           color: "#222",
           border: "1px solid #d1d5db",
           borderRadius: "6px",
-          padding: "0.5rem 1.1rem",
-          fontWeight: 600,
-          fontSize: "1rem",
+          padding: "0.4rem 0.8rem",
+          fontWeight: "500",
+          fontSize: "0.85rem",
           cursor: "pointer",
           transition: "background 0.2s, border 0.2s",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.background = "#e5e7eb";
+          e.target.style.borderColor = "#9ca3af";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.background = "#f3f4f6";
+          e.target.style.borderColor = "#d1d5db";
         }}
       >
-        Bulk Actions
+        📋 Bulk Actions
       </button>
-
-      {status === "Future Plans" && (
-        <button
-          onClick={onStartWork}
-          style={{
-            background: "#f3f4f6",
-            color: "#222",
-            border: "1px solid #d1d5db",
-            borderRadius: "6px",
-            padding: "0.5rem 1.1rem",
-            fontWeight: 600,
-            fontSize: "1rem",
-            cursor: "pointer",
-            transition: "background 0.2s, border 0.2s",
-          }}
-        >
-          Start Work
-        </button>
-      )}
     </div>
   );
 };

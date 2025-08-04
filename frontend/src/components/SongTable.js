@@ -261,22 +261,20 @@ const SongTable = ({
               {artist}
             </span>
 
-            {/* Bulk actions for artist group if any song in the group is selected */}
-            {allSongsInArtist.some((s) => selectedSongs.includes(s.id)) && (
-              <span style={{ marginLeft: "1rem" }}>
-                <BulkActions
-                  selectedSongs={selectedSongs}
-                  onBulkEdit={onBulkEdit}
-                  onBulkDelete={onBulkDelete}
-                  onBulkEnhance={onBulkEnhance}
-                  onStartWork={onStartWork}
-                  onCleanTitles={onCleanTitles}
-                  showAlbumSeriesButton={false}
-                  showDoubleAlbumSeriesButton={false}
-                  status={status}
-                />
-              </span>
-            )}
+            {/* Bulk actions - always visible */}
+            <span style={{ marginLeft: "0.2rem" }}>
+              <BulkActions
+                selectedSongs={selectedSongs}
+                onBulkEdit={onBulkEdit}
+                onBulkDelete={onBulkDelete}
+                onBulkEnhance={onBulkEnhance}
+                onStartWork={onStartWork}
+                onCleanTitles={onCleanTitles}
+                showAlbumSeriesButton={false}
+                showDoubleAlbumSeriesButton={false}
+                status={status}
+              />
+            </span>
           </td>
         </tr>
 
@@ -330,24 +328,20 @@ const SongTable = ({
                         {songsInAlbum.length})
                       </div>
 
-                      {/* Bulk actions for album group if any song in the album is selected */}
-                      {songsInAlbum.some((s) =>
-                        selectedSongs.includes(s.id)
-                      ) && (
-                        <div style={{ flex: "0 0 auto", marginLeft: "1rem" }}>
-                          <BulkActions
-                            selectedSongs={selectedSongs}
-                            onBulkEdit={onBulkEdit}
-                            onBulkDelete={onBulkDelete}
-                            onBulkEnhance={onBulkEnhance}
-                            onStartWork={onStartWork}
-                            onCleanTitles={onCleanTitles}
-                            showAlbumSeriesButton={false}
-                            showDoubleAlbumSeriesButton={false}
-                            status={status}
-                          />
-                        </div>
-                      )}
+                      {/* Bulk actions - always visible */}
+                      <div style={{ flex: "0 0 auto", marginLeft: "0.2rem" }}>
+                        <BulkActions
+                          selectedSongs={selectedSongs}
+                          onBulkEdit={onBulkEdit}
+                          onBulkDelete={onBulkDelete}
+                          onBulkEnhance={onBulkEnhance}
+                          onStartWork={onStartWork}
+                          onCleanTitles={onCleanTitles}
+                          showAlbumSeriesButton={false}
+                          showDoubleAlbumSeriesButton={false}
+                          status={status}
+                        />
+                      </div>
                     </div>
                   </td>
                 </tr>

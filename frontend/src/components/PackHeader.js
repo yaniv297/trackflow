@@ -213,32 +213,30 @@ const PackHeader = ({
                 <button
                   onClick={() => setShowAddSongModal(true)}
                   style={{
-                    background: "#007bff",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "50%",
-                    width: "32px",
-                    height: "32px",
+                    background: "#f3f4f6",
+                    color: "#222",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    padding: "0.4rem 0.8rem",
                     cursor: "pointer",
-                    fontSize: "1.2rem",
-                    fontWeight: "600",
-                    transition: "background 0.2s, transform 0.2s",
-                    marginRight: "0.5rem",
+                    fontSize: "0.85rem",
+                    fontWeight: "500",
+                    transition: "background 0.2s, border 0.2s",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    gap: "0.4rem",
                   }}
                   title="Add song to this pack"
                   onMouseEnter={(e) => {
-                    e.target.style.background = "#0056b3";
-                    e.target.style.transform = "scale(1.1)";
+                    e.target.style.background = "#e5e7eb";
+                    e.target.style.borderColor = "#9ca3af";
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.background = "#007bff";
-                    e.target.style.transform = "scale(1)";
+                    e.target.style.background = "#f3f4f6";
+                    e.target.style.borderColor = "#d1d5db";
                   }}
                 >
-                  +
+                  + Add Song
                 </button>
               )}
 
@@ -256,37 +254,78 @@ const PackHeader = ({
                       setShowCollaborationModal(true);
                     }}
                     style={{
-                      background: "#28a745",
-                      color: "white",
-                      border: "none",
+                      background: "#f3f4f6",
+                      color: "#222",
+                      border: "1px solid #d1d5db",
                       borderRadius: "6px",
-                      padding: "0.28rem 0.9rem",
+                      padding: "0.4rem 0.8rem",
                       cursor: "pointer",
-                      fontSize: "0.98rem",
-                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      fontWeight: "500",
                       transition: "background 0.2s, border 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
                     }}
                     title="Manage pack collaborations"
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "#e5e7eb";
+                      e.target.style.borderColor = "#9ca3af";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "#f3f4f6";
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
                   >
-                    👥 Manage Collaborations
+                    👥 Collaborations
                   </button>
                 )}
+
+              {/* Start Work Button - Only show for Future Plans */}
+              {status === "Future Plans" && (
+                <button
+                  onClick={() => onStartWork(validSongsInPack.map((s) => s.id))}
+                  style={{
+                    background: "#f3f4f6",
+                    color: "#222",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    padding: "0.4rem 0.8rem",
+                    cursor: "pointer",
+                    fontSize: "0.85rem",
+                    fontWeight: "500",
+                    transition: "background 0.2s, border 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                  }}
+                  title="Start work on this pack (move to In Progress)"
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#e5e7eb";
+                    e.target.style.borderColor = "#9ca3af";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#f3f4f6";
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                >
+                  🔨 Start Work
+                </button>
+              )}
             </span>
 
-            {/* Bulk actions for this group if any song in the group is selected */}
-            {validSongsInPack.some((s) => selectedSongs.includes(s.id)) && (
-              <BulkActions
-                selectedSongs={selectedSongs}
-                onBulkEdit={onBulkEdit}
-                onBulkDelete={onBulkDelete}
-                onBulkEnhance={onBulkEnhance}
-                onStartWork={onStartWork}
-                onCleanTitles={onCleanTitles}
-                showAlbumSeriesButton={false} // Already shown above
-                showDoubleAlbumSeriesButton={false} // Already shown above
-                status={status}
-              />
-            )}
+            {/* Bulk actions - always visible */}
+            <BulkActions
+              selectedSongs={selectedSongs}
+              onBulkEdit={onBulkEdit}
+              onBulkDelete={onBulkDelete}
+              onBulkEnhance={onBulkEnhance}
+              onStartWork={onStartWork}
+              onCleanTitles={onCleanTitles}
+              showAlbumSeriesButton={false} // Already shown above
+              showDoubleAlbumSeriesButton={false} // Already shown above
+              status={status}
+            />
           </span>
         </td>
       </tr>

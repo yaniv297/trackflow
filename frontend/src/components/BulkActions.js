@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import CustomAlert from "./CustomAlert";
 
 const BulkActions = ({
   selectedSongs,
@@ -16,53 +17,87 @@ const BulkActions = ({
   canMakeDoubleAlbumSeries,
   status,
 }) => {
-  if (selectedSongs.length === 0) return null;
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    type: "warning",
+  });
+
+  const handleBulkEditClick = () => {
+    if (selectedSongs.length === 0) {
+      setAlertConfig({
+        isOpen: true,
+        title: "No Songs Selected",
+        message: "Please select at least one song to perform bulk actions.",
+        onConfirm: () => {},
+        type: "info",
+        confirmText: "OK",
+      });
+      return;
+    }
+    onBulkEdit();
+  };
 
   return (
-    <div
-      style={{
-        display: "inline-flex",
-        gap: "0.4rem",
-        marginLeft: "1.2rem",
-        verticalAlign: "middle",
-      }}
-    >
-      <button
-        onClick={onBulkEdit}
+    <>
+      <div
         style={{
-          background: "#f3f4f6",
-          color: "#222",
-          border: "1px solid #d1d5db",
-          borderRadius: "6px",
-          padding: "0.28rem 0.9rem",
-          fontWeight: 600,
-          fontSize: "0.98rem",
-          cursor: "pointer",
-          transition: "background 0.2s, border 0.2s",
+          display: "inline-flex",
+          gap: "0.4rem",
+          marginLeft: "0.2rem",
+          verticalAlign: "middle",
         }}
       >
-        Bulk Actions
-      </button>
-
-      {status === "Future Plans" && (
         <button
-          onClick={onStartWork}
+          onClick={handleBulkEditClick}
           style={{
             background: "#f3f4f6",
             color: "#222",
             border: "1px solid #d1d5db",
             borderRadius: "6px",
-            padding: "0.28rem 0.9rem",
-            fontWeight: 600,
-            fontSize: "0.98rem",
+            padding: "0.4rem 0.8rem",
+            fontWeight: "500",
+            fontSize: "0.85rem",
             cursor: "pointer",
             transition: "background 0.2s, border 0.2s",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = "#e5e7eb";
+            e.target.style.borderColor = "#9ca3af";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "#f3f4f6";
+            e.target.style.borderColor = "#d1d5db";
           }}
         >
-          Start Work
+          📋 Bulk Actions
         </button>
-      )}
-    </div>
+      </div>
+
+      <CustomAlert
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        confirmText={alertConfig.confirmText}
+        cancelText=""
+        onConfirm={alertConfig.onConfirm}
+        onClose={() =>
+          setAlertConfig({
+            isOpen: false,
+            title: "",
+            message: "",
+            onConfirm: null,
+            type: "warning",
+          })
+        }
+      />
+    </>
   );
 };
 

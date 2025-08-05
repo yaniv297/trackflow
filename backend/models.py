@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -60,11 +60,18 @@ class Song(Base):
     year = Column(Integer)
     status = Column(String, index=True)  # "Future Plans", "In Progress", "Released"
     album_cover = Column(String)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    pack_id = Column(Integer, ForeignKey("packs.id"))
-    album_series_id = Column(Integer, ForeignKey("album_series.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), index=True)
+    album_series_id = Column(Integer, ForeignKey("album_series.id"), index=True)
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index('idx_song_user_status', 'user_id', 'status'),
+        Index('idx_song_pack_status', 'pack_id', 'status'),
+        Index('idx_song_artist_title', 'artist', 'title'),
+    )
     
     # Relationships
     user = relationship("User", back_populates="songs")
@@ -78,15 +85,19 @@ class Collaboration(Base):
     __tablename__ = "collaborations"
     
     id = Column(Integer, primary_key=True, index=True)
-    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    collaboration_type = Column(Enum(CollaborationType))
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    collaboration_type = Column(Enum(CollaborationType), index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Ensure either pack_id or song_id is set, but not both
     __table_args__ = (
         UniqueConstraint('pack_id', 'song_id', 'user_id', 'collaboration_type', name='unique_collaboration'),
+        # Composite indexes for common query patterns
+        Index('idx_collab_user_type', 'user_id', 'collaboration_type'),
+        Index('idx_collab_song_user', 'song_id', 'user_id'),
+        Index('idx_collab_pack_user', 'pack_id', 'user_id'),
     )
     
     # Relationships

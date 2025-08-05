@@ -54,6 +54,9 @@ function SongPage({ status }) {
   // Use collaboration hook
   const { fetchCollaborations, getPackCollaborators } = useCollaborations();
 
+  // Simple cache for songs data
+  const [songsCache, setSongsCache] = useState({});
+
   // Define fetchSongs before using it in useEffect
   const fetchSongs = useCallback(async () => {
     try {
@@ -61,12 +64,26 @@ function SongPage({ status }) {
       if (status) params.append("status", status);
       if (search) params.append("query", search);
 
+      const cacheKey = `${status || "all"}-${search || ""}`;
+
+      // Check cache first
+      if (songsCache[cacheKey] && !search) {
+        // Only use cache for non-search requests
+        setSongs(songsCache[cacheKey]);
+        return;
+      }
+
       const response = await apiGet(`/songs/?${params.toString()}`);
       setSongs(response);
+
+      // Cache the result (only for non-search requests)
+      if (!search) {
+        setSongsCache((prev) => ({ ...prev, [cacheKey]: response }));
+      }
     } catch (error) {
       console.error("Failed to fetch songs:", error);
     }
-  }, [status, search]);
+  }, [status, search, songsCache]);
 
   // Load data
   useEffect(() => {
@@ -75,12 +92,8 @@ function SongPage({ status }) {
   }, [status, fetchCollaborations, fetchSongs]);
 
   useEffect(() => {
-    if (search) {
-      const delayDebounceFn = setTimeout(() => fetchSongs(), 300);
-      return () => clearTimeout(delayDebounceFn);
-    } else {
-      fetchSongs();
-    }
+    const delayDebounceFn = setTimeout(() => fetchSongs(), 300);
+    return () => clearTimeout(delayDebounceFn);
   }, [search, fetchSongs]);
 
   // Sorting and grouping logic
@@ -101,16 +114,8 @@ function SongPage({ status }) {
   }, [songs, sortKey, sortDirection]);
 
   const groupedSongs = useMemo(() => {
-    const filteredSongs = sortedSongs.filter((song) => {
-      if (!search) return true;
-      const searchLower = search.toLowerCase();
-      return (
-        song.title?.toLowerCase().includes(searchLower) ||
-        song.artist?.toLowerCase().includes(searchLower) ||
-        song.album?.toLowerCase().includes(searchLower) ||
-        song.pack_name?.toLowerCase().includes(searchLower)
-      );
-    });
+    // No need to filter here since we're already filtering on the backend
+    const filteredSongs = sortedSongs;
 
     if (groupBy === "artist") {
       const grouped = filteredSongs.reduce((acc, song) => {
@@ -238,6 +243,9 @@ function SongPage({ status }) {
         )
       );
 
+      // Clear cache since data has changed
+      setSongsCache({});
+
       setEditing((prev) => {
         const newState = { ...prev };
         delete newState[`${id}_${field}`];
@@ -273,6 +281,8 @@ function SongPage({ status }) {
           song.id === songId ? { ...song, ...updated } : song
         )
       );
+      // Clear cache since data has changed
+      setSongsCache({});
     } catch (error) {
       console.error("Failed to apply Spotify enhancement:", error);
     }
@@ -282,6 +292,8 @@ function SongPage({ status }) {
     try {
       await apiDelete(`/songs/${id}`);
       setSongs(songs.filter((song) => song.id !== id));
+      // Clear cache since data has changed
+      setSongsCache({});
     } catch (error) {
       console.error("Failed to delete song:", error);
     }
@@ -290,7 +302,9 @@ function SongPage({ status }) {
   const handlePackNameUpdate = async (packId, newName) => {
     try {
       await apiPatch(`/packs/${packId}`, { name: newName });
-      fetchSongs(); // Refresh to get updated pack names
+      // Clear cache and refresh
+      setSongsCache({});
+      fetchSongs();
     } catch (error) {
       console.error("Failed to update pack name:", error);
       throw error; // Re-throw so the component can handle it

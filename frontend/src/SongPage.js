@@ -8,6 +8,7 @@ import CustomPrompt from "./components/CustomPrompt";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
 import Fireworks from "./components/Fireworks";
+import LoadingSpinner from "./components/LoadingSpinner";
 import useCollaborations from "./hooks/useCollaborations";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
 
@@ -18,6 +19,7 @@ function SongPage({ status }) {
   const [songs, setSongs] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedSongs, setSelectedSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // UI state
   const [editing, setEditing] = useState({});
@@ -60,6 +62,7 @@ function SongPage({ status }) {
   // Define fetchSongs before using it in useEffect
   const fetchSongs = useCallback(async () => {
     try {
+      setLoading(true);
       const params = new URLSearchParams();
       if (status) params.append("status", status);
       if (search) params.append("query", search);
@@ -70,6 +73,7 @@ function SongPage({ status }) {
       if (songsCache[cacheKey] && !search) {
         // Only use cache for non-search requests
         setSongs(songsCache[cacheKey]);
+        setLoading(false);
         return;
       }
 
@@ -82,6 +86,8 @@ function SongPage({ status }) {
       }
     } catch (error) {
       console.error("Failed to fetch songs:", error);
+    } finally {
+      setLoading(false);
     }
   }, [status, search, songsCache]);
 
@@ -323,41 +329,46 @@ function SongPage({ status }) {
         toggleAllGroups={toggleAllGroups}
       />
 
-      <SongTable
-        songs={songs}
-        selectedSongs={selectedSongs}
-        setSelectedSongs={setSelectedSongs}
-        editing={editing}
-        setEditing={setEditing}
-        editValues={editValues}
-        setEditValues={setEditValues}
-        saveEdit={saveEdit}
-        fetchSpotifyOptions={fetchSpotifyOptions}
-        handleDelete={handleDelete}
-        spotifyOptions={spotifyOptions}
-        setSpotifyOptions={setSpotifyOptions}
-        applySpotifyEnhancement={applySpotifyEnhancement}
-        sortKey={sortKey}
-        sortDirection={sortDirection}
-        handleSort={handleSort}
-        groupBy={groupBy}
-        groupedSongs={groupedSongs}
-        collapsedGroups={collapsedGroups}
-        toggleGroup={toggleGroup}
-        user={user}
-        getPackCollaborators={getPackCollaborators}
-        setShowCollaborationModal={setShowCollaborationModal}
-        setSelectedItemForCollaboration={setSelectedItemForCollaboration}
-        setCollaborationType={setCollaborationType}
-        status={status}
-        onBulkEdit={() => setShowBulkModal(true)}
-        onStartWork={handleStartWork}
-        onBulkDelete={() => {}} // Placeholder for now
-        onBulkEnhance={() => {}} // Placeholder for now
-        onCleanTitles={() => {}} // Placeholder for now
-        onSongAdded={fetchSongs}
-        onPackNameUpdate={handlePackNameUpdate}
-      />
+      {/* Loading Spinner */}
+      {loading && <LoadingSpinner message="Loading songs..." />}
+
+      {!loading && (
+        <SongTable
+          songs={songs}
+          selectedSongs={selectedSongs}
+          setSelectedSongs={setSelectedSongs}
+          editing={editing}
+          setEditing={setEditing}
+          editValues={editValues}
+          setEditValues={setEditValues}
+          saveEdit={saveEdit}
+          fetchSpotifyOptions={fetchSpotifyOptions}
+          handleDelete={handleDelete}
+          spotifyOptions={spotifyOptions}
+          setSpotifyOptions={setSpotifyOptions}
+          applySpotifyEnhancement={applySpotifyEnhancement}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          handleSort={handleSort}
+          groupBy={groupBy}
+          groupedSongs={groupedSongs}
+          collapsedGroups={collapsedGroups}
+          toggleGroup={toggleGroup}
+          user={user}
+          getPackCollaborators={getPackCollaborators}
+          setShowCollaborationModal={setShowCollaborationModal}
+          setSelectedItemForCollaboration={setSelectedItemForCollaboration}
+          setCollaborationType={setCollaborationType}
+          status={status}
+          onBulkEdit={() => setShowBulkModal(true)}
+          onStartWork={handleStartWork}
+          onBulkDelete={() => {}} // Placeholder for now
+          onBulkEnhance={() => {}} // Placeholder for now
+          onCleanTitles={() => {}} // Placeholder for now
+          onSongAdded={fetchSongs}
+          onPackNameUpdate={handlePackNameUpdate}
+        />
+      )}
 
       {/* Modals */}
       {showBulkModal && (

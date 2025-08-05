@@ -6,6 +6,7 @@ import WipPackCard from "./components/WipPackCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
+import LoadingSpinner from "./components/LoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 
 // Utility function to capitalize artist and album names (keeping for compatibility)
@@ -132,6 +133,7 @@ function WipPage() {
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
+    loading,
   } = useWipData(user);
 
   // UI State
@@ -531,44 +533,48 @@ function WipPage() {
         onToggleAll={toggleAll}
       />
 
-      {grouped.map((packData) => (
-        <WipPackCard
-          key={packData.pack}
-          packName={packData.pack}
-          percent={packData.percent}
-          coreSongs={packData.coreSongs}
-          allSongs={packData.allSongs}
-          collapsedPacks={collapsedPacks}
-          user={user}
-          grouped={grouped}
-          showAddForm={showAddForm}
-          newSongData={newSongData}
-          setNewSongData={setNewSongData}
-          authoringFields={authoringFields}
-          getPackCollaborators={getPackCollaborators}
-          selectedSongs={selectedSongs}
-          // Action handlers
-          onTogglePack={togglePack}
-          onSetShowAddForm={setShowAddForm}
-          onAddSongToPack={addSongToPack}
-          onSetShowCollaborationModal={setShowCollaborationModal}
-          onSetSelectedItemForCollaboration={setSelectedItemForCollaboration}
-          onSetCollaborationType={setCollaborationType}
-          onUpdateAuthoringField={updateAuthoringField}
-          onToggleOptional={toggleOptional}
-          onDeleteSong={handleDeleteSong}
-          onReleasePack={releasePack}
-          onHandleCreateAlbumSeries={handleCreateAlbumSeries}
-          onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
-          onSetSelectedSongs={setSelectedSongs}
-          onSongUpdate={updateSongData}
-          // Pack settings handlers
-          onRenamePack={handleRenamePack}
-          onMovePackToFuturePlans={handleMovePackToFuturePlans}
-          onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
-          userCollaborations={userCollaborations}
-        />
-      ))}
+      {/* Loading Spinner */}
+      {loading && <LoadingSpinner message="Loading WIP songs..." />}
+
+      {!loading &&
+        grouped.map((packData) => (
+          <WipPackCard
+            key={packData.pack}
+            packName={packData.pack}
+            percent={packData.percent}
+            coreSongs={packData.coreSongs}
+            allSongs={packData.allSongs}
+            collapsedPacks={collapsedPacks}
+            user={user}
+            grouped={grouped}
+            showAddForm={showAddForm}
+            newSongData={newSongData}
+            setNewSongData={setNewSongData}
+            authoringFields={authoringFields}
+            getPackCollaborators={getPackCollaborators}
+            selectedSongs={selectedSongs}
+            // Action handlers
+            onTogglePack={togglePack}
+            onSetShowAddForm={setShowAddForm}
+            onAddSongToPack={addSongToPack}
+            onSetShowCollaborationModal={setShowCollaborationModal}
+            onSetSelectedItemForCollaboration={setSelectedItemForCollaboration}
+            onSetCollaborationType={setCollaborationType}
+            onUpdateAuthoringField={updateAuthoringField}
+            onToggleOptional={toggleOptional}
+            onDeleteSong={handleDeleteSong}
+            onReleasePack={releasePack}
+            onHandleCreateAlbumSeries={handleCreateAlbumSeries}
+            onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
+            onSetSelectedSongs={setSelectedSongs}
+            onSongUpdate={updateSongData}
+            // Pack settings handlers
+            onRenamePack={handleRenamePack}
+            onMovePackToFuturePlans={handleMovePackToFuturePlans}
+            onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
+            userCollaborations={userCollaborations}
+          />
+        ))}
 
       {/* Album Series Modal */}
       {showAlbumSeriesModal && (

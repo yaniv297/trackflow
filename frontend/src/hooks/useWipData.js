@@ -6,6 +6,7 @@ export const useWipData = (user) => {
   const [userCollaborations, setUserCollaborations] = useState([]);
   const [collaborationsOnMyPacks, setCollaborationsOnMyPacks] = useState([]);
   const [collapsedPacks, setCollapsedPacks] = useState({});
+  const [loading, setLoading] = useState(true);
 
   const authoringFields = useMemo(
     () => [
@@ -101,6 +102,7 @@ export const useWipData = (user) => {
 
   // Load songs
   useEffect(() => {
+    setLoading(true);
     apiGet("/songs/?status=In%20Progress")
       .then((data) => {
         setSongs(data);
@@ -121,6 +123,9 @@ export const useWipData = (user) => {
       .catch((error) => {
         console.error("Failed to load songs:", error);
         setSongs([]);
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, [authoringFields]);
 
@@ -204,10 +209,13 @@ export const useWipData = (user) => {
 
   const refreshSongs = async () => {
     try {
+      setLoading(true);
       const data = await apiGet("/songs/?status=In%20Progress");
       setSongs(data);
     } catch (error) {
       console.error("Failed to refresh songs:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -223,5 +231,6 @@ export const useWipData = (user) => {
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
+    loading,
   };
 };

@@ -88,6 +88,7 @@ const LoginForm = () => {
                 border: "1px solid #ddd",
                 borderRadius: "4px",
                 fontSize: "1rem",
+                boxSizing: "border-box",
               }}
               placeholder="Enter your username"
             />
@@ -114,6 +115,7 @@ const LoginForm = () => {
                 border: "1px solid #ddd",
                 borderRadius: "4px",
                 fontSize: "1rem",
+                boxSizing: "border-box",
               }}
               placeholder="Enter your password"
             />
@@ -132,6 +134,7 @@ const LoginForm = () => {
               fontSize: "1rem",
               fontWeight: "bold",
               cursor: loading ? "not-allowed" : "pointer",
+              boxSizing: "border-box",
             }}
           >
             {loading ? "Logging in..." : "Login"}

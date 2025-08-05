@@ -309,18 +309,20 @@ export default function SongRow({
                   Enhance
                 </button>
               )}
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "red",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                ❌
-              </button>
+              {song.user_id === user?.id && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "red",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                  }}
+                >
+                  ❌
+                </button>
+              )}
             </div>
           )}
         </td>

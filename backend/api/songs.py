@@ -288,15 +288,8 @@ def delete_song(song_id: int, db: Session = Depends(get_db), current_user = Depe
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     
-    # Check if user has permission to delete this song
-    can_delete = (
-        song.user_id == current_user.id or  # User owns the song
-        db.query(Collaboration).filter(
-            Collaboration.song_id == song_id,
-            Collaboration.user_id == current_user.id,
-            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
-        ).first() is not None  # User is a collaborator
-    )
+    # Check if user has permission to delete this song - ONLY SONG OWNERS CAN DELETE
+    can_delete = song.user_id == current_user.id  # Only user owns the song
     
     if not can_delete:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this song")

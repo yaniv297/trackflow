@@ -406,10 +406,12 @@ function WipPage() {
     // This is a complex function that would need to be extracted from the original
   };
 
-  const handleCollaborationSaved = () => {
-    Promise.all([refreshCollaborations(), refreshSongs()]).catch((error) => {
+  const handleCollaborationSaved = async () => {
+    try {
+      await Promise.all([refreshCollaborations(), refreshSongs()]);
+    } catch (error) {
       console.error("Failed to refresh after collaboration saved:", error);
-    });
+    }
   };
 
   // Pack Settings Handlers

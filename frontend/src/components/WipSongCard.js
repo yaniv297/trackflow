@@ -425,7 +425,7 @@ export default function WipSongCard({
             {expanded ? "▼" : "▶"}
           </button>
 
-          {!readOnly && (
+          {!readOnly && song.user_id === currentUser?.id && (
             <button
               onClick={handleDelete}
               aria-label="Delete Song"

@@ -277,6 +277,26 @@ const UnifiedCollaborationModal = ({
       setSelectedUser("");
       setPermissionType("");
       setStep(1);
+    } else if (type === "readonly") {
+      // Add read-only collaboration and reset to step 1
+      const user = users.find((u) => u.username === selectedUser);
+      if (user) {
+        if (collaborationType === "pack") {
+          setPendingCollaborations((prev) => [
+            ...prev,
+            {
+              type: "readonly",
+              user_id: user.id,
+              username: user.username,
+              permissions: ["pack_view"],
+            },
+          ]);
+        }
+      }
+      // Reset to step 1 to add more collaborators
+      setSelectedUser("");
+      setPermissionType("");
+      setStep(1);
     } else if (type === "specific") {
       // For both pack and song, go to instrument assignment
       if (collaborationType === "song") {
@@ -479,38 +499,17 @@ const UnifiedCollaborationModal = ({
       // Handle additions
       for (const collab of pendingCollaborations) {
         if (collab.type === "full") {
-          // Give full pack permissions
+          // Give full pack permissions (PACK_VIEW + PACK_EDIT) - NO individual song collaborations
           await apiPost(`/collaborations/packs/${packId}/collaborate`, {
             user_id: collab.user_id,
             permissions: collab.permissions,
           });
-
-          // Also create song-level collaborations for all songs in the pack
-          // so the user can actually edit the songs
-
-          // If packSongs is empty, try to load them first
-          let songsToCollaborate = packSongs;
-          if (songsToCollaborate.length === 0) {
-            try {
-              const response = await apiGet(`/songs?pack_id=${packId}`);
-              songsToCollaborate = response;
-            } catch (error) {
-              console.error("Failed to load pack songs:", error);
-            }
-          }
-
-          for (const song of songsToCollaborate) {
-            try {
-              await apiPost(`/collaborations/songs/${song.id}/collaborate`, {
-                user_id: collab.user_id,
-              });
-            } catch (error) {
-              console.error(
-                `Failed to create collaboration for song ${song.id}:`,
-                error
-              );
-            }
-          }
+        } else if (collab.type === "readonly") {
+          // Give read-only pack permissions (PACK_VIEW only)
+          await apiPost(`/collaborations/packs/${packId}/collaborate`, {
+            user_id: collab.user_id,
+            permissions: collab.permissions,
+          });
         } else if (collab.type === "song_edit") {
           // Give song edit permission for single song
           await apiPost(`/collaborations/songs/${collab.songId}/collaborate`, {
@@ -629,7 +628,7 @@ const UnifiedCollaborationModal = ({
 
       // Notify parent component to refresh data
       if (onCollaborationSaved) {
-        onCollaborationSaved();
+        await onCollaborationSaved();
       }
 
       onClose();
@@ -680,7 +679,7 @@ const UnifiedCollaborationModal = ({
             .join(", ");
           return `Pack view + song edit for: ${songTitles}`;
         } else {
-          return "Pack view only";
+          return "Read only (pack view)";
         }
       }
     } else if (collaborationType === "song") {
@@ -716,7 +715,7 @@ const UnifiedCollaborationModal = ({
 
   const getDescription = () => {
     if (collaborationType === "pack") {
-      return "Add collaborators to this pack. You can give them full access to all songs, or assign them to specific songs for editing.";
+      return "Add collaborators to this pack. You can give them full access to all songs, read-only access, or assign them to specific songs for editing.";
     } else if (collaborationType === "pack_share") {
       return "Share this pack with another user. They will be able to view all songs (read-only) and add their own songs to the pack.";
     }
@@ -918,7 +917,7 @@ const UnifiedCollaborationModal = ({
                   padding: "0.75rem",
                   border: "1px solid #ddd",
                   borderRadius: "4px",
-                  background: "#f0f8ff",
+                  background: "#f8f9fa",
                   cursor: "pointer",
                   textAlign: "left",
                   marginBottom: "0.5rem",
@@ -934,6 +933,26 @@ const UnifiedCollaborationModal = ({
                   {collaborationType === "pack"
                     ? "Can edit all songs in this pack"
                     : "Can edit all instruments in this song"}
+                </small>
+              </button>
+
+              <button
+                onClick={() => handlePermissionSelect("readonly")}
+                style={{
+                  padding: "0.75rem",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  background: "#f8f9fa",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <strong>Read Only</strong>
+                <br />
+                <small style={{ color: "#666" }}>
+                  Can view the pack and add songs, but cannot edit existing
+                  content
                 </small>
               </button>
 
@@ -1323,6 +1342,7 @@ const UnifiedCollaborationModal = ({
                       <strong>{collab.username}</strong>
                       <div style={{ fontSize: "0.8rem", color: "#666" }}>
                         {collab.type === "full" && "Full permissions"}
+                        {collab.type === "readonly" && "Read only (pack view)"}
                         {collab.type === "song_edit" && "Song edit permission"}
                         {collab.type === "specific" &&
                           `${
@@ -1448,6 +1468,24 @@ const UnifiedCollaborationModal = ({
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Note about saving */}
+        {(pendingCollaborations.length > 0 || pendingRemovals.length > 0) && (
+          <div
+            style={{
+              marginTop: "1rem",
+              padding: "0.5rem",
+              backgroundColor: "#fff3cd",
+              border: "1px solid #ffeaa7",
+              borderRadius: "4px",
+              fontSize: "0.8rem",
+              color: "#856404",
+            }}
+          >
+            <strong>Note:</strong> Collaborators are not actually created until
+            you click the "Save" button.
           </div>
         )}
 

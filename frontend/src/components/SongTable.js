@@ -37,6 +37,7 @@ const SongTable = ({
   onBulkEnhance,
   onCleanTitles,
   onSongAdded,
+  onPackNameUpdate,
 }) => {
   // Local sorting state for each group
   const [localSortStates, setLocalSortStates] = useState({});
@@ -152,6 +153,7 @@ const SongTable = ({
           setSelectedItemForCollaboration={setSelectedItemForCollaboration}
           setCollaborationType={setCollaborationType}
           onSongAdded={onSongAdded}
+          onPackNameUpdate={onPackNameUpdate}
         />
 
         {!collapsedGroups[packName] && (
@@ -161,6 +163,7 @@ const SongTable = ({
               handleSort={(key) => handleLocalSort(packName, key)}
               sortKey={localSortStates[packName]?.key}
               sortDirection={localSortStates[packName]?.direction}
+              packName={packName}
             />
             {sortSongsInGroup(validSongsInPack, packName).map((song) => (
               <SongRow
@@ -188,6 +191,7 @@ const SongTable = ({
                 applySpotifyEnhancement={applySpotifyEnhancement}
                 status={status}
                 groupBy={groupBy}
+                packName={packName}
               />
             ))}
           </>
@@ -285,6 +289,7 @@ const SongTable = ({
               handleSort={(key) => handleLocalSort(artist, key)}
               sortKey={localSortStates[artist]?.key}
               sortDirection={localSortStates[artist]?.direction}
+              packName={null}
             />
             {Object.entries(albums).map(([album, songsInAlbum]) => (
               <React.Fragment key={`${artist}-${album}`}>
@@ -372,6 +377,7 @@ const SongTable = ({
                     applySpotifyEnhancement={applySpotifyEnhancement}
                     status={status}
                     groupBy={groupBy}
+                    packName={null}
                   />
                 ))}
               </React.Fragment>

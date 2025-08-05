@@ -29,8 +29,55 @@ const PackHeader = ({
   setSelectedItemForCollaboration,
   setCollaborationType,
   onSongAdded,
+  onPackNameUpdate,
 }) => {
   const [showAddSongModal, setShowAddSongModal] = useState(false);
+  const [isEditingPackName, setIsEditingPackName] = useState(false);
+  const [editingPackName, setEditingPackName] = useState(packName);
+
+  const handleStartEditPackName = () => {
+    setIsEditingPackName(true);
+    setEditingPackName(packName);
+  };
+
+  const handleSavePackName = async () => {
+    if (editingPackName.trim() === packName) {
+      setIsEditingPackName(false);
+      return;
+    }
+
+    if (editingPackName.trim() === "") {
+      setEditingPackName(packName);
+      setIsEditingPackName(false);
+      return;
+    }
+
+    try {
+      await onPackNameUpdate(
+        validSongsInPack[0]?.pack_id,
+        editingPackName.trim()
+      );
+      setIsEditingPackName(false);
+    } catch (error) {
+      console.error("Failed to update pack name:", error);
+      setEditingPackName(packName);
+      setIsEditingPackName(false);
+    }
+  };
+
+  const handleCancelEditPackName = () => {
+    setEditingPackName(packName);
+    setIsEditingPackName(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSavePackName();
+    } else if (e.key === "Escape") {
+      handleCancelEditPackName();
+    }
+  };
+
   return (
     <>
       <tr className="group-header">
@@ -152,7 +199,61 @@ const PackHeader = ({
                   ))}
                 </>
               ) : (
-                `${packName} (${validSongsInPack.length})`
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {isEditingPackName ? (
+                    <input
+                      type="text"
+                      value={editingPackName}
+                      onChange={(e) => setEditingPackName(e.target.value)}
+                      onBlur={handleSavePackName}
+                      onKeyDown={handleKeyDown}
+                      style={{
+                        fontSize: "1.2rem",
+                        fontWeight: "bold",
+                        border: "1px solid #007bff",
+                        borderRadius: "4px",
+                        padding: "0.2rem 0.5rem",
+                        outline: "none",
+                        minWidth: "200px",
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
+                      {packName} ({validSongsInPack.length})
+                    </span>
+                  )}
+                  {!isEditingPackName && validSongsInPack.length > 0 && (
+                    <button
+                      onClick={handleStartEditPackName}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                        color: "#666",
+                        padding: "0.2rem",
+                        borderRadius: "3px",
+                        transition: "background 0.2s",
+                      }}
+                      title="Edit pack name"
+                      onMouseEnter={(e) => {
+                        e.target.style.background = "#f0f0f0";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = "none";
+                      }}
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
               )}
             </span>
 

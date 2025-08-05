@@ -58,6 +58,7 @@ export default function SongRow({
   applySpotifyEnhancement,
   status,
   groupBy,
+  packName,
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { user } = useAuth();
@@ -152,17 +153,19 @@ export default function SongRow({
           saveEdit={saveEdit}
           isEditable={song.is_editable}
         />
-        <EditableCell
-          value={song.pack_name || ""}
-          songId={song.id}
-          field="pack"
-          editing={editing}
-          editValues={editValues}
-          setEditing={setEditing}
-          setEditValues={setEditValues}
-          saveEdit={saveEdit}
-          isEditable={song.is_editable}
-        />
+        {(groupBy !== "pack" || packName === "(no pack)") && (
+          <EditableCell
+            value={song.pack_name || ""}
+            songId={song.id}
+            field="pack"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
+        )}
 
         {/* Owner */}
         <td>

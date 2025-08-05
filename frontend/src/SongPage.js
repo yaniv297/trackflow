@@ -287,6 +287,16 @@ function SongPage({ status }) {
     }
   };
 
+  const handlePackNameUpdate = async (packId, newName) => {
+    try {
+      await apiPatch(`/packs/${packId}`, { name: newName });
+      fetchSongs(); // Refresh to get updated pack names
+    } catch (error) {
+      console.error("Failed to update pack name:", error);
+      throw error; // Re-throw so the component can handle it
+    }
+  };
+
   return (
     <div className="app-container">
       <PageHeader
@@ -332,6 +342,7 @@ function SongPage({ status }) {
         onBulkEnhance={() => {}} // Placeholder for now
         onCleanTitles={() => {}} // Placeholder for now
         onSongAdded={fetchSongs}
+        onPackNameUpdate={handlePackNameUpdate}
       />
 
       {/* Modals */}

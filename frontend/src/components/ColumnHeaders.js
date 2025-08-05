@@ -1,6 +1,12 @@
 import React from "react";
 
-const ColumnHeaders = ({ groupBy, handleSort, sortKey, sortDirection }) => {
+const ColumnHeaders = ({
+  groupBy,
+  handleSort,
+  sortKey,
+  sortDirection,
+  packName,
+}) => {
   return (
     <tr
       style={{
@@ -49,7 +55,9 @@ const ColumnHeaders = ({ groupBy, handleSort, sortKey, sortDirection }) => {
       >
         Album {sortKey === "album" && (sortDirection === "asc" ? "▲" : "▼")}
       </th>
-      <th style={{ padding: "0.5rem" }}>Pack</th>
+      {(groupBy !== "pack" || packName === "(no pack)") && (
+        <th style={{ padding: "0.5rem" }}>Pack</th>
+      )}
       <th style={{ padding: "0.5rem" }}>Owner</th>
       <th
         onClick={() => handleSort("year")}

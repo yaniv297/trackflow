@@ -46,11 +46,15 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
         case "edit_pack":
         case "edit_year":
         case "edit_cover_art":
-          const field = selectedAction.replace("edit_", "");
+          let field = selectedAction.replace("edit_", "");
+          // Map cover_art to album_cover for the backend
+          if (field === "cover_art") {
+            field = "album_cover";
+          }
           setProgress({
             current: 0,
             total: selectedSongs.length,
-            message: `Updating ${field}...`,
+            message: `Updating ${selectedAction.replace("edit_", "")}...`,
           });
           for (let i = 0; i < selectedSongs.length; i++) {
             const id = selectedSongs[i];
@@ -58,7 +62,12 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
               const updates = {};
               updates[field] =
                 field === "year" ? Number(inputValue) : inputValue;
+              console.log(
+                `BulkEditModal: Updating song ${id} with field ${field}:`,
+                updates
+              );
               await apiPatch(`/songs/${id}/`, updates);
+              console.log(`BulkEditModal: Successfully updated song ${id}`);
               setProgress({
                 current: i + 1,
                 total: selectedSongs.length,
@@ -194,6 +203,16 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 }
               }
             }
+            // Trigger refresh after streaming operation completes
+            if (onComplete) {
+              console.log(
+                "BulkEditModal: Streaming complete, calling onComplete..."
+              );
+              // Small delay to ensure UI updates are processed
+              setTimeout(() => {
+                onComplete();
+              }, 100);
+            }
           } catch (error) {
             console.error("Bulk enhance error:", error);
             failed = selectedSongs.length;
@@ -249,7 +268,12 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
     setSelectedAction("");
     setInputValue("");
     setProgress({ current: 0, total: 0, message: "" });
-    onComplete();
+
+    // Ensure onComplete is called to refresh the parent component
+    if (onComplete) {
+      console.log("BulkEditModal: Calling onComplete to refresh parent...");
+      onComplete();
+    }
   };
 
   return (
@@ -314,10 +338,12 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           value={selectedAction}
           onChange={(e) => setSelectedAction(e.target.value)}
           style={{
+            width: "100%",
             padding: "0.75rem",
             border: "1px solid #ccc",
             borderRadius: "8px",
             fontSize: "1rem",
+            boxSizing: "border-box",
           }}
         >
           <option value="">-- Choose Action --</option>
@@ -401,6 +427,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                   border: "1px solid #ccc",
                   borderRadius: "8px",
                   fontSize: "1rem",
+                  boxSizing: "border-box",
                 }}
               />
             )}

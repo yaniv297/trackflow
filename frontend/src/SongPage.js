@@ -78,6 +78,11 @@ function SongPage({ status }) {
       }
 
       const response = await apiGet(`/songs/?${params.toString()}`);
+      console.log(
+        "fetchSongs: Fetched fresh data from server:",
+        response.length,
+        "songs"
+      );
       setSongs(response);
 
       // Cache the result (only for non-search requests)
@@ -377,8 +382,13 @@ function SongPage({ status }) {
           onClose={() => setShowBulkModal(false)}
           selectedSongs={selectedSongs}
           onComplete={() => {
+            console.log(
+              "BulkEditModal onComplete called - refreshing songs..."
+            );
             setShowBulkModal(false);
             setSelectedSongs([]);
+            // Clear cache to force fresh data fetch
+            setSongsCache({});
             fetchSongs();
           }}
         />

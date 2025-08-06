@@ -128,34 +128,23 @@ def bulk_enhance_songs(song_ids: list[int] = Body(...), db: Session = Depends(ge
     """Bulk enhance songs with Spotify data using auto-enhancement"""
     enhanced_songs = []
     failed = []
-    progress_updates = []
+
+    print(f"Starting bulk enhance for {len(song_ids)} songs in production")
 
     for i, song_id in enumerate(song_ids):
         # Check if the song belongs to the current user
         song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user.id).first()
         if not song:
+            print(f"Song {song_id} not found or not owned by user {current_user.id}")
             failed.append(song_id)
-            progress_updates.append({
-                "current": i + 1,
-                "total": len(song_ids),
-                "message": f"Failed to enhance song {song_id} (not found)",
-                "song_id": song_id,
-                "status": "failed"
-            })
             continue
 
         try:
-            # Update progress before processing
-            progress_updates.append({
-                "current": i + 1,
-                "total": len(song_ids),
-                "message": f"Enhancing song: {song.title}",
-                "song_id": song_id,
-                "status": "processing"
-            })
+            print(f"Enhancing song {song_id}: {song.title}")
             
             # Use the auto_enhance_song function
             if auto_enhance_song(song_id, db):
+                print(f"Successfully enhanced song {song_id}: {song.title}")
                 # Re-fetch the enhanced song with all relationships
                 from sqlalchemy.orm import joinedload
                 enhanced_song = db.query(Song).options(
@@ -166,8 +155,20 @@ def bulk_enhance_songs(song_ids: list[int] = Body(...), db: Session = Depends(ge
                 ).filter(Song.id == song_id).first()
                 
                 if enhanced_song:
-                    # Convert to SongOut format
-                    song_dict = enhanced_song.__dict__.copy()
+                    # Build song dict manually to avoid SQLAlchemy internal objects
+                    song_dict = {
+                        "id": enhanced_song.id,
+                        "title": enhanced_song.title,
+                        "artist": enhanced_song.artist,
+                        "album": enhanced_song.album,
+                        "year": enhanced_song.year,
+                        "album_cover": enhanced_song.album_cover,
+                        "status": enhanced_song.status,
+                        "user_id": enhanced_song.user_id,
+                        "pack_id": enhanced_song.pack_id,
+                        "created_at": enhanced_song.created_at.isoformat() if enhanced_song.created_at else None,
+                    }
+                    
                     if enhanced_song.user:
                         song_dict["author"] = enhanced_song.user.username
                     
@@ -181,7 +182,7 @@ def bulk_enhance_songs(song_ids: list[int] = Body(...), db: Session = Depends(ge
                                 "user_id": collab.user_id,
                                 "username": collab.user.username,
                                 "collaboration_type": collab.collaboration_type.value,
-                                "created_at": collab.created_at
+                                "created_at": collab.created_at.isoformat() if collab.created_at else None
                             }
                             collaborations_with_username.append(collab_dict)
                         song_dict["collaborations"] = collaborations_with_username
@@ -201,41 +202,21 @@ def bulk_enhance_songs(song_ids: list[int] = Body(...), db: Session = Depends(ge
                     ).first() is not None
                     song_dict["is_editable"] = is_owner or has_song_collaboration
                     
-                    enhanced_songs.append(SongOut(**song_dict))
-                    
-                    # Update progress after successful enhancement
-                    progress_updates.append({
-                        "current": i + 1,
-                        "total": len(song_ids),
-                        "message": f"Successfully enhanced: {song.title}",
-                        "song_id": song_id,
-                        "status": "success"
-                    })
+                    enhanced_songs.append(song_dict)
+                else:
+                    print(f"Failed to re-fetch enhanced song {song_id}")
+                    failed.append(song_id)
             else:
+                print(f"auto_enhance_song returned False for song {song_id}")
                 failed.append(song_id)
-                progress_updates.append({
-                    "current": i + 1,
-                    "total": len(song_ids),
-                    "message": f"Failed to enhance: {song.title}",
-                    "song_id": song_id,
-                    "status": "failed"
-                })
         except Exception as e:
-            print(f"Failed to enhance song {song_id}: {e}")
+            print(f"Exception enhancing song {song_id}: {e}")
             failed.append(song_id)
-            progress_updates.append({
-                "current": i + 1,
-                "total": len(song_ids),
-                "message": f"Error enhancing song {song_id}: {str(e)}",
-                "song_id": song_id,
-                "status": "error"
-            })
 
-    print(f"Enhanced {len(enhanced_songs)} songs, failed {len(failed)} songs")
+    print(f"Bulk enhance complete: {len(enhanced_songs)} enhanced, {len(failed)} failed")
     return {
         "enhanced_songs": enhanced_songs,
         "failed_songs": failed,
-        "progress_updates": progress_updates,
         "total_enhanced": len(enhanced_songs),
         "total_failed": len(failed)
     }

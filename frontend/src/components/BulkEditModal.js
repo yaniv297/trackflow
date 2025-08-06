@@ -150,65 +150,52 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
             message: "Starting enhancement...",
           });
           try {
-            // Use streaming endpoint for real-time progress
-            const response = await fetch(
-              `${
-                process.env.REACT_APP_API_URL || "http://localhost:8001"
-              }/tools/bulk-enhance-stream`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-                body: JSON.stringify(selectedSongs),
-              }
+            // Simulate progress updates for better UX
+            const progressInterval = setInterval(() => {
+              setProgress((prev) => {
+                if (prev.current < selectedSongs.length - 1) {
+                  return {
+                    current: prev.current + 1,
+                    total: selectedSongs.length,
+                    message: `Enhancing songs... (${prev.current + 1}/${
+                      selectedSongs.length
+                    })`,
+                  };
+                }
+                return prev;
+              });
+            }, 200); // Update every 200ms
+
+            // Use non-streaming endpoint for better production compatibility
+            const response = await apiPost(
+              "/tools/bulk-enhance",
+              selectedSongs
             );
 
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+            // Clear the progress interval
+            clearInterval(progressInterval);
+
+            console.log("Bulk enhance response:", response);
+
+            if (response && response.total_enhanced !== undefined) {
+              setProgress({
+                current: selectedSongs.length,
+                total: selectedSongs.length,
+                message: `Enhancement complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed`,
+              });
+            } else {
+              setProgress({
+                current: selectedSongs.length,
+                total: selectedSongs.length,
+                message: "Enhancement complete!",
+              });
             }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              const chunk = decoder.decode(value);
-              const lines = chunk.split("\n");
-
-              for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  try {
-                    const data = JSON.parse(line.slice(6));
-
-                    if (data.type === "progress") {
-                      setProgress({
-                        current: data.current,
-                        total: data.total,
-                        message: data.message,
-                      });
-                    } else if (data.type === "complete") {
-                      setProgress({
-                        current: data.total_enhanced + data.total_failed,
-                        total: selectedSongs.length,
-                        message: `Enhancement complete! ${data.total_enhanced} enhanced, ${data.total_failed} failed`,
-                      });
-                    }
-                  } catch (e) {
-                    console.error("Error parsing SSE data:", e);
-                  }
-                }
-              }
-            }
-            // Trigger refresh after streaming operation completes
+            // Trigger refresh after operation completes
             if (onComplete) {
               console.log(
-                "BulkEditModal: Streaming complete, calling onComplete..."
+                "BulkEditModal: Enhancement complete, calling onComplete..."
               );
-              // Small delay to ensure UI updates are processed
               setTimeout(() => {
                 onComplete();
               }, 100);

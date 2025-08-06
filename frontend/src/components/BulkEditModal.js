@@ -6,6 +6,11 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
   const [selectedAction, setSelectedAction] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState({
+    current: 0,
+    total: 0,
+    message: "",
+  });
 
   if (!isOpen) return null;
 
@@ -42,12 +47,23 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
         case "edit_year":
         case "edit_cover_art":
           const field = selectedAction.replace("edit_", "");
-          for (const id of selectedSongs) {
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: `Updating ${field}...`,
+          });
+          for (let i = 0; i < selectedSongs.length; i++) {
+            const id = selectedSongs[i];
             try {
               const updates = {};
               updates[field] =
                 field === "year" ? Number(inputValue) : inputValue;
               await apiPatch(`/songs/${id}/`, updates);
+              setProgress({
+                current: i + 1,
+                total: selectedSongs.length,
+                message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
+              });
             } catch {
               failed++;
             }
@@ -55,7 +71,13 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           break;
 
         case "edit_collaborations":
-          for (const id of selectedSongs) {
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: "Updating collaborations...",
+          });
+          for (let i = 0; i < selectedSongs.length; i++) {
+            const id = selectedSongs[i];
             try {
               const collaborationText = inputValue.trim();
               if (collaborationText) {
@@ -69,6 +91,11 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                   collaborations,
                 });
               }
+              setProgress({
+                current: i + 1,
+                total: selectedSongs.length,
+                message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
+              });
             } catch {
               failed++;
             }
@@ -76,7 +103,13 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           break;
 
         case "edit_owner":
-          for (const id of selectedSongs) {
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: "Updating song owners...",
+          });
+          for (let i = 0; i < selectedSongs.length; i++) {
+            const id = selectedSongs[i];
             try {
               // First, get the user ID for the username
               const usersResponse = await apiGet("/auth/users/");
@@ -90,6 +123,11 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
               } else {
                 failed++;
               }
+              setProgress({
+                current: i + 1,
+                total: selectedSongs.length,
+                message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
+              });
             } catch {
               failed++;
             }
@@ -97,12 +135,69 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           break;
 
         case "bulk_enhance":
-          for (const id of selectedSongs) {
-            try {
-              await apiPost(`/songs/${id}/enhance/`);
-            } catch {
-              failed++;
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: "Starting enhancement...",
+          });
+          try {
+            // Use streaming endpoint for real-time progress
+            const response = await fetch(
+              `${
+                process.env.REACT_APP_API_URL || "http://localhost:8001"
+              }/tools/bulk-enhance-stream`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify(selectedSongs),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value);
+              const lines = chunk.split("\n");
+
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+
+                    if (data.type === "progress") {
+                      setProgress({
+                        current: data.current,
+                        total: data.total,
+                        message: data.message,
+                      });
+                    } else if (data.type === "complete") {
+                      setProgress({
+                        current: data.total_enhanced + data.total_failed,
+                        total: selectedSongs.length,
+                        message: `Enhancement complete! ${data.total_enhanced} enhanced, ${data.total_failed} failed`,
+                      });
+                    }
+                  } catch (e) {
+                    console.error("Error parsing SSE data:", e);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Bulk enhance error:", error);
+            failed = selectedSongs.length;
+            setProgress({ current: 0, total: 0, message: "" });
           }
           break;
 
@@ -115,10 +210,21 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           break;
 
         case "clean_remaster_tags":
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: "Cleaning remaster tags...",
+          });
           try {
             await apiPost("/tools/bulk-clean/", selectedSongs);
+            setProgress({
+              current: selectedSongs.length,
+              total: selectedSongs.length,
+              message: "Cleaning complete!",
+            });
           } catch {
             failed = selectedSongs.length;
+            setProgress({ current: 0, total: 0, message: "" });
           }
           break;
 
@@ -142,6 +248,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
     setLoading(false);
     setSelectedAction("");
     setInputValue("");
+    setProgress({ current: 0, total: 0, message: "" });
     onComplete();
   };
 
@@ -297,6 +404,46 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 }}
               />
             )}
+          </div>
+        )}
+
+        {/* Progress Bar */}
+        {loading && progress.total > 0 && (
+          <div style={{ marginTop: "1rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "0.5rem",
+                fontSize: "0.9rem",
+                color: "#666",
+              }}
+            >
+              <span>{progress.message}</span>
+              <span>
+                {progress.current} / {progress.total}
+              </span>
+            </div>
+            <div
+              style={{
+                width: "100%",
+                height: "8px",
+                backgroundColor: "#f0f0f0",
+                borderRadius: "4px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${(progress.current / progress.total) * 100}%`,
+                  height: "100%",
+                  backgroundColor: "#007bff",
+                  transition: "width 0.3s ease",
+                  borderRadius: "4px",
+                }}
+              />
+            </div>
           </div>
         )}
 

@@ -76,6 +76,24 @@ const AutoComplete = ({
     setShowSuggestions(true);
   };
 
+  // Check if there's an exact case-insensitive match and auto-select it
+  useEffect(() => {
+    if (suggestions.length > 0 && inputValue) {
+      const exactMatch = suggestions.find(
+        (suggestion) => suggestion.toLowerCase() === inputValue.toLowerCase()
+      );
+
+      if (exactMatch && exactMatch !== inputValue) {
+        // Auto-select the exact match from database
+        setInputValue(exactMatch);
+        const syntheticEvent = {
+          target: { value: exactMatch },
+        };
+        onChange(syntheticEvent);
+      }
+    }
+  }, [suggestions, inputValue, onChange]);
+
   const handleSuggestionClick = (suggestion) => {
     setInputValue(suggestion);
     setShowSuggestions(false);

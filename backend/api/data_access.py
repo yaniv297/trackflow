@@ -18,9 +18,9 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
         pack_name = song_data.pop('pack_name', None) or song_data.pop('pack', None)
         print(f"Pack creation debug: pack_name={pack_name}, song_data={song_data}")
         if pack_name:
-            # Check if pack already exists for this user
+            # Check if pack already exists for this user (case-insensitive)
             existing_pack = db.query(Pack).filter(
-                Pack.name == pack_name,
+                Pack.name.ilike(pack_name),
                 Pack.user_id == user.id
             ).first()
             
@@ -181,9 +181,14 @@ def check_song_duplicate_for_user(db: Session, title: str, artist: str, current_
     """
     Check if a song already exists for the current user (as owner or collaborator).
     Returns True if the user already has access to this song, False otherwise.
+    Uses case-insensitive matching to prevent duplicates with different capitalization.
     """
-    # Check if user owns this song
-    existing_song = db.query(Song).filter_by(title=title, artist=artist).first()
+    # Check if user owns this song (case-insensitive)
+    existing_song = db.query(Song).filter(
+        Song.title.ilike(title),
+        Song.artist.ilike(artist)
+    ).first()
+    
     if existing_song:
         # Check if user owns this song
         if existing_song.user_id == current_user.id:

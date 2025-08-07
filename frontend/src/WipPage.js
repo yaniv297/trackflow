@@ -13,9 +13,10 @@ import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 // eslint-disable-next-line no-unused-vars
 const capitalizeName = (name) => {
   if (!name) return name;
-  return name
-    .split(" ")
-    .map((word) => {
+  const words = name.split(" ");
+
+  return words
+    .map((word, index) => {
       // Handle special cases like "the", "of", "and", etc.
       const lowerWords = [
         "the",
@@ -112,7 +113,8 @@ const capitalizeName = (name) => {
         "narrow",
       ];
 
-      if (lowerWords.includes(word.toLowerCase())) {
+      // Only lowercase these words if they're NOT the first word
+      if (index > 0 && lowerWords.includes(word.toLowerCase())) {
         return word.toLowerCase();
       }
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();

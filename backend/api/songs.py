@@ -22,7 +22,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     if song_data.get('pack') and not song_data.get('pack_id'):
         pack_name = song_data['pack']
         existing_pack = db.query(Pack).filter(
-            Pack.name == pack_name,
+            Pack.name.ilike(pack_name),
             Pack.user_id == current_user.id
         ).first()
         
@@ -631,29 +631,67 @@ def get_all_artists(db: Session = Depends(get_db), current_user = Depends(get_cu
 
 @router.get("/autocomplete/artists")
 def get_artists_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    """Get artists for auto-complete"""
+    """Get artists for auto-complete with case-insensitive matching"""
     if not query:
         return []
     
-    artists = db.query(Song.artist).filter(
+    # First try exact match (case-insensitive)
+    exact_match = db.query(Song.artist).filter(
         Song.user_id == current_user.id,
-        Song.artist.ilike(f"%{query}%")
+        Song.artist.ilike(query)
+    ).distinct().first()
+    
+    # Then get partial matches
+    partial_matches = db.query(Song.artist).filter(
+        Song.user_id == current_user.id,
+        Song.artist.ilike(f"%{query}%"),
+        Song.artist.ilike(f"%{query}%")  # This ensures we get partial matches too
     ).distinct().limit(10).all()
     
-    return [artist[0] for artist in artists if artist[0]]
+    results = []
+    
+    # Add exact match first if found
+    if exact_match and exact_match[0]:
+        results.append(exact_match[0])
+    
+    # Add partial matches (excluding exact match if already added)
+    for artist in partial_matches:
+        if artist[0] and artist[0] not in results:
+            results.append(artist[0])
+    
+    return results[:10]  # Limit to 10 total results
 
 @router.get("/autocomplete/albums")
 def get_albums_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    """Get albums for auto-complete"""
+    """Get albums for auto-complete with case-insensitive matching"""
     if not query:
         return []
     
-    albums = db.query(Song.album).filter(
+    # First try exact match (case-insensitive)
+    exact_match = db.query(Song.album).filter(
         Song.user_id == current_user.id,
-        Song.album.ilike(f"%{query}%")
+        Song.album.ilike(query)
+    ).distinct().first()
+    
+    # Then get partial matches
+    partial_matches = db.query(Song.album).filter(
+        Song.user_id == current_user.id,
+        Song.album.ilike(f"%{query}%"),
+        Song.album.ilike(f"%{query}%")  # This ensures we get partial matches too
     ).distinct().limit(10).all()
     
-    return [album[0] for album in albums if album[0]]
+    results = []
+    
+    # Add exact match first if found
+    if exact_match and exact_match[0]:
+        results.append(exact_match[0])
+    
+    # Add partial matches (excluding exact match if already added)
+    for album in partial_matches:
+        if album[0] and album[0] not in results:
+            results.append(album[0])
+    
+    return results[:10]  # Limit to 10 total results
 
 @router.get("/autocomplete/collaborators")
 def get_collaborators_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
@@ -689,16 +727,35 @@ def get_collaborators_autocomplete(query: str = Query(""), db: Session = Depends
 
 @router.get("/autocomplete/packs")
 def get_packs_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    """Get packs for auto-complete"""
+    """Get packs for auto-complete with case-insensitive matching"""
     if not query:
         return []
     
-    packs = db.query(Pack.name).filter(
+    # First try exact match (case-insensitive)
+    exact_match = db.query(Pack.name).filter(
         Pack.user_id == current_user.id,
-        Pack.name.ilike(f"%{query}%")
+        Pack.name.ilike(query)
+    ).distinct().first()
+    
+    # Then get partial matches
+    partial_matches = db.query(Pack.name).filter(
+        Pack.user_id == current_user.id,
+        Pack.name.ilike(f"%{query}%"),
+        Pack.name.ilike(f"%{query}%")  # This ensures we get partial matches too
     ).distinct().limit(10).all()
     
-    return [pack[0] for pack in packs if pack[0]]
+    results = []
+    
+    # Add exact match first if found
+    if exact_match and exact_match[0]:
+        results.append(exact_match[0])
+    
+    # Add partial matches (excluding exact match if already added)
+    for pack in partial_matches:
+        if pack[0] and pack[0] not in results:
+            results.append(pack[0])
+    
+    return results[:10]  # Limit to 10 total results
 
 @router.get("/debug-songs")
 def debug_songs(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):

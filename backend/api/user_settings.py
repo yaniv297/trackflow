@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from auth import get_current_active_user
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 router = APIRouter(prefix="/user-settings", tags=["User Settings"])
 
 class UserSettingsUpdate(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     preferred_contact_method: Optional[str] = None  # "email" or "discord"
     discord_username: Optional[str] = None
 
@@ -58,6 +58,15 @@ def update_user_settings(
     
     # Check if email is being changed and if it's already taken
     if settings.email and settings.email != current_user.email:
+        # Basic email validation
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, settings.email):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid email format"
+            )
+        
         existing_user = db.query(User).filter(User.email == settings.email).first()
         if existing_user:
             raise HTTPException(

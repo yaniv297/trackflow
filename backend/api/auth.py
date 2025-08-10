@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from datetime import timedelta, datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -89,7 +89,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 class UserCreate(BaseModel):
     username: str
-    email: EmailStr
+    email: str
     password: str
 
 class UserLogin(BaseModel):
@@ -113,6 +113,15 @@ class Token(BaseModel):
 
 @router.post("/register", response_model=Token)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
+    # Basic email validation
+    import re
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, user_data.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email format"
+        )
+    
     # Check if username already exists
     existing_user = db.query(User).filter(User.username == user_data.username).first()
     if existing_user:

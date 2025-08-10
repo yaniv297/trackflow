@@ -18,14 +18,15 @@ class UserSettingsResponse(BaseModel):
     id: int
     username: str
     email: str
-    preferred_contact_method: str
+    preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
     created_at: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
     id: int
     username: str
-    preferred_contact_method: str
+    email: str
+    preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
     created_at: Optional[str] = None
 
@@ -41,7 +42,7 @@ def get_user_settings(
         "id": current_user.id,
         "username": current_user.username,
         "email": current_user.email,
-        "preferred_contact_method": current_user.preferred_contact_method or "email",
+        "preferred_contact_method": current_user.preferred_contact_method,
         "discord_username": current_user.discord_username,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None
     }
@@ -72,6 +73,19 @@ def update_user_settings(
                 status_code=400,
                 detail="preferred_contact_method must be 'email' or 'discord'"
             )
+        
+        # Validate that required fields are provided based on contact method
+        if settings.preferred_contact_method == "email" and not current_user.email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email address is required when email is the preferred contact method"
+            )
+        elif settings.preferred_contact_method == "discord" and not settings.discord_username:
+            raise HTTPException(
+                status_code=400,
+                detail="Discord username is required when Discord is the preferred contact method"
+            )
+        
         current_user.preferred_contact_method = settings.preferred_contact_method
     
     if settings.discord_username is not None:
@@ -86,7 +100,7 @@ def update_user_settings(
             "id": current_user.id,
             "username": current_user.username,
             "email": current_user.email,
-            "preferred_contact_method": current_user.preferred_contact_method or "email",
+            "preferred_contact_method": current_user.preferred_contact_method,
             "discord_username": current_user.discord_username,
             "created_at": current_user.created_at.isoformat() if current_user.created_at else None
         }
@@ -118,7 +132,8 @@ def get_user_profile(
     user_dict = {
         "id": user.id,
         "username": user.username,
-        "preferred_contact_method": user.preferred_contact_method or "email",
+        "email": user.email,
+        "preferred_contact_method": user.preferred_contact_method,
         "discord_username": user.discord_username,
         "created_at": user.created_at.isoformat() if user.created_at else None
     }

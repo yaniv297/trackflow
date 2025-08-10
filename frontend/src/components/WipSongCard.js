@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiPut } from "../utils/api";
 import UnifiedCollaborationModal from "./UnifiedCollaborationModal";
 import { useAuth } from "../contexts/AuthContext";
+import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
+import UserProfilePopup from "./UserProfilePopup";
 
 export default function WipSongCard({
   song,
@@ -35,6 +37,7 @@ export default function WipSongCard({
   const [wipCollaborations, setWipCollaborations] = useState([]);
   const isOptional = song.optional;
   const { user: currentUser } = useAuth();
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   const loadWipCollaborations = useCallback(async () => {
     try {
@@ -561,7 +564,12 @@ export default function WipSongCard({
                               fontWeight: "bold",
                               marginBottom: "0.25rem",
                               color: "#666",
+                              cursor: "pointer",
                             }}
+                            onClick={handleUsernameClick(
+                              song.author || "Song Owner"
+                            )}
+                            title="Click to view profile"
                           >
                             {song.author || "Song Owner"}:
                           </div>
@@ -625,7 +633,10 @@ export default function WipSongCard({
                                 fontWeight: "bold",
                                 marginBottom: "0.25rem",
                                 color: "#666",
+                                cursor: "pointer",
                               }}
+                              onClick={handleUsernameClick(collaborator)}
+                              title="Click to view profile"
                             >
                               {collaborator}:
                             </div>
@@ -840,6 +851,14 @@ export default function WipSongCard({
           }}
         />
       )}
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+      />
     </div>
   );
 }

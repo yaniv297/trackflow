@@ -14,10 +14,12 @@ const getApiUrl = () => {
 
   // Check if we're in development
   if (window.location.hostname === "localhost") {
+    console.log("Development mode detected, using localhost:8001");
     return "http://localhost:8001";
   }
 
   // For production, ALWAYS use HTTPS - hardcoded to prevent mixed content
+  console.log("Production mode detected, using Railway URL");
   return "https://trackflow-api.up.railway.app";
 };
 

@@ -31,7 +31,7 @@ class User(Base):
     
     # User settings fields
     display_name = Column(String, nullable=True)  # Optional display name (different from username)
-    preferred_contact_method = Column(String, default="email")  # "email" or "discord"
+    preferred_contact_method = Column(String, nullable=True)  # "email" or "discord"
     discord_username = Column(String, nullable=True)  # Discord username for contact
     
     # Relationships

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+from typing import List
 from database import get_db
-from auth import get_current_active_user
-from models import FileLink, Song, User, Collaboration, CollaborationType
+from api.auth import get_current_active_user
+from models import FileLink, Song, Collaboration, CollaborationType
 from pydantic import BaseModel
 from datetime import datetime
 

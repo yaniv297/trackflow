@@ -177,7 +177,21 @@ function SongPage({ status }) {
         });
       });
 
-      return grouped;
+      // Sort pack names alphabetically, with "(no pack)" at the end
+      const sortedGrouped = {};
+      Object.keys(grouped)
+        .sort((a, b) => {
+          // Put "(no pack)" at the end
+          if (a === "(no pack)") return 1;
+          if (b === "(no pack)") return -1;
+          // Sort other packs alphabetically
+          return a.localeCompare(b);
+        })
+        .forEach((packName) => {
+          sortedGrouped[packName] = grouped[packName];
+        });
+
+      return sortedGrouped;
     }
   }, [sortedSongs, search, groupBy]);
 

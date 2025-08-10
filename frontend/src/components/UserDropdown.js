@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiGet } from "../utils/api";
+import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
+import UserProfilePopup from "./UserProfilePopup";
 
 const UserDropdown = ({
   value,
@@ -17,6 +19,7 @@ const UserDropdown = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [showNewUserInput, setShowNewUserInput] = useState(false);
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   // Load all users on component mount
   useEffect(() => {
@@ -214,7 +217,16 @@ const UserDropdown = ({
                     e.target.style.backgroundColor = "white";
                   }}
                 >
-                  {user.username}
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUsernameClick(user.username)(e);
+                    }}
+                    style={{ cursor: "pointer" }}
+                    title="Click to view profile"
+                  >
+                    {user.username}
+                  </span>
                 </div>
               ))}
             </div>
@@ -359,6 +371,14 @@ const UserDropdown = ({
           }}
         />
       )}
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+      />
     </div>
   );
 };

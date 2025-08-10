@@ -29,6 +29,11 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # User settings fields
+    display_name = Column(String, nullable=True)  # Optional display name (different from username)
+    preferred_contact_method = Column(String, nullable=True)  # "email" or "discord"
+    discord_username = Column(String, nullable=True)  # Discord username for contact
+    
     # Relationships
     songs = relationship("Song", back_populates="user")
     packs = relationship("Pack", back_populates="user")

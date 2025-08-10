@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { apiPost, apiGet, apiDelete, apiPut } from "../utils/api";
 import UserDropdown from "./UserDropdown";
+import { useAuth } from "../contexts/AuthContext";
+import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
+import UserProfilePopup from "./UserProfilePopup";
 
 const UnifiedCollaborationModal = ({
   isOpen,
@@ -100,6 +103,8 @@ const UnifiedCollaborationModal = ({
     Overdrive: "overdrive",
     Compile: "compile",
   };
+
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   // Load collaborators
   const loadCollaborators = useCallback(async () => {
@@ -771,48 +776,384 @@ const UnifiedCollaborationModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
-      }}
-      onClick={handleClose}
-    >
+    <>
       <div
         style={{
-          background: "white",
-          padding: "2rem",
-          borderRadius: "8px",
-          maxWidth: "700px",
-          width: "90%",
-          maxHeight: "80vh",
-          overflow: "auto",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: isOpen ? "flex" : "none",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000,
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={onClose}
       >
-        <h2 style={{ margin: "0 0 1rem 0", color: "#333" }}>{getTitle()}</h2>
-
-        <p
+        <div
           style={{
-            margin: "0 0 1.5rem 0",
-            color: "#666",
-            fontSize: "0.9rem",
-            lineHeight: "1.4",
+            background: "white",
+            padding: "2rem",
+            borderRadius: "8px",
+            maxWidth: "700px",
+            width: "90%",
+            maxHeight: "80vh",
+            overflow: "auto",
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-          {getDescription()}
-        </p>
+          <h2 style={{ margin: "0 0 1rem 0", color: "#333" }}>{getTitle()}</h2>
 
-        {/* Step 1: Select User */}
-        {step === 1 && (
+          <p
+            style={{
+              margin: "0 0 1.5rem 0",
+              color: "#666",
+              fontSize: "0.9rem",
+              lineHeight: "1.4",
+            }}
+          >
+            {getDescription()}
+          </p>
+
+          {/* Step 1: Select User */}
+          {step === 1 && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <h3
+                style={{
+                  margin: "0 0 0.5rem 0",
+                  fontSize: "1rem",
+                  color: "#555",
+                }}
+              >
+                {getStepDescription()}
+              </h3>
+
+              <UserDropdown
+                value={
+                  collaborationType === "pack_share"
+                    ? selectedUsersForShare
+                    : selectedUser
+                }
+                onChange={(e) => {
+                  const newUsers = e.target.value
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter((s) => s);
+
+                  if (collaborationType === "pack_share") {
+                    // For pack sharing, update the selectedUsersForShare and add to pending immediately
+                    const oldUsernames = selectedUsersForShare
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter((s) => s);
+
+                    setSelectedUsersForShare(e.target.value);
+
+                    // Add any new users to pending collaborations
+                    const newUsernames = newUsers.filter(
+                      (username) => !oldUsernames.includes(username)
+                    );
+
+                    newUsernames.forEach((username) => {
+                      const user = users.find((u) => u.username === username);
+                      if (user) {
+                        setPendingCollaborations((prev) => [
+                          ...prev,
+                          {
+                            type: "pack_share",
+                            user_id: user.id,
+                            username: user.username,
+                            permissions: ["pack_view"],
+                          },
+                        ]);
+                      }
+                    });
+
+                    // Remove any deselected users from pending collaborations
+                    const removedUsernames = oldUsernames.filter(
+                      (username) => !newUsers.includes(username)
+                    );
+
+                    if (removedUsernames.length > 0) {
+                      setPendingCollaborations((prev) =>
+                        prev.filter(
+                          (collab) =>
+                            !(
+                              collab.type === "pack_share" &&
+                              removedUsernames.includes(collab.username)
+                            )
+                        )
+                      );
+                    }
+                  } else if (newUsers.length > 0) {
+                    handleUserSelect(newUsers[newUsers.length - 1]);
+                  }
+                }}
+                placeholder="Select a user..."
+                currentUser={currentUser}
+              />
+            </div>
+          )}
+
+          {/* Step 2: Choose Permission Type (only for regular pack collaborations) */}
+          {step === 2 && collaborationType === "pack" && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <h3
+                style={{
+                  margin: "0 0 1rem 0",
+                  fontSize: "1rem",
+                  color: "#555",
+                }}
+              >
+                {getStepDescription()}
+              </h3>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                <button
+                  onClick={() => handlePermissionSelect("full")}
+                  style={{
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    background: "#f8f9fa",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <strong>
+                    {collaborationType === "pack"
+                      ? "Full Pack Access"
+                      : "Full Song Access"}
+                  </strong>
+                  <br />
+                  <small style={{ color: "#666" }}>
+                    {collaborationType === "pack"
+                      ? "Can edit all songs in this pack"
+                      : "Can edit all instruments in this song"}
+                  </small>
+                </button>
+
+                <button
+                  onClick={() => handlePermissionSelect("readonly")}
+                  style={{
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    background: "#f8f9fa",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <strong>Read Only</strong>
+                  <br />
+                  <small style={{ color: "#666" }}>
+                    Can view the pack and add songs, but cannot edit existing
+                    content
+                  </small>
+                </button>
+
+                <button
+                  onClick={() => handlePermissionSelect("specific")}
+                  style={{
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    background: "#f8f9fa",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <strong>
+                    {collaborationType === "pack"
+                      ? "Choose Songs & Instruments"
+                      : "Choose Instruments"}
+                  </strong>
+                  <br />
+                  <small style={{ color: "#666" }}>
+                    {collaborationType === "pack"
+                      ? "Select specific songs and assign instruments"
+                      : "Assign specific instruments only"}
+                  </small>
+                </button>
+              </div>
+
+              <div style={{ marginTop: "1rem" }}>
+                <button
+                  onClick={() => setStep(1)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Select Songs and Instruments (only for specific permissions) */}
+          {step === 3 && collaborationType !== "pack_share" && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <h3
+                style={{
+                  margin: "0 0 1rem 0",
+                  fontSize: "1rem",
+                  color: "#555",
+                }}
+              >
+                {getStepDescription()}
+              </h3>
+
+              {/* Song Selection (only show for pack collaboration or song-by-song) */}
+              {collaborationType === "pack" &&
+                permissionType === "specific" && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+                      Select Songs:
+                    </h4>
+                    <div
+                      style={{
+                        maxHeight: "150px",
+                        overflow: "auto",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        padding: "0.5rem",
+                      }}
+                    >
+                      {packSongs.map((song) => (
+                        <label
+                          key={song.id}
+                          style={{
+                            display: "block",
+                            padding: "0.25rem 0",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedSongs.includes(song.id)}
+                            onChange={(e) =>
+                              handleSongSelection(song.id, e.target.checked)
+                            }
+                            style={{ marginRight: "0.5rem" }}
+                          />
+                          {song.title} - {song.artist}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* Instrument Selection (only for WIP songs, not for Future Plans collaborations) */}
+              {permissionType === "specific" &&
+                collaborationType === "song" && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
+                      Select Instruments:
+                    </h4>
+                    <div
+                      style={{
+                        maxHeight: "150px",
+                        overflow: "auto",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        padding: "0.5rem",
+                      }}
+                    >
+                      {instrumentFields.map((instrument) => (
+                        <label
+                          key={instrument}
+                          style={{
+                            display: "block",
+                            padding: "0.25rem 0",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedInstruments.includes(instrument)}
+                            onChange={(e) =>
+                              handleInstrumentSelection(
+                                instrument,
+                                e.target.checked
+                              )
+                            }
+                            style={{ marginRight: "0.5rem" }}
+                          />
+                          {instrument}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => setStep(2)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleAddCollaboration}
+                  disabled={
+                    permissionType === "specific" &&
+                    ((collaborationType === "pack" &&
+                      selectedSongs.length === 0) ||
+                      (collaborationType === "song" &&
+                        selectedInstruments.length === 0))
+                  }
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background:
+                      permissionType === "specific" &&
+                      ((collaborationType === "pack" &&
+                        selectedSongs.length === 0) ||
+                        (collaborationType === "song" &&
+                          selectedInstruments.length === 0))
+                        ? "#ccc"
+                        : "#28a745",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor:
+                      permissionType === "specific" &&
+                      ((collaborationType === "pack" &&
+                        selectedSongs.length === 0) ||
+                        (collaborationType === "song" &&
+                          selectedInstruments.length === 0))
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+                  Add Collaboration
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Current Collaborators */}
           <div style={{ marginBottom: "1.5rem" }}>
             <h3
               style={{
@@ -821,258 +1162,296 @@ const UnifiedCollaborationModal = ({
                 color: "#555",
               }}
             >
-              {getStepDescription()}
+              Current Collaborators
             </h3>
 
-            <UserDropdown
-              value={
-                collaborationType === "pack_share"
-                  ? selectedUsersForShare
-                  : selectedUser
-              }
-              onChange={(e) => {
-                const newUsers = e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter((s) => s);
-
-                if (collaborationType === "pack_share") {
-                  // For pack sharing, update the selectedUsersForShare and add to pending immediately
-                  const oldUsernames = selectedUsersForShare
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter((s) => s);
-
-                  setSelectedUsersForShare(e.target.value);
-
-                  // Add any new users to pending collaborations
-                  const newUsernames = newUsers.filter(
-                    (username) => !oldUsernames.includes(username)
+            {loadingCollaborators ? (
+              <p style={{ color: "#666", fontSize: "0.9rem" }}>Loading...</p>
+            ) : Object.keys(groupedCollaborators).length === 0 ? (
+              <p style={{ color: "#666", fontSize: "0.9rem" }}>
+                No collaborators yet
+              </p>
+            ) : (
+              <div style={{ border: "1px solid #ddd", borderRadius: "4px" }}>
+                {Object.values(groupedCollaborators).map((collab, index) => {
+                  const isPendingRemoval = pendingRemovals.some(
+                    (removal) => removal.user_id === collab.user_id
+                  );
+                  const wipCollabs = getWipCollaborationsForUser(
+                    collab.username
                   );
 
-                  newUsernames.forEach((username) => {
-                    const user = users.find((u) => u.username === username);
-                    if (user) {
-                      setPendingCollaborations((prev) => [
-                        ...prev,
-                        {
-                          type: "pack_share",
-                          user_id: user.id,
-                          username: user.username,
-                          permissions: ["pack_view"],
-                        },
-                      ]);
-                    }
-                  });
-
-                  // Remove any deselected users from pending collaborations
-                  const removedUsernames = oldUsernames.filter(
-                    (username) => !newUsers.includes(username)
-                  );
-
-                  if (removedUsernames.length > 0) {
-                    setPendingCollaborations((prev) =>
-                      prev.filter(
-                        (collab) =>
-                          !(
-                            collab.type === "pack_share" &&
-                            removedUsernames.includes(collab.username)
-                          )
-                      )
-                    );
-                  }
-                } else if (newUsers.length > 0) {
-                  handleUserSelect(newUsers[newUsers.length - 1]);
-                }
-              }}
-              placeholder="Select a user..."
-              currentUser={currentUser}
-            />
-          </div>
-        )}
-
-        {/* Step 2: Choose Permission Type (only for regular pack collaborations) */}
-        {step === 2 && collaborationType === "pack" && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h3
-              style={{
-                margin: "0 0 1rem 0",
-                fontSize: "1rem",
-                color: "#555",
-              }}
-            >
-              {getStepDescription()}
-            </h3>
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              <button
-                onClick={() => handlePermissionSelect("full")}
-                style={{
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  background: "#f8f9fa",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <strong>
-                  {collaborationType === "pack"
-                    ? "Full Pack Access"
-                    : "Full Song Access"}
-                </strong>
-                <br />
-                <small style={{ color: "#666" }}>
-                  {collaborationType === "pack"
-                    ? "Can edit all songs in this pack"
-                    : "Can edit all instruments in this song"}
-                </small>
-              </button>
-
-              <button
-                onClick={() => handlePermissionSelect("readonly")}
-                style={{
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  background: "#f8f9fa",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <strong>Read Only</strong>
-                <br />
-                <small style={{ color: "#666" }}>
-                  Can view the pack and add songs, but cannot edit existing
-                  content
-                </small>
-              </button>
-
-              <button
-                onClick={() => handlePermissionSelect("specific")}
-                style={{
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  background: "#f8f9fa",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <strong>
-                  {collaborationType === "pack"
-                    ? "Choose Songs & Instruments"
-                    : "Choose Instruments"}
-                </strong>
-                <br />
-                <small style={{ color: "#666" }}>
-                  {collaborationType === "pack"
-                    ? "Select specific songs and assign instruments"
-                    : "Assign specific instruments only"}
-                </small>
-              </button>
-            </div>
-
-            <div style={{ marginTop: "1rem" }}>
-              <button
-                onClick={() => setStep(1)}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "#6c757d",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Back
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Select Songs and Instruments (only for specific permissions) */}
-        {step === 3 && collaborationType !== "pack_share" && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h3
-              style={{
-                margin: "0 0 1rem 0",
-                fontSize: "1rem",
-                color: "#555",
-              }}
-            >
-              {getStepDescription()}
-            </h3>
-
-            {/* Song Selection (only show for pack collaboration or song-by-song) */}
-            {collaborationType === "pack" && permissionType === "specific" && (
-              <div style={{ marginBottom: "1rem" }}>
-                <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
-                  Select Songs:
-                </h4>
-                <div
-                  style={{
-                    maxHeight: "150px",
-                    overflow: "auto",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    padding: "0.5rem",
-                  }}
-                >
-                  {packSongs.map((song) => (
-                    <label
-                      key={song.id}
+                  return (
+                    <div
+                      key={collab.user_id}
                       style={{
-                        display: "block",
-                        padding: "0.25rem 0",
-                        cursor: "pointer",
+                        padding: "0.75rem",
+                        borderBottom:
+                          index < Object.keys(groupedCollaborators).length - 1
+                            ? "1px solid #eee"
+                            : "none",
+                        backgroundColor: isPendingRemoval ? "#ffe6e6" : "white",
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedSongs.includes(song.id)}
-                        onChange={(e) =>
-                          handleSongSelection(song.id, e.target.checked)
-                        }
-                        style={{ marginRight: "0.5rem" }}
-                      />
-                      {song.title} - {song.artist}
-                    </label>
-                  ))}
-                </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <strong
+                            style={{
+                              color: "#333",
+                              cursor: "pointer",
+                            }}
+                            onClick={handleUsernameClick(collab.username)}
+                            title="Click to view profile"
+                          >
+                            {collab.username}
+                          </strong>
+                          <div
+                            style={{
+                              fontSize: "0.8rem",
+                              color: "#666",
+                              marginTop: "0.25rem",
+                            }}
+                          >
+                            {getPermissionDescription(collab.collaborations[0])}
+                          </div>
+
+                          {/* Show WIP instrument assignments */}
+                          {Object.keys(wipCollabs).length > 0 && (
+                            <div style={{ marginTop: "0.5rem" }}>
+                              <div
+                                style={{
+                                  fontSize: "0.8rem",
+                                  fontWeight: "bold",
+                                  color: "#555",
+                                }}
+                              >
+                                Instrument Assignments:
+                              </div>
+                              {Object.entries(wipCollabs).map(
+                                ([songTitleDisplay, instruments]) => (
+                                  <div
+                                    key={songTitleDisplay}
+                                    style={{
+                                      fontSize: "0.75rem",
+                                      color: "#666",
+                                      marginLeft: "0.5rem",
+                                    }}
+                                  >
+                                    {collaborationType === "song" ? (
+                                      <span>
+                                        <strong>Instruments:</strong>{" "}
+                                        {instruments.join(", ")}
+                                      </span>
+                                    ) : (
+                                      <span>
+                                        <strong>{songTitleDisplay}:</strong>{" "}
+                                        {instruments.join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          {isPendingRemoval ? (
+                            <button
+                              onClick={() =>
+                                handleRemovePendingRemoval(collab.user_id)
+                              }
+                              style={{
+                                padding: "0.25rem 0.5rem",
+                                background: "#28a745",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "3px",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Undo Remove
+                            </button>
+                          ) : (
+                            <>
+                              {collaborationType === "song" && (
+                                <button
+                                  onClick={() => handleEditCollaborator(collab)}
+                                  style={{
+                                    padding: "0.25rem 0.5rem",
+                                    background: "#007bff",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "3px",
+                                    fontSize: "0.75rem",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                onClick={() =>
+                                  handleRemoveCollaborator(collab.user_id)
+                                }
+                                style={{
+                                  padding: "0.25rem 0.5rem",
+                                  background: "#dc3545",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: "3px",
+                                  fontSize: "0.75rem",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
+          </div>
 
-            {/* Instrument Selection (only for WIP songs, not for Future Plans collaborations) */}
-            {permissionType === "specific" && collaborationType === "song" && (
-              <div style={{ marginBottom: "1rem" }}>
-                <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
-                  Select Instruments:
-                </h4>
+          {/* Pending Collaborations */}
+          {pendingCollaborations.length > 0 && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <h3
+                style={{
+                  margin: "0 0 0.5rem 0",
+                  fontSize: "1rem",
+                  color: "#555",
+                }}
+              >
+                Pending Collaborations
+              </h3>
+              <div style={{ border: "1px solid #ddd", borderRadius: "4px" }}>
+                {pendingCollaborations.map((collab, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      padding: "0.75rem",
+                      borderBottom:
+                        index < pendingCollaborations.length - 1
+                          ? "1px solid #eee"
+                          : "none",
+                      backgroundColor: "#e8f5e8",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{ cursor: "pointer" }}
+                          onClick={handleUsernameClick(collab.username)}
+                          title="Click to view profile"
+                        >
+                          {collab.username}
+                        </strong>
+                        <div style={{ fontSize: "0.8rem", color: "#666" }}>
+                          {collab.type === "full" && "Full permissions"}
+                          {collab.type === "readonly" &&
+                            "Read only (pack view)"}
+                          {collab.type === "song_edit" &&
+                            "Song edit permission"}
+                          {collab.type === "specific" &&
+                            `${
+                              collab.instruments
+                                ? collab.instruments.join(", ")
+                                : "Song edit"
+                            } for: ${collab.songs
+                              .map((s) => s.title)
+                              .join(", ")}`}
+                          {collab.type === "pack_share" &&
+                            "Pack view permission (read-only)"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemovePendingCollaboration(index)}
+                        style={{
+                          padding: "0.25rem 0.5rem",
+                          background: "#dc3545",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "3px",
+                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Edit Mode UI */}
+          {editingCollaborator && (
+            <div
+              style={{
+                marginBottom: "1.5rem",
+                padding: "1rem",
+                border: "2px solid #007bff",
+                borderRadius: "4px",
+                backgroundColor: "#f8f9fa",
+              }}
+            >
+              <h3
+                style={{
+                  margin: "0 0 1rem 0",
+                  fontSize: "1rem",
+                  color: "#007bff",
+                }}
+              >
+                Edit Collaboration - {editingCollaborator.username}
+              </h3>
+
+              <div>
+                <p style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+                  Select instruments to assign to {editingCollaborator.username}
+                </p>
                 <div
                   style={{
-                    maxHeight: "150px",
-                    overflow: "auto",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    padding: "0.5rem",
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(150px, 1fr))",
+                    gap: "0.5rem",
+                    marginBottom: "1rem",
                   }}
                 >
                   {instrumentFields.map((instrument) => (
                     <label
                       key={instrument}
                       style={{
-                        display: "block",
-                        padding: "0.25rem 0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        padding: "0.5rem",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
                         cursor: "pointer",
+                        backgroundColor: selectedInstruments.includes(
+                          instrument
+                        )
+                          ? "#e3f2fd"
+                          : "white",
                       }}
                     >
                       <input
@@ -1084,450 +1463,111 @@ const UnifiedCollaborationModal = ({
                             e.target.checked
                           )
                         }
-                        style={{ marginRight: "0.5rem" }}
                       />
                       {instrument}
                     </label>
                   ))}
                 </div>
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                onClick={() => setStep(2)}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "#6c757d",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Back
-              </button>
-              <button
-                onClick={handleAddCollaboration}
-                disabled={
-                  permissionType === "specific" &&
-                  ((collaborationType === "pack" &&
-                    selectedSongs.length === 0) ||
-                    (collaborationType === "song" &&
-                      selectedInstruments.length === 0))
-                }
-                style={{
-                  padding: "0.5rem 1rem",
-                  background:
-                    permissionType === "specific" &&
-                    ((collaborationType === "pack" &&
-                      selectedSongs.length === 0) ||
-                      (collaborationType === "song" &&
-                        selectedInstruments.length === 0))
-                      ? "#ccc"
-                      : "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor:
-                    permissionType === "specific" &&
-                    ((collaborationType === "pack" &&
-                      selectedSongs.length === 0) ||
-                      (collaborationType === "song" &&
-                        selectedInstruments.length === 0))
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                Add Collaboration
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Current Collaborators */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <h3
-            style={{
-              margin: "0 0 0.5rem 0",
-              fontSize: "1rem",
-              color: "#555",
-            }}
-          >
-            Current Collaborators
-          </h3>
-
-          {loadingCollaborators ? (
-            <p style={{ color: "#666", fontSize: "0.9rem" }}>Loading...</p>
-          ) : Object.keys(groupedCollaborators).length === 0 ? (
-            <p style={{ color: "#666", fontSize: "0.9rem" }}>
-              No collaborators yet
-            </p>
-          ) : (
-            <div style={{ border: "1px solid #ddd", borderRadius: "4px" }}>
-              {Object.values(groupedCollaborators).map((collab, index) => {
-                const isPendingRemoval = pendingRemovals.some(
-                  (removal) => removal.user_id === collab.user_id
-                );
-                const wipCollabs = getWipCollaborationsForUser(collab.username);
-
-                return (
-                  <div
-                    key={collab.user_id}
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={loading}
                     style={{
-                      padding: "0.75rem",
-                      borderBottom:
-                        index < Object.keys(groupedCollaborators).length - 1
-                          ? "1px solid #eee"
-                          : "none",
-                      backgroundColor: isPendingRemoval ? "#ffe6e6" : "white",
+                      padding: "0.5rem 1rem",
+                      background: "#28a745",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      opacity: loading ? 0.6 : 1,
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <strong style={{ color: "#333" }}>
-                          {collab.username}
-                        </strong>
-                        <div
-                          style={{
-                            fontSize: "0.8rem",
-                            color: "#666",
-                            marginTop: "0.25rem",
-                          }}
-                        >
-                          {getPermissionDescription(collab.collaborations[0])}
-                        </div>
-
-                        {/* Show WIP instrument assignments */}
-                        {Object.keys(wipCollabs).length > 0 && (
-                          <div style={{ marginTop: "0.5rem" }}>
-                            <div
-                              style={{
-                                fontSize: "0.8rem",
-                                fontWeight: "bold",
-                                color: "#555",
-                              }}
-                            >
-                              Instrument Assignments:
-                            </div>
-                            {Object.entries(wipCollabs).map(
-                              ([songTitleDisplay, instruments]) => (
-                                <div
-                                  key={songTitleDisplay}
-                                  style={{
-                                    fontSize: "0.75rem",
-                                    color: "#666",
-                                    marginLeft: "0.5rem",
-                                  }}
-                                >
-                                  {collaborationType === "song" ? (
-                                    <span>
-                                      <strong>Instruments:</strong>{" "}
-                                      {instruments.join(", ")}
-                                    </span>
-                                  ) : (
-                                    <span>
-                                      <strong>{songTitleDisplay}:</strong>{" "}
-                                      {instruments.join(", ")}
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {isPendingRemoval ? (
-                          <button
-                            onClick={() =>
-                              handleRemovePendingRemoval(collab.user_id)
-                            }
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              background: "#28a745",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "3px",
-                              fontSize: "0.75rem",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Undo Remove
-                          </button>
-                        ) : (
-                          <>
-                            {collaborationType === "song" && (
-                              <button
-                                onClick={() => handleEditCollaborator(collab)}
-                                style={{
-                                  padding: "0.25rem 0.5rem",
-                                  background: "#007bff",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: "3px",
-                                  fontSize: "0.75rem",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Edit
-                              </button>
-                            )}
-                            <button
-                              onClick={() =>
-                                handleRemoveCollaborator(collab.user_id)
-                              }
-                              style={{
-                                padding: "0.25rem 0.5rem",
-                                background: "#dc3545",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "3px",
-                                fontSize: "0.75rem",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Pending Collaborations */}
-        {pendingCollaborations.length > 0 && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h3
-              style={{
-                margin: "0 0 0.5rem 0",
-                fontSize: "1rem",
-                color: "#555",
-              }}
-            >
-              Pending Collaborations
-            </h3>
-            <div style={{ border: "1px solid #ddd", borderRadius: "4px" }}>
-              {pendingCollaborations.map((collab, index) => (
-                <div
-                  key={index}
-                  style={{
-                    padding: "0.75rem",
-                    borderBottom:
-                      index < pendingCollaborations.length - 1
-                        ? "1px solid #eee"
-                        : "none",
-                    backgroundColor: "#e8f5e8",
-                  }}
-                >
-                  <div
+                    {loading ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div>
-                      <strong>{collab.username}</strong>
-                      <div style={{ fontSize: "0.8rem", color: "#666" }}>
-                        {collab.type === "full" && "Full permissions"}
-                        {collab.type === "readonly" && "Read only (pack view)"}
-                        {collab.type === "song_edit" && "Song edit permission"}
-                        {collab.type === "specific" &&
-                          `${
-                            collab.instruments
-                              ? collab.instruments.join(", ")
-                              : "Song edit"
-                          } for: ${collab.songs
-                            .map((s) => s.title)
-                            .join(", ")}`}
-                        {collab.type === "pack_share" &&
-                          "Pack view permission (read-only)"}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRemovePendingCollaboration(index)}
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        background: "#dc3545",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "3px",
-                        fontSize: "0.75rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Edit Mode UI */}
-        {editingCollaborator && (
-          <div
-            style={{
-              marginBottom: "1.5rem",
-              padding: "1rem",
-              border: "2px solid #007bff",
-              borderRadius: "4px",
-              backgroundColor: "#f8f9fa",
-            }}
-          >
-            <h3
-              style={{
-                margin: "0 0 1rem 0",
-                fontSize: "1rem",
-                color: "#007bff",
-              }}
-            >
-              Edit Collaboration - {editingCollaborator.username}
-            </h3>
-
-            <div>
-              <p style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
-                Select instruments to assign to {editingCollaborator.username}
-              </p>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                  gap: "0.5rem",
-                  marginBottom: "1rem",
-                }}
-              >
-                {instrumentFields.map((instrument) => (
-                  <label
-                    key={instrument}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      padding: "0.5rem",
-                      border: "1px solid #ddd",
+                      padding: "0.5rem 1rem",
+                      background: "#6c757d",
+                      color: "white",
+                      border: "none",
                       borderRadius: "4px",
                       cursor: "pointer",
-                      backgroundColor: selectedInstruments.includes(instrument)
-                        ? "#e3f2fd"
-                        : "white",
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedInstruments.includes(instrument)}
-                      onChange={(e) =>
-                        handleInstrumentSelection(instrument, e.target.checked)
-                      }
-                    />
-                    {instrument}
-                  </label>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  onClick={handleSaveEdit}
-                  disabled={loading}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "#28a745",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: loading ? "not-allowed" : "pointer",
-                    opacity: loading ? 0.6 : 1,
-                  }}
-                >
-                  {loading ? "Saving..." : "Save Changes"}
-                </button>
-                <button
-                  onClick={handleCancelEdit}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "#6c757d",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Note about saving */}
-        {(pendingCollaborations.length > 0 || pendingRemovals.length > 0) && (
+          {/* Note about saving */}
+          {(pendingCollaborations.length > 0 || pendingRemovals.length > 0) && (
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "0.5rem",
+                backgroundColor: "#fff3cd",
+                border: "1px solid #ffeaa7",
+                borderRadius: "4px",
+                fontSize: "0.8rem",
+                color: "#856404",
+              }}
+            >
+              <strong>Note:</strong> Collaborators are not actually created
+              until you click the "Save" button.
+            </div>
+          )}
+
+          {/* Action Buttons */}
           <div
             style={{
-              marginTop: "1rem",
-              padding: "0.5rem",
-              backgroundColor: "#fff3cd",
-              border: "1px solid #ffeaa7",
-              borderRadius: "4px",
-              fontSize: "0.8rem",
-              color: "#856404",
+              display: "flex",
+              gap: "0.5rem",
+              justifyContent: "flex-end",
+              marginTop: "1.5rem",
             }}
           >
-            <strong>Note:</strong> Collaborators are not actually created until
-            you click the "Save" button.
+            <button
+              onClick={handleClose}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveAll}
+              disabled={loading}
+              style={{
+                padding: "0.5rem 1rem",
+                background: loading ? "#ccc" : "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
           </div>
-        )}
-
-        {/* Action Buttons */}
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            justifyContent: "flex-end",
-            marginTop: "1.5rem",
-          }}
-        >
-          <button
-            onClick={handleClose}
-            style={{
-              padding: "0.5rem 1rem",
-              background: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSaveAll}
-            disabled={loading}
-            style={{
-              padding: "0.5rem 1rem",
-              background: loading ? "#ccc" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "Saving..." : "Save"}
-          </button>
         </div>
       </div>
-    </div>
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+      />
+    </>
   );
 };
 

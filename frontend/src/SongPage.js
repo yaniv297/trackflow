@@ -254,8 +254,8 @@ function SongPage({ status }) {
         )
       );
 
-      // Clear cache since data has changed
-      setSongsCache({});
+      // Remove unnecessary cache clearing - we already updated local state
+      // setSongsCache({});
 
       setEditing((prev) => {
         const newState = { ...prev };
@@ -292,8 +292,8 @@ function SongPage({ status }) {
           song.id === songId ? { ...song, ...updated } : song
         )
       );
-      // Clear cache since data has changed
-      setSongsCache({});
+      // Remove unnecessary cache clearing - we already updated local state
+      // setSongsCache({});
     } catch (error) {
       console.error("Failed to apply Spotify enhancement:", error);
     }
@@ -303,8 +303,8 @@ function SongPage({ status }) {
     try {
       await apiDelete(`/songs/${id}`);
       setSongs(songs.filter((song) => song.id !== id));
-      // Clear cache since data has changed
-      setSongsCache({});
+      // Remove unnecessary cache clearing - we already updated local state
+      // setSongsCache({});
     } catch (error) {
       console.error("Failed to delete song:", error);
     }

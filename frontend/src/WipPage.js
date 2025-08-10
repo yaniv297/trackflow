@@ -241,8 +241,8 @@ function WipPage() {
         )
       );
 
-      // Also refresh the songs from the server to ensure persistence
-      refreshSongs();
+      // Remove the unnecessary full refresh - we already have the updated data
+      // refreshSongs();
 
       window.showNotification(
         `Song marked as ${newOptionalValue ? "optional" : "required"}`,
@@ -293,6 +293,16 @@ function WipPage() {
             (s) => (s.pack_name || "(no pack)") === pack
           );
 
+          // Optimistic update - change all songs in the pack to released status
+          setSongs((prev) =>
+            prev.map((song) =>
+              packSongs.some((packSong) => packSong.id === song.id)
+                ? { ...song, status: "Released" }
+                : song
+            )
+          );
+
+          // Update each song on the server
           for (const song of packSongs) {
             await apiPatch(`/songs/${song.id}`, { status: "Released" });
           }
@@ -302,10 +312,13 @@ function WipPage() {
             "success"
           );
           setFireworksTrigger((prev) => prev + 1);
-          refreshSongs();
+          // Remove unnecessary full refresh - we already updated local state
+          // refreshSongs();
         } catch (error) {
           console.error("Failed to release pack:", error);
           window.showNotification("Failed to release pack", "error");
+          // Revert optimistic update on error
+          refreshSongs();
         }
         setAlertConfig((prev) => ({ ...prev, isOpen: false }));
       },
@@ -361,7 +374,7 @@ function WipPage() {
   // Album Series Management
   const handleCreateAlbumSeries = async () => {
     if (selectedSongs.length === 0) {
-      window.showNotification("Please select songs first", "error");
+      window.showNotification("Please select songs first", "warning");
       return;
     }
 
@@ -382,6 +395,12 @@ function WipPage() {
         description: albumSeriesForm.description || null,
       });
 
+      // Optimistic update - remove selected songs from the current view
+      // since they're now part of an album series
+      setSongs((prev) =>
+        prev.filter((song) => !selectedSongs.includes(song.id))
+      );
+
       window.showNotification(
         `Album series "${albumSeriesForm.album_name}" created successfully!`,
         "success"
@@ -396,10 +415,13 @@ function WipPage() {
         cover_image_url: "",
         description: "",
       });
-      refreshSongs();
+      // Remove unnecessary full refresh - we already updated local state
+      // refreshSongs();
     } catch (error) {
       console.error("Failed to create album series:", error);
       window.showNotification("Failed to create album series", "error");
+      // Revert optimistic update on error
+      refreshSongs();
     }
   };
 
@@ -436,13 +458,21 @@ function WipPage() {
 
       await apiPatch(`/packs/${packId}`, { name: newPackName });
 
-      // Refresh songs to get updated data from server
-      await refreshSongs();
+      // Optimistic update - update pack_name for all songs in the pack
+      setSongs((prev) =>
+        prev.map((song) =>
+          (song.pack_name || "(no pack)") === oldPackName
+            ? { ...song, pack_name: newPackName }
+            : song
+        )
+      );
 
       window.showNotification(`Pack renamed to "${newPackName}"`, "success");
     } catch (error) {
       console.error("Failed to rename pack:", error);
       window.showNotification("Failed to rename pack", "error");
+      // Revert optimistic update on error
+      refreshSongs();
     }
   };
 
@@ -465,8 +495,14 @@ function WipPage() {
 
       await apiPatch(`/packs/${packId}/status`, { status: "Future Plans" });
 
-      // Refresh songs to get updated data from server
-      await refreshSongs();
+      // Optimistic update - change all songs in the pack to Future Plans status
+      setSongs((prev) =>
+        prev.map((song) =>
+          (song.pack_name || "(no pack)") === packName
+            ? { ...song, status: "Future Plans" }
+            : song
+        )
+      );
 
       window.showNotification(
         `Pack "${packName}" moved back to Future Plans`,
@@ -475,6 +511,8 @@ function WipPage() {
     } catch (error) {
       console.error("Failed to move pack to Future Plans:", error);
       window.showNotification("Failed to move pack to Future Plans", "error");
+      // Revert optimistic update on error
+      refreshSongs();
     }
   };
 

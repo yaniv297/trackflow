@@ -4,6 +4,8 @@ import SpotifyEnhancementRow from "./SpotifyEnhancementRow";
 import SmartDropdown from "./SmartDropdown";
 import CustomAlert from "./CustomAlert";
 import { useAuth } from "../contexts/AuthContext";
+import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
+import UserProfilePopup from "./UserProfilePopup";
 
 // Color palette for collaborators
 const collaboratorColors = [
@@ -60,25 +62,30 @@ export default function SongRow({
   groupBy,
   packName,
 }) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { user } = useAuth();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
+
   return (
     <>
-      <tr>
+      <tr
+        style={{
+          backgroundColor: selected ? "#e3f2fd" : "white",
+          borderBottom: "1px solid #eee",
+        }}
+      >
         {/* Checkbox */}
-        <td>
-          {song.is_editable && (
-            <input
-              type="checkbox"
-              className="pretty-checkbox"
-              checked={selected}
-              onChange={onSelect}
-            />
-          )}
+        <td style={{ padding: "8px", width: "40px" }}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onSelect(song.id)}
+            style={{ cursor: "pointer" }}
+          />
         </td>
 
         {/* Album Cover */}
-        <td>
+        <td style={{ padding: "8px" }}>
           {editing[`${song.id}_album_cover`] ? (
             <EditableCell
               value={song.album_cover || ""}
@@ -92,15 +99,11 @@ export default function SongRow({
             />
           ) : (
             <div
-              className="editable-cell"
+              style={{ cursor: "pointer" }}
               onClick={() =>
                 song.is_editable &&
                 setEditing({ [`${song.id}_album_cover`]: true })
               }
-              style={{
-                cursor: song.is_editable ? "pointer" : "default",
-                opacity: song.is_editable ? 1 : 0.6,
-              }}
             >
               {song.album_cover && (
                 <img
@@ -117,58 +120,132 @@ export default function SongRow({
           )}
         </td>
 
-        {/* Editable fields */}
-        <EditableCell
-          value={song.title}
-          songId={song.id}
-          field="title"
-          editing={editing}
-          editValues={editValues}
-          setEditing={setEditing}
-          setEditValues={setEditValues}
-          saveEdit={saveEdit}
-          isEditable={song.is_editable}
-        />
-        {groupBy !== "artist" && (
-          <EditableCell
-            value={song.artist}
-            songId={song.id}
-            field="artist"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        )}
-        <EditableCell
-          value={song.album}
-          songId={song.id}
-          field="album"
-          editing={editing}
-          editValues={editValues}
-          setEditing={setEditing}
-          setEditValues={setEditValues}
-          saveEdit={saveEdit}
-          isEditable={song.is_editable}
-        />
-        {(groupBy !== "pack" || packName === "(no pack)") && (
-          <EditableCell
-            value={song.pack_name || ""}
-            songId={song.id}
-            field="pack"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        )}
+        {/* Title */}
+        <td style={{ padding: "8px" }}>
+          {editing[`${song.id}_title`] ? (
+            <input
+              type="text"
+              value={editValues[`${song.id}_title`] ?? song.title}
+              onChange={(e) =>
+                setEditValues((prev) => ({
+                  ...prev,
+                  [`${song.id}_title`]: e.target.value,
+                }))
+              }
+              onBlur={() => saveEdit(song.id, "title")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveEdit(song.id, "title");
+              }}
+              style={{
+                width: "100%",
+                padding: "4px 8px",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+              }}
+              autoFocus
+            />
+          ) : (
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                setEditing((prev) => ({
+                  ...prev,
+                  [`${song.id}_title`]: true,
+                }))
+              }
+            >
+              {song.title}
+            </div>
+          )}
+        </td>
 
-        {/* Owner */}
-        <td>
+        {/* Artist */}
+        <td style={{ padding: "8px" }}>
+          {editing[`${song.id}_artist`] ? (
+            <input
+              type="text"
+              value={editValues[`${song.id}_artist`] ?? song.artist}
+              onChange={(e) =>
+                setEditValues((prev) => ({
+                  ...prev,
+                  [`${song.id}_artist`]: e.target.value,
+                }))
+              }
+              onBlur={() => saveEdit(song.id, "artist")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveEdit(song.id, "artist");
+              }}
+              style={{
+                width: "100%",
+                padding: "4px 8px",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+              }}
+              autoFocus
+            />
+          ) : (
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() =>
+                setEditing((prev) => ({
+                  ...prev,
+                  [`${song.id}_artist`]: true,
+                }))
+              }
+            >
+              {song.artist}
+            </div>
+          )}
+        </td>
+
+        {/* Album */}
+        <td style={{ padding: "8px" }}>
+          {editing[`${song.id}_album`] ? (
+            <EditableCell
+              value={song.album}
+              songId={song.id}
+              field="album"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+            />
+          ) : (
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() => setEditing({ [`${song.id}_album`]: true })}
+            >
+              {song.album}
+            </div>
+          )}
+        </td>
+
+        {/* Pack */}
+        <td style={{ padding: "8px" }}>
+          {editing[`${song.id}_pack`] ? (
+            <EditableCell
+              value={song.pack_name || ""}
+              songId={song.id}
+              field="pack"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+            />
+          ) : (
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() => setEditing({ [`${song.id}_pack`]: true })}
+            >
+              {song.pack_name || ""}
+            </div>
+          )}
+        </td>
+
+        {/* Author */}
+        <td style={{ padding: "8px" }}>
           <span
             style={{
               background: getCollaboratorColor(song.author || "Unknown"),
@@ -177,47 +254,41 @@ export default function SongRow({
               borderRadius: "12px",
               fontSize: "0.75rem",
               fontWeight: "500",
-              whiteSpace: "nowrap",
+              cursor: "pointer",
+              display: "inline-block",
             }}
+            onClick={handleUsernameClick(song.author || "Unknown")}
+            title="Click to view profile"
           >
             {song.author || "Unknown"}
           </span>
         </td>
 
         {/* Year */}
-        <EditableCell
-          value={song.year || ""}
-          songId={song.id}
-          field="year"
-          editing={editing}
-          editValues={editValues}
-          setEditing={setEditing}
-          setEditValues={setEditValues}
-          saveEdit={saveEdit}
-          isEditable={song.is_editable}
-        />
+        <td style={{ padding: "8px" }}>
+          {editing[`${song.id}_year`] ? (
+            <EditableCell
+              value={song.year || ""}
+              songId={song.id}
+              field="year"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+            />
+          ) : (
+            <div
+              style={{ cursor: "pointer" }}
+              onClick={() => setEditing({ [`${song.id}_year`]: true })}
+            >
+              {song.year || ""}
+            </div>
+          )}
+        </td>
 
         {/* Collaborations */}
-        <td
-          className="editable-cell"
-          onClick={() => {
-            // Only allow editing for Released songs (not Future Plans)
-            if (status !== "Future Plans" && song.is_editable) {
-              setEditing({ [`${song.id}_collaborations`]: true });
-            }
-          }}
-          style={{
-            cursor:
-              status !== "Future Plans" && song.is_editable
-                ? "pointer"
-                : "default",
-            opacity: status !== "Future Plans" && song.is_editable ? 1 : 0.6,
-            backgroundColor:
-              status !== "Future Plans" && song.is_editable
-                ? "transparent"
-                : "#f8f9fa",
-          }}
-        >
+        <td style={{ padding: "8px" }}>
           {editing[`${song.id}_collaborations`] && status !== "Future Plans" ? (
             <SmartDropdown
               type="users"
@@ -266,7 +337,10 @@ export default function SongRow({
                           fontSize: "0.75rem",
                           fontWeight: "500",
                           whiteSpace: "nowrap",
+                          cursor: "pointer",
                         }}
+                        onClick={handleUsernameClick(collab.username)}
+                        title="Click to view profile"
                       >
                         {collab.username}
                       </span>
@@ -284,7 +358,7 @@ export default function SongRow({
         </td>
 
         {/* Enhance + Delete */}
-        <td>
+        <td style={{ padding: "8px" }}>
           {song.is_editable && (
             <div
               style={{
@@ -333,6 +407,14 @@ export default function SongRow({
         songId={song.id}
         options={spotifyOptions[song.id]}
         onApply={applySpotifyEnhancement}
+      />
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
       />
 
       <CustomAlert

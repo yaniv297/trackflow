@@ -12,24 +12,32 @@ import StatsPage from "./StatsPage";
 import AlbumSeriesPage from "./AlbumSeriesPage";
 import NotificationManager from "./components/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
+import UserSettings from "./UserSettings";
 import "./App.css";
 
 function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const navigate = useNavigate();
   const { user, logout, isAuthenticated, loading } = useAuth();
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showNewDropdown && !event.target.closest(".dropdown-container")) {
         setShowNewDropdown(false);
       }
+      if (
+        showUserDropdown &&
+        !event.target.closest(".user-dropdown-container")
+      ) {
+        setShowUserDropdown(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showNewDropdown]);
+  }, [showNewDropdown, showUserDropdown]);
 
   const handleDropdownClick = (path) => {
     setShowNewDropdown(false);
@@ -58,20 +66,100 @@ function AppContent() {
               <span style={{ color: "#666", fontSize: "0.9rem" }}>
                 Welcome, {user?.username}!
               </span>
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: "#dc3545",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "0.5rem 1rem",
-                  cursor: "pointer",
-                  fontSize: "0.9rem",
-                }}
+
+              {/* User Dropdown */}
+              <div
+                className="user-dropdown-container"
+                style={{ position: "relative", display: "inline-block" }}
               >
-                Logout
-              </button>
+                <button
+                  onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  style={{
+                    background: showUserDropdown ? "#007bff" : "#f8f9fa",
+                    color: showUserDropdown ? "white" : "#333",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    padding: "0.5rem 1rem",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                    transition: "background 0.2s, color 0.2s",
+                  }}
+                >
+                  ⚙️
+                  <span style={{ fontSize: "0.8rem" }}>▼</span>
+                </button>
+
+                {showUserDropdown && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      right: "0",
+                      background: "white",
+                      border: "1px solid #ddd",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      zIndex: 1000,
+                      marginTop: "0.5rem",
+                      overflow: "hidden",
+                      minWidth: "150px",
+                    }}
+                  >
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        navigate("/settings");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      User Settings
+                    </div>
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        handleLogout();
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#dc3545",
+                        textDecoration: "none",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#fff5f5")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      Logout
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -277,6 +365,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <StatsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <UserSettings />
               </ProtectedRoute>
             }
           />

@@ -285,7 +285,7 @@ function WipPage() {
     setAlertConfig({
       isOpen: true,
       title: "Release Pack",
-      message: `Are you sure you want to release "${pack}"? This will change all songs to "Released" status.`,
+      message: `Are you sure you want to release "${pack}"? This will move completed songs to "Released" status and move incomplete optional songs back to "Future Plans" with a new pack name.`,
       type: "warning",
       onConfirm: async () => {
         try {
@@ -293,32 +293,50 @@ function WipPage() {
             (s) => (s.pack_name || "(no pack)") === pack
           );
 
-          // Optimistic update - change all songs in the pack to released status
-          setSongs((prev) =>
-            prev.map((song) =>
-              packSongs.some((packSong) => packSong.id === song.id)
-                ? { ...song, status: "Released" }
-                : song
-            )
+          // Call the pack release endpoint
+          const response = await apiPost(
+            `/songs/release-pack?pack_name=${encodeURIComponent(pack)}`
           );
 
-          // Update each song on the server
-          for (const song of packSongs) {
-            await apiPatch(`/songs/${song.id}`, { status: "Released" });
+          // Handle the response
+          if (response.details) {
+            const { completed_songs, optional_songs, optional_pack_name } =
+              response.details;
+
+            // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
+            setSongs((prev) =>
+              prev.filter(
+                (song) => !packSongs.some((packSong) => packSong.id === song.id)
+              )
+            );
+
+            // Show detailed notification
+            let message = `Pack "${pack}" released successfully!`;
+            if (completed_songs > 0) {
+              message += ` ${completed_songs} song(s) moved to Released.`;
+            }
+            if (optional_songs > 0) {
+              message += ` ${optional_songs} optional song(s) moved to Future Plans in pack "${optional_pack_name}".`;
+            }
+
+            window.showNotification(message, "success");
+          } else {
+            // All songs were completed
+            setSongs((prev) =>
+              prev.filter(
+                (song) => !packSongs.some((packSong) => packSong.id === song.id)
+              )
+            );
+            window.showNotification(
+              `Pack "${pack}" released successfully!`,
+              "success"
+            );
           }
 
-          window.showNotification(
-            `Pack "${pack}" released successfully!`,
-            "success"
-          );
           setFireworksTrigger((prev) => prev + 1);
-          // Remove unnecessary full refresh - we already updated local state
-          // refreshSongs();
         } catch (error) {
           console.error("Failed to release pack:", error);
           window.showNotification("Failed to release pack", "error");
-          // Revert optimistic update on error
-          refreshSongs();
         }
         setAlertConfig((prev) => ({ ...prev, isOpen: false }));
       },

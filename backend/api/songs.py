@@ -555,12 +555,80 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found or not owned by user")
     
-    # Update all songs in this pack
+    # Get all songs in this pack
     songs = db.query(Song).filter(Song.pack_id == pack.id).all()
+    
+    # Define authoring fields that need to be complete
+    authoring_fields = [
+        "demucs", "tempo_map", "fake_ending", "drums", "bass", "guitar",
+        "vocals", "harmonies", "pro_keys", "keys", "animations",
+        "drum_fills", "overdrive", "compile"
+    ]
+    
+    # Separate songs into completed and optional (incomplete)
+    completed_songs = []
+    optional_songs = []
+    
     for song in songs:
+        # Check if song is 100% complete
+        if song.authoring:
+            all_complete = all(getattr(song.authoring, field, False) for field in authoring_fields)
+            if all_complete:
+                completed_songs.append(song)
+            else:
+                optional_songs.append(song)
+        else:
+            # No authoring data means incomplete
+            optional_songs.append(song)
+    
+    # Move completed songs to "Released" status
+    for song in completed_songs:
         song.status = SongStatus.released
+    
+    # Handle optional songs
+    if optional_songs:
+        # Create a new pack for optional songs
+        optional_pack_name = f"{pack_name} Optional Songs"
+        
+        # Check if optional pack already exists
+        existing_optional_pack = db.query(Pack).filter(
+            Pack.name == optional_pack_name, 
+            Pack.user_id == current_user.id
+        ).first()
+        
+        if existing_optional_pack:
+            optional_pack = existing_optional_pack
+        else:
+            # Create new pack for optional songs
+            optional_pack = Pack(
+                name=optional_pack_name,
+                user_id=current_user.id
+            )
+            db.add(optional_pack)
+            db.flush()  # Get the ID
+        
+        # Move optional songs to Future Plans with new pack
+        for song in optional_songs:
+            song.status = SongStatus.future
+            song.pack_id = optional_pack.id
+    
     db.commit()
-    return {"message": f"Released pack: {pack_name}"}
+    
+    # Prepare response message
+    completed_count = len(completed_songs)
+    optional_count = len(optional_songs)
+    
+    if optional_count > 0:
+        return {
+            "message": f"Released pack: {pack_name}",
+            "details": {
+                "completed_songs": completed_count,
+                "optional_songs": optional_count,
+                "optional_pack_name": f"{pack_name} Optional Songs"
+            }
+        }
+    else:
+        return {"message": f"Released pack: {pack_name}"}
 
 @router.post("/bulk-delete")
 def bulk_delete(data: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):

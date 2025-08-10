@@ -1,10 +1,12 @@
+import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from database import engine
 from models import Base
-from api import songs, authoring, spotify, tools, stats, album_series, auth, packs, collaborations
+from api import songs, authoring, spotify, tools, stats, album_series, auth, packs, collaborations, user_settings
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -45,6 +47,8 @@ app.add_middleware(
 # Add GZip compression for better performance
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# No need to mount static files for uploads
+
 # Create tables with error handling - don't block startup
 def init_db():
     try:
@@ -64,6 +68,7 @@ app.include_router(stats.router)
 app.include_router(album_series.router)
 app.include_router(packs.router)
 app.include_router(collaborations.router)
+app.include_router(user_settings.router)
 
 @app.on_event("startup")
 async def startup_event():

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiGet, apiPost, apiDelete } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
-const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded }) => {
+const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDeleted }) => {
   const [fileLinks, setFileLinks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -81,6 +81,11 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded }) => {
 
       // Remove from list
       setFileLinks((prev) => prev.filter((link) => link.id !== linkId));
+      
+      // Notify parent component
+      if (onFileLinkDeleted) {
+        onFileLinkDeleted(linkId);
+      }
 
       window.showNotification("File link deleted successfully!", "success");
     } catch (error) {

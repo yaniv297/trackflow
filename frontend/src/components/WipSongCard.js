@@ -40,6 +40,7 @@ export default function WipSongCard({
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showMovePackModal, setShowMovePackModal] = useState(false);
   const [showFileHistoryModal, setShowFileHistoryModal] = useState(false);
+  const [fileLinksCount, setFileLinksCount] = useState(0);
   const isOptional = song.optional;
   const { user: currentUser } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
@@ -57,6 +58,46 @@ export default function WipSongCard({
   useEffect(() => {
     loadWipCollaborations();
   }, [loadWipCollaborations]);
+
+  // Load file links count when component mounts
+  useEffect(() => {
+    if (wipCollaborations.length > 0) {
+      loadFileLinksCount();
+    }
+  }, [wipCollaborations.length]);
+
+  // Periodically check for new files (every 30 seconds)
+  useEffect(() => {
+    if (wipCollaborations.length > 0 && !showFileHistoryModal) {
+      const interval = setInterval(() => {
+        loadFileLinksCount();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [wipCollaborations.length, showFileHistoryModal]);
+
+  const loadFileLinksCount = async () => {
+    try {
+      const response = await apiGet(`/file-links/${song.id}`);
+      const newCount = response?.length || 0;
+
+      // Show notification if new files were added
+      if (newCount > fileLinksCount && fileLinksCount > 0) {
+        const newFilesCount = newCount - fileLinksCount;
+        window.showNotification(
+          `${newFilesCount} new file${
+            newFilesCount > 1 ? "s" : ""
+          } uploaded to "${song.title}"!`,
+          "info"
+        );
+      }
+
+      setFileLinksCount(newCount);
+    } catch (error) {
+      console.error("Error loading file links count:", error);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -437,33 +478,58 @@ export default function WipSongCard({
 
           {/* File History Button - Only for collaborative songs */}
           {!readOnly && wipCollaborations.length > 0 && (
-            <button
-              onClick={() => setShowFileHistoryModal(true)}
-              style={{
-                background: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "50%",
-                width: "24px",
-                height: "24px",
-                fontSize: "12px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s",
-                marginRight: "0.5rem",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = "#218838";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = "#28a745";
-              }}
-              title="File History"
-            >
-              📁
-            </button>
+            <div style={{ position: "relative", marginRight: "0.5rem" }}>
+              <button
+                onClick={() => setShowFileHistoryModal(true)}
+                style={{
+                  background: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "24px",
+                  height: "24px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = "#218838";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = "#28a745";
+                }}
+                title={`File History (${fileLinksCount} files)`}
+              >
+                📁
+              </button>
+
+              {/* File count badge */}
+              {fileLinksCount > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "-6px",
+                    right: "-6px",
+                    background: "#dc3545",
+                    color: "white",
+                    borderRadius: "50%",
+                    width: "16px",
+                    height: "16px",
+                    fontSize: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    border: "2px solid white",
+                  }}
+                >
+                  {fileLinksCount > 9 ? "9+" : fileLinksCount}
+                </div>
+              )}
+            </div>
           )}
 
           {!readOnly && song.user_id === currentUser?.id && (
@@ -1011,8 +1077,12 @@ export default function WipSongCard({
         onClose={() => setShowFileHistoryModal(false)}
         song={song}
         onFileLinkAdded={(newLink) => {
-          // Optionally refresh data or update UI
-          console.log("New file link added:", newLink);
+          // Update the file count when a new file is added
+          setFileLinksCount((prev) => prev + 1);
+        }}
+        onFileLinkDeleted={(deletedLink) => {
+          // Update the file count when a file is deleted
+          setFileLinksCount((prev) => Math.max(0, prev - 1));
         }}
       />
 

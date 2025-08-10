@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from database import engine
 from models import Base
-from api import songs, authoring, spotify, tools, stats, album_series, auth, packs, collaborations, user_settings
+from api import songs, authoring, spotify, tools, stats, album_series, auth, packs, collaborations, user_settings, file_links
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -69,6 +69,7 @@ app.include_router(album_series.router)
 app.include_router(packs.router)
 app.include_router(collaborations.router)
 app.include_router(user_settings.router)
+app.include_router(file_links.router)
 
 @app.on_event("startup")
 async def startup_event():

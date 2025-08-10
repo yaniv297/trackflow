@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -85,6 +85,7 @@ class Song(Base):
     collaborations = relationship("Collaboration", back_populates="song")
     artist_obj = relationship("Artist", back_populates="songs")
     authoring = relationship("Authoring", back_populates="song", uselist=False)
+    file_links = relationship("FileLink", order_by="FileLink.created_at.desc()")
 
 class Collaboration(Base):
     __tablename__ = "collaborations"
@@ -197,3 +198,22 @@ class AuthoringProgress(Base):
     song = relationship("Song")
 
 # Legacy tables have been removed - all collaboration data is now in the unified Collaboration table
+
+class FileLink(Base):
+    __tablename__ = "file_links"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    file_url = Column(String, nullable=False)  # The actual file link (Google Drive, etc.)
+    message = Column(Text, nullable=False)  # User's progress message/description
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Composite index for efficient queries
+    __table_args__ = (
+        Index('idx_filelink_song_created', 'song_id', 'created_at'),
+    )
+    
+    # Relationships
+    song = relationship("Song")
+    user = relationship("User")

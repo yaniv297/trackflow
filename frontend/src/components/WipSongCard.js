@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiPut } from "../utils/api";
 import UnifiedCollaborationModal from "./UnifiedCollaborationModal";
 import MovePackModal from "./MovePackModal";
+import FileHistoryModal from "./FileHistoryModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
 import UserProfilePopup from "./UserProfilePopup";
@@ -38,6 +39,7 @@ export default function WipSongCard({
   const [wipCollaborations, setWipCollaborations] = useState([]);
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showMovePackModal, setShowMovePackModal] = useState(false);
+  const [showFileHistoryModal, setShowFileHistoryModal] = useState(false);
   const isOptional = song.optional;
   const { user: currentUser } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
@@ -432,6 +434,37 @@ export default function WipSongCard({
               </label>
             )}
           </div>
+
+          {/* File History Button - Only for collaborative songs */}
+          {!readOnly && wipCollaborations.length > 0 && (
+            <button
+              onClick={() => setShowFileHistoryModal(true)}
+              style={{
+                background: "#28a745",
+                color: "white",
+                border: "none",
+                borderRadius: "50%",
+                width: "24px",
+                height: "24px",
+                fontSize: "12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s",
+                marginRight: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "#218838";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#28a745";
+              }}
+              title="File History"
+            >
+              📁
+            </button>
+          )}
 
           {!readOnly && song.user_id === currentUser?.id && (
             <div style={{ position: "relative" }} data-actions-dropdown>
@@ -970,6 +1003,17 @@ export default function WipSongCard({
         song={song}
         onSongUpdate={onSongUpdate}
         onSuccess={() => setShowMovePackModal(false)}
+      />
+
+      {/* File History Modal */}
+      <FileHistoryModal
+        isOpen={showFileHistoryModal}
+        onClose={() => setShowFileHistoryModal(false)}
+        song={song}
+        onFileLinkAdded={(newLink) => {
+          // Optionally refresh data or update UI
+          console.log("New file link added:", newLink);
+        }}
       />
 
       {/* User Profile Popup */}

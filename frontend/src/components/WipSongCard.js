@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiPut } from "../utils/api";
 import UnifiedCollaborationModal from "./UnifiedCollaborationModal";
+import MovePackModal from "./MovePackModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
 import UserProfilePopup from "./UserProfilePopup";
@@ -35,6 +36,8 @@ export default function WipSongCard({
   });
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [wipCollaborations, setWipCollaborations] = useState([]);
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const [showMovePackModal, setShowMovePackModal] = useState(false);
   const isOptional = song.optional;
   const { user: currentUser } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
@@ -52,6 +55,23 @@ export default function WipSongCard({
   useEffect(() => {
     loadWipCollaborations();
   }, [loadWipCollaborations]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showActionsDropdown &&
+        !event.target.closest("[data-actions-dropdown]")
+      ) {
+        setShowActionsDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showActionsDropdown]);
 
   const fields = [
     "demucs",
@@ -413,6 +433,196 @@ export default function WipSongCard({
             )}
           </div>
 
+          {!readOnly && song.user_id === currentUser?.id && (
+            <div style={{ position: "relative" }} data-actions-dropdown>
+              <button
+                onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+                style={{
+                  background: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "24px",
+                  height: "24px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = "#0056b3";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = "#007bff";
+                }}
+                title="Song actions"
+              >
+                ⚙️
+              </button>
+
+              {showActionsDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    background: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    zIndex: 1000,
+                    minWidth: "160px",
+                    padding: "0.5rem 0",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowCollaborationModal(true);
+                      setShowActionsDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    {wipCollaborations.length > 0
+                      ? "Edit Collab"
+                      : "Make Collab"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      markAllDone();
+                      setShowActionsDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    Mark All Done
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      fetchSpotifyOptions();
+                      setShowActionsDropdown(false);
+                    }}
+                    disabled={loadingSpotify}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: loadingSpotify ? "not-allowed" : "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: loadingSpotify ? "#999" : "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loadingSpotify) {
+                        e.target.style.backgroundColor = "#f8f9fa";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    {loadingSpotify ? "⏳ Loading..." : "Enhance from Spotify"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMovePackModal(true);
+                      setShowActionsDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    Move to Pack
+                  </button>
+
+                  <div
+                    style={{
+                      borderTop: "1px solid #eee",
+                      margin: "0.25rem 0",
+                    }}
+                  />
+
+                  <button
+                    onClick={() => {
+                      handleDelete();
+                      setShowActionsDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#e74c3c",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#fdf2f2";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    Delete Song
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={toggleExpand}
             style={{
@@ -427,28 +637,6 @@ export default function WipSongCard({
           >
             {expanded ? "▼" : "▶"}
           </button>
-
-          {!readOnly && song.user_id === currentUser?.id && (
-            <button
-              onClick={handleDelete}
-              aria-label="Delete Song"
-              style={{
-                background: "none",
-                border: "none",
-                color: "#aaa",
-                fontSize: "1rem",
-                cursor: "pointer",
-                marginLeft: "0.25rem",
-                alignSelf: "flex-start",
-                transition: "color 0.2s",
-              }}
-              onMouseEnter={(e) => (e.target.style.color = "#e74c3c")}
-              onMouseLeave={(e) => (e.target.style.color = "#aaa")}
-              title="Delete song"
-            >
-              ❌
-            </button>
-          )}
         </div>
 
         {/* Expanded Section */}
@@ -729,21 +917,18 @@ export default function WipSongCard({
                 </div>
               )}
 
-              {/* Action Links */}
-              <div
-                style={{
-                  marginLeft: "0.2rem",
-                  marginTop: "0.4rem",
-                  fontSize: "0.91rem",
-                  color: readOnly ? "#999" : "#5a8fcf",
-                  fontWeight: 400,
-                  textAlign: "left",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                }}
-              >
-                {readOnly ? (
+              {/* Read-only notice for collaborator songs */}
+              {readOnly && (
+                <div
+                  style={{
+                    marginLeft: "0.2rem",
+                    marginTop: "0.4rem",
+                    fontSize: "0.91rem",
+                    color: "#999",
+                    fontWeight: 400,
+                    textAlign: "left",
+                  }}
+                >
                   <span
                     style={{
                       color: "#999",
@@ -753,82 +938,8 @@ export default function WipSongCard({
                   >
                     Read-only (owned by collaborator)
                   </span>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setShowCollaborationModal(true)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "block",
-                        padding: 0,
-                        textDecoration: "none",
-                        textAlign: "left",
-                        color: "#5a8fcf",
-                        fontSize: "0.91rem",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.target.style.textDecoration = "underline")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.target.style.textDecoration = "none")
-                      }
-                    >
-                      {wipCollaborations.length > 0
-                        ? "Edit Collab"
-                        : "Make Collab"}
-                    </button>
-                    <button
-                      onClick={markAllDone}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "block",
-                        padding: 0,
-                        textDecoration: "none",
-                        textAlign: "left",
-                        color: "#5a8fcf",
-                        fontSize: "0.91rem",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.target.style.textDecoration = "underline")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.target.style.textDecoration = "none")
-                      }
-                    >
-                      Mark All Done
-                    </button>
-                    <button
-                      onClick={fetchSpotifyOptions}
-                      disabled={loadingSpotify}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "block",
-                        padding: 0,
-                        textDecoration: "none",
-                        textAlign: "left",
-                        color: "#5a8fcf",
-                        fontSize: "0.91rem",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.target.style.textDecoration = "underline")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.target.style.textDecoration = "none")
-                      }
-                    >
-                      {loadingSpotify
-                        ? "⏳ Loading..."
-                        : "Enhance from Spotify"}
-                    </button>
-                  </>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -851,6 +962,15 @@ export default function WipSongCard({
           }}
         />
       )}
+
+      {/* Move Pack Modal */}
+      <MovePackModal
+        isOpen={showMovePackModal}
+        onClose={() => setShowMovePackModal(false)}
+        song={song}
+        onSongUpdate={onSongUpdate}
+        onSuccess={() => setShowMovePackModal(false)}
+      />
 
       {/* User Profile Popup */}
       <UserProfilePopup

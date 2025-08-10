@@ -213,6 +213,17 @@ def get_filtered_songs(
     result = []
     for song in songs:
         song_dict = song.__dict__.copy()
+        # Remove SQLAlchemy internal state
+        song_dict.pop("_sa_instance_state", None)
+        
+        # Ensure pack_id is an integer if it exists
+        if "pack_id" in song_dict and song_dict["pack_id"] is not None:
+            try:
+                song_dict["pack_id"] = int(song_dict["pack_id"])
+            except (ValueError, TypeError):
+                # If pack_id is not a valid integer, remove it
+                song_dict.pop("pack_id", None)
+        
         song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
         
         # Set author from user relationship
@@ -250,16 +261,16 @@ def get_filtered_songs(
             # If album series has a pack_id, use that for pack information
             if series.pack_id and series.pack_id in series_packs:
                 pack = series_packs[series.pack_id]
-                song_dict["pack_id"] = pack.id
+                song_dict["pack_id"] = int(pack.id)  # Ensure it's an integer
                 song_dict["pack_name"] = pack.name
-                song_dict["pack_owner_id"] = pack.user_id
+                song_dict["pack_owner_id"] = int(pack.user_id)  # Ensure it's an integer
                 song_dict["pack_owner_username"] = pack.user.username
         
         # Attach pack data from loaded relationship (only if not already set by album series)
         if not song_dict.get("pack_name") and song.pack_obj:
-            song_dict["pack_id"] = song.pack_obj.id
+            song_dict["pack_id"] = int(song.pack_obj.id)  # Ensure it's an integer
             song_dict["pack_name"] = song.pack_obj.name
-            song_dict["pack_owner_id"] = song.pack_obj.user_id
+            song_dict["pack_owner_id"] = int(song.pack_obj.user_id)  # Ensure it's an integer
             song_dict["pack_owner_username"] = song.pack_obj.user.username
         
         # Determine if song is editable using pre-fetched collaboration data
@@ -274,7 +285,7 @@ def get_filtered_songs(
         if has_pack_collaboration and song.pack_id:
             song_dict["pack_collaboration"] = {
                 "can_edit": has_song_collaboration,  # Only editable if direct song collaboration
-                "pack_id": song.pack_id
+                "pack_id": int(song.pack_id)  # Ensure it's an integer
             }
         
         result.append(SongOut.model_validate(song_dict, from_attributes=True))

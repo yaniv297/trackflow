@@ -98,6 +98,9 @@ const WipPackCard = ({
     album_name: "",
   });
 
+  // State for pack dropdown
+  const [showPackDropdown, setShowPackDropdown] = React.useState(false);
+
   // Sort songs by completion (filledCount) descending
   const sortedUserCoreSongs = userCoreSongs
     .slice()
@@ -154,6 +157,20 @@ const WipPackCard = ({
     .filter(Boolean);
 
   seriesInfo.sort((a, b) => a.number - b.number);
+
+  // Close pack dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showPackDropdown && !event.target.closest("[data-pack-dropdown]")) {
+        setShowPackDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showPackDropdown]);
 
   // Check for double album series opportunity
   const albumCounts = {};
@@ -427,25 +444,131 @@ const WipPackCard = ({
 
             return isPackOwner || hasPackEditPermission;
           })() && (
-            <button
-              onClick={() => setShowPackSettings(true)}
-              style={{
-                background: "#17a2b8",
-                color: "white",
-                border: "none",
-                borderRadius: "50%",
-                width: "24px",
-                height: "24px",
-                fontSize: "12px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              title="Pack settings"
-            >
-              ⚙️
-            </button>
+            <div style={{ position: "relative" }} data-pack-dropdown>
+              <button
+                onClick={() => setShowPackDropdown(!showPackDropdown)}
+                style={{
+                  background: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "24px",
+                  height: "24px",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = "#0056b3";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = "#007bff";
+                }}
+                title="Pack settings"
+              >
+                ⚙️
+              </button>
+
+              {showPackDropdown && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    background: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    zIndex: 1000,
+                    minWidth: "200px",
+                    padding: "0.5rem 0",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setPackSettingsMode("rename");
+                      setShowPackSettings(true);
+                      setShowPackDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    ✏️ Change Pack Name
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onMovePackToFuturePlans(packName);
+                      setShowPackDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    📋 Move back to Future Plans
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setPackSettingsMode("album-series");
+                      setShowPackSettings(true);
+                      setShowPackDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    🎵 Make Album Series
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </h3>

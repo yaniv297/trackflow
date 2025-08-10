@@ -344,18 +344,8 @@ function WipPage() {
 
       const newSong = await apiPost("/songs/", payload);
 
-      // Try to enhance with Spotify
-      try {
-        const options = await apiGet(`/spotify/${newSong.id}/spotify-options`);
-        if (options && options.length > 0) {
-          await apiPost(`/songs/${newSong.id}/enhance`, {
-            selected_option: options[0],
-          });
-        }
-      } catch (enhanceError) {
-        console.warn("Failed to enhance from Spotify:", enhanceError);
-        window.showNotification("Failed to enhance from Spotify.", "error");
-      }
+      // Note: Spotify enhancement happens automatically on the backend
+      // No need for manual enhancement call
 
       const allSongs = await apiGet("/songs/?status=In%20Progress");
       const found = allSongs.find((s) => s.id === newSong.id);

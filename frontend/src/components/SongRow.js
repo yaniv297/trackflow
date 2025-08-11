@@ -79,7 +79,7 @@ export default function SongRow({
           <input
             type="checkbox"
             checked={selected}
-            onChange={() => onSelect(song.id)}
+            onChange={(e) => onSelect(e)}
             style={{ cursor: "pointer" }}
           />
         </td>

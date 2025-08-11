@@ -47,22 +47,36 @@ function UserSettings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Client-side validation
-    if (formData.preferred_contact_method === "email" && !formData.email.trim()) {
+    if (
+      formData.preferred_contact_method === "email" &&
+      !formData.email.trim()
+    ) {
       if (window.showNotification) {
-        window.showNotification("Email address is required when email is the preferred contact method", "error", 5000);
+        window.showNotification(
+          "Email address is required when email is the preferred contact method",
+          "error",
+          5000
+        );
       }
       return;
     }
-    
-    if (formData.preferred_contact_method === "discord" && !formData.discord_username.trim()) {
+
+    if (
+      formData.preferred_contact_method === "discord" &&
+      !formData.discord_username.trim()
+    ) {
       if (window.showNotification) {
-        window.showNotification("Discord username is required when Discord is the preferred contact method", "error", 5000);
+        window.showNotification(
+          "Discord username is required when Discord is the preferred contact method",
+          "error",
+          5000
+        );
       }
       return;
     }
-    
+
     setSaving(true);
 
     try {
@@ -117,7 +131,12 @@ function UserSettings() {
 
           <form onSubmit={handleSubmit} className="settings-form">
             <div className="form-group">
-              <label htmlFor="email">Email Address</label>
+              <label htmlFor="email">
+                Email Address
+                {formData.preferred_contact_method === "email" && (
+                  <span style={{ color: "#dc3545", marginLeft: "4px" }}>*</span>
+                )}
+              </label>
               <input
                 type="email"
                 id="email"
@@ -125,8 +144,19 @@ function UserSettings() {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="form-control form-control-small"
-                required
+                required={formData.preferred_contact_method === "email"}
+                placeholder={
+                  formData.preferred_contact_method === "email"
+                    ? "Required when email is preferred"
+                    : "Optional"
+                }
               />
+              {formData.preferred_contact_method !== "email" && (
+                <small className="form-text">
+                  Optional. Only required if email is your preferred contact
+                  method.
+                </small>
+              )}
             </div>
 
             <div className="form-group">
@@ -147,7 +177,12 @@ function UserSettings() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="discord_username">Discord Username</label>
+              <label htmlFor="discord_username">
+                Discord Username
+                {formData.preferred_contact_method === "discord" && (
+                  <span style={{ color: "#dc3545", marginLeft: "4px" }}>*</span>
+                )}
+              </label>
               <input
                 type="text"
                 id="discord_username"
@@ -155,11 +190,19 @@ function UserSettings() {
                 value={formData.discord_username}
                 onChange={handleInputChange}
                 className="form-control form-control-small"
-                placeholder="username#1234"
+                required={formData.preferred_contact_method === "discord"}
+                placeholder={
+                  formData.preferred_contact_method === "discord"
+                    ? "Required when Discord is preferred"
+                    : "username#1234 (optional)"
+                }
               />
-              <small className="form-text">
-                Optional. Only used if Discord is your preferred contact method.
-              </small>
+              {formData.preferred_contact_method !== "discord" && (
+                <small className="form-text">
+                  Optional. Only required if Discord is your preferred contact
+                  method.
+                </small>
+              )}
             </div>
 
             <div className="form-actions">

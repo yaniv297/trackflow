@@ -41,6 +41,7 @@ export default function WipSongCard({
   const [showMovePackModal, setShowMovePackModal] = useState(false);
   const [showFileHistoryModal, setShowFileHistoryModal] = useState(false);
   const [fileLinksCount, setFileLinksCount] = useState(0);
+  const [lastKnownFileIds, setLastKnownFileIds] = useState(new Set());
   const isOptional = song.optional;
   const { user: currentUser } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
@@ -80,11 +81,23 @@ export default function WipSongCard({
   const loadFileLinksCount = async () => {
     try {
       const response = await apiGet(`/file-links/${song.id}`);
-      const newCount = response?.length || 0;
+      const fileLinks = response || [];
+      const newCount = fileLinks.length;
 
-      // Show notification if new files were added
-      if (newCount > fileLinksCount && fileLinksCount > 0) {
-        const newFilesCount = newCount - fileLinksCount;
+      // Get current file IDs
+      const currentFileIds = new Set(fileLinks.map((link) => link.id));
+
+      // Find truly new files (files we haven't seen before)
+      const newFileIds = new Set();
+      currentFileIds.forEach((id) => {
+        if (!lastKnownFileIds.has(id)) {
+          newFileIds.add(id);
+        }
+      });
+
+      // Show notification only for genuinely new files
+      if (newFileIds.size > 0 && lastKnownFileIds.size > 0) {
+        const newFilesCount = newFileIds.size;
         window.showNotification(
           `${newFilesCount} new file${
             newFilesCount > 1 ? "s" : ""
@@ -94,6 +107,7 @@ export default function WipSongCard({
       }
 
       setFileLinksCount(newCount);
+      setLastKnownFileIds(currentFileIds);
     } catch (error) {
       console.error("Error loading file links count:", error);
     }
@@ -1077,12 +1091,18 @@ export default function WipSongCard({
         onClose={() => setShowFileHistoryModal(false)}
         song={song}
         onFileLinkAdded={(newLink) => {
-          // Update the file count when a new file is added
+          // Update the file count and track the new file ID
           setFileLinksCount((prev) => prev + 1);
+          setLastKnownFileIds((prev) => new Set([...prev, newLink.id]));
         }}
-        onFileLinkDeleted={(deletedLink) => {
-          // Update the file count when a file is deleted
+        onFileLinkDeleted={(deletedLinkId) => {
+          // Update the file count and remove the deleted file ID
           setFileLinksCount((prev) => Math.max(0, prev - 1));
+          setLastKnownFileIds((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(deletedLinkId);
+            return newSet;
+          });
         }}
       />
 

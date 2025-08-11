@@ -241,15 +241,46 @@ function SongPage({ status }) {
         ? songs.filter((s) => songIds.includes(s.id))
         : songs.filter((s) => selectedSongs.includes(s.id));
 
+      const movedIds = new Set(songsToMove.map((s) => s.id));
+
+      // Optimistic UI update
+      setSongs((prev) => {
+        if (status === "Future Plans") {
+          // Remove moved songs from the current view
+          return prev.filter((s) => !movedIds.has(s.id));
+        }
+        // Otherwise, mark them as In Progress
+        return prev.map((s) =>
+          movedIds.has(s.id) ? { ...s, status: "In Progress" } : s
+        );
+      });
+
       await Promise.all(
         songsToMove.map((song) =>
           apiPatch(`/songs/${song.id}`, { status: "In Progress" })
         )
       );
+
+      // Invalidate cache so fetchSongs pulls fresh data
+      setSongsCache({});
       fetchSongs();
       setSelectedSongs([]);
+
+      if (window.showNotification) {
+        window.showNotification(
+          `Started work on ${songsToMove.length} song${
+            songsToMove.length === 1 ? "" : "s"
+          }.`,
+          "success"
+        );
+      }
     } catch (error) {
       console.error("Failed to start work:", error);
+      if (window.showNotification) {
+        window.showNotification("Failed to start work", "error");
+      }
+      // Optionally refresh to recover from any mismatch
+      fetchSongs();
     }
   };
 

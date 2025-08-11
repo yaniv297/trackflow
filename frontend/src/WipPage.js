@@ -501,9 +501,7 @@ function WipPage() {
         return;
       }
 
-      await apiPatch(`/packs/${packId}/status`, { status: "Future Plans" });
-
-      // Optimistic update - change all songs in the pack to Future Plans status
+      // Optimistic update BEFORE server call for instant feedback
       setSongs((prev) =>
         prev.map((song) =>
           (song.pack_name || "(no pack)") === packName
@@ -511,6 +509,11 @@ function WipPage() {
             : song
         )
       );
+
+      await apiPatch(`/packs/${packId}/status`, { status: "Future Plans" });
+
+      // Refresh WIP data to ensure consistency
+      refreshSongs();
 
       window.showNotification(
         `Pack "${packName}" moved back to Future Plans`,

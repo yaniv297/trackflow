@@ -147,31 +147,6 @@ const WipPackCard = ({
     return songsInThisSeries.length >= 4;
   });
 
-  const seriesInfo = seriesWithThreshold
-    .map((id) => {
-      const s = allSongs.find((song) => song.album_series_id === id);
-      return s
-        ? { id, number: s.album_series_number, name: s.album_series_name }
-        : null;
-    })
-    .filter(Boolean);
-
-  seriesInfo.sort((a, b) => a.number - b.number);
-
-  // Close pack dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showPackDropdown && !event.target.closest("[data-pack-dropdown]")) {
-        setShowPackDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showPackDropdown]);
-
   // Check for double album series opportunity
   const albumCounts = {};
   allSongs.forEach((song) => {
@@ -180,15 +155,32 @@ const WipPackCard = ({
     }
   });
 
-  // Find albums with 5+ songs
+  // Find albums with 4+ songs (for creation actions)
   const albumsWithEnoughSongs = Object.entries(albumCounts)
-    .filter(([album, count]) => count >= 5)
-    .sort((a, b) => b[1] - a[1]); // Sort by count descending
+    .filter(([album, count]) => count >= 4)
+    .sort((a, b) => b[1] - a[1]);
 
-  // Check if we have an existing album series AND another album with 5+ songs
-  const hasExistingSeries = seriesWithThreshold.length > 0;
+  // Pack-level album series detection for styling/badges
+  const packSeriesId =
+    allSongs.find((s) => s.album_series_id)?.album_series_id || null;
+  const seriesInfo = packSeriesId
+    ? (() => {
+        const s = allSongs.find(
+          (song) => song.album_series_id === packSeriesId
+        );
+        return s
+          ? [
+              {
+                id: packSeriesId,
+                number: s.album_series_number,
+                name: s.album_series_name,
+              },
+            ]
+          : [];
+      })()
+    : [];
+  const hasExistingSeries = seriesInfo.length > 0;
   const hasSecondAlbum = albumsWithEnoughSongs.length >= 2;
-  // eslint-disable-next-line no-unused-vars
   const canMakeDoubleAlbumSeries = hasExistingSeries && hasSecondAlbum;
 
   // Get pack collaboration info
@@ -198,7 +190,7 @@ const WipPackCard = ({
     grouped.find((p) => p.pack === packName)?.allSongs[0]?.album_series_id &&
     !packId
   ) {
-    // If we have an album series but no pack_id, try to get it from the album series
+    // If we have an album series but no pack_id, try to get it from the series song
     const albumSeriesSong = grouped
       .find((p) => p.pack === packName)
       ?.allSongs.find((s) => s.album_series_id);
@@ -540,32 +532,36 @@ const WipPackCard = ({
                     📋 Move back to Future Plans
                   </button>
 
-                  <button
-                    onClick={() => {
-                      setPackSettingsMode("album-series");
-                      setShowPackSettings(true);
-                      setShowPackDropdown(false);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      display: "block",
-                      width: "100%",
-                      padding: "0.5rem 1rem",
-                      textAlign: "left",
-                      color: "#5a8fcf",
-                      fontSize: "0.9rem",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = "#f8f9fa";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = "transparent";
-                    }}
-                  >
-                    🎵 Make Album Series
-                  </button>
+                  {/* Only show Make Album Series if this pack has >=4 songs from the same album and pack is not already an album series */}
+                  {albumsWithEnoughSongs.length >= 1 &&
+                    seriesWithThreshold.length === 0 && (
+                      <button
+                        onClick={() => {
+                          setPackSettingsMode("album-series");
+                          setShowPackSettings(true);
+                          setShowPackDropdown(false);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          display: "block",
+                          width: "100%",
+                          padding: "0.5rem 1rem",
+                          textAlign: "left",
+                          color: "#5a8fcf",
+                          fontSize: "0.9rem",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = "#f8f9fa";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = "transparent";
+                        }}
+                      >
+                        🎵 Make Album Series
+                      </button>
+                    )}
                 </div>
               )}
             </div>
@@ -1176,33 +1172,35 @@ const WipPackCard = ({
                 >
                   📋 Move back to Future Plans
                 </button>
-                <button
-                  onClick={() => setPackSettingsMode("album-series")}
-                  style={{
-                    padding: "0.75rem 1rem",
-                    background: "#f8f9fa",
-                    color: "#495057",
-                    border: "1px solid #dee2e6",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "0.9rem",
-                    textAlign: "left",
-                    transition: "all 0.2s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "#e9ecef";
-                    e.target.style.borderColor = "#adb5bd";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "#f8f9fa";
-                    e.target.style.borderColor = "#dee2e6";
-                  }}
-                >
-                  🎵 Make Album Series
-                </button>
+                {albumsWithEnoughSongs.length >= 1 && (
+                  <button
+                    onClick={() => setPackSettingsMode("album-series")}
+                    style={{
+                      padding: "0.75rem 1rem",
+                      background: "#f8f9fa",
+                      color: "#495057",
+                      border: "1px solid #dee2e6",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "0.9rem",
+                      textAlign: "left",
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "#e9ecef";
+                      e.target.style.borderColor = "#adb5bd";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "#f8f9fa";
+                      e.target.style.borderColor = "#dee2e6";
+                    }}
+                  >
+                    🎵 Make Album Series
+                  </button>
+                )}
               </div>
             )}
 

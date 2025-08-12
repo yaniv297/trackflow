@@ -3,6 +3,7 @@ import SongRow from "./SongRow";
 import PackHeader from "./PackHeader";
 import BulkActions from "./BulkActions";
 import ColumnHeaders from "./ColumnHeaders";
+import { apiPost } from "../utils/api";
 
 const SongTable = ({
   songs,
@@ -39,8 +40,44 @@ const SongTable = ({
   onSongAdded,
   onPackNameUpdate,
 }) => {
-  // Local sorting state for each group
   const [localSortStates, setLocalSortStates] = useState({});
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [albumSeriesModal, setAlbumSeriesModal] = useState({
+    open: false,
+    packName: "",
+    albumsWithEnoughSongs: [], // [albumName, count][]
+    songsByAlbum: {}, // albumName -> song objects array
+  });
+
+  const openAlbumSeriesModal = (packName, packSongs) => {
+    const songsInPack = packSongs.filter((s) => s && typeof s === "object");
+    const songsByAlbum = {};
+    songsInPack.forEach((s) => {
+      if (s.album && !s.optional) {
+        if (!songsByAlbum[s.album]) songsByAlbum[s.album] = [];
+        songsByAlbum[s.album].push(s);
+      }
+    });
+    const albumsWithEnoughSongs = Object.entries(songsByAlbum)
+      .filter(([, list]) => list.length >= 4)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([album, list]) => [album, list.length]);
+
+    setAlbumSeriesModal({
+      open: true,
+      packName,
+      albumsWithEnoughSongs,
+      songsByAlbum,
+    });
+  };
+
+  const closeAlbumSeriesModal = () =>
+    setAlbumSeriesModal({
+      open: false,
+      packName: "",
+      albumsWithEnoughSongs: [],
+      songsByAlbum: {},
+    });
 
   // Handle local sorting for a specific group
   const handleLocalSort = (groupKey, key) => {
@@ -74,6 +111,7 @@ const SongTable = ({
       return 0;
     });
   };
+
   const renderPackGroup = (packName, songsInPack) => {
     const validSongsInPack = songsInPack.filter(
       (song) => song && typeof song === "object"
@@ -82,46 +120,37 @@ const SongTable = ({
     if (validSongsInPack.length === 0) return null;
 
     // Album series logic - extract unique series from songs
-    const uniqueSeries = [
-      ...new Set(
-        validSongsInPack
-          .filter((song) => song.album_series_id)
-          .map((song) => song.album_series_id)
-      ),
-    ];
+    // Pack-level series: if the pack has an album series, there will be a single series id on all songs in the pack
+    const packSeriesId =
+      validSongsInPack.find((s) => s.album_series_id)?.album_series_id || null;
+    const validSeries = packSeriesId ? [packSeriesId] : [];
 
-    const seriesSongCounts = {};
-    validSongsInPack.forEach((song) => {
-      if (song.album_series_id) {
-        seriesSongCounts[song.album_series_id] =
-          (seriesSongCounts[song.album_series_id] || 0) + 1;
-      }
-    });
+    const seriesInfo = packSeriesId
+      ? (() => {
+          const s = validSongsInPack.find(
+            (song) => song.album_series_id === packSeriesId
+          );
+          return s
+            ? [
+                {
+                  id: packSeriesId,
+                  number: s.album_series_number,
+                  name: s.album_series_name,
+                },
+              ]
+            : [];
+        })()
+      : [];
 
-    // Only include series with 4+ songs
-    const validSeries = uniqueSeries.filter(
-      (seriesId) => seriesSongCounts[seriesId] >= 4
+    // Compute album counts for action buttons
+    const albumsCountMap = validSongsInPack.reduce((acc, s) => {
+      if (s.album && !s.optional) acc[s.album] = (acc[s.album] || 0) + 1;
+      return acc;
+    }, {});
+    const albumsWithEnoughSongs = Object.entries(albumsCountMap).filter(
+      ([, c]) => c >= 4
     );
-
-    const seriesInfo = validSeries
-      .map((id) => {
-        const s = validSongsInPack.find((song) => song.album_series_id === id);
-        return s
-          ? {
-              id,
-              number: s.album_series_number,
-              name: s.album_series_name,
-            }
-          : null;
-      })
-      .filter(Boolean);
-
-    seriesInfo.sort((a, b) => {
-      // Handle cases where number might be null/undefined
-      const aNum = a?.number ?? 0;
-      const bNum = b?.number ?? 0;
-      return aNum - bNum;
-    });
+    const canMakeDoubleAlbumSeries = albumsWithEnoughSongs.length >= 2;
 
     return (
       <React.Fragment key={packName}>
@@ -134,11 +163,14 @@ const SongTable = ({
           toggleGroup={toggleGroup}
           seriesInfo={seriesInfo}
           validSeries={validSeries}
-          // Placeholder props for now - these can be added later if needed
-          canMakeDoubleAlbumSeries={false}
-          albumsWithEnoughSongs={[]}
-          onMakeDoubleAlbumSeries={() => {}}
-          onShowAlbumSeriesModal={() => {}}
+          canMakeDoubleAlbumSeries={canMakeDoubleAlbumSeries}
+          albumsWithEnoughSongs={albumsWithEnoughSongs}
+          onMakeDoubleAlbumSeries={() =>
+            openAlbumSeriesModal(packName, validSongsInPack)
+          }
+          onShowAlbumSeriesModal={() =>
+            openAlbumSeriesModal(packName, validSongsInPack)
+          }
           onBulkEdit={onBulkEdit || (() => {})}
           onBulkDelete={onBulkDelete || (() => {})}
           onBulkEnhance={onBulkEnhance || (() => {})}
@@ -146,7 +178,7 @@ const SongTable = ({
           onCleanTitles={onCleanTitles || (() => {})}
           artistImageUrl=""
           mostCommonArtist=""
-          showAlbumSeriesButton={false}
+          showAlbumSeriesButton={albumsWithEnoughSongs.length >= 1}
           status={status}
           user={user}
           setShowCollaborationModal={setShowCollaborationModal}
@@ -200,242 +232,203 @@ const SongTable = ({
     );
   };
 
-  const renderArtistGroup = (artist, albums) => {
-    const allSongsInArtist = Object.values(albums).flat();
-    const artistImageUrl = allSongsInArtist.find(
-      (s) => s.artist_image_url
-    )?.artist_image_url;
-
-    return (
-      <React.Fragment key={artist}>
-        {/* Artist Header Row */}
-        <tr className="group-header">
-          <td colSpan="10">
-            <input
-              type="checkbox"
-              checked={allSongsInArtist.every((s) =>
-                selectedSongs.includes(s.id)
-              )}
-              onChange={(e) => {
-                const songIds = allSongsInArtist.map((s) => s.id);
-                if (e.target.checked) {
-                  setSelectedSongs((prev) => [
-                    ...new Set([...prev, ...songIds]),
-                  ]);
-                } else {
-                  setSelectedSongs((prev) =>
-                    prev.filter((id) => !songIds.includes(id))
-                  );
-                }
-              }}
-              style={{ marginRight: "1rem" }}
-              className="pretty-checkbox"
-            />
-            {artistImageUrl && (
-              <img
-                src={artistImageUrl}
-                alt={artist}
-                style={{
-                  width: 54,
-                  height: 54,
-                  objectFit: "cover",
-                  borderRadius: "50%",
-                  marginRight: 16,
-                  boxShadow: "0 1px 6px rgba(0,0,0,0.13)",
-                }}
-              />
-            )}
-            <button
-              onClick={() => toggleGroup(artist)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              {collapsedGroups[artist] ? "▶" : "▼"}
-            </button>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: "1.25rem",
-                color: "#222",
-              }}
-            >
-              {artist}
-            </span>
-
-            {/* Bulk actions - always visible */}
-            <span style={{ marginLeft: "0.2rem" }}>
-              <BulkActions
-                selectedSongs={selectedSongs}
-                onBulkEdit={onBulkEdit}
-                onBulkDelete={onBulkDelete}
-                onBulkEnhance={onBulkEnhance}
-                onStartWork={onStartWork}
-                onCleanTitles={onCleanTitles}
-                showAlbumSeriesButton={false}
-                showDoubleAlbumSeriesButton={false}
-                status={status}
-              />
-            </span>
-          </td>
-        </tr>
-
-        {!collapsedGroups[artist] && (
-          <>
-            <ColumnHeaders
-              groupBy={groupBy}
-              handleSort={(key) => handleLocalSort(artist, key)}
-              sortKey={localSortStates[artist]?.key}
-              sortDirection={localSortStates[artist]?.direction}
-              packName={null}
-            />
-            {Object.entries(albums).map(([album, songsInAlbum]) => (
-              <React.Fragment key={`${artist}-${album}`}>
-                {/* Album Header Row */}
-                <tr className="group-subheader">
-                  <td colSpan="9">
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        paddingLeft: "2em",
-                        fontStyle: "italic",
-                        fontSize: "1rem",
-                        fontWeight: 500,
-                      }}
-                    >
-                      <div style={{ flex: "0 0 auto" }}>
-                        <input
-                          type="checkbox"
-                          checked={songsInAlbum.every((song) =>
-                            selectedSongs.includes(song.id)
-                          )}
-                          onChange={(e) => {
-                            const songIds = songsInAlbum.map((s) => s.id);
-                            if (e.target.checked) {
-                              setSelectedSongs((prev) => [
-                                ...new Set([...prev, ...songIds]),
-                              ]);
-                            } else {
-                              setSelectedSongs((prev) =>
-                                prev.filter((id) => !songIds.includes(id))
-                              );
-                            }
-                          }}
-                          className="pretty-checkbox"
-                        />
-                      </div>
-                      <div style={{ flex: "1 1 auto" }}>
-                        💿 <em>{album || "Unknown Album"}</em> (
-                        {songsInAlbum.length})
-                      </div>
-
-                      {/* Bulk actions - always visible */}
-                      <div style={{ flex: "0 0 auto", marginLeft: "0.2rem" }}>
-                        <BulkActions
-                          selectedSongs={selectedSongs}
-                          onBulkEdit={onBulkEdit}
-                          onBulkDelete={onBulkDelete}
-                          onBulkEnhance={onBulkEnhance}
-                          onStartWork={onStartWork}
-                          onCleanTitles={onCleanTitles}
-                          showAlbumSeriesButton={false}
-                          showDoubleAlbumSeriesButton={false}
-                          status={status}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-                {/* Song Rows */}
-                {sortSongsInGroup(songsInAlbum, artist).map((song) => (
-                  <SongRow
-                    key={song.id}
-                    song={song}
-                    selected={selectedSongs.includes(song.id)}
-                    onSelect={(e) => {
-                      if (e.target.checked) {
-                        setSelectedSongs((prev) => [...prev, song.id]);
-                      } else {
-                        setSelectedSongs((prev) =>
-                          prev.filter((id) => id !== song.id)
-                        );
-                      }
-                    }}
-                    editing={editing}
-                    editValues={editValues}
-                    setEditing={setEditing}
-                    setEditValues={setEditValues}
-                    saveEdit={saveEdit}
-                    fetchSpotifyOptions={fetchSpotifyOptions}
-                    handleDelete={handleDelete}
-                    spotifyOptions={spotifyOptions}
-                    setSpotifyOptions={setSpotifyOptions}
-                    applySpotifyEnhancement={applySpotifyEnhancement}
-                    status={status}
-                    groupBy={groupBy}
-                    packName={null}
-                  />
-                ))}
-              </React.Fragment>
-            ))}
-          </>
-        )}
-      </React.Fragment>
-    );
-  };
+  // Group songs by pack (or artist/album) and render
+  const groupedKeys = Object.keys(groupedSongs || {});
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table className="song-table">
-        <tbody>
-          {/* Global select all row */}
-          <tr
+    <>
+      <div style={{ overflowX: "auto" }}>
+        <table className="song-table">
+          <tbody>
+            {groupedKeys.map((groupKey) => {
+              const group = groupedSongs[groupKey] || [];
+              if (groupBy === "pack") {
+                return renderPackGroup(groupKey, group);
+              }
+              // For other groupings, reuse pack rendering per group
+              return renderPackGroup(groupKey, group);
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {albumSeriesModal.open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={closeAlbumSeriesModal}
+        >
+          <div
             style={{
-              backgroundColor: "#e9ecef",
-              borderBottom: "2px solid #dee2e6",
+              background: "white",
+              padding: "1.2rem",
+              borderRadius: 8,
+              minWidth: 420,
+              maxWidth: 720,
+              maxHeight: "80vh",
+              overflow: "auto",
+              boxShadow: "0 10px 24px rgba(0,0,0,0.2)",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <td
-              style={{ padding: "0.5rem", textAlign: "center", width: "40px" }}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "0.75rem",
+              }}
             >
-              <input
-                type="checkbox"
-                checked={
-                  selectedSongs.length > 0 &&
-                  songs.every((song) => selectedSongs.includes(song.id))
-                }
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedSongs(songs.map((song) => song.id));
-                  } else {
-                    setSelectedSongs([]);
+              <h3 style={{ margin: 0 }}>Create Album Series</h3>
+              <button
+                onClick={closeAlbumSeriesModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            {albumSeriesModal.albumsWithEnoughSongs.length === 0 ? (
+              <p>No eligible albums (need at least 4 non-optional songs).</p>
+            ) : (
+              <div style={{ display: "grid", gap: 12 }}>
+                {albumSeriesModal.albumsWithEnoughSongs
+                  .slice(0, 2)
+                  .map(([albumName]) => {
+                    const songs =
+                      albumSeriesModal.songsByAlbum[albumName] || [];
+                    const artist = songs[0]?.artist || "Unknown Artist";
+                    return (
+                      <div
+                        key={albumName}
+                        style={{
+                          border: "1px solid #eee",
+                          borderRadius: 8,
+                          padding: 12,
+                          background: "#fafafa",
+                        }}
+                      >
+                        <div style={{ marginBottom: 8 }}>
+                          <strong>{artist}</strong> — <em>{albumName}</em> (
+                          {songs.length} songs)
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: 18 }}>
+                          {songs.map((s) => (
+                            <li key={s.id}>
+                              {s.title} — {s.artist}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                marginTop: 12,
+              }}
+            >
+              <button
+                onClick={closeAlbumSeriesModal}
+                style={{
+                  background: "#6c757d",
+                  color: "#fff",
+                  border: 0,
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const albums = albumSeriesModal.albumsWithEnoughSongs.slice(
+                      0,
+                      2
+                    );
+                    if (albums.length === 0) return;
+
+                    // Create one series per qualifying album (supports double)
+                    for (const [albumName] of albums) {
+                      const songs =
+                        albumSeriesModal.songsByAlbum[albumName] || [];
+                      const song_ids = songs.map((s) => s.id);
+                      const artist_name = songs[0]?.artist || "";
+                      const year = parseInt(songs[0]?.year) || null;
+
+                      await apiPost("/album-series/create-from-pack", {
+                        pack_name: albumSeriesModal.packName,
+                        song_ids,
+                        artist_name,
+                        album_name: albumName,
+                        year,
+                        cover_image_url: null,
+                        description: null,
+                      });
+                    }
+
+                    if (window.showNotification) {
+                      window.showNotification(
+                        albums.length === 2
+                          ? "Double album series created successfully!"
+                          : "Album series created successfully!",
+                        "success"
+                      );
+                    }
+
+                    closeAlbumSeriesModal();
+                    if (typeof onSongAdded === "function") {
+                      onSongAdded(); // refresh list
+                    }
+                  } catch (err) {
+                    console.error("Failed to create album series:", err);
+                    if (window.showNotification) {
+                      window.showNotification(
+                        "Failed to create album series",
+                        "error"
+                      );
+                    }
                   }
                 }}
-                className="pretty-checkbox"
-              />
-            </td>
-            <td
-              colSpan={groupBy === "artist" ? 7 : 8}
-              style={{ padding: "0.5rem", fontWeight: "600" }}
-            >
-              Select All Songs
-            </td>
-          </tr>
-
-          {groupBy === "artist"
-            ? Object.entries(groupedSongs).map(([artist, albums]) =>
-                renderArtistGroup(artist, albums)
-              )
-            : Object.entries(groupedSongs).map(([packName, songsInPack]) =>
-                renderPackGroup(packName, songsInPack)
-              )}
-        </tbody>
-      </table>
-    </div>
+                style={{
+                  background: "#007bff",
+                  color: "#fff",
+                  border: 0,
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                {albumSeriesModal.albumsWithEnoughSongs.length >= 2
+                  ? "Create Double Album Series"
+                  : "Create Album Series"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

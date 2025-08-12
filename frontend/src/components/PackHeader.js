@@ -2,6 +2,18 @@ import React, { useState } from "react";
 import BulkActions from "./BulkActions";
 import AddSongToPack from "./AddSongToPack";
 
+const dropdownItemStyle = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  display: "block",
+  width: "100%",
+  padding: "0.5rem 1rem",
+  textAlign: "left",
+  color: "#5a8fcf",
+  fontSize: "0.9rem",
+};
+
 const PackHeader = ({
   packName,
   validSongsInPack,
@@ -32,49 +44,21 @@ const PackHeader = ({
   onPackNameUpdate,
 }) => {
   const [showAddSongModal, setShowAddSongModal] = useState(false);
-  const [isEditingPackName, setIsEditingPackName] = useState(false);
-  const [editingPackName, setEditingPackName] = useState(packName);
+  const [showPackActions, setShowPackActions] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [newPackName, setNewPackName] = useState(packName);
 
-  const handleStartEditPackName = () => {
-    setIsEditingPackName(true);
-    setEditingPackName(packName);
-  };
-
-  const handleSavePackName = async () => {
-    if (editingPackName.trim() === packName) {
-      setIsEditingPackName(false);
-      return;
-    }
-
-    if (editingPackName.trim() === "") {
-      setEditingPackName(packName);
-      setIsEditingPackName(false);
-      return;
-    }
-
+  const submitRename = async () => {
     try {
-      await onPackNameUpdate(
-        validSongsInPack[0]?.pack_id,
-        editingPackName.trim()
-      );
-      setIsEditingPackName(false);
-    } catch (error) {
-      console.error("Failed to update pack name:", error);
-      setEditingPackName(packName);
-      setIsEditingPackName(false);
-    }
-  };
-
-  const handleCancelEditPackName = () => {
-    setEditingPackName(packName);
-    setIsEditingPackName(false);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleSavePackName();
-    } else if (e.key === "Escape") {
-      handleCancelEditPackName();
+      if (!newPackName.trim() || newPackName.trim() === packName) {
+        setRenameModalOpen(false);
+        return;
+      }
+      await onPackNameUpdate(validSongsInPack[0]?.pack_id, newPackName.trim());
+      setRenameModalOpen(false);
+    } catch (e) {
+      console.error("Rename failed", e);
+      setRenameModalOpen(false);
     }
   };
 
@@ -102,7 +86,7 @@ const PackHeader = ({
           />
         </td>
 
-        {/* Second column: expand/collapse, pack name, bulk actions */}
+        {/* Second column: expand/collapse, pack name, dropdown actions */}
         <td
           colSpan="8"
           style={{
@@ -116,6 +100,7 @@ const PackHeader = ({
               display: "inline-flex",
               alignItems: "center",
               gap: "0.7rem",
+              width: "100%",
             }}
           >
             {artistImageUrl && (
@@ -142,291 +127,215 @@ const PackHeader = ({
                 fontSize: "1.2rem",
                 marginRight: "0.5rem",
               }}
+              aria-label="Toggle pack"
             >
               {collapsedGroups[packName] ? "▶" : "▼"}
             </button>
 
-            <span style={{ flex: 1 }}>
-              {validSeries.length === 1 ? (
-                <a
-                  href={`/album-series/${seriesInfo[0].id}`}
-                  style={{
-                    textDecoration: "none",
-                    color: "#1a237e",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    background: "#e3eaff",
-                    borderRadius: "12px",
-                    padding: "0.15rem 0.7rem 0.15rem 0.5rem",
-                    fontWeight: 600,
-                    fontSize: "1.08em",
-                    boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
-                    transition: "background 0.2s",
-                    marginRight: 8,
-                  }}
-                  title={`Album Series #${seriesInfo[0].number}: ${seriesInfo[0].name}`}
-                >
-                  <span style={{ fontSize: "1.1em", marginRight: 4 }}>📀</span>
-                  Album Series #{seriesInfo[0].number}: {seriesInfo[0].name}
-                </a>
-              ) : validSeries.length === 2 ? (
-                <>
-                  {seriesInfo.map((info, idx) => (
-                    <a
-                      key={info.id}
-                      href={`/album-series/${info.id}`}
-                      style={{
-                        textDecoration: "none",
-                        color: "#1a237e",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        background: "#e3eaff",
-                        borderRadius: "12px",
-                        padding: "0.15rem 0.7rem 0.15rem 0.5rem",
-                        fontWeight: 600,
-                        fontSize: "1.08em",
-                        boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
-                        transition: "background 0.2s",
-                        marginRight: idx === 0 ? 8 : 0,
-                      }}
-                      title={`Album Series #${info.number}: ${info.name}`}
-                    >
-                      <span style={{ fontSize: "1.1em", marginRight: 4 }}>
-                        📀
-                      </span>
-                      Album Series #{info.number}: {info.name}
-                    </a>
-                  ))}
-                </>
-              ) : (
+            {/* Replace pack title with Album Series title if present */}
+            {(() => {
+              const s = validSongsInPack.find((x) => x.album_series_id);
+              if (s) {
+                const num = s.album_series_number ?? "";
+                const name = s.album_series_name ?? "Album Series";
+                const displayText = num
+                  ? `Album Series #${num}: ${name}`
+                  : `Album Series: ${name}`;
+                return (
+                  <a
+                    href={
+                      s.album_series_id
+                        ? `/album-series/${s.album_series_id}`
+                        : undefined
+                    }
+                    style={{
+                      textDecoration: "none",
+                      color: "#1a237e",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      background: "#e3eaff",
+                      borderRadius: "12px",
+                      padding: "0.15rem 0.7rem 0.15rem 0.5rem",
+                      fontWeight: 600,
+                      fontSize: "1.08em",
+                      boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
+                      transition: "background 0.2s",
+                    }}
+                    title={displayText}
+                  >
+                    <span style={{ fontSize: "1.1em", marginRight: 6 }}>
+                      📀
+                    </span>
+                    {displayText}
+                  </a>
+                );
+              }
+              return (
+                <span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
+                  {packName} ({validSongsInPack.length})
+                </span>
+              );
+            })()}
+
+            {/* Gear dropdown right next to pack name (no pencil) */}
+            <span
+              style={{ position: "relative", marginLeft: "0.4rem" }}
+              data-pack-actions-dropdown
+            >
+              <button
+                onClick={() => setShowPackActions((v) => !v)}
+                style={{
+                  background: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 24,
+                  height: 24,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                title="Pack actions"
+                onMouseEnter={(e) => (e.target.style.background = "#0056b3")}
+                onMouseLeave={(e) => (e.target.style.background = "#007bff")}
+              >
+                ⚙️
+              </button>
+
+              {showPackActions && (
                 <div
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    background: "white",
+                    border: "1px solid #ddd",
+                    borderRadius: 6,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    zIndex: 1000,
+                    minWidth: 220,
+                    padding: "0.5rem 0",
                   }}
                 >
-                  {isEditingPackName ? (
-                    <input
-                      type="text"
-                      value={editingPackName}
-                      onChange={(e) => setEditingPackName(e.target.value)}
-                      onBlur={handleSavePackName}
-                      onKeyDown={handleKeyDown}
-                      style={{
-                        fontSize: "1.2rem",
-                        fontWeight: "bold",
-                        border: "1px solid #007bff",
-                        borderRadius: "4px",
-                        padding: "0.2rem 0.5rem",
-                        outline: "none",
-                        minWidth: "200px",
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
-                      {packName} ({validSongsInPack.length})
-                    </span>
-                  )}
-                  {!isEditingPackName && validSongsInPack.length > 0 && (
-                    <button
-                      onClick={handleStartEditPackName}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: "0.9rem",
-                        color: "#666",
-                        padding: "0.2rem",
-                        borderRadius: "3px",
-                        transition: "background 0.2s",
-                      }}
-                      title="Edit pack name"
-                      onMouseEnter={(e) => {
-                        e.target.style.background = "#f0f0f0";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = "none";
-                      }}
-                    >
-                      ✏️
-                    </button>
-                  )}
-                </div>
-              )}
-            </span>
-
-            {/* Pack-level action buttons */}
-            <span
-              style={{
-                display: "inline-flex",
-                gap: "0.4rem",
-                marginLeft: "1.2rem",
-                verticalAlign: "middle",
-              }}
-            >
-              {/* Create Album Series Button */}
-              {showAlbumSeriesButton && (
-                <button
-                  onClick={onShowAlbumSeriesModal}
-                  style={{
-                    background: "#4CAF50",
-                    color: "white",
-                    border: "1px solid #45a049",
-                    borderRadius: "6px",
-                    padding: "0.28rem 0.9rem",
-                    fontWeight: 600,
-                    fontSize: "0.98rem",
-                    cursor: "pointer",
-                    transition: "background 0.2s, border 0.2s",
-                  }}
-                >
-                  🎵 Create Album Series
-                </button>
-              )}
-
-              {/* Make Double Album Series Button */}
-              {canMakeDoubleAlbumSeries && (
-                <button
-                  onClick={() =>
-                    onMakeDoubleAlbumSeries(packName, albumsWithEnoughSongs)
-                  }
-                  style={{
-                    background: "#FF6B35",
-                    color: "white",
-                    border: "1px solid #E55A2B",
-                    borderRadius: "6px",
-                    padding: "0.28rem 0.9rem",
-                    fontWeight: 600,
-                    fontSize: "0.98rem",
-                    cursor: "pointer",
-                    transition: "background 0.2s, border 0.2s",
-                  }}
-                  title={`Split "${albumsWithEnoughSongs[1][0]}" into its own album series (${albumsWithEnoughSongs[1][1]} songs)`}
-                >
-                  🎵🎵 Make Double Album Series
-                </button>
-              )}
-
-              {/* Add Song Button - Show if user has pack view/edit access */}
-              {validSongsInPack[0]?.pack_id && (
-                <button
-                  onClick={() => setShowAddSongModal(true)}
-                  style={{
-                    background: "#f3f4f6",
-                    color: "#222",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    padding: "0.4rem 0.8rem",
-                    cursor: "pointer",
-                    fontSize: "0.85rem",
-                    fontWeight: "500",
-                    transition: "background 0.2s, border 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                  }}
-                  title="Add song to this pack"
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "#e5e7eb";
-                    e.target.style.borderColor = "#9ca3af";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "#f3f4f6";
-                    e.target.style.borderColor = "#d1d5db";
-                  }}
-                >
-                  + Add Song
-                </button>
-              )}
-
-              {/* Manage Collaborations Button - Only show for Future Plans and pack owners */}
-              {status === "Future Plans" &&
-                validSongsInPack[0]?.pack_owner_username === user?.username && (
+                  {/* Edit Pack Name */}
                   <button
                     onClick={() => {
-                      setSelectedItemForCollaboration({
-                        type: "pack",
-                        id: validSongsInPack[0].pack_id,
-                        name: packName,
-                      });
-                      setCollaborationType("pack");
-                      setShowCollaborationModal(true);
+                      setNewPackName(packName);
+                      setRenameModalOpen(true);
+                      setShowPackActions(false);
                     }}
-                    style={{
-                      background: "#f3f4f6",
-                      color: "#222",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "6px",
-                      padding: "0.4rem 0.8rem",
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
-                      fontWeight: "500",
-                      transition: "background 0.2s, border 0.2s",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.4rem",
+                    style={dropdownItemStyle}
+                  >
+                    ✏️ Edit Pack Name
+                  </button>
+
+                  {/* Start Work */}
+                  {status === "Future Plans" && (
+                    <button
+                      onClick={() => {
+                        onStartWork(validSongsInPack.map((s) => s.id));
+                        setShowPackActions(false);
+                      }}
+                      style={dropdownItemStyle}
+                    >
+                      🔨 Start Work
+                    </button>
+                  )}
+
+                  {/* Add Song */}
+                  {validSongsInPack[0]?.pack_id && (
+                    <button
+                      onClick={() => {
+                        setShowAddSongModal(true);
+                        setShowPackActions(false);
+                      }}
+                      style={dropdownItemStyle}
+                    >
+                      ＋ Add Song
+                    </button>
+                  )}
+
+                  {/* Collaborations */}
+                  <button
+                    onClick={() => {
+                      if (setShowCollaborationModal) {
+                        setShowCollaborationModal(true);
+                        setSelectedItemForCollaboration &&
+                          setSelectedItemForCollaboration({
+                            type: "pack",
+                            packName,
+                          });
+                        setCollaborationType && setCollaborationType("pack");
+                      }
+                      setShowPackActions(false);
                     }}
-                    title="Manage pack collaborations"
-                    onMouseEnter={(e) => {
-                      e.target.style.background = "#e5e7eb";
-                      e.target.style.borderColor = "#9ca3af";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = "#f3f4f6";
-                      e.target.style.borderColor = "#d1d5db";
-                    }}
+                    style={dropdownItemStyle}
                   >
                     👥 Collaborations
                   </button>
-                )}
 
-              {/* Start Work Button - Only show for Future Plans */}
-              {status === "Future Plans" && (
-                <button
-                  onClick={() => onStartWork(validSongsInPack.map((s) => s.id))}
-                  style={{
-                    background: "#f3f4f6",
-                    color: "#222",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    padding: "0.4rem 0.8rem",
-                    cursor: "pointer",
-                    fontSize: "0.85rem",
-                    fontWeight: "500",
-                    transition: "background 0.2s, border 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                  }}
-                  title="Start work on this pack (move to In Progress)"
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "#e5e7eb";
-                    e.target.style.borderColor = "#9ca3af";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "#f3f4f6";
-                    e.target.style.borderColor = "#d1d5db";
-                  }}
-                >
-                  🔨 Start Work
-                </button>
+                  {/* Bulk Options */}
+                  <button
+                    onClick={() => {
+                      onBulkEdit && onBulkEdit();
+                      setShowPackActions(false);
+                    }}
+                    style={dropdownItemStyle}
+                  >
+                    📋 Bulk Options
+                  </button>
+
+                  {/* Album Series actions */}
+                  {(() => {
+                    const hasAlbumSeries = validSongsInPack.some(
+                      (s) => s.album_series_id
+                    );
+                    const canCreate =
+                      !hasAlbumSeries &&
+                      albumsWithEnoughSongs &&
+                      albumsWithEnoughSongs.length >= 1;
+                    const canSplitDouble =
+                      hasAlbumSeries &&
+                      albumsWithEnoughSongs &&
+                      albumsWithEnoughSongs.length >= 2;
+                    return (
+                      <>
+                        {canCreate && (
+                          <button
+                            onClick={() => {
+                              onShowAlbumSeriesModal(
+                                packName,
+                                albumsWithEnoughSongs
+                              );
+                              setShowPackActions(false);
+                            }}
+                            style={dropdownItemStyle}
+                          >
+                            🎵 Make Album Series
+                          </button>
+                        )}
+                        {canSplitDouble && (
+                          <button
+                            onClick={() => {
+                              onMakeDoubleAlbumSeries(
+                                packName,
+                                albumsWithEnoughSongs
+                              );
+                              setShowPackActions(false);
+                            }}
+                            style={dropdownItemStyle}
+                          >
+                            🎵🎵 Make Double Album Series
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               )}
             </span>
-
-            {/* Bulk actions - always visible */}
-            <BulkActions
-              selectedSongs={selectedSongs}
-              onBulkEdit={onBulkEdit}
-              onBulkDelete={onBulkDelete}
-              onBulkEnhance={onBulkEnhance}
-              onStartWork={onStartWork}
-              onCleanTitles={onCleanTitles}
-              showAlbumSeriesButton={false} // Already shown above
-              showDoubleAlbumSeriesButton={false} // Already shown above
-              status={status}
-            />
           </span>
         </td>
       </tr>
@@ -438,10 +347,85 @@ const PackHeader = ({
         packId={validSongsInPack[0]?.pack_id}
         packName={packName}
         onSongAdded={() => {
+          onSongAdded && onSongAdded();
           setShowAddSongModal(false);
-          onSongAdded?.();
         }}
       />
+
+      {/* Rename Pack Modal */}
+      {renameModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setRenameModalOpen(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "1rem",
+              borderRadius: 8,
+              minWidth: 360,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Edit Pack Name</h3>
+            <input
+              type="text"
+              value={newPackName}
+              onChange={(e) => setNewPackName(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #ccc",
+                borderRadius: 6,
+              }}
+              autoFocus
+            />
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "flex-end",
+                marginTop: 12,
+              }}
+            >
+              <button
+                onClick={() => setRenameModalOpen(false)}
+                style={{
+                  background: "#6c757d",
+                  color: "#fff",
+                  border: 0,
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRename}
+                style={{
+                  background: "#007bff",
+                  color: "#fff",
+                  border: 0,
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

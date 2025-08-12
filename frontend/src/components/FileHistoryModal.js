@@ -2,7 +2,14 @@ import React, { useState, useEffect } from "react";
 import { apiGet, apiPost, apiDelete } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 
-const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDeleted }) => {
+const FileHistoryModal = ({
+  isOpen,
+  onClose,
+  song,
+  mode = "normal",
+  onFileLinkAdded,
+  onFileLinkDeleted,
+}) => {
   const [fileLinks, setFileLinks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -34,11 +41,12 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDe
   const handleAddFileLink = async (e) => {
     e.preventDefault();
 
-    if (!newFileUrl.trim() || !newMessage.trim()) {
-      window.showNotification(
-        "Please fill in both file URL and message",
-        "error"
-      );
+    if (!newFileUrl.trim()) {
+      window.showNotification("Please enter a file URL", "error");
+      return;
+    }
+    if (mode !== "con" && !newMessage.trim()) {
+      window.showNotification("Please add a progress message", "error");
       return;
     }
 
@@ -81,7 +89,7 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDe
 
       // Remove from list
       setFileLinks((prev) => prev.filter((link) => link.id !== linkId));
-      
+
       // Notify parent component
       if (onFileLinkDeleted) {
         onFileLinkDeleted(linkId);
@@ -148,7 +156,10 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDe
             paddingBottom: "1rem",
           }}
         >
-          <h3 style={{ margin: 0 }}>File History - {song?.title}</h3>
+          <h3 style={{ margin: 0 }}>
+            {mode === "con" ? "Submit Finished CON File" : "File History"} -{" "}
+            {song?.title}
+          </h3>
           <button
             onClick={onClose}
             style={{
@@ -190,13 +201,19 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDe
                     fontSize: "0.9rem",
                   }}
                 >
-                  File URL (Google Drive, Dropbox, etc.):
+                  {mode === "con"
+                    ? "Finished CON File URL (Google Drive, etc.)"
+                    : "File URL (Google Drive, Dropbox, etc.)"}
                 </label>
                 <input
                   type="url"
                   value={newFileUrl}
                   onChange={(e) => setNewFileUrl(e.target.value)}
-                  placeholder="https://drive.google.com/..."
+                  placeholder={
+                    mode === "con"
+                      ? "https://drive.google.com/your-song.con"
+                      : "https://drive.google.com/..."
+                  }
                   style={{
                     width: "100%",
                     padding: "0.5rem",
@@ -217,12 +234,16 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDe
                     fontSize: "0.9rem",
                   }}
                 >
-                  Progress Message:
+                  {mode === "con" ? "Notes (optional):" : "Progress Message:"}
                 </label>
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="e.g., 'Finished drums and bass tracks'"
+                  placeholder={
+                    mode === "con"
+                      ? "Any notes about this finished build (optional)"
+                      : "e.g., 'Finished drums and bass tracks'"
+                  }
                   style={{
                     width: "100%",
                     padding: "0.5rem",
@@ -233,7 +254,7 @@ const FileHistoryModal = ({ isOpen, onClose, song, onFileLinkAdded, onFileLinkDe
                     minHeight: "80px",
                     resize: "vertical",
                   }}
-                  required
+                  required={mode !== "con"}
                 />
               </div>
 

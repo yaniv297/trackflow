@@ -43,6 +43,27 @@ export default function WipSongCard({
   const [fileLinksCount, setFileLinksCount] = useState(0);
   const [lastKnownFileIds, setLastKnownFileIds] = useState(new Set());
   const isOptional = song.optional;
+  const isFinished = React.useMemo(() => {
+    const fields = [
+      "demucs",
+      "midi",
+      "tempo_map",
+      "fake_ending",
+      "drums",
+      "bass",
+      "guitar",
+      "vocals",
+      "harmonies",
+      "pro_keys",
+      "keys",
+      "animations",
+      "drum_fills",
+      "overdrive",
+      "compile",
+    ];
+    if (!song.authoring) return false;
+    return fields.every((f) => song.authoring?.[f] === true);
+  }, [song.authoring]);
   const { user: currentUser } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
@@ -490,8 +511,8 @@ export default function WipSongCard({
             )}
           </div>
 
-          {/* File History Button - Only for collaborative songs */}
-          {!readOnly && wipCollaborations.length > 0 && (
+          {/* File History Button - For collaborative songs or finished songs */}
+          {!readOnly && (wipCollaborations.length > 0 || isFinished) && (
             <div style={{ position: "relative", marginRight: "0.5rem" }}>
               <button
                 onClick={() => setShowFileHistoryModal(true)}
@@ -1090,6 +1111,7 @@ export default function WipSongCard({
         isOpen={showFileHistoryModal}
         onClose={() => setShowFileHistoryModal(false)}
         song={song}
+        mode={isFinished ? "con" : "normal"}
         onFileLinkAdded={(newLink) => {
           // Update the file count and track the new file ID
           setFileLinksCount((prev) => prev + 1);

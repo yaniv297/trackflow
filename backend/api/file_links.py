@@ -102,7 +102,22 @@ def create_file_link(song_id: int, file_link: FileLinkCreate, db: Session = Depe
     if not file_link.file_url.strip():
         raise HTTPException(status_code=400, detail="File URL cannot be empty")
     
-    if not file_link.message.strip():
+    # Determine if song is 100% finished (all authoring fields complete)
+    is_finished = False
+    try:
+        authoring = getattr(song, "authoring", None)
+        if authoring is not None:
+            authoring_fields = [
+                "demucs", "tempo_map", "fake_ending", "drums", "bass", "guitar",
+                "vocals", "harmonies", "pro_keys", "keys", "animations",
+                "drum_fills", "overdrive", "compile"
+            ]
+            is_finished = all(getattr(authoring, f, False) for f in authoring_fields)
+    except Exception:
+        is_finished = False
+    
+    # In CON mode (finished songs), message is optional. Otherwise it's required.
+    if not file_link.message.strip() and not is_finished:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     
     # Create new file link
@@ -110,7 +125,7 @@ def create_file_link(song_id: int, file_link: FileLinkCreate, db: Session = Depe
         song_id=song_id,
         user_id=current_user.id,
         file_url=file_link.file_url.strip(),
-        message=file_link.message.strip()
+        message=file_link.message.strip() if file_link.message else ""
     )
     
     db.add(new_file_link)

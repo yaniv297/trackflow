@@ -48,11 +48,14 @@ class Pack(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True, index=True)
     
     # Relationships
     user = relationship("User", back_populates="packs")
     songs = relationship("Song", back_populates="pack_obj")
     collaborations = relationship("Collaboration", back_populates="pack")
+    # Link to the album series this pack belongs to (pack-level association)
+    album_series = relationship("AlbumSeries", foreign_keys=[album_series_id], uselist=False)
 
 class Song(Base):
     __tablename__ = "songs"
@@ -67,7 +70,6 @@ class Song(Base):
     album_cover = Column(String)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     pack_id = Column(Integer, ForeignKey("packs.id"), index=True)
-    album_series_id = Column(Integer, ForeignKey("album_series.id"), index=True)
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     created_at = Column(DateTime, default=datetime.utcnow)
     
@@ -81,11 +83,12 @@ class Song(Base):
     # Relationships
     user = relationship("User", back_populates="songs")
     pack_obj = relationship("Pack", back_populates="songs")
-    album_series_obj = relationship("AlbumSeries", back_populates="songs")
-    collaborations = relationship("Collaboration", back_populates="song")
     artist_obj = relationship("Artist", back_populates="songs")
     authoring = relationship("Authoring", back_populates="song", uselist=False)
-    file_links = relationship("FileLink", order_by="FileLink.created_at.desc()")
+    collaborations = relationship("Collaboration", back_populates="song")
+    # Song-level album series override (nullable)
+    album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True, index=True)
+    album_series_obj = relationship("AlbumSeries", foreign_keys=[album_series_id], uselist=False)
 
 class Collaboration(Base):
     __tablename__ = "collaborations"
@@ -138,8 +141,7 @@ class AlbumSeries(Base):
     pack_id = Column(Integer, ForeignKey("packs.id"))
     
     # Relationships
-    pack = relationship("Pack")
-    songs = relationship("Song", back_populates="album_series_obj")
+    pack = relationship("Pack", foreign_keys=[pack_id])
 
 # Legacy SongCollaboration model removed - use unified Collaboration model instead
 
@@ -179,40 +181,15 @@ class Authoring(Base):
     # Relationships
     song = relationship("Song", back_populates="authoring")
 
-class AuthoringProgress(Base):
-    __tablename__ = "authoring_progress"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    song_id = Column(Integer, ForeignKey("songs.id"))
-    lyrics_progress = Column(Integer, default=0)
-    melody_progress = Column(Integer, default=0)
-    arrangement_progress = Column(Integer, default=0)
-    recording_progress = Column(Integer, default=0)
-    mixing_progress = Column(Integer, default=0)
-    mastering_progress = Column(Integer, default=0)
-    notes = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    song = relationship("Song")
-
-# Legacy tables have been removed - all collaboration data is now in the unified Collaboration table
-
 class FileLink(Base):
     __tablename__ = "file_links"
     
     id = Column(Integer, primary_key=True, index=True)
     song_id = Column(Integer, ForeignKey("songs.id"), index=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
-    file_url = Column(String, nullable=False)  # The actual file link (Google Drive, etc.)
-    message = Column(Text, nullable=False)  # User's progress message/description
+    file_url = Column(String)
+    message = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Composite index for efficient queries
-    __table_args__ = (
-        Index('idx_filelink_song_created', 'song_id', 'created_at'),
-    )
     
     # Relationships
     song = relationship("Song")

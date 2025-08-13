@@ -222,27 +222,29 @@ export default function SongRow({
         </td>
 
         {/* Pack */}
-        <td style={{ padding: "8px" }}>
-          {editing[`${song.id}_pack`] ? (
-            <EditableCell
-              value={song.pack_name || ""}
-              songId={song.id}
-              field="pack"
-              editing={editing}
-              editValues={editValues}
-              setEditing={setEditing}
-              setEditValues={setEditValues}
-              saveEdit={saveEdit}
-            />
-          ) : (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={() => setEditing({ [`${song.id}_pack`]: true })}
-            >
-              {song.pack_name || ""}
-            </div>
-          )}
-        </td>
+        {groupBy !== "pack" && (
+          <td style={{ padding: "8px" }}>
+            {editing[`${song.id}_pack`] ? (
+              <EditableCell
+                value={song.pack_name || ""}
+                songId={song.id}
+                field="pack"
+                editing={editing}
+                editValues={editValues}
+                setEditing={setEditing}
+                setEditValues={setEditValues}
+                saveEdit={saveEdit}
+              />
+            ) : (
+              <div
+                style={{ cursor: "pointer" }}
+                onClick={() => setEditing({ [`${song.id}_pack`]: true })}
+              >
+                {song.pack_name || ""}
+              </div>
+            )}
+          </td>
+        )}
 
         {/* Author */}
         <td style={{ padding: "8px" }}>

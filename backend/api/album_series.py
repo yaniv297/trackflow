@@ -23,14 +23,16 @@ class UpdateAlbumSeriesStatusRequest(BaseModel):
 def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     """Get unique authors for a series from both songs and collaborations"""
     # Get authors from songs (using user relationship)
-    song_authors = db.query(User.username).join(Song).filter(
-        Song.album_series_id == series_id,
+    song_authors = db.query(User.username).join(Song).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
+        (Song.album_series_id == series_id) |
+        ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id)),
         User.username.isnot(None)
     ).distinct().all()
     
     # Get authors from collaborations (using the new unified collaboration structure)
-    collab_authors = db.query(User.username).join(Collaboration).join(Song).filter(
-        Song.album_series_id == series_id,
+    collab_authors = db.query(User.username).join(Collaboration).join(Song).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
+        (Song.album_series_id == series_id) |
+        ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id)),
         User.username.isnot(None)
     ).distinct().all()
     
@@ -87,7 +89,10 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
     # Add song count and authors to each series
     result = []
     for s in filtered_series:
-        song_count = db.query(Song).filter(Song.album_series_id == s.id).count()
+        song_count = db.query(Song).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
+            (Song.album_series_id == s.id) |
+            ((Song.album_series_id.is_(None)) & (Pack.album_series_id == s.id))
+        ).count()
         authors = get_unique_authors_for_series(db, s.id)
         
         # Create response object
@@ -126,7 +131,10 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
             joinedload(Song.user),  # Load the song owner
             joinedload(Song.pack_obj),  # Load the pack relationship
             joinedload(Song.authoring)
-        ).filter(Song.album_series_id == series_id).all()
+        ).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
+            (Song.album_series_id == series_id) |
+            ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id))
+        ).all()
     except Exception as e:
         print(f"Error fetching songs for series {series_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching songs: {str(e)}")
@@ -243,7 +251,10 @@ def get_album_series_songs(series_id: int, db: Session = Depends(get_db)):
         joinedload(Song.collaborations).joinedload(Collaboration.user),
         joinedload(Song.pack_obj),  # Load the pack relationship
         joinedload(Song.authoring)
-    ).filter(Song.album_series_id == series_id).all()
+    ).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
+        (Song.album_series_id == series_id) |
+        ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id))
+    ).all()
     return songs
 
 @router.post("/create-from-pack")
@@ -252,57 +263,55 @@ def create_album_series_from_pack(
     db: Session = Depends(get_db)
 ):
     """Create an album series from a pack of WIP or Future songs"""
-    
 
-    
     pack_name = request.pack_name
     artist_name = request.artist_name
     album_name = request.album_name
     year = request.year
     cover_image_url = request.cover_image_url
     description = request.description
-    
+
     # Check if pack exists and has WIP/Future songs
     pack = db.query(Pack).filter(Pack.name == pack_name).first()
     if not pack:
         raise HTTPException(
-            status_code=404, 
+            status_code=404,
             detail=f"Pack '{pack_name}' not found"
         )
-    
+
     songs = db.query(Song).filter(
         Song.pack_id == pack.id,
         Song.status.in_([SongStatus.wip, SongStatus.future])
     ).all()
-    
+
     if not songs:
         raise HTTPException(
-            status_code=404, 
+            status_code=404,
             detail=f"No WIP or Future songs found for pack '{pack_name}'"
         )
-    
+
     # Check if album series already exists for this artist/album
     existing_series = db.query(AlbumSeries).filter(
         AlbumSeries.artist_name == artist_name,
         AlbumSeries.album_name == album_name
     ).first()
-    
+
     if existing_series:
         raise HTTPException(
             status_code=400,
             detail=f"Album series already exists for {artist_name} - {album_name}"
         )
-    
-    # Determine status based on song statuses
+
+    # Determine status: if any song is WIP -> in_progress, else planned
     song_statuses = [song.status for song in songs]
     if SongStatus.wip in song_statuses:
         status = "in_progress"
     else:
         status = "planned"
-    
+
     # Create album series (without series number for now)
     album_series = AlbumSeries(
-        series_number=None,  # Will be assigned when released
+        series_number=None,
         album_name=album_name,
         artist_name=artist_name,
         year=year,
@@ -312,17 +321,21 @@ def create_album_series_from_pack(
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
-    
+
     db.add(album_series)
     db.commit()
     db.refresh(album_series)
-    
-    # Link all songs in the pack to this album series
-    for song in songs:
-        song.album_series_id = album_series.id
-    
+
+    # Link the PACK to this album series (pack-level association)
+    pack.album_series_id = album_series.id
+    # Also link the series back to the pack for fast lookups
+    album_series.pack_id = pack.id
+
+    # Optionally, we can keep song.album_series_id for backward-compat during transition
+    # but pack-level is now the source of truth. We leave songs as-is for now.
+
     db.commit()
-    
+
     # Auto-fetch album art if not provided
     if not cover_image_url:
         try:
@@ -330,11 +343,11 @@ def create_album_series_from_pack(
                 client_id=SPOTIFY_CLIENT_ID,
                 client_secret=SPOTIFY_CLIENT_SECRET
             ))
-            
+
             # Search for the album
             search_query = f"artist:{artist_name} album:{album_name}"
             results = sp.search(q=search_query, type="album", limit=1)
-            
+
             if results["albums"]["items"]:
                 album = results["albums"]["items"][0]
                 if album["images"]:
@@ -343,7 +356,7 @@ def create_album_series_from_pack(
                     db.refresh(album_series)
         except Exception as e:
             print(f"Failed to fetch album art for {artist_name} - {album_name}: {e}")
-    
+
     return album_series
 
 @router.put("/{series_id}/release")

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Song, AuthoringProgress, Collaboration, CollaborationType, User, Pack
+from models import Song, Collaboration, CollaborationType, User, Pack, Authoring
 from schemas import SongCreate, AuthoringUpdate
 from fastapi import HTTPException
 
@@ -88,7 +88,7 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
     
     # Auto-create authoring row if song is "In Progress"
     if db_song.status == "In Progress":
-        db_authoring = AuthoringProgress(song_id=db_song.id)
+        db_authoring = Authoring(song_id=db_song.id)
         db.add(db_authoring)
         db.commit()
         db.refresh(db_authoring)
@@ -123,7 +123,7 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
     return db_song
 
 def get_authoring_by_song_id(db: Session, song_id: int):
-    return db.query(AuthoringProgress).filter(AuthoringProgress.song_id == song_id).first()
+    return db.query(Authoring).filter(Authoring.song_id == song_id).first()
 
 def update_authoring_progress(db: Session, song_id: int, updates: AuthoringUpdate):
     db_row = get_authoring_by_song_id(db, song_id)
@@ -150,7 +150,7 @@ def delete_song_from_db(db: Session, song_id: int) -> bool:
         try:
             # Delete all related records in a single transaction
             # Delete authoring row if exists
-            db.query(AuthoringProgress).filter(AuthoringProgress.song_id == song_id).delete()
+            db.query(Authoring).filter(Authoring.song_id == song_id).delete()
             print(f"  Deleted authoring records for song {song_id}")
 
             # Delete all collaborations at once

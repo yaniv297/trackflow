@@ -132,42 +132,47 @@ const PackHeader = ({
               {collapsedGroups[packName] ? "▶" : "▼"}
             </button>
 
-            {/* Replace pack title with Album Series title if present */}
+            {/* Album series badges: show multiple if provided; otherwise fallback to pack name */}
             {(() => {
-              const s = validSongsInPack.find((x) => x.album_series_id);
-              if (s) {
-                const num = s.album_series_number ?? "";
-                const name = s.album_series_name ?? "Album Series";
-                const displayText = num
-                  ? `Album Series #${num}: ${name}`
-                  : `Album Series: ${name}`;
+              if (Array.isArray(seriesInfo) && seriesInfo.length > 0) {
                 return (
-                  <a
-                    href={
-                      s.album_series_id
-                        ? `/album-series/${s.album_series_id}`
-                        : undefined
-                    }
-                    style={{
-                      textDecoration: "none",
-                      color: "#1a237e",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      background: "#e3eaff",
-                      borderRadius: "12px",
-                      padding: "0.15rem 0.7rem 0.15rem 0.5rem",
-                      fontWeight: 600,
-                      fontSize: "1.08em",
-                      boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
-                      transition: "background 0.2s",
-                    }}
-                    title={displayText}
+                  <span
+                    style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}
                   >
-                    <span style={{ fontSize: "1.1em", marginRight: 6 }}>
-                      📀
-                    </span>
-                    {displayText}
-                  </a>
+                    {seriesInfo.map((info) => {
+                      const num = info?.number ?? "";
+                      const name = info?.name ?? "Album Series";
+                      const id = info?.id;
+                      const displayText = num
+                        ? `Album Series #${num}: ${name}`
+                        : `Album Series: ${name}`;
+                      return (
+                        <a
+                          key={String(id)}
+                          href={id ? `/album-series/${id}` : undefined}
+                          style={{
+                            textDecoration: "none",
+                            color: "#1a237e",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            background: "#e3eaff",
+                            borderRadius: "12px",
+                            padding: "0.15rem 0.7rem 0.15rem 0.5rem",
+                            fontWeight: 600,
+                            fontSize: "1.08em",
+                            boxShadow: "0 1px 4px rgba(26,35,126,0.07)",
+                            transition: "background 0.2s",
+                          }}
+                          title={displayText}
+                        >
+                          <span style={{ fontSize: "1.1em", marginRight: 6 }}>
+                            📀
+                          </span>
+                          {displayText}
+                        </a>
+                      );
+                    })}
+                  </span>
                 );
               }
               return (
@@ -292,12 +297,28 @@ const PackHeader = ({
                     const hasAlbumSeries = validSongsInPack.some(
                       (s) => s.album_series_id
                     );
+                    const uniqueSongSeriesCount = new Set(
+                      validSongsInPack
+                        .map((s) => s && s.album_series_id)
+                        .filter(
+                          (id) => id !== null && id !== undefined && id !== ""
+                        )
+                        .map((id) =>
+                          typeof id === "string" ? parseInt(id, 10) : id
+                        )
+                        .filter((id) => Number.isInteger(id))
+                    ).size;
+                    const isAlreadyDouble =
+                      (Array.isArray(validSeries)
+                        ? validSeries.length
+                        : uniqueSongSeriesCount) >= 2;
                     const canCreate =
                       !hasAlbumSeries &&
                       albumsWithEnoughSongs &&
                       albumsWithEnoughSongs.length >= 1;
                     const canSplitDouble =
                       hasAlbumSeries &&
+                      !isAlreadyDouble &&
                       albumsWithEnoughSongs &&
                       albumsWithEnoughSongs.length >= 2;
                     return (

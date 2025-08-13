@@ -202,15 +202,11 @@ def get_filtered_songs(
         packs = db.query(Pack).join(User).filter(Pack.id.in_(pack_ids)).all()
         pack_map = {p.id: p for p in packs}
     
-    # Prefetch album series ids from both packs and song-level overrides
+    # Prefetch album series by song-level ids only (source of truth)
     series_by_id = {}
     override_series_ids = {song.album_series_id for song in songs if getattr(song, "album_series_id", None)}
-    pack_series_ids = set()
-    if pack_map:
-        pack_series_ids = {p.album_series_id for p in pack_map.values() if getattr(p, "album_series_id", None)}
-    all_series_ids = set(filter(None, pack_series_ids.union(override_series_ids)))
-    if all_series_ids:
-        series_list = db.query(AlbumSeries).filter(AlbumSeries.id.in_(all_series_ids)).all()
+    if override_series_ids:
+        series_list = db.query(AlbumSeries).filter(AlbumSeries.id.in_(override_series_ids)).all()
         series_by_id = {s.id: s for s in series_list}
     
     # Build result efficiently
@@ -256,11 +252,8 @@ def get_filtered_songs(
                 collaborations_with_username.append(collab_dict)
             song_dict["collaborations"] = collaborations_with_username
         
-        # Attach pack data and album series (prefer song-level override if present)
-        # Determine series_id with override preference
+        # Attach pack data and album series (song-level source of truth)
         preferred_series_id = getattr(song, "album_series_id", None)
-        if not preferred_series_id:
-            preferred_series_id = getattr(pack_map.get(song.pack_id), "album_series_id", None) if song.pack_id and pack_map else None
         
         if song.pack_id and song.pack_id in pack_map:
             pack = pack_map[song.pack_id]
@@ -279,7 +272,7 @@ def get_filtered_songs(
             song_dict["pack_name"] = song.pack_obj.name
             song_dict["pack_owner_id"] = int(song.pack_obj.user_id)
             song_dict["pack_owner_username"] = song.pack_obj.user.username
-            song_dict["album_series_id"] = preferred_series_id or getattr(song.pack_obj, "album_series_id", None)
+            song_dict["album_series_id"] = preferred_series_id
             if song_dict["album_series_id"]:
                 series = series_by_id.get(song_dict["album_series_id"]) or db.query(AlbumSeries).filter(AlbumSeries.id == song_dict["album_series_id"]).first()
                 if series:
@@ -301,6 +294,16 @@ def get_filtered_songs(
                 "pack_id": int(song.pack_id)  # Ensure it's an integer
             }
         
+        # Sanitize album_series_id to be int or None
+        if "album_series_id" in song_dict:
+            val = song_dict["album_series_id"]
+            if val in ("", None, "null"):
+                song_dict["album_series_id"] = None
+            elif isinstance(val, str):
+                try:
+                    song_dict["album_series_id"] = int(val)
+                except Exception:
+                    song_dict["album_series_id"] = None
         result.append(SongOut.model_validate(song_dict, from_attributes=True))
     
     return result
@@ -516,8 +519,8 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
             collaborations_with_username.append(collab_dict)
         song_dict["collaborations"] = collaborations_with_username
     
-    # Attach album series (prefer song-level override)
-    effective_series_id = getattr(song, "album_series_id", None) or getattr(song.pack_obj, "album_series_id", None)
+    # Attach album series (song-level only)
+    effective_series_id = getattr(song, "album_series_id", None)
     if effective_series_id:
         series = db.query(AlbumSeries).filter(AlbumSeries.id == effective_series_id).first()
         if series:
@@ -530,7 +533,6 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
         song_dict["pack_id"] = song.pack_obj.id
         song_dict["pack_name"] = song.pack_obj.name
         song_dict["pack_owner_id"] = song.pack_obj.user_id
-        song_dict["pack_album_series_id"] = getattr(song.pack_obj, "album_series_id", None)
         # Get pack owner username
         pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()
         if pack_owner:

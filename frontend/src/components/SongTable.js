@@ -112,6 +112,46 @@ const SongTable = ({
     });
   };
 
+  // Render header + rows for a given group key
+  const renderRowsForGroup = (packName, groupSongs) => (
+    <>
+      <ColumnHeaders
+        groupBy={groupBy}
+        handleSort={(key) => handleLocalSort(packName, key)}
+        sortKey={localSortStates[packName]?.key}
+        sortDirection={localSortStates[packName]?.direction}
+        packName={packName}
+      />
+      {sortSongsInGroup(groupSongs, packName).map((song) => (
+        <SongRow
+          key={song.id}
+          song={song}
+          selected={selectedSongs.includes(song.id)}
+          onSelect={(e) => {
+            if (e.target.checked) {
+              setSelectedSongs((prev) => [...prev, song.id]);
+            } else {
+              setSelectedSongs((prev) => prev.filter((id) => id !== song.id));
+            }
+          }}
+          editing={editing}
+          editValues={editValues}
+          setEditing={setEditing}
+          setEditValues={setEditValues}
+          saveEdit={saveEdit}
+          fetchSpotifyOptions={fetchSpotifyOptions}
+          handleDelete={handleDelete}
+          spotifyOptions={spotifyOptions}
+          setSpotifyOptions={setSpotifyOptions}
+          applySpotifyEnhancement={applySpotifyEnhancement}
+          status={status}
+          groupBy={groupBy}
+          packName={packName}
+        />
+      ))}
+    </>
+  );
+
   const renderPackGroup = (packName, songsInPack) => {
     const validSongsInPack = songsInPack.filter(
       (song) => song && typeof song === "object"
@@ -119,28 +159,44 @@ const SongTable = ({
 
     if (validSongsInPack.length === 0) return null;
 
-    // Album series logic - extract unique series from songs
-    // Pack-level series: if the pack has an album series, there will be a single series id on all songs in the pack
-    const packSeriesId =
-      validSongsInPack.find((s) => s.album_series_id)?.album_series_id || null;
-    const validSeries = packSeriesId ? [packSeriesId] : [];
+    // Album series logic: use only song-level ids (source of truth)
+    const seriesIdsForPack = Array.from(
+      new Set(
+        validSongsInPack
+          .map((s) => s && s.album_series_id)
+          .filter((id) => id !== null && id !== undefined && id !== "")
+          .map((id) => (typeof id === "string" ? parseInt(id, 10) : id))
+          .filter((id) => Number.isInteger(id))
+      )
+    );
 
-    const seriesInfo = packSeriesId
-      ? (() => {
-          const s = validSongsInPack.find(
-            (song) => song.album_series_id === packSeriesId
-          );
-          return s
-            ? [
-                {
-                  id: packSeriesId,
-                  number: s.album_series_number,
-                  name: s.album_series_name,
-                },
-              ]
-            : [];
-        })()
-      : [];
+    const seriesInfo = seriesIdsForPack.map((seriesId) => {
+      const s =
+        validSongsInPack.find((song) => song.album_series_id === seriesId) ||
+        {};
+      const num =
+        typeof s.album_series_number === "string"
+          ? parseInt(s.album_series_number, 10)
+          : s.album_series_number;
+      return {
+        id: typeof seriesId === "string" ? parseInt(seriesId, 10) : seriesId,
+        number: Number.isFinite(num) ? num : null,
+        name: s.album_series_name,
+      };
+    });
+
+    const sortedSeriesInfo = [...seriesInfo].sort((a, b) => {
+      const an = Number.isFinite(a.number)
+        ? a.number
+        : Number.POSITIVE_INFINITY;
+      const bn = Number.isFinite(b.number)
+        ? b.number
+        : Number.POSITIVE_INFINITY;
+      if (an !== bn) return an - bn;
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+    const seriesIdsForPackSorted = sortedSeriesInfo.map((i) => i.id);
 
     // Compute album counts for action buttons
     const albumsCountMap = validSongsInPack.reduce((acc, s) => {
@@ -161,8 +217,8 @@ const SongTable = ({
           setSelectedSongs={setSelectedSongs}
           collapsedGroups={collapsedGroups}
           toggleGroup={toggleGroup}
-          seriesInfo={seriesInfo}
-          validSeries={validSeries}
+          seriesInfo={sortedSeriesInfo}
+          validSeries={seriesIdsForPackSorted}
           canMakeDoubleAlbumSeries={canMakeDoubleAlbumSeries}
           albumsWithEnoughSongs={albumsWithEnoughSongs}
           onMakeDoubleAlbumSeries={() =>
@@ -178,56 +234,9 @@ const SongTable = ({
           onCleanTitles={onCleanTitles || (() => {})}
           artistImageUrl=""
           mostCommonArtist=""
-          showAlbumSeriesButton={albumsWithEnoughSongs.length >= 1}
-          status={status}
-          user={user}
-          setShowCollaborationModal={setShowCollaborationModal}
-          setSelectedItemForCollaboration={setSelectedItemForCollaboration}
-          setCollaborationType={setCollaborationType}
-          onSongAdded={onSongAdded}
-          onPackNameUpdate={onPackNameUpdate}
         />
-
-        {!collapsedGroups[packName] && (
-          <>
-            <ColumnHeaders
-              groupBy={groupBy}
-              handleSort={(key) => handleLocalSort(packName, key)}
-              sortKey={localSortStates[packName]?.key}
-              sortDirection={localSortStates[packName]?.direction}
-              packName={packName}
-            />
-            {sortSongsInGroup(validSongsInPack, packName).map((song) => (
-              <SongRow
-                key={song.id}
-                song={song}
-                selected={selectedSongs.includes(song.id)}
-                onSelect={(e) => {
-                  if (e.target.checked) {
-                    setSelectedSongs((prev) => [...prev, song.id]);
-                  } else {
-                    setSelectedSongs((prev) =>
-                      prev.filter((id) => id !== song.id)
-                    );
-                  }
-                }}
-                editing={editing}
-                editValues={editValues}
-                setEditing={setEditing}
-                setEditValues={setEditValues}
-                saveEdit={saveEdit}
-                fetchSpotifyOptions={fetchSpotifyOptions}
-                handleDelete={handleDelete}
-                spotifyOptions={spotifyOptions}
-                setSpotifyOptions={setSpotifyOptions}
-                applySpotifyEnhancement={applySpotifyEnhancement}
-                status={status}
-                groupBy={groupBy}
-                packName={packName}
-              />
-            ))}
-          </>
-        )}
+        {!collapsedGroups[packName] &&
+          renderRowsForGroup(packName, validSongsInPack)}
       </React.Fragment>
     );
   };
@@ -399,7 +408,13 @@ const SongTable = ({
 
                     closeAlbumSeriesModal();
                     if (typeof onSongAdded === "function") {
-                      onSongAdded(); // refresh list
+                      await onSongAdded(); // refresh list
+                    }
+                    if (
+                      status === "Future Plans" &&
+                      typeof window !== "undefined"
+                    ) {
+                      window.location.reload();
                     }
                   } catch (err) {
                     console.error("Failed to create album series:", err);

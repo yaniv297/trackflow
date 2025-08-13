@@ -23,16 +23,13 @@ class UpdateAlbumSeriesStatusRequest(BaseModel):
 def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     """Get unique authors for a series from both songs and collaborations"""
     # Get authors from songs (using user relationship)
-    song_authors = db.query(User.username).join(Song).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
-        (Song.album_series_id == series_id) |
-        ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id)),
+    song_authors = db.query(User.username).join(Song).filter(
+        Song.album_series_id == series_id,
         User.username.isnot(None)
     ).distinct().all()
     
-    # Get authors from collaborations (using the new unified collaboration structure)
-    collab_authors = db.query(User.username).join(Collaboration).join(Song).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
-        (Song.album_series_id == series_id) |
-        ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id)),
+    collab_authors = db.query(User.username).join(Collaboration).join(Song).filter(
+        Song.album_series_id == series_id,
         User.username.isnot(None)
     ).distinct().all()
     
@@ -89,9 +86,8 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
     # Add song count and authors to each series
     result = []
     for s in filtered_series:
-        song_count = db.query(Song).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
-            (Song.album_series_id == s.id) |
-            ((Song.album_series_id.is_(None)) & (Pack.album_series_id == s.id))
+        song_count = db.query(Song).filter(
+            Song.album_series_id == s.id
         ).count()
         authors = get_unique_authors_for_series(db, s.id)
         
@@ -131,9 +127,8 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
             joinedload(Song.user),  # Load the song owner
             joinedload(Song.pack_obj),  # Load the pack relationship
             joinedload(Song.authoring)
-        ).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
-            (Song.album_series_id == series_id) |
-            ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id))
+        ).filter(
+            Song.album_series_id == series_id
         ).all()
     except Exception as e:
         print(f"Error fetching songs for series {series_id}: {e}")
@@ -251,9 +246,8 @@ def get_album_series_songs(series_id: int, db: Session = Depends(get_db)):
         joinedload(Song.collaborations).joinedload(Collaboration.user),
         joinedload(Song.pack_obj),  # Load the pack relationship
         joinedload(Song.authoring)
-    ).join(Pack, Song.pack_id == Pack.id, isouter=True).filter(
-        (Song.album_series_id == series_id) |
-        ((Song.album_series_id.is_(None)) & (Pack.album_series_id == series_id))
+    ).filter(
+        Song.album_series_id == series_id
     ).all()
     return songs
 
@@ -326,13 +320,22 @@ def create_album_series_from_pack(
     db.commit()
     db.refresh(album_series)
 
-    # Link the PACK to this album series (pack-level association)
-    pack.album_series_id = album_series.id
-    # Also link the series back to the pack for fast lookups
-    album_series.pack_id = pack.id
+    # Assign songs to this album series (song-level source of truth)
+    target_songs = []
+    if request.song_ids:
+        target_songs = db.query(Song).filter(Song.id.in_(request.song_ids)).all()
+    else:
+        # Default: assign all qualifying songs in the pack that match artist/album (case-insensitive)
+        target_songs = [
+            s for s in songs
+            if (s.artist or "").strip().lower() == (artist_name or "").strip().lower()
+            and (s.album or "").strip().lower() == (album_name or "").strip().lower()
+        ] or songs
 
-    # Optionally, we can keep song.album_series_id for backward-compat during transition
-    # but pack-level is now the source of truth. We leave songs as-is for now.
+    assigned = 0
+    for s in target_songs:
+        s.album_series_id = album_series.id
+        assigned += 1
 
     db.commit()
 

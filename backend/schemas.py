@@ -147,3 +147,5 @@ class CreateAlbumSeriesRequest(BaseModel):
     year: Optional[int] = None
     cover_image_url: Optional[str] = None
     description: Optional[str] = None
+    # Optional explicit songs to assign to this series
+    song_ids: Optional[list[int]] = None

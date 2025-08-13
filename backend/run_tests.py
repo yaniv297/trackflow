@@ -1,110 +1,192 @@
 #!/usr/bin/env python3
 """
-Test runner for TrackFlow application
+Comprehensive Test Runner for TrackFlow Backend
+
+This script runs all tests in the test suite and provides detailed output
+about test coverage and results.
 """
 
+import os
 import sys
 import subprocess
-import os
+import time
 from pathlib import Path
 
-def run_tests(test_type="all", verbose=False):
-    """Run tests with specified options"""
+def run_tests_with_coverage():
+    """Run tests with coverage reporting"""
+    print("🧪 Running TrackFlow Backend Test Suite")
+    print("=" * 50)
     
-    # Change to the trackflow directory
-    os.chdir(Path(__file__).parent)
+    # Change to the backend directory
+    backend_dir = Path(__file__).parent
+    os.chdir(backend_dir)
     
-    # Set test environment variables
-    os.environ["SPOTIFY_CLIENT_ID"] = "test_client_id"
-    os.environ["SPOTIFY_CLIENT_SECRET"] = "test_client_secret"
-    
-    # Build pytest command
-    cmd = ["python", "-m", "pytest"]
-    
-    if verbose:
-        cmd.append("-v")
-    
-    # Add test type filters
-    if test_type == "unit":
-        cmd.extend(["-m", "unit"])
-    elif test_type == "integration":
-        cmd.extend(["-m", "integration"])
-    elif test_type == "fast":
-        cmd.extend(["-m", "not slow"])
-    elif test_type == "models":
-        cmd.append("tests/test_models.py")
-    elif test_type == "api":
-        cmd.append("tests/test_api_endpoints.py")
-    elif test_type == "data":
-        cmd.append("tests/test_data_access.py")
-    elif test_type == "spotify":
-        cmd.append("tests/test_spotify_integration.py")
-    elif test_type == "schemas":
-        cmd.append("tests/test_schemas.py")
-    elif test_type != "all":
-        print(f"Unknown test type: {test_type}")
-        print_usage()
-        return 1
-    
-    # Add coverage if available
+    # Check if pytest is available
     try:
-        import coverage
-        cmd.extend(["--cov=api", "--cov=models", "--cov=schemas", "--cov-report=term-missing"])
+        import pytest
     except ImportError:
-        pass
+        print("❌ pytest not found. Installing...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "pytest", "pytest-cov"], check=True)
     
-    print(f"Running tests: {test_type}")
-    print(f"Command: {' '.join(cmd)}")
-    print("-" * 50)
+    # Test files to run
+    test_files = [
+        "tests/test_models_updated.py",
+        "tests/test_api_endpoints_updated.py", 
+        "tests/test_data_access_updated.py"
+    ]
     
-    # Run tests
-    result = subprocess.run(cmd)
+    # Check if test files exist
+    missing_files = [f for f in test_files if not Path(f).exists()]
+    if missing_files:
+        print(f"❌ Missing test files: {missing_files}")
+        return False
     
-    return result.returncode
+    print("📋 Test Files to Run:")
+    for test_file in test_files:
+        print(f"  - {test_file}")
+    print()
+    
+    # Run tests with coverage
+    cmd = [
+        sys.executable, "-m", "pytest",
+        "--cov=api",
+        "--cov=models", 
+        "--cov=schemas",
+        "--cov-report=term-missing",
+        "--cov-report=html:htmlcov",
+        "--cov-report=xml:coverage.xml",
+        "-v",
+        "--tb=short"
+    ] + test_files
+    
+    print("🚀 Starting test execution...")
+    start_time = time.time()
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        end_time = time.time()
+        
+        print("\n" + "=" * 50)
+        print("📊 TEST RESULTS")
+        print("=" * 50)
+        
+        if result.stdout:
+            print(result.stdout)
+        
+        if result.stderr:
+            print("⚠️  Warnings/Errors:")
+            print(result.stderr)
+        
+        print(f"\n⏱️  Test execution time: {end_time - start_time:.2f} seconds")
+        
+        if result.returncode == 0:
+            print("✅ All tests passed!")
+            return True
+        else:
+            print(f"❌ Tests failed with exit code: {result.returncode}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error running tests: {e}")
+        return False
 
-def print_usage():
-    """Print usage information"""
-    print("""
-TrackFlow Test Runner
+def run_specific_test_category(category):
+    """Run tests for a specific category"""
+    print(f"🧪 Running {category} tests...")
+    
+    backend_dir = Path(__file__).parent
+    os.chdir(backend_dir)
+    
+    test_file_map = {
+        "models": "tests/test_models_updated.py",
+        "api": "tests/test_api_endpoints_updated.py",
+        "data": "tests/test_data_access_updated.py"
+    }
+    
+    if category not in test_file_map:
+        print(f"❌ Unknown test category: {category}")
+        print(f"Available categories: {list(test_file_map.keys())}")
+        return False
+    
+    test_file = test_file_map[category]
+    if not Path(test_file).exists():
+        print(f"❌ Test file not found: {test_file}")
+        return False
+    
+    cmd = [sys.executable, "-m", "pytest", test_file, "-v", "--tb=short"]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        
+        print("\n" + "=" * 50)
+        print(f"📊 {category.upper()} TEST RESULTS")
+        print("=" * 50)
+        
+        if result.stdout:
+            print(result.stdout)
+        
+        if result.stderr:
+            print("⚠️  Warnings/Errors:")
+            print(result.stderr)
+        
+        if result.returncode == 0:
+            print(f"✅ {category} tests passed!")
+            return True
+        else:
+            print(f"❌ {category} tests failed!")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error running {category} tests: {e}")
+        return False
 
-Usage: python run_tests.py [test_type] [options]
-
-Test Types:
-  all          Run all tests (default)
-  unit         Run only unit tests
-  integration  Run only integration tests
-  fast         Run tests excluding slow ones
-  models       Run only model tests
-  api          Run only API endpoint tests
-  data         Run only data access tests
-  spotify      Run only Spotify integration tests
-  schemas      Run only schema validation tests
-
-Options:
-  -v, --verbose  Verbose output
-
-Examples:
-  python run_tests.py                    # Run all tests
-  python run_tests.py unit               # Run unit tests only
-  python run_tests.py api -v             # Run API tests with verbose output
-  python run_tests.py fast               # Run fast tests only
-  python run_tests.py models             # Run model tests only
-""")
+def show_test_coverage():
+    """Show test coverage information"""
+    print("📈 Test Coverage Information")
+    print("=" * 50)
+    
+    backend_dir = Path(__file__).parent
+    os.chdir(backend_dir)
+    
+    coverage_file = Path("coverage.xml")
+    if coverage_file.exists():
+        print("✅ Coverage report generated: coverage.xml")
+        print("📊 HTML coverage report: htmlcov/index.html")
+    else:
+        print("❌ No coverage report found. Run tests first.")
 
 def main():
     """Main function"""
-    if len(sys.argv) < 2:
-        test_type = "all"
-        verbose = False
+    if len(sys.argv) > 1:
+        command = sys.argv[1].lower()
+        
+        if command == "coverage":
+            show_test_coverage()
+        elif command in ["models", "api", "data"]:
+            run_specific_test_category(command)
+        elif command == "help":
+            print("TrackFlow Test Runner")
+            print("=" * 30)
+            print("Usage:")
+            print("  python run_tests.py              # Run all tests with coverage")
+            print("  python run_tests.py models       # Run model tests only")
+            print("  python run_tests.py api          # Run API tests only")
+            print("  python run_tests.py data         # Run data access tests only")
+            print("  python run_tests.py coverage     # Show coverage information")
+            print("  python run_tests.py help         # Show this help")
+        else:
+            print(f"❌ Unknown command: {command}")
+            print("Use 'python run_tests.py help' for usage information")
     else:
-        test_type = sys.argv[1]
-        verbose = "-v" in sys.argv or "--verbose" in sys.argv
-    
-    if test_type in ["-h", "--help", "help"]:
-        print_usage()
-        return 0
-    
-    return run_tests(test_type, verbose)
+        # Run all tests by default
+        success = run_tests_with_coverage()
+        
+        if success:
+            print("\n🎉 Test suite completed successfully!")
+            print("📊 Check htmlcov/index.html for detailed coverage report")
+        else:
+            print("\n💥 Test suite failed!")
+            sys.exit(1)
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    main() 

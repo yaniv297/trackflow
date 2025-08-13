@@ -5,7 +5,7 @@ from typing import List
 from database import get_db
 from schemas import AuthoringOut
 from api.data_access import get_authoring_by_song_id
-from models import Song, AuthoringProgress, WipCollaboration, Authoring, Collaboration, CollaborationType
+from models import Song, WipCollaboration, Authoring, Collaboration, CollaborationType
 from api.auth import get_current_active_user
 
 class EditPartsRequest(BaseModel):
@@ -94,7 +94,7 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
 
     # Ensure authoring progress exists
     if not song.authoring:
-        authoring = AuthoringProgress(song_id=song.id)
+        authoring = Authoring(song_id=song.id)
         db.add(authoring)
         db.commit()
         db.refresh(authoring)

@@ -55,9 +55,7 @@ const ColumnHeaders = ({
       >
         Album {sortKey === "album" && (sortDirection === "asc" ? "▲" : "▼")}
       </th>
-      {(groupBy !== "pack" || packName === "(no pack)") && (
-        <th style={{ padding: "0.5rem" }}>Pack</th>
-      )}
+      {groupBy !== "pack" && <th style={{ padding: "0.5rem" }}>Pack</th>}
       <th style={{ padding: "0.5rem" }}>Owner</th>
       <th
         onClick={() => handleSort("year")}

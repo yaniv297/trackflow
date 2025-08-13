@@ -195,19 +195,19 @@ def get_filtered_songs(
     # Get all songs with their related data in one query
     songs = q.order_by(Song.artist.asc(), Song.title.asc()).all()
     
-    # Pre-fetch all album series data to avoid N+1 queries
-    album_series_ids = {song.album_series_id for song in songs if song.album_series_id}
-    album_series_map = {}
-    if album_series_ids:
-        series_list = db.query(AlbumSeries).filter(AlbumSeries.id.in_(album_series_ids)).all()
-        album_series_map = {series.id: series for series in series_list}
+    # Pre-fetch pack album series ids directly from packs
+    pack_ids = {song.pack_id for song in songs if song.pack_id}
+    pack_map = {}
+    if pack_ids:
+        packs = db.query(Pack).join(User).filter(Pack.id.in_(pack_ids)).all()
+        pack_map = {p.id: p for p in packs}
     
-    # Pre-fetch all pack data for album series to avoid N+1 queries
-    series_pack_ids = {series.pack_id for series in album_series_map.values() if series.pack_id}
-    series_packs = {}
-    if series_pack_ids:
-        packs = db.query(Pack).join(User).filter(Pack.id.in_(series_pack_ids)).all()
-        series_packs = {pack.id: pack for pack in packs}
+    # Prefetch album series by song-level ids only (source of truth)
+    series_by_id = {}
+    override_series_ids = {song.album_series_id for song in songs if getattr(song, "album_series_id", None)}
+    if override_series_ids:
+        series_list = db.query(AlbumSeries).filter(AlbumSeries.id.in_(override_series_ids)).all()
+        series_by_id = {s.id: s for s in series_list}
     
     # Build result efficiently
     result = []
@@ -252,26 +252,32 @@ def get_filtered_songs(
                 collaborations_with_username.append(collab_dict)
             song_dict["collaborations"] = collaborations_with_username
         
-        # Attach album series data from pre-fetched map
-        if song.album_series_id and song.album_series_id in album_series_map:
-            series = album_series_map[song.album_series_id]
-            song_dict["album_series_number"] = series.series_number
-            song_dict["album_series_name"] = series.album_name
-            
-            # If album series has a pack_id, use that for pack information
-            if series.pack_id and series.pack_id in series_packs:
-                pack = series_packs[series.pack_id]
-                song_dict["pack_id"] = int(pack.id)  # Ensure it's an integer
-                song_dict["pack_name"] = pack.name
-                song_dict["pack_owner_id"] = int(pack.user_id)  # Ensure it's an integer
-                song_dict["pack_owner_username"] = pack.user.username
+        # Attach pack data and album series (song-level source of truth)
+        preferred_series_id = getattr(song, "album_series_id", None)
         
-        # Attach pack data from loaded relationship (only if not already set by album series)
-        if not song_dict.get("pack_name") and song.pack_obj:
-            song_dict["pack_id"] = int(song.pack_obj.id)  # Ensure it's an integer
+        if song.pack_id and song.pack_id in pack_map:
+            pack = pack_map[song.pack_id]
+            song_dict["pack_id"] = int(pack.id)
+            song_dict["pack_name"] = pack.name
+            song_dict["pack_owner_id"] = int(pack.user_id)
+            song_dict["pack_owner_username"] = pack.user.username
+            song_dict["album_series_id"] = preferred_series_id
+            if preferred_series_id:
+                series = series_by_id.get(preferred_series_id)
+                if series:
+                    song_dict["album_series_number"] = series.series_number
+                    song_dict["album_series_name"] = series.album_name
+        elif song.pack_obj:
+            song_dict["pack_id"] = int(song.pack_obj.id)
             song_dict["pack_name"] = song.pack_obj.name
-            song_dict["pack_owner_id"] = int(song.pack_obj.user_id)  # Ensure it's an integer
+            song_dict["pack_owner_id"] = int(song.pack_obj.user_id)
             song_dict["pack_owner_username"] = song.pack_obj.user.username
+            song_dict["album_series_id"] = preferred_series_id
+            if song_dict["album_series_id"]:
+                series = series_by_id.get(song_dict["album_series_id"]) or db.query(AlbumSeries).filter(AlbumSeries.id == song_dict["album_series_id"]).first()
+                if series:
+                    song_dict["album_series_number"] = series.series_number
+                    song_dict["album_series_name"] = series.album_name
         
         # Determine if song is editable using pre-fetched collaboration data
         is_owner = song.user_id == current_user.id
@@ -288,6 +294,16 @@ def get_filtered_songs(
                 "pack_id": int(song.pack_id)  # Ensure it's an integer
             }
         
+        # Sanitize album_series_id to be int or None
+        if "album_series_id" in song_dict:
+            val = song_dict["album_series_id"]
+            if val in ("", None, "null"):
+                song_dict["album_series_id"] = None
+            elif isinstance(val, str):
+                try:
+                    song_dict["album_series_id"] = int(val)
+                except Exception:
+                    song_dict["album_series_id"] = None
         result.append(SongOut.model_validate(song_dict, from_attributes=True))
     
     return result
@@ -503,10 +519,14 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
             collaborations_with_username.append(collab_dict)
         song_dict["collaborations"] = collaborations_with_username
     
-    # Attach album series data if it exists
-    if song.album_series_id and hasattr(song, "album_series_obj") and song.album_series_obj:
-        song_dict["album_series_number"] = song.album_series_obj.series_number
-        song_dict["album_series_name"] = song.album_series_obj.album_name
+    # Attach album series (song-level only)
+    effective_series_id = getattr(song, "album_series_id", None)
+    if effective_series_id:
+        series = db.query(AlbumSeries).filter(AlbumSeries.id == effective_series_id).first()
+        if series:
+            song_dict["album_series_id"] = series.id
+            song_dict["album_series_number"] = series.series_number
+            song_dict["album_series_name"] = series.album_name
     
     # Attach pack data if it exists
     if song.pack_obj:

@@ -942,46 +942,24 @@ export default function AlbumSeriesEditModal({
                                 </span>
                               )}
                               {it.pre_existing && !it.official && (
-                                <div
+                                <button
+                                  onClick={() => togglePreexisting(it)}
+                                  disabled={busy}
                                   style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px",
+                                    border: "1px solid #f5c2c7",
+                                    background: "#fff5f5",
+                                    color: "#b02a37",
+                                    borderRadius: 999,
+                                    padding: "4px 10px",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    cursor: busy ? "not-allowed" : "pointer",
                                   }}
+                                  title="Unmark as preexisting"
                                 >
-                                  <span
-                                    style={{ color: "#666", fontSize: "12px" }}
-                                  >
-                                    Already Done
-                                  </span>
-                                  <button
-                                    onClick={() => togglePreexisting(it)}
-                                    disabled={busy}
-                                    style={{
-                                      border: "1px solid #f5c2c7",
-                                      background: "#fff5f5",
-                                      color: "#b02a37",
-                                      borderRadius: 999,
-                                      padding: "4px 10px",
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                      cursor: busy ? "not-allowed" : "pointer",
-                                    }}
-                                    title="Unmark as preexisting"
-                                  >
-                                    Unmark
-                                  </button>
-                                </div>
+                                  Unmark
+                                </button>
                               )}
-                              {isReleased(it) &&
-                                !it.official &&
-                                !it.pre_existing && (
-                                  <span
-                                    style={{ color: "#666", fontSize: "12px" }}
-                                  >
-                                    Already Released
-                                  </span>
-                                )}
 
                               {/* Add/Delete action */}
                               {!it.official &&
@@ -1063,11 +1041,11 @@ export default function AlbumSeriesEditModal({
                                         // In edit mode, show the blue "Add" button and link icon
                                         <>
                                           {button(
-                                            "Add",
+                                            "➕",
                                             () => addTrack(it),
                                             {
-                                              background: colors.add.bg,
-                                              color: colors.add.fg,
+                                              background: "#28a745",
+                                              color: "#fff",
                                               padding: "6px 10px",
                                             },
                                             busy || it.official

@@ -48,14 +48,10 @@ class Pack(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True, index=True)
-    
     # Relationships
     user = relationship("User", back_populates="packs")
     songs = relationship("Song", back_populates="pack_obj")
     collaborations = relationship("Collaboration", back_populates="pack")
-    # Link to the album series this pack belongs to (pack-level association)
-    album_series = relationship("AlbumSeries", foreign_keys=[album_series_id], uselist=False)
 
 class Song(Base):
     __tablename__ = "songs"

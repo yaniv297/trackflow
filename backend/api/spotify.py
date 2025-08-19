@@ -184,7 +184,6 @@ def get_album_tracklist(
                     RockBandDLC.artist.ilike(artist)
                 ).first()
                 is_dlc = dlc_entry is not None
-                print(f"DEBUG: DLC check for '{clean_title}' by {artist}: {'FOUND' if is_dlc else 'NOT FOUND'}")
             except Exception as e:
                 print(f"Error checking DLC status for {clean_title}: {e}")
             

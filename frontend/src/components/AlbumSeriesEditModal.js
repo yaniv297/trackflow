@@ -884,200 +884,216 @@ export default function AlbumSeriesEditModal({
                               {it.track_number || ""}
                             </td>
                             <td style={{ padding: 8 }}>{it.title_clean}</td>
-                            <td style={{ padding: 8 }}>{renderStatus(it)}</td>
                             <td
                               style={{
                                 padding: 8,
-                                display: "flex",
-                                gap: 8,
-                                alignItems: "center",
+                                width: 140,
+                                minWidth: 140,
+                                whiteSpace: "nowrap",
+                                textAlign: "center",
                               }}
                             >
-                              {!it.official &&
-                                !it.pre_existing &&
-                                !isReleased(it) && (
-                                  <>
-                                    {pillToggle(
-                                      "Preexisting",
-                                      isPreexisting,
-                                      () => togglePreexisting(it),
-                                      busy
-                                    )}
-                                    <button
-                                      onClick={() => toggleIrrelevant(it)}
-                                      disabled={busy}
-                                      style={{
-                                        border: it.irrelevant
-                                          ? "1px solid #f5c2c7"
-                                          : "1px solid #e6e6e8",
-                                        background: it.irrelevant
-                                          ? "#fff5f5"
-                                          : "#fff",
-                                        color: it.irrelevant
-                                          ? "#b02a37"
-                                          : "#555",
-                                        borderRadius: 999,
-                                        padding: "4px 10px",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        cursor: busy
-                                          ? "not-allowed"
-                                          : "pointer",
-                                      }}
-                                      title={
-                                        it.irrelevant
-                                          ? "Marked as irrelevant"
-                                          : "Mark as irrelevant"
-                                      }
-                                    >
-                                      Irrelevant
-                                    </button>
-                                  </>
-                                )}
-                              {it.official && (
-                                <span
-                                  style={{ color: "#666", fontSize: "12px" }}
-                                >
-                                  Official DLC
-                                </span>
-                              )}
-                              {it.pre_existing && !it.official && (
-                                <button
-                                  onClick={() => togglePreexisting(it)}
-                                  disabled={busy}
-                                  style={{
-                                    border: "1px solid #f5c2c7",
-                                    background: "#fff5f5",
-                                    color: "#b02a37",
-                                    borderRadius: 999,
-                                    padding: "4px 10px",
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    cursor: busy ? "not-allowed" : "pointer",
-                                  }}
-                                  title="Unmark as preexisting"
-                                >
-                                  Unmark
-                                </button>
-                              )}
-
-                              {/* Add/Delete action */}
-                              {!it.official &&
-                              !it.pre_existing &&
-                              !isReleased(it) &&
-                              inPack
-                                ? button(
-                                    "🗑️",
-                                    async () => {
-                                      try {
-                                        if (!it.song_id) return;
-                                        let proceed = true;
-                                        const hasProgress = (it.status || "")
-                                          .toLowerCase()
-                                          .includes("progress");
-                                        if (hasProgress) {
-                                          proceed = window.confirm(
-                                            "This song is already in progress. Are you sure you want to delete it from the pack?"
-                                          );
-                                        }
-                                        if (!proceed) return;
-                                        await apiDelete(`/songs/${it.song_id}`);
-                                        if (onChanged) await onChanged();
-                                        await reload();
-                                      } catch (err) {
-                                        console.error(
-                                          "Failed to delete song",
-                                          err
-                                        );
-                                      }
-                                    },
-                                    { background: "#f8d7da", color: "#842029" },
-                                    busy
-                                  )
-                                : !it.official &&
+                              {renderStatus(it)}
+                            </td>
+                            <td
+                              style={{
+                                padding: 8,
+                                minWidth: 180,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 8,
+                                  alignItems: "center",
+                                  justifyContent: "flex-start",
+                                }}
+                              >
+                                {!it.official &&
                                   !it.pre_existing &&
                                   !isReleased(it) && (
-                                    <div
-                                      style={{
-                                        display: "inline-flex",
-                                        gap: 6,
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      {createMode ? (
-                                        // In create mode, show only the green "+" button
-                                        <button
-                                          title="Create song"
-                                          onClick={() => {
-                                            // In create mode, mark this track as selected for creation
-                                            setItems((prev) =>
-                                              prev.map((item) =>
-                                                item.spotify_track_id ===
-                                                it.spotify_track_id
-                                                  ? {
-                                                      ...item,
-                                                      in_pack: true,
-                                                      song_id: `temp_${it.spotify_track_id}`,
-                                                    }
-                                                  : item
-                                              )
+                                    <>
+                                      {pillToggle(
+                                        "Preexisting",
+                                        isPreexisting,
+                                        () => togglePreexisting(it),
+                                        busy
+                                      )}
+                                      <button
+                                        onClick={() => toggleIrrelevant(it)}
+                                        disabled={busy}
+                                        style={{
+                                          border: it.irrelevant
+                                            ? "1px solid #f5c2c7"
+                                            : "1px solid #e6e6e8",
+                                          background: it.irrelevant
+                                            ? "#fff5f5"
+                                            : "#fff",
+                                          color: it.irrelevant
+                                            ? "#b02a37"
+                                            : "#555",
+                                          borderRadius: 999,
+                                          padding: "4px 10px",
+                                          fontSize: 12,
+                                          fontWeight: 600,
+                                          cursor: busy
+                                            ? "not-allowed"
+                                            : "pointer",
+                                        }}
+                                        title={
+                                          it.irrelevant
+                                            ? "Marked as irrelevant"
+                                            : "Mark as irrelevant"
+                                        }
+                                      >
+                                        Irrelevant
+                                      </button>
+                                    </>
+                                  )}
+
+                                {it.pre_existing && !it.official && (
+                                  <button
+                                    onClick={() => togglePreexisting(it)}
+                                    disabled={busy}
+                                    style={{
+                                      border: "1px solid #f5c2c7",
+                                      background: "#fff5f5",
+                                      color: "#b02a37",
+                                      borderRadius: 999,
+                                      padding: "4px 10px",
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      cursor: busy ? "not-allowed" : "pointer",
+                                    }}
+                                    title="Unmark as preexisting"
+                                  >
+                                    Unmark
+                                  </button>
+                                )}
+
+                                {/* Add/Delete action */}
+                                {!it.official &&
+                                !it.pre_existing &&
+                                !isReleased(it) &&
+                                inPack
+                                  ? button(
+                                      "🗑️",
+                                      async () => {
+                                        try {
+                                          if (!it.song_id) return;
+                                          let proceed = true;
+                                          const hasProgress = (it.status || "")
+                                            .toLowerCase()
+                                            .includes("progress");
+                                          if (hasProgress) {
+                                            proceed = window.confirm(
+                                              "This song is already in progress. Are you sure you want to delete it from the pack?"
                                             );
-                                          }}
-                                          style={{
-                                            border: "1px solid #28a745",
-                                            background: "#28a745",
-                                            color: "#fff",
-                                            borderRadius: 6,
-                                            padding: "6px 10px",
-                                            fontSize: 12,
-                                            cursor: "pointer",
-                                            fontWeight: 600,
-                                          }}
-                                          aria-label="Create song"
-                                        >
-                                          ➕
-                                        </button>
-                                      ) : (
-                                        // In edit mode, show the blue "Add" button and link icon
-                                        <>
-                                          {button(
-                                            "➕",
-                                            () => addTrack(it),
-                                            {
+                                          }
+                                          if (!proceed) return;
+                                          await apiDelete(
+                                            `/songs/${it.song_id}`
+                                          );
+                                          if (onChanged) await onChanged();
+                                          await reload();
+                                        } catch (err) {
+                                          console.error(
+                                            "Failed to delete song",
+                                            err
+                                          );
+                                        }
+                                      },
+                                      {
+                                        background: "#f8d7da",
+                                        color: "#842029",
+                                      },
+                                      busy
+                                    )
+                                  : !it.official &&
+                                    !it.pre_existing &&
+                                    !isReleased(it) && (
+                                      <div
+                                        style={{
+                                          display: "inline-flex",
+                                          gap: 6,
+                                          alignItems: "center",
+                                        }}
+                                      >
+                                        {createMode ? (
+                                          // In create mode, show only the green "+" button
+                                          <button
+                                            title="Create song"
+                                            onClick={() => {
+                                              // In create mode, mark this track as selected for creation
+                                              setItems((prev) =>
+                                                prev.map((item) =>
+                                                  item.spotify_track_id ===
+                                                  it.spotify_track_id
+                                                    ? {
+                                                        ...item,
+                                                        in_pack: true,
+                                                        song_id: `temp_${it.spotify_track_id}`,
+                                                      }
+                                                    : item
+                                                )
+                                              );
+                                            }}
+                                            style={{
+                                              border: "1px solid #28a745",
                                               background: "#28a745",
                                               color: "#fff",
+                                              borderRadius: 6,
                                               padding: "6px 10px",
-                                            },
-                                            busy || it.official
-                                          )}
-                                          {linkCandidates.length > 0 && (
-                                            <button
-                                              title="Link to existing"
-                                              onClick={() =>
-                                                setLinkingKey(
-                                                  linkingKey === key
-                                                    ? null
-                                                    : key
-                                                )
-                                              }
-                                              style={{
-                                                border: "1px solid #e6e6e8",
-                                                background: "#fff",
-                                                color: "#555",
-                                                borderRadius: 6,
-                                                padding: "4px 6px",
-                                                fontSize: 12,
-                                                cursor: "pointer",
-                                              }}
-                                              aria-label="Link to existing"
-                                            >
-                                              🔗
-                                            </button>
-                                          )}
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
+                                              fontSize: 12,
+                                              cursor: "pointer",
+                                              fontWeight: 600,
+                                            }}
+                                            aria-label="Create song"
+                                          >
+                                            ➕
+                                          </button>
+                                        ) : (
+                                          // In edit mode, show the blue "Add" button and link icon
+                                          <>
+                                            {button(
+                                              "➕",
+                                              () => addTrack(it),
+                                              {
+                                                background: "#28a745",
+                                                color: "#fff",
+                                                padding: "6px 10px",
+                                              },
+                                              busy || it.official
+                                            )}
+                                            {linkCandidates.length > 0 && (
+                                              <button
+                                                title="Link to existing"
+                                                onClick={() =>
+                                                  setLinkingKey(
+                                                    linkingKey === key
+                                                      ? null
+                                                      : key
+                                                  )
+                                                }
+                                                style={{
+                                                  border: "1px solid #e6e6e8",
+                                                  background: "#fff",
+                                                  color: "#555",
+                                                  borderRadius: 6,
+                                                  padding: "4px 6px",
+                                                  fontSize: 12,
+                                                  cursor: "pointer",
+                                                }}
+                                                aria-label="Link to existing"
+                                              >
+                                                🔗
+                                              </button>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                              </div>
                             </td>
                           </tr>
                           {linkingKey === key && (

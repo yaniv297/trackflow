@@ -769,6 +769,24 @@ export default function AlbumSeriesEditModal({
                   </th>
                   <th
                     style={{
+                      textAlign: "center",
+                      padding: 8,
+                      borderBottom: "1px solid #eee",
+                    }}
+                  >
+                    Preexisting
+                  </th>
+                  <th
+                    style={{
+                      textAlign: "center",
+                      padding: 8,
+                      borderBottom: "1px solid #eee",
+                    }}
+                  >
+                    Irrelevant
+                  </th>
+                  <th
+                    style={{
                       textAlign: "left",
                       padding: 8,
                       borderBottom: "1px solid #eee",
@@ -785,7 +803,7 @@ export default function AlbumSeriesEditModal({
                     {Object.keys(itemsByDisc).length > 1 && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={6}
                           style={{
                             background: "#e8f4fd",
                             padding: "12px 8px",
@@ -897,61 +915,35 @@ export default function AlbumSeriesEditModal({
                             </td>
                             <td
                               style={{
-                                padding: 8,
-                                minWidth: 180,
+                                padding: 4,
+                                textAlign: "center",
+                                minWidth: 100,
                               }}
                             >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: 8,
-                                  alignItems: "center",
-                                  justifyContent: "flex-start",
-                                }}
-                              >
-                                {!it.official &&
-                                  !it.pre_existing &&
-                                  !isReleased(it) && (
-                                    <>
-                                      {pillToggle(
-                                        "Preexisting",
-                                        isPreexisting,
-                                        () => togglePreexisting(it),
-                                        busy
-                                      )}
-                                      <button
-                                        onClick={() => toggleIrrelevant(it)}
-                                        disabled={busy}
-                                        style={{
-                                          border: it.irrelevant
-                                            ? "1px solid #f5c2c7"
-                                            : "1px solid #e6e6e8",
-                                          background: it.irrelevant
-                                            ? "#fff5f5"
-                                            : "#fff",
-                                          color: it.irrelevant
-                                            ? "#b02a37"
-                                            : "#555",
-                                          borderRadius: 999,
-                                          padding: "4px 10px",
-                                          fontSize: 12,
-                                          fontWeight: 600,
-                                          cursor: busy
-                                            ? "not-allowed"
-                                            : "pointer",
-                                        }}
-                                        title={
-                                          it.irrelevant
-                                            ? "Marked as irrelevant"
-                                            : "Mark as irrelevant"
-                                        }
-                                      >
-                                        Irrelevant
-                                      </button>
-                                    </>
-                                  )}
-
-                                {it.pre_existing && !it.official && (
+                              {!it.official &&
+                                !it.pre_existing &&
+                                !isReleased(it) && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    {pillToggle(
+                                      "Preexisting",
+                                      isPreexisting,
+                                      () => togglePreexisting(it),
+                                      busy
+                                    )}
+                                  </div>
+                                )}
+                              {it.pre_existing && !it.official && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "center",
+                                  }}
+                                >
                                   <button
                                     onClick={() => togglePreexisting(it)}
                                     disabled={busy}
@@ -969,8 +961,71 @@ export default function AlbumSeriesEditModal({
                                   >
                                     Unmark
                                   </button>
+                                </div>
+                              )}
+                            </td>
+                            <td
+                              style={{
+                                padding: 4,
+                                textAlign: "center",
+                                minWidth: 100,
+                              }}
+                            >
+                              {!it.official &&
+                                !it.pre_existing &&
+                                !isReleased(it) && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "center",
+                                    }}
+                                  >
+                                    <button
+                                      onClick={() => toggleIrrelevant(it)}
+                                      disabled={busy}
+                                      style={{
+                                        border: it.irrelevant
+                                          ? "1px solid #f5c2c7"
+                                          : "1px solid #e6e6e8",
+                                        background: it.irrelevant
+                                          ? "#fff5f5"
+                                          : "#fff",
+                                        color: it.irrelevant
+                                          ? "#b02a37"
+                                          : "#555",
+                                        borderRadius: 999,
+                                        padding: "4px 10px",
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        cursor: busy
+                                          ? "not-allowed"
+                                          : "pointer",
+                                      }}
+                                      title={
+                                        it.irrelevant
+                                          ? "Marked as irrelevant"
+                                          : "Mark as irrelevant"
+                                      }
+                                    >
+                                      Irrelevant
+                                    </button>
+                                  </div>
                                 )}
-
+                            </td>
+                            <td
+                              style={{
+                                padding: 4,
+                                minWidth: 100,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 8,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
                                 {/* Add/Delete action */}
                                 {!it.official &&
                                 !it.pre_existing &&

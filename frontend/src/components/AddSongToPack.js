@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import SmartDropdown from "./SmartDropdown";
 import { apiPost, apiGet } from "../utils/api";
+import DLCWarning from "./DLCWarning";
 
 const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
   const [loading, setLoading] = useState(false);
@@ -415,6 +416,11 @@ Queen – Bohemian Rhapsody`}
               placeholder="Select collaborators (comma-separated)"
             />
           </div>
+
+          {/* DLC Warning - only show in single song mode */}
+          {!isMultipleMode && (
+            <DLCWarning title={formData.title} artist={formData.artist} />
+          )}
 
           {/* Buttons */}
           <div

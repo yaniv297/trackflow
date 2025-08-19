@@ -11,6 +11,7 @@ import Fireworks from "./components/Fireworks";
 import LoadingSpinner from "./components/LoadingSpinner";
 import useCollaborations from "./hooks/useCollaborations";
 import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
+import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 
 function SongPage({ status }) {
   const { user } = useAuth();
@@ -51,6 +52,13 @@ function SongPage({ status }) {
     message: "",
     onConfirm: null,
     placeholder: "",
+  });
+
+  const [editSeriesModal, setEditSeriesModal] = useState({
+    open: false,
+    packId: null,
+    series: [],
+    defaultSeriesId: null,
   });
 
   // Use collaboration hook
@@ -106,6 +114,31 @@ function SongPage({ status }) {
     const delayDebounceFn = setTimeout(() => fetchSongs(), 300);
     return () => clearTimeout(delayDebounceFn);
   }, [search, fetchSongs]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { packId, series } = e.detail || {};
+      setEditSeriesModal({
+        open: true,
+        packId: packId || null,
+        series: series || [],
+        defaultSeriesId: series?.[0]?.id || null,
+      });
+    };
+    window.addEventListener("open-edit-album-series", handler);
+    return () => window.removeEventListener("open-edit-album-series", handler);
+  }, []);
+
+  // Listen for global cache invalidation events
+  useEffect(() => {
+    const invalidate = () => {
+      setSongsCache({});
+      fetchSongs();
+    };
+    window.addEventListener("songs-invalidate-cache", invalidate);
+    return () =>
+      window.removeEventListener("songs-invalidate-cache", invalidate);
+  }, [fetchSongs]);
 
   // Sorting and grouping logic
   const sortedSongs = useMemo(() => {
@@ -332,15 +365,35 @@ function SongPage({ status }) {
       const updated = await apiPost(`/spotify/${songId}/enhance/`, {
         track_id: trackId,
       });
+
+      // Only update specific fields that should change from Spotify enhancement
+      // Preserve pack-related fields and other important display fields
       setSongs((prevSongs) =>
         prevSongs.map((song) =>
-          song.id === songId ? { ...song, ...updated } : song
+          song.id === songId
+            ? {
+                ...song,
+                album: updated.album,
+                year: updated.year,
+                album_cover: updated.album_cover,
+                artist: updated.artist,
+                title: updated.title,
+              }
+            : song
         )
       );
-      // Remove unnecessary cache clearing - we already updated local state
-      // setSongsCache({});
+
+      // Close the Spotify enhancement modal
+      setSpotifyOptions((prev) => ({ ...prev, [songId]: undefined }));
+
+      window.showNotification("Song enhanced successfully!", "success");
     } catch (error) {
-      console.error("Failed to apply Spotify enhancement:", error);
+      console.error(
+        "Failed to apply Spotify enhancement:",
+        error.message || error
+      );
+      // Show user-friendly error message
+      window.showNotification("Failed to apply Spotify enhancement", "error");
     }
   };
 
@@ -365,6 +418,33 @@ function SongPage({ status }) {
       console.error("Failed to update pack name:", error);
       throw error; // Re-throw so the component can handle it
     }
+  };
+
+  const handleDeletePack = async (packName, packId) => {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Pack",
+      message: `Are you sure you want to delete "${packName}"? This will permanently delete the pack and all songs in it.`,
+      onConfirm: async () => {
+        try {
+          // Delete the pack (this will cascade delete songs and album series)
+          await apiDelete(`/packs/${packId}`);
+
+          // Clear cache and refresh
+          setSongsCache({});
+          fetchSongs();
+
+          window.showNotification(
+            `Pack "${packName}" deleted successfully`,
+            "success"
+          );
+        } catch (error) {
+          console.error("Failed to delete pack:", error);
+          window.showNotification("Failed to delete pack", "error");
+        }
+      },
+      type: "danger",
+    });
   };
 
   return (
@@ -417,8 +497,29 @@ function SongPage({ status }) {
           onCleanTitles={() => {}} // Placeholder for now
           onSongAdded={fetchSongs}
           onPackNameUpdate={handlePackNameUpdate}
+          onDeletePack={handleDeletePack}
         />
       )}
+
+      {/* Edit Album Series Modal */}
+      <AlbumSeriesEditModal
+        isOpen={editSeriesModal.open}
+        onClose={() =>
+          setEditSeriesModal({
+            open: false,
+            packId: null,
+            series: [],
+            defaultSeriesId: null,
+          })
+        }
+        packId={editSeriesModal.packId}
+        seriesList={editSeriesModal.series}
+        defaultSeriesId={editSeriesModal.defaultSeriesId}
+        onChanged={() => {
+          setSongsCache({});
+          fetchSongs();
+        }}
+      />
 
       {/* Modals */}
       {showBulkModal && (
@@ -492,7 +593,7 @@ function SongPage({ status }) {
         message={alertConfig.message}
         type={alertConfig.type}
         onConfirm={alertConfig.onConfirm}
-        onCancel={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
       />
 
       <CustomPrompt

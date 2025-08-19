@@ -39,6 +39,7 @@ const SongTable = ({
   onCleanTitles,
   onSongAdded,
   onPackNameUpdate,
+  onDeletePack,
 }) => {
   const [localSortStates, setLocalSortStates] = useState({});
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -234,6 +235,14 @@ const SongTable = ({
           onCleanTitles={onCleanTitles || (() => {})}
           artistImageUrl=""
           mostCommonArtist=""
+          user={user}
+          status={status}
+          setShowCollaborationModal={setShowCollaborationModal}
+          setSelectedItemForCollaboration={setSelectedItemForCollaboration}
+          setCollaborationType={setCollaborationType}
+          onSongAdded={onSongAdded}
+          onPackNameUpdate={onPackNameUpdate}
+          onDeletePack={onDeletePack}
         />
         {!collapsedGroups[packName] &&
           renderRowsForGroup(packName, validSongsInPack)}
@@ -261,184 +270,49 @@ const SongTable = ({
         </table>
       </div>
 
+      {/* Bulk Actions Modal Placeholder */}
+      {showBulkModal && (
+        <BulkActions
+          onClose={() => setShowBulkModal(false)}
+          onApply={(action) => {
+            // This is a placeholder. Integrate selection logic if needed.
+            setShowBulkModal(false);
+          }}
+        />
+      )}
+
+      {/* Album Series Modal Placeholder */}
       {albumSeriesModal.open && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.5)",
+            background: "rgba(0,0,0,0.4)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
+            zIndex: 2000,
           }}
           onClick={closeAlbumSeriesModal}
         >
           <div
             style={{
-              background: "white",
-              padding: "1.2rem",
+              background: "#fff",
+              padding: 16,
               borderRadius: 8,
-              minWidth: 420,
+              minWidth: 360,
               maxWidth: 720,
-              maxHeight: "80vh",
-              overflow: "auto",
-              boxShadow: "0 10px 24px rgba(0,0,0,0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <h3 style={{ marginTop: 0 }}>
+              Create/Edit Album Series for {albumSeriesModal.packName}
+            </h3>
+            {/* Content to be implemented */}
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "0.75rem",
-              }}
+              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
             >
-              <h3 style={{ margin: 0 }}>Create Album Series</h3>
-              <button
-                onClick={closeAlbumSeriesModal}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: 20,
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            {albumSeriesModal.albumsWithEnoughSongs.length === 0 ? (
-              <p>No eligible albums (need at least 4 non-optional songs).</p>
-            ) : (
-              <div style={{ display: "grid", gap: 12 }}>
-                {albumSeriesModal.albumsWithEnoughSongs
-                  .slice(0, 2)
-                  .map(([albumName]) => {
-                    const songs =
-                      albumSeriesModal.songsByAlbum[albumName] || [];
-                    const artist = songs[0]?.artist || "Unknown Artist";
-                    return (
-                      <div
-                        key={albumName}
-                        style={{
-                          border: "1px solid #eee",
-                          borderRadius: 8,
-                          padding: 12,
-                          background: "#fafafa",
-                        }}
-                      >
-                        <div style={{ marginBottom: 8 }}>
-                          <strong>{artist}</strong> — <em>{albumName}</em> (
-                          {songs.length} songs)
-                        </div>
-                        <ul style={{ margin: 0, paddingLeft: 18 }}>
-                          {songs.map((s) => (
-                            <li key={s.id}>
-                              {s.title} — {s.artist}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-                marginTop: 12,
-              }}
-            >
-              <button
-                onClick={closeAlbumSeriesModal}
-                style={{
-                  background: "#6c757d",
-                  color: "#fff",
-                  border: 0,
-                  padding: "0.45rem 0.9rem",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const albums = albumSeriesModal.albumsWithEnoughSongs.slice(
-                      0,
-                      2
-                    );
-                    if (albums.length === 0) return;
-
-                    // Create one series per qualifying album (supports double)
-                    for (const [albumName] of albums) {
-                      const songs =
-                        albumSeriesModal.songsByAlbum[albumName] || [];
-                      const song_ids = songs.map((s) => s.id);
-                      const artist_name = songs[0]?.artist || "";
-                      const year = parseInt(songs[0]?.year) || null;
-
-                      await apiPost("/album-series/create-from-pack", {
-                        pack_name: albumSeriesModal.packName,
-                        song_ids,
-                        artist_name,
-                        album_name: albumName,
-                        year,
-                        cover_image_url: null,
-                        description: null,
-                      });
-                    }
-
-                    if (window.showNotification) {
-                      window.showNotification(
-                        albums.length === 2
-                          ? "Double album series created successfully!"
-                          : "Album series created successfully!",
-                        "success"
-                      );
-                    }
-
-                    closeAlbumSeriesModal();
-                    if (typeof onSongAdded === "function") {
-                      await onSongAdded(); // refresh list
-                    }
-                    if (
-                      status === "Future Plans" &&
-                      typeof window !== "undefined"
-                    ) {
-                      window.location.reload();
-                    }
-                  } catch (err) {
-                    console.error("Failed to create album series:", err);
-                    if (window.showNotification) {
-                      window.showNotification(
-                        "Failed to create album series",
-                        "error"
-                      );
-                    }
-                  }
-                }}
-                style={{
-                  background: "#007bff",
-                  color: "#fff",
-                  border: 0,
-                  padding: "0.45rem 0.9rem",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                }}
-              >
-                {albumSeriesModal.albumsWithEnoughSongs.length >= 2
-                  ? "Create Double Album Series"
-                  : "Create Album Series"}
-              </button>
+              <button onClick={closeAlbumSeriesModal}>Close</button>
             </div>
           </div>
         </div>

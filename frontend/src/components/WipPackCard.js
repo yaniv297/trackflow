@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import SmartDropdown from "./SmartDropdown";
 import WipSongCard from "./WipSongCard";
+import DLCWarning from "./DLCWarning";
 
 const WipPackCard = ({
   packName,
@@ -35,6 +36,7 @@ const WipPackCard = ({
   onRenamePack,
   onMovePackToFuturePlans,
   onCreateAlbumSeries,
+  onDeletePack,
   // Collaboration data
   userCollaborations,
 }) => {
@@ -198,6 +200,11 @@ const WipPackCard = ({
       packId = albumSeriesSong.pack_id;
     }
   }
+
+  // Handle pack deletion
+  const handleDeletePack = () => {
+    onDeletePack(packName, packId);
+  };
 
   const validSongsInPack =
     grouped.find((p) => p.pack === packName)?.allSongs || [];
@@ -562,6 +569,80 @@ const WipPackCard = ({
                         🎵 Make Album Series
                       </button>
                     )}
+
+                  {/* Edit Album Series if any exists */}
+                  {seriesInfo && seriesInfo.length > 0 && packId && (
+                    <button
+                      onClick={() => {
+                        const event = new CustomEvent(
+                          "open-edit-album-series",
+                          {
+                            detail: {
+                              packName,
+                              packId,
+                              series: seriesInfo,
+                            },
+                          }
+                        );
+                        window.dispatchEvent(event);
+                        setShowPackDropdown(false);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        width: "100%",
+                        padding: "0.5rem 1rem",
+                        textAlign: "left",
+                        color: "#5a8fcf",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = "#f8f9fa";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      ✏️ Edit Album Series
+                    </button>
+                  )}
+
+                  {/* Delete Pack option */}
+                  <div
+                    style={{ borderTop: "1px solid #eee", margin: "0.5rem 0" }}
+                  ></div>
+                  <button
+                    onClick={() => {
+                      const confirmDelete = window.confirm(
+                        `Are you sure you want to delete the pack "${packName}"?\n\nThis will:\n• Delete all ${allSongs.length} songs in the pack\n• Delete the pack itself\n• Delete any associated album series\n\nThis action cannot be undone.`
+                      );
+                      if (confirmDelete) {
+                        handleDeletePack();
+                      }
+                      setShowPackDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#dc3545",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#fff5f5";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    🗑️ Delete Pack
+                  </button>
                 </div>
               )}
             </div>
@@ -619,6 +700,13 @@ const WipPackCard = ({
               }}
             />
           </div>
+
+          {/* DLC Warning */}
+          <DLCWarning
+            title={newSongData.title || ""}
+            artist={newSongData.artist || ""}
+          />
+
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               onClick={() => onAddSongToPack(packId, newSongData)}

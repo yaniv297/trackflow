@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
-from models import Pack, User, Song, SongStatus
+from models import Pack, User, Song, SongStatus, AlbumSeries
 from api.auth import get_current_active_user
 from pydantic import BaseModel
 
@@ -166,4 +166,54 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
     
     db.commit()
     
-    return {"message": f"Pack and {len(songs)} songs updated to {status_update.status}"} 
+    return {"message": f"Pack and {len(songs)} songs updated to {status_update.status}"}
+
+
+@router.delete("/{pack_id}")
+def delete_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Delete a pack and all its songs"""
+    pack = db.query(Pack).filter(Pack.id == pack_id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Pack not found")
+    
+    # Check if user owns this pack
+    if pack.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only pack owner can delete pack")
+    
+    # Get all songs in the pack
+    songs = db.query(Song).filter(Song.pack_id == pack_id).all()
+    song_count = len(songs)
+    
+    # Collect album series IDs that might become orphaned
+    album_series_ids = set()
+    for song in songs:
+        if song.album_series_id:
+            album_series_ids.add(song.album_series_id)
+    
+    # Delete all songs in the pack
+    for song in songs:
+        db.delete(song)
+    
+    # Delete the pack
+    db.delete(pack)
+    
+    # Check for orphaned album series and delete them
+    orphaned_series_count = 0
+    for series_id in album_series_ids:
+        # Check if any songs still reference this album series
+        remaining_songs = db.query(Song).filter(Song.album_series_id == series_id).first()
+        if not remaining_songs:
+            # No songs left, delete the album series
+            series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+            if series:
+                db.delete(series)
+                orphaned_series_count += 1
+    
+    # Commit the transaction
+    db.commit()
+    
+    message = f"Pack '{pack.name}' and {song_count} songs deleted successfully"
+    if orphaned_series_count > 0:
+        message += f" (and {orphaned_series_count} orphaned album series)"
+    
+    return {"message": message} 

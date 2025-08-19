@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
 import WipPageHeader from "./components/WipPageHeader";
@@ -8,6 +8,8 @@ import CustomAlert from "./components/CustomAlert";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
 import LoadingSpinner from "./components/LoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
+import AlbumSeriesModal from "./components/AlbumSeriesModal";
+import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 
 // Utility function to capitalize artist and album names (keeping for compatibility)
 // eslint-disable-next-line no-unused-vars
@@ -123,6 +125,7 @@ const capitalizeName = (name) => {
 };
 
 function WipPage() {
+  // console.log("WipPage component rendered");
   const { user } = useAuth();
   const {
     songs,
@@ -162,6 +165,88 @@ function WipPage() {
     onConfirm: null,
     type: "warning",
   });
+  const [editSeriesModal, setEditSeriesModal] = useState({
+    open: false,
+    packId: null,
+    series: [],
+    defaultSeriesId: null,
+    createMode: false,
+    createData: null,
+  });
+
+  // Option: open the edit modal after creating an album series
+  const [openEditorAfterCreate, setOpenEditorAfterCreate] = useState(false);
+
+  // If a pending request exists (set by NewPackForm), open the editor on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("tf_open_edit_series");
+      if (raw) {
+        const detail = JSON.parse(raw);
+        if (
+          detail &&
+          detail.packId &&
+          detail.series &&
+          detail.series.length > 0
+        ) {
+          const evt = new CustomEvent("open-edit-album-series", { detail });
+          window.dispatchEvent(evt);
+        }
+        localStorage.removeItem("tf_open_edit_series");
+      }
+    } catch (_e) {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    // console.log("Setting up event listeners in WipPage");
+
+    const handler = (e) => {
+      // console.log("Received open-edit-album-series event", e.detail);
+      const { packId, series } = e.detail || {};
+      setEditSeriesModal({
+        open: true,
+        packId: packId || null,
+        series: series || [],
+        defaultSeriesId: series?.[0]?.id || null,
+      });
+    };
+
+    const createHandler = (e) => {
+      // console.log(
+      //   "Received open-create-album-series-modal event in WipPage",
+      //   e.detail
+      // );
+      const { artistName, albumName, status } = e.detail || {};
+      // console.log("Setting modal state with:", {
+      //   artistName,
+      //   albumName,
+      //   status,
+      // });
+      setEditSeriesModal({
+        open: true,
+        packId: null,
+        series: [],
+        defaultSeriesId: null,
+        createMode: true,
+        createData: { artistName, albumName, status },
+      });
+    };
+
+    window.addEventListener("open-edit-album-series", handler);
+    window.addEventListener("open-create-album-series-modal", createHandler);
+    // console.log("Event listeners registered in WipPage");
+
+    return () => {
+      window.removeEventListener("open-edit-album-series", handler);
+      window.removeEventListener(
+        "open-create-album-series-modal",
+        createHandler
+      );
+      // console.log("Event listeners removed from WipPage");
+    };
+  }, []);
 
   // Pack Management
   const togglePack = (packName) => {
@@ -279,6 +364,59 @@ function WipPage() {
         setAlertConfig((prev) => ({ ...prev, isOpen: false }));
       },
     });
+  };
+
+  const handleDeletePack = async (packName, packId) => {
+    try {
+      // Get all songs in the pack
+      const packSongs = songs.filter(
+        (s) => (s.pack_name || "(no pack)") === packName
+      );
+
+      // Check if there are any album series associated with this pack
+      const albumSeriesIds = new Set();
+      packSongs.forEach((song) => {
+        if (song.album_series_id) {
+          albumSeriesIds.add(song.album_series_id);
+        }
+      });
+
+      // Delete all songs in the pack
+      for (const song of packSongs) {
+        await apiDelete(`/songs/${song.id}`);
+      }
+
+      // Delete any associated album series
+      for (const seriesId of albumSeriesIds) {
+        try {
+          await apiDelete(`/album-series/${seriesId}`);
+        } catch (error) {
+          console.error(`Failed to delete album series ${seriesId}:`, error);
+        }
+      }
+
+      // Delete the pack itself
+      if (packId) {
+        await apiDelete(`/packs/${packId}`);
+      }
+
+      // Remove songs from current view
+      setSongs((prev) =>
+        prev.filter((song) => (song.pack_name || "(no pack)") !== packName)
+      );
+
+      const seriesMessage =
+        albumSeriesIds.size > 0
+          ? ` and ${albumSeriesIds.size} album series`
+          : "";
+      window.showNotification(
+        `Pack "${packName}"${seriesMessage} and all its songs deleted successfully`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Failed to delete pack:", error);
+      window.showNotification("Failed to delete pack", "error");
+    }
   };
 
   const releasePack = (pack) => {
@@ -560,7 +698,7 @@ function WipPage() {
         return;
       }
 
-      await apiPost("/album-series/", {
+      const created = await apiPost("/album-series/", {
         pack_id: packId,
         artist_name: albumSeriesForm.artist_name,
         album_name: albumSeriesForm.album_name,
@@ -570,6 +708,24 @@ function WipPage() {
         `Album series created for "${albumSeriesForm.artist_name} - ${albumSeriesForm.album_name}"`,
         "success"
       );
+
+      // Optionally open the edit modal to add songs
+      if (openEditorAfterCreate && created && created.id) {
+        const event = new CustomEvent("open-edit-album-series", {
+          detail: {
+            packName,
+            packId,
+            series: [
+              {
+                id: created.id,
+                number: created.series_number,
+                name: created.album_name,
+              },
+            ],
+          },
+        });
+        window.dispatchEvent(event);
+      }
     } catch (error) {
       console.error("Failed to create album series:", error);
       window.showNotification("Failed to create album series", "error");
@@ -625,6 +781,7 @@ function WipPage() {
             onRenamePack={handleRenamePack}
             onMovePackToFuturePlans={handleMovePackToFuturePlans}
             onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
+            onDeletePack={handleDeletePack}
             userCollaborations={userCollaborations}
           />
         ))}
@@ -702,6 +859,24 @@ function WipPage() {
               />
             </div>
 
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: "1rem",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={openEditorAfterCreate}
+                onChange={(e) => setOpenEditorAfterCreate(e.target.checked)}
+              />
+              <span>
+                After creating, open the editor to add songs to the pack
+              </span>
+            </label>
+
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
               <button
                 onClick={handleCreateAlbumSeries}
@@ -737,6 +912,34 @@ function WipPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Album Series Modal */}
+      <AlbumSeriesEditModal
+        isOpen={editSeriesModal.open}
+        onClose={() =>
+          setEditSeriesModal({
+            open: false,
+            packId: null,
+            series: [],
+            defaultSeriesId: null,
+            createMode: false,
+            createData: null,
+          })
+        }
+        packId={editSeriesModal.packId}
+        seriesList={editSeriesModal.series}
+        defaultSeriesId={editSeriesModal.defaultSeriesId}
+        createMode={editSeriesModal.createMode || false}
+        createData={editSeriesModal.createData || null}
+        onChanged={() => {
+          // Invalidate and refresh WIP data
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("songs-invalidate-cache"));
+          }
+          // Re-fetch page data
+          refreshSongs();
+        }}
+      />
 
       {/* Unified Collaboration Modal */}
       <UnifiedCollaborationModal

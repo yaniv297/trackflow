@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  NavLink,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginForm from "./components/LoginForm";
@@ -19,6 +25,7 @@ function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout, isAuthenticated, loading } = useAuth();
 
   // Close dropdowns when clicking outside
@@ -38,6 +45,58 @@ function AppContent() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showNewDropdown, showUserDropdown]);
+
+  // After route changes, check if we should open the edit album series modal
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("tf_open_edit_series");
+      if (raw) {
+        const detail = JSON.parse(raw);
+        if (
+          detail &&
+          detail.packId &&
+          detail.series &&
+          detail.series.length > 0
+        ) {
+          const evt = new CustomEvent("open-edit-album-series", { detail });
+          window.dispatchEvent(evt);
+        }
+        localStorage.removeItem("tf_open_edit_series");
+      }
+    } catch (_e) {}
+  }, [location.pathname]);
+
+  // Global event listeners for album series modals
+  useEffect(() => {
+    // console.log("Setting up global event listeners in App.js");
+
+    const createHandler = (e) => {
+      // console.log(
+      //   "Received open-create-album-series event in App.js",
+      //   e.detail
+      // );
+      const { artistName, albumName, status } = e.detail || {};
+
+      // Navigate to WIP page and then open the modal
+      navigate("/wip");
+
+      // Use setTimeout to ensure navigation completes before opening modal
+      setTimeout(() => {
+        const modalEvent = new CustomEvent("open-create-album-series-modal", {
+          detail: { artistName, albumName, status },
+        });
+        window.dispatchEvent(modalEvent);
+      }, 100);
+    };
+
+    window.addEventListener("open-create-album-series", createHandler);
+    // console.log("Global event listener registered in App.js");
+
+    return () => {
+      window.removeEventListener("open-create-album-series", createHandler);
+      // console.log("Global event listener removed from App.js");
+    };
+  }, [navigate]);
 
   const handleDropdownClick = (path) => {
     setShowNewDropdown(false);

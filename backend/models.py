@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'AuthoringProgress', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -48,12 +48,14 @@ class Pack(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True, index=True)
     
     # Relationships
     user = relationship("User", back_populates="packs")
     songs = relationship("Song", back_populates="pack_obj")
     collaborations = relationship("Collaboration", back_populates="pack")
-    # (No direct album_series_id on Pack in prod)
+    # Link to the album series this pack belongs to (pack-level association)
+    album_series = relationship("AlbumSeries", foreign_keys=[album_series_id], uselist=False)
 
 class Song(Base):
     __tablename__ = "songs"
@@ -143,6 +145,40 @@ class AlbumSeries(Base):
 
 # Legacy SongCollaboration model removed - use unified Collaboration model instead
 
+class AlbumSeriesPreexisting(Base):
+    __tablename__ = "album_series_preexisting"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    series_id = Column(Integer, ForeignKey("album_series.id"), nullable=False, index=True)
+    spotify_track_id = Column(String, nullable=True, index=True)
+    title_clean = Column(String, nullable=True, index=True)
+    artist = Column(String, nullable=True, index=True)
+    pre_existing = Column(Boolean, default=False)  # User marked as "already done"
+    irrelevant = Column(Boolean, default=False)    # User marked as "irrelevant"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('series_id', 'spotify_track_id', name='uq_preexisting_series_spotify'),
+        UniqueConstraint('series_id', 'title_clean', name='uq_preexisting_series_titleclean'),
+    )
+
+class AlbumSeriesOverride(Base):
+    __tablename__ = "album_series_overrides"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    series_id = Column(Integer, ForeignKey("album_series.id"), nullable=False, index=True)
+    spotify_track_id = Column(String, nullable=True, index=True)
+    title_clean = Column(String, nullable=True, index=True)
+    linked_song_id = Column(Integer, ForeignKey("songs.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('series_id', 'spotify_track_id', name='uq_override_series_spotify'),
+        UniqueConstraint('series_id', 'title_clean', name='uq_override_series_titleclean'),
+    )
+
 class WipCollaboration(Base):
     __tablename__ = "wip_collaborations"
     
@@ -192,3 +228,23 @@ class FileLink(Base):
     # Relationships
     song = relationship("Song")
     user = relationship("User")
+
+class RockBandDLC(Base):
+    __tablename__ = "rock_band_dlc"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    artist = Column(String, index=True)
+    origin = Column(String, index=True)  # RB1, RB2, DLC, Beatles, etc.
+    linked_song_id = Column(Integer, ForeignKey("songs.id"), nullable=True, index=True)  # Link to our songs if matched
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Composite indexes for common query patterns
+    __table_args__ = (
+        Index('idx_dlc_artist_title', 'artist', 'title'),
+        Index('idx_dlc_origin', 'origin'),
+    )
+    
+    # Relationships
+    linked_song = relationship("Song", foreign_keys=[linked_song_id])

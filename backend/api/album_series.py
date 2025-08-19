@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import AlbumSeries, Song, Collaboration, CollaborationType, SongStatus, User, Pack
+from models import AlbumSeries, Song, Collaboration, CollaborationType, SongStatus, User, Pack, AlbumSeriesPreexisting, AlbumSeriesOverride, RockBandDLC
 from schemas import AlbumSeriesResponse, AlbumSeriesDetailResponse, CreateAlbumSeriesRequest
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 import os
 from pydantic import BaseModel
 from api.auth import get_current_active_user
+from api.tools import clean_string
 
 # Spotify credentials
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "7939abf6b76d4fc7a627869350dbe3d7")
@@ -17,8 +18,49 @@ SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "b1aefd1ba3504dc28a44
 
 router = APIRouter(prefix="/album-series", tags=["Album Series"])
 
+def check_dlc_status(db: Session, title: str, artist: str) -> bool:
+    """
+    Check if a song is already official Rock Band DLC.
+    Returns True if the song is DLC, False otherwise.
+    No caching - just direct check.
+    """
+    dlc_entry = db.query(RockBandDLC).filter(
+        RockBandDLC.title.ilike(title),
+        RockBandDLC.artist.ilike(artist)
+    ).first()
+    
+    return dlc_entry is not None
+
 class UpdateAlbumSeriesStatusRequest(BaseModel):
     status: str
+
+class TracklistItem(BaseModel):
+    spotify_track_id: Optional[str] = None
+    title: str
+    title_clean: str
+    artist: str
+    track_number: Optional[int] = None
+    disc_number: Optional[int] = None
+    in_pack: bool = False
+    status: Optional[str] = None
+    song_id: Optional[int] = None
+    official: bool = False
+    pre_existing: bool = False
+    irrelevant: bool = False
+
+class PreexistingUpdate(BaseModel):
+    updates: List[dict]
+
+class IrrelevantUpdate(BaseModel):
+    updates: List[dict]
+
+class DiscActionRequest(BaseModel):
+    disc_number: int
+    action: str  # "mark_irrelevant" or "unmark_irrelevant"
+
+class AddMissingRequest(BaseModel):
+    tracks: List[dict]
+    pack_id: int
 
 def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     """Get unique authors for a series from both songs and collaborations"""
@@ -339,6 +381,54 @@ def create_album_series_from_pack(
 
     db.commit()
 
+    # Auto-check DLC status for all songs in the album series
+    try:
+        print(f"DEBUG: Starting auto-DLC check for {artist_name} - {album_name}")
+        
+        # Check if Spotify credentials are available
+        if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+            print("DEBUG: Spotify credentials not available, skipping auto-DLC check")
+        else:
+            print(f"DEBUG: Spotify credentials available, proceeding with DLC check")
+            # Get Spotify tracklist and check DLC status
+            sp = Spotify(auth_manager=SpotifyClientCredentials(
+                client_id=SPOTIFY_CLIENT_ID,
+                client_secret=SPOTIFY_CLIENT_SECRET
+            ))
+            
+            results = sp.search(q=f"album:{album_name} artist:{artist_name}", type="album", limit=1)
+            print(f"DEBUG: Spotify search results: {len(results.get('albums', {}).get('items', []))} albums found")
+            
+            if results["albums"]["items"]:
+                album = results["albums"]["items"][0]
+                album_id = album["id"]
+                print(f"DEBUG: Using album: {album.get('name')} by {album.get('artists', [{}])[0].get('name', 'Unknown')}")
+                
+                tracks = sp.album_tracks(album_id)
+                print(f"DEBUG: Found {len(tracks.get('items', []))} tracks, checking DLC status...")
+                
+                for t in tracks.get('items', []):
+                    raw_title = t.get('name') or ''
+                    clean_title = clean_string(raw_title)
+                    sp_id = t.get('id')
+                    
+                    print(f"DEBUG: Checking track: {raw_title}")
+                    
+                    # Check DLC status
+                    is_dlc = check_dlc_status(
+                        db=db,
+                        title=raw_title,
+                        artist=artist_name
+                    )
+                    
+                    print(f"DEBUG: DLC result for {raw_title}: {is_dlc}")
+            else:
+                print(f"DEBUG: No album found on Spotify for {artist_name} - {album_name}")
+    except Exception as e:
+        print(f"DEBUG: Failed to auto-check DLC status for {artist_name} - {album_name}: {e}")
+        import traceback
+        traceback.print_exc()
+
     # Auto-fetch album art if not provided
     if not cover_image_url:
         try:
@@ -508,3 +598,423 @@ def update_album_series_status(
         "message": f"Album series '{series.album_name}' status updated to '{request.status}'",
         "status": request.status
     } 
+
+@router.get("/{series_id}/spotify-tracklist", response_model=List[TracklistItem])
+def get_spotify_tracklist(series_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+
+    sp = Spotify(auth_manager=SpotifyClientCredentials(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET
+    ))
+
+    results = sp.search(q=f"album:{series.album_name} artist:{series.artist_name}", type="album", limit=1)
+    if not results["albums"]["items"]:
+        return []
+    album = results["albums"]["items"][0]
+    album_id = album["id"]
+    tracks = sp.album_tracks(album_id)
+
+    # Map existing songs by normalized title for THIS series only (used for in_pack)
+    from api.tools import normalize_title, titles_similar, clean_string
+    songs = db.query(Song).filter(Song.album_series_id == series_id).all()
+    song_map = {normalize_title((s.title or "")): s for s in songs}
+
+    # Build a pool of globally released songs by the same artist to recognize releases
+    # We only use these for status detection, not for in_pack/song_id
+    try:
+        global_songs = db.query(Song).filter(Song.artist.ilike(f"%{series.artist_name}%")).all()
+    except Exception:
+        global_songs = []
+    normalized_series_artist = normalize_title(series.artist_name or "")
+
+    # User-specific flags (preexisting and irrelevant)
+    user_flags = db.query(AlbumSeriesPreexisting).filter(AlbumSeriesPreexisting.series_id == series_id).all()
+    preexisting_map = {}
+    irrelevant_map = {}
+    
+    for f in user_flags:
+        key = f.spotify_track_id or (f.title_clean or "").lower()
+        if key:
+            if f.pre_existing:
+                preexisting_map[key] = True
+            if f.irrelevant:
+                irrelevant_map[key] = True
+    # Manual overrides (user-linked songs)
+    overrides = db.query(AlbumSeriesOverride).filter(AlbumSeriesOverride.series_id == series_id).all()
+    override_map = {}
+    for ov in overrides:
+        key = ov.spotify_track_id or (ov.title_clean or "").lower()
+        if key and ov.linked_song_id:
+            s = db.query(Song).filter(Song.id == ov.linked_song_id).first()
+            if s:
+                override_map[key] = s
+
+    items: List[TracklistItem] = []
+    for t in tracks.get('items', []):
+        raw_title = t.get('name') or ''
+        # Clean remaster tags BEFORE checking DLC
+        clean_title = clean_string(raw_title)
+        key = normalize_title(clean_title)
+        sp_id = t.get('id')
+        # If overridden manually, use that first (treated as in_pack)
+        s_series = override_map.get(sp_id) or override_map.get(key)
+        # Then try normalized/fuzzy within this series
+        if not s_series:
+            s_series = song_map.get(key)
+        if not s_series:
+            # Fallback: fuzzy match against existing song titles in this series
+            for cand_key, cand_song in song_map.items():
+                if titles_similar(key, cand_key, threshold=0.92):
+                    s_series = cand_song
+                    break
+
+        # Also try to recognize releases globally by the same artist using cleaned title + artist
+        s_global = None
+        if not s_series and global_songs:
+            # Exact normalized title + normalized artist match
+            for gs in global_songs:
+                if normalize_title(gs.title or "") == key and normalize_title(gs.artist or "").find(normalized_series_artist) != -1:
+                    s_global = gs
+                    break
+            # Fuzzy title match with same normalized/contained artist if exact not found
+            if not s_global:
+                for gs in global_songs:
+                    if normalize_title(gs.artist or "").find(normalized_series_artist) == -1 and normalized_series_artist.find(normalize_title(gs.artist or "")) == -1:
+                        continue
+                    if titles_similar(key, normalize_title(gs.title or ""), threshold=0.92):
+                        s_global = gs
+                        break
+
+        # Check if this song is official Rock Band DLC
+        official = False
+        try:
+            official = check_dlc_status(
+                db=db,
+                title=clean_title,
+                artist=series.artist_name
+            )
+        except Exception as e:
+            print(f"Error checking DLC status for {raw_title}: {e}")
+        
+        # Check if this song is marked as preexisting (custom song by other authors)
+        preexisting = preexisting_map.get(sp_id) or preexisting_map.get(key) or False
+        
+        # Check if this song is marked as irrelevant
+        irrelevant = irrelevant_map.get(sp_id) or irrelevant_map.get(key) or False
+        
+        # Determine status/in_pack/song_id based on series match first, then global
+        in_pack = bool(s_series)
+        status_val = (s_series.status if s_series else (s_global.status if s_global else None))
+        song_id_val = (s_series.id if s_series else None)
+        
+        items.append(TracklistItem(
+            spotify_track_id=sp_id,
+            title=raw_title,
+            title_clean=clean_title,
+            artist=series.artist_name,
+            track_number=t.get('track_number'),
+            disc_number=t.get('disc_number'),
+            in_pack=in_pack,
+            status=status_val,
+            song_id=song_id_val,
+            official=bool(official),
+            pre_existing=bool(preexisting),
+            irrelevant=bool(irrelevant)
+        ))
+
+    # Sort by disc number first, then track number, then title
+    items.sort(key=lambda x: (x.disc_number or 1, x.track_number or 1e9, x.title_clean.lower()))
+    return items
+
+@router.post("/{series_id}/preexisting")
+def set_preexisting(series_id: int, payload: PreexistingUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+
+    # upsert by spotify_track_id or title_clean
+    for u in payload.updates:
+        spid = u.get('spotify_track_id')
+        title_clean = clean_string(u.get('title_clean') or u.get('title') or '')
+        pre = bool(u.get('pre_existing'))
+        row = None
+        if spid:
+            row = db.query(AlbumSeriesPreexisting).filter(AlbumSeriesPreexisting.series_id == series_id, AlbumSeriesPreexisting.spotify_track_id == spid).first()
+        if not row and title_clean:
+            row = db.query(AlbumSeriesPreexisting).filter(AlbumSeriesPreexisting.series_id == series_id, AlbumSeriesPreexisting.title_clean == title_clean).first()
+        if not row:
+            row = AlbumSeriesPreexisting(series_id=series_id, spotify_track_id=spid, title_clean=title_clean, pre_existing=pre)
+            db.add(row)
+        else:
+            row.pre_existing = pre
+    db.commit()
+    return {"ok": True}
+
+@router.post("/{series_id}/irrelevant")
+def set_irrelevant(series_id: int, payload: IrrelevantUpdate, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+
+    # upsert by spotify_track_id or title_clean
+    for u in payload.updates:
+        spid = u.get('spotify_track_id')
+        title_clean = clean_string(u.get('title_clean') or u.get('title') or '')
+        irr = bool(u.get('irrelevant'))
+        row = None
+        if spid:
+            row = db.query(AlbumSeriesPreexisting).filter(AlbumSeriesPreexisting.series_id == series_id, AlbumSeriesPreexisting.spotify_track_id == spid).first()
+        if not row and title_clean:
+            row = db.query(AlbumSeriesPreexisting).filter(AlbumSeriesPreexisting.series_id == series_id, AlbumSeriesPreexisting.title_clean == title_clean).first()
+        if not row:
+            row = AlbumSeriesPreexisting(series_id=series_id, spotify_track_id=spid, title_clean=title_clean, irrelevant=irr)
+            db.add(row)
+        else:
+            row.irrelevant = irr
+    db.commit()
+    return {"ok": True}
+
+@router.post("/{series_id}/disc-action")
+def disc_action(series_id: int, payload: DiscActionRequest, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+
+    # Get all tracks for this disc from Spotify
+    sp = Spotify(auth_manager=SpotifyClientCredentials(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET
+    ))
+
+    results = sp.search(q=f"album:{series.album_name} artist:{series.artist_name}", type="album", limit=1)
+    if not results["albums"]["items"]:
+        raise HTTPException(status_code=404, detail="Album not found on Spotify")
+    
+    album = results["albums"]["items"][0]
+    album_id = album["id"]
+    tracks = sp.album_tracks(album_id)
+
+    # Filter tracks for the specified disc
+    disc_tracks = [t for t in tracks.get('items', []) if t.get('disc_number', 1) == payload.disc_number]
+    
+    if not disc_tracks:
+        raise HTTPException(status_code=404, detail=f"No tracks found for disc {payload.disc_number}")
+
+    # Update all tracks in this disc
+    for t in disc_tracks:
+        spid = t.get('id')
+        title_clean = clean_string(t.get('name') or '')
+        
+        row = db.query(AlbumSeriesPreexisting).filter(
+            AlbumSeriesPreexisting.series_id == series_id, 
+            AlbumSeriesPreexisting.spotify_track_id == spid
+        ).first()
+        
+        if not row:
+            row = AlbumSeriesPreexisting(
+                series_id=series_id, 
+                spotify_track_id=spid, 
+                title_clean=title_clean
+            )
+            db.add(row)
+        
+        if payload.action == "mark_irrelevant":
+            row.irrelevant = True
+        elif payload.action == "unmark_irrelevant":
+            row.irrelevant = False
+
+    db.commit()
+    return {"ok": True, "tracks_updated": len(disc_tracks)}
+
+@router.post("/{series_id}/check-dlc")
+def check_dlc_for_series(series_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Check all songs in an album series against the Rock Band DLC database and cache results"""
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+    
+    try:
+        # Get Spotify tracklist for this series
+        sp = Spotify(auth_manager=SpotifyClientCredentials(
+            client_id=SPOTIFY_CLIENT_ID,
+            client_secret=SPOTIFY_CLIENT_SECRET
+        ))
+        
+        results = sp.search(q=f"album:{series.album_name} artist:{series.artist_name}", type="album", limit=1)
+        if not results["albums"]["items"]:
+            raise HTTPException(status_code=404, detail="Album not found on Spotify")
+        
+        album = results["albums"]["items"][0]
+        album_id = album["id"]
+        tracks = sp.album_tracks(album_id)
+        
+        checked_count = 0
+        dlc_count = 0
+        
+        for t in tracks.get('items', []):
+            raw_title = t.get('name') or ''
+            clean_title = clean_string(raw_title)
+            sp_id = t.get('id')
+            
+            # Check DLC status
+            is_dlc = check_dlc_status(
+                db=db,
+                title=raw_title,
+                artist=series.artist_name
+            )
+            
+            checked_count += 1
+            if is_dlc:
+                dlc_count += 1
+        
+        return {
+            "message": f"Checked {checked_count} songs, found {dlc_count} that are already official Rock Band DLC",
+            "checked_count": checked_count,
+            "dlc_count": dlc_count
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check DLC status: {str(e)}")
+
+@router.post("/{series_id}/add-missing", response_model=List[int])
+def add_missing_tracks(series_id: int, req: AddMissingRequest, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+
+    new_ids: List[int] = []
+    for tr in req.tracks:
+        title = clean_string(tr.get('title') or '')
+        artist = series.artist_name
+        year = tr.get('year')
+        # skip if already exists in series
+        exists = db.query(Song).filter(Song.album_series_id == series_id, Song.title.ilike(title)).first()
+        if exists:
+            continue
+        s = Song(
+            title=title,
+            artist=artist,
+            album=series.album_name,
+            year=year,
+            status=SongStatus.future,
+            user_id=current_user.id,
+            pack_id=req.pack_id,
+            album_series_id=series_id,
+        )
+        db.add(s)
+        db.flush()
+        new_ids.append(s.id)
+    db.commit()
+
+    # Enhance each new song with Spotify data and clean remaster tags
+    try:
+        from api.spotify import auto_enhance_song
+        from api.tools import clean_string as _clean
+        for sid in new_ids:
+            try:
+                auto_enhance_song(sid, db, preserve_artist_album=True)
+                song = db.query(Song).get(sid)
+                if song:
+                    cleaned_title = _clean(song.title)
+                    cleaned_album = _clean(song.album or "")
+                    if cleaned_title != song.title or cleaned_album != song.album:
+                        song.title = cleaned_title
+                        song.album = cleaned_album
+                        db.add(song)
+                db.commit()
+            except Exception:
+                db.rollback()
+                continue
+    except Exception:
+        pass
+
+    # Optional: run cleaner on new songs (legacy polyfill)
+    try:
+        from api.tools import bulk_clean_remaster_tags_function
+        bulk_clean_remaster_tags_function(new_ids, db, current_user.id)
+    except Exception:
+        pass
+
+    return new_ids 
+
+class OverrideRequest(BaseModel):
+    spotify_track_id: Optional[str] = None
+    title_clean: Optional[str] = None
+    linked_song_id: int
+
+@router.post("/{series_id}/override")
+def set_override(series_id: int, req: OverrideRequest, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Validate series and song ownership/access
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+    song = db.query(Song).filter(Song.id == req.linked_song_id).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    # Upsert override
+    row = None
+    if req.spotify_track_id:
+        row = db.query(AlbumSeriesOverride).filter(AlbumSeriesOverride.series_id == series_id, AlbumSeriesOverride.spotify_track_id == req.spotify_track_id).first()
+    if not row and (req.title_clean or "").strip():
+        from api.tools import clean_string
+        t = clean_string(req.title_clean or "")
+        row = db.query(AlbumSeriesOverride).filter(AlbumSeriesOverride.series_id == series_id, AlbumSeriesOverride.title_clean == t).first()
+    if not row:
+        row = AlbumSeriesOverride(series_id=series_id, spotify_track_id=req.spotify_track_id, title_clean=req.title_clean, linked_song_id=req.linked_song_id)
+        db.add(row)
+    else:
+        row.linked_song_id = req.linked_song_id
+    db.commit()
+    return {"ok": True}
+
+@router.delete("/{series_id}/override")
+def delete_override(series_id: int, spotify_track_id: Optional[str] = None, title_clean: Optional[str] = None, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    q = db.query(AlbumSeriesOverride).filter(AlbumSeriesOverride.series_id == series_id)
+    if spotify_track_id:
+        q = q.filter(AlbumSeriesOverride.spotify_track_id == spotify_track_id)
+    elif title_clean:
+        q = q.filter(AlbumSeriesOverride.title_clean == title_clean)
+    else:
+        raise HTTPException(status_code=400, detail="spotify_track_id or title_clean required")
+    row = q.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Override not found")
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/{series_id}")
+def delete_album_series(series_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Delete an album series and all its songs"""
+    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+    if not series:
+        raise HTTPException(status_code=404, detail="Album series not found")
+    
+    # Check if user owns any songs in this series
+    user_songs = db.query(Song).filter(
+        Song.album_series_id == series_id,
+        Song.user_id == current_user.id
+    ).first()
+    
+    if not user_songs:
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this album series")
+    
+    # Get all songs in the series
+    songs = db.query(Song).filter(Song.album_series_id == series_id).all()
+    song_count = len(songs)
+    
+    # Delete all songs in the series
+    for song in songs:
+        db.delete(song)
+    
+    # Delete the album series
+    db.delete(series)
+    
+    # Commit the transaction
+    db.commit()
+    
+    return {"message": f"Album series '{series.album_name}' and {song_count} songs deleted successfully"} 

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiPost, apiGet } from "./utils/api";
 import SmartDropdown from "./components/SmartDropdown";
 import UserDropdown from "./components/UserDropdown";
+import DLCWarning from "./components/DLCWarning";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (str) =>
@@ -309,6 +310,9 @@ function NewSongForm() {
               <option value="Released">Released</option>
             </select>
           </div>
+
+          {/* DLC Warning */}
+          <DLCWarning title={form.title} artist={form.artist} />
 
           <button
             type="submit"

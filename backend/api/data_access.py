@@ -8,7 +8,7 @@ from fastapi import HTTPException
 def get_songs(db: Session):
     return db.query(Song).all()
 
-def create_song_in_db(db: Session, song: SongCreate, user: User):
+def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: bool = True):
     # Extract collaborations from the song data
     song_data = song.dict()
     collaborations = song_data.pop('collaborations', [])
@@ -93,32 +93,33 @@ def create_song_in_db(db: Session, song: SongCreate, user: User):
         db.commit()
         db.refresh(db_authoring)
     
-    # Auto-enhance song with Spotify data
-    try:
-        from api.spotify import auto_enhance_song
-        if auto_enhance_song(db_song.id, db):
-            print(f"Auto-enhanced song {db_song.id} with Spotify data")
-            
-            # Auto-clean remaster tags after enhancement
-            try:
-                from api.tools import clean_string
-                db.refresh(db_song)  # Refresh to get updated data from Spotify
+    # Auto-enhance song with Spotify data (only if auto_enhance is True)
+    if auto_enhance:
+        try:
+            from api.spotify import auto_enhance_song
+            if auto_enhance_song(db_song.id, db, preserve_artist_album=False):
+                print(f"Auto-enhanced song {db_song.id} with Spotify data")
                 
-                cleaned_title = clean_string(db_song.title)
-                cleaned_album = clean_string(db_song.album or "")
-                
-                if cleaned_title != db_song.title or cleaned_album != db_song.album:
-                    print(f"Cleaning remaster tags for song {db_song.id}")
-                    db_song.title = cleaned_title
-                    db_song.album = cleaned_album
-                    db.commit()
-                    print(f"Cleaned song {db_song.id}: title='{cleaned_title}', album='{cleaned_album}'")
-            except Exception as clean_error:
-                print(f"Failed to clean remaster tags for song {db_song.id}: {clean_error}")
-        else:
-            print(f"Auto-enhancement skipped for song {db_song.id}")
-    except Exception as e:
-        print(f"Failed to auto-enhance song {db_song.id}: {e}")
+                # Auto-clean remaster tags after enhancement
+                try:
+                    from api.tools import clean_string
+                    db.refresh(db_song)  # Refresh to get updated data from Spotify
+                    
+                    cleaned_title = clean_string(db_song.title)
+                    cleaned_album = clean_string(db_song.album or "")
+                    
+                    if cleaned_title != db_song.title or cleaned_album != db_song.album:
+                        print(f"Cleaning remaster tags for song {db_song.id}")
+                        db_song.title = cleaned_title
+                        db_song.album = cleaned_album
+                        db.commit()
+                        print(f"Cleaned song {db_song.id}: title='{cleaned_title}', album='{cleaned_album}'")
+                except Exception as clean_error:
+                    print(f"Failed to clean remaster tags for song {db_song.id}: {clean_error}")
+        except Exception as e:
+            print(f"Failed to auto-enhance song {db_song.id}: {e}")
+    else:
+        print(f"Auto-enhancement skipped for song {db_song.id}")
         
     return db_song
 

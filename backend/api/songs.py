@@ -4,7 +4,7 @@ from sqlalchemy import or_, func
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring
+from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring, Artist
 from api.auth import get_current_active_user
 from typing import Optional
 from typing import List
@@ -340,7 +340,7 @@ def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), c
             from schemas import SongCreate
             song_with_author = SongCreate(**song_dict)
             
-            new_song = create_song_in_db(db, song_with_author, current_user)
+            new_song = create_song_in_db(db, song_with_author, current_user, auto_enhance=True)
             new_songs.append(new_song)
         except HTTPException as e:
             # If it's a duplicate error, add it to errors list but continue
@@ -721,12 +721,31 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
 @router.get("/all-artists")
 def get_all_artists(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get all unique artists in the system for dropdown usage"""
-    artists = db.query(Song.artist).filter(
+    # Get artists from the Artist table (which includes DLC artists)
+    artists = db.query(Artist.name).filter(
+        Artist.name.isnot(None),
+        Artist.name != ""
+    ).order_by(Artist.name).all()
+    
+    # Also get artists from existing songs (in case there are any not in Artist table)
+    song_artists = db.query(Song.artist).filter(
         Song.artist.isnot(None),
         Song.artist != ""
-    ).distinct().order_by(Song.artist).all()
+    ).distinct().all()
     
-    return [{"value": artist[0], "label": artist[0]} for artist in artists if artist[0]]
+    # Combine and deduplicate
+    all_artist_names = set()
+    for (artist_name,) in artists:
+        if artist_name:
+            all_artist_names.add(artist_name)
+    
+    for (artist_name,) in song_artists:
+        if artist_name:
+            all_artist_names.add(artist_name)
+    
+    # Return sorted list
+    sorted_artists = sorted(all_artist_names)
+    return [{"value": artist_name, "label": artist_name} for artist_name in sorted_artists]
 
 @router.get("/autocomplete/artists")
 def get_artists_autocomplete(query: str = Query(""), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):

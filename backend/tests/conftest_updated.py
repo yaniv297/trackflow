@@ -5,16 +5,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 from database import get_db
-from models import Base, User, Song, Pack, Collaboration, CollaborationType, Authoring, Artist, AlbumSeries, FileLink, WipCollaboration
-from main import app
+from models import Base, User, Song, Pack, Collaboration, CollaborationType, Authoring, Artist, AlbumSeries, FileLink, WipCollaboration, RockBandDLC, AlbumSeriesPreexisting, AlbumSeriesOverride
 from api.auth import get_password_hash, create_access_token
 
-# Set test environment variables
+# Set test environment variables before importing app
 os.environ["SPOTIFY_CLIENT_ID"] = "test_client_id"
 os.environ["SPOTIFY_CLIENT_SECRET"] = "test_client_secret"
 os.environ["SECRET_KEY"] = "test_secret_key_for_testing_only"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "30"
+
+# Import app after setting environment variables
+from main import app
+
+
 
 @pytest.fixture(scope="function")
 def test_db():

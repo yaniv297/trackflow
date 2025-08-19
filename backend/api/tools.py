@@ -1,4 +1,6 @@
 import re
+import unicodedata
+from difflib import SequenceMatcher
 from fastapi import Body, APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -6,7 +8,7 @@ from database import get_db
 from models import Song, Collaboration, CollaborationType, Pack
 from schemas import SongOut
 from api.auth import get_current_active_user
-from api.spotify import auto_enhance_song
+# from api.spotify import auto_enhance_song  # Lazy import inside function
 import json
 import asyncio
 
@@ -41,19 +43,63 @@ def clean_string(title: str) -> str:
     # 4. Remove things like "- 2010"
     title = re.sub(r"\s*-\s*\d{4}$", "", title)
 
-    # 5. NEW: Remove "- 2010 Version", "- 2011 Remaster" etc.
+    # 5. Remove patterns like "- 2010 Version", "- 2011 Remaster", "- 2012 Remastered", "- 2013 Mix"
     title = re.sub(
         r"\s*-\s*[12][0-9]{3}( Version| Remaster(ed)?| Mix)?$",
         "", title, flags=re.IGNORECASE
     )
 
-    # 6. NEW: Remove [2015 Remaster] patterns
+    # 6. Remove patterns like "- Remastered 2009" or "- Remaster 2009"
+    title = re.sub(
+        r"\s*-\s*Remaster(ed)?\s*[12][0-9]{3}$",
+        "", title, flags=re.IGNORECASE
+    )
+
+    # 7. Remove patterns like "[2015 Remaster]"
     title = re.sub(
         r"\s*\[[12][0-9]{3}\s*Remaster(ed)?\]",
         "", title, flags=re.IGNORECASE
     )
 
     return title.strip()
+
+
+def normalize_title(title: str) -> str:
+    """Robust normalization for matching song titles across sources.
+    - Cleans remaster/version tags
+    - Converts to ascii (strip diacritics)
+    - Lowercases
+    - Normalizes punctuation/quotes/dashes
+    - Replaces & with 'and'
+    - Removes non-alphanumeric characters
+    - Collapses whitespace
+    """
+    if not title:
+        return ""
+    t = clean_string(title)
+    # Unicode normalize and strip accents
+    t = unicodedata.normalize("NFKD", t)
+    t = t.encode("ascii", "ignore").decode("ascii")
+    # Standardize symbols
+    t = t.replace("&", " and ")
+    t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+    t = t.replace("–", "-").replace("—", "-")
+    # Lowercase
+    t = t.lower()
+    # Remove punctuation
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    # Collapse whitespace
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def titles_similar(a: str, b: str, threshold: float = 0.9) -> bool:
+    """Return True if titles are similar enough after normalization."""
+    na, nb = normalize_title(a), normalize_title(b)
+    if not na or not nb:
+        return False
+    ratio = SequenceMatcher(None, na, nb).ratio()
+    return ratio >= threshold
 
 
 def bulk_clean_remaster_tags_function(song_ids: list[int], db: Session, current_user_id: int):
@@ -142,9 +188,9 @@ def bulk_enhance_songs(song_ids: list[int] = Body(...), db: Session = Depends(ge
         try:
             print(f"Enhancing song {song_id}: {song.title}")
             
-            # Use the auto_enhance_song function
+            # Use the auto_enhance_song function (lazy import to avoid circular deps)
+            from api.spotify import auto_enhance_song
             if auto_enhance_song(song_id, db):
-                print(f"Successfully enhanced song {song_id}: {song.title}")
                 # Re-fetch the enhanced song with all relationships
                 from sqlalchemy.orm import joinedload
                 enhanced_song = db.query(Song).options(
@@ -258,7 +304,8 @@ async def bulk_enhance_songs_stream(song_ids: list[int] = Body(...), db: Session
                 }
                 yield f"data: {json.dumps(progress_data)}\n\n"
                 
-                # Use the auto_enhance_song function
+                # Use the auto_enhance_song function (lazy import to avoid circular deps)
+                from api.spotify import auto_enhance_song
                 if auto_enhance_song(song_id, db):
                     # Re-fetch the enhanced song with all relationships
                     from sqlalchemy.orm import joinedload
@@ -283,53 +330,38 @@ async def bulk_enhance_songs_stream(song_ids: list[int] = Body(...), db: Session
                             "pack_id": enhanced_song.pack_id,
                             "created_at": enhanced_song.created_at.isoformat() if enhanced_song.created_at else None,
                         }
-                        
-                        if enhanced_song.user:
-                            song_dict["author"] = enhanced_song.user.username
-                        
-                        # Attach collaborations
-                        song_dict["collaborations"] = []
-                        if hasattr(enhanced_song, "collaborations"):
-                            collaborations_with_username = []
-                            for collab in enhanced_song.collaborations:
-                                collab_dict = {
-                                    "id": collab.id,
-                                    "user_id": collab.user_id,
-                                    "username": collab.user.username,
-                                    "collaboration_type": collab.collaboration_type.value,
-                                    "created_at": collab.created_at.isoformat() if collab.created_at else None
-                                }
-                                collaborations_with_username.append(collab_dict)
-                            song_dict["collaborations"] = collaborations_with_username
-                        
-                        # Attach pack data
-                        if enhanced_song.pack_obj:
-                            song_dict["pack_name"] = enhanced_song.pack_obj.name
-                            song_dict["pack_owner_id"] = enhanced_song.pack_obj.user_id
-                            song_dict["pack_owner_username"] = enhanced_song.pack_obj.user.username if enhanced_song.pack_obj.user else None
-                        
-                        # Determine if song is editable
-                        is_owner = enhanced_song.user_id == current_user.id
-                        has_song_collaboration = db.query(Collaboration).filter(
-                            Collaboration.song_id == enhanced_song.id,
-                            Collaboration.user_id == current_user.id,
-                            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
-                        ).first() is not None
-                        song_dict["is_editable"] = is_owner or has_song_collaboration
-                        
-                        enhanced_songs.append(song_dict)
-                        
-                        # Don't send success message - just continue to next song
-                        # This makes the progress less jumpy
+                        # Send success update
+                        progress_data = {
+                            "type": "enhanced",
+                            "current": i + 1,
+                            "total": len(song_ids),
+                            "message": f"Enhanced: {enhanced_song.title}",
+                            "song_id": song_id,
+                            "status": "success",
+                            "song": song_dict
+                        }
+                        yield f"data: {json.dumps(progress_data)}\n\n"
+                        enhanced_songs.append(enhanced_song)
+                    else:
+                        # If enhanced song not found after refresh
+                        progress_data = {
+                            "type": "progress",
+                            "current": i + 1,
+                            "total": len(song_ids),
+                            "message": f"Enhanced but not found: {song.title}",
+                            "song_id": song_id,
+                            "status": "unknown"
+                        }
+                        yield f"data: {json.dumps(progress_data)}\n\n"
                 else:
-                    failed.append(song_id)
+                    print(f"auto_enhance_song returned False for song {song_id}")
                     progress_data = {
                         "type": "progress",
                         "current": i + 1,
                         "total": len(song_ids),
-                        "message": f"Failed to enhance: {song.title}",
+                        "message": f"No enhancement applied: {song.title}",
                         "song_id": song_id,
-                        "status": "failed"
+                        "status": "no_change"
                     }
                     yield f"data: {json.dumps(progress_data)}\n\n"
                     

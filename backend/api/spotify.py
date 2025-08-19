@@ -1,367 +1,287 @@
-import re
-import time
-from typing import Optional
-from spotipy import Spotify, SpotifyClientCredentials
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
-from database import get_db, SessionLocal
-from models import Song, SongStatus, Artist, Collaboration, CollaborationType, Pack, User
-from schemas import SongOut, EnhanceRequest
 import os
+from typing import Optional, List
+from sqlalchemy.orm import Session, joinedload
+from models import Song, Artist
+from spotipy import Spotify
+from spotipy.oauth2 import SpotifyClientCredentials
+from fastapi import APIRouter, Depends, HTTPException, Query
+from database import get_db
 from api.auth import get_current_active_user
+from pydantic import BaseModel
 
-SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "7939abf6b76d4fc7a627869350dbe3d7")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "b1aefd1ba3504dc28a441b1344698bd9")
 
+
+def _get_client() -> Optional[Spotify]:
+    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        return None
+    auth = SpotifyClientCredentials(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET,
+    )
+    return Spotify(auth_manager=auth)
+
+
+def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, preserve_artist_album: bool = False) -> Optional[Song]:
+    sp = _get_client()
+    if sp is None:
+        return None
+
+    song = db.query(Song).get(song_id)
+    if not song:
+        return None
+
+    try:
+        track = sp.track(track_id)
+        if not track:
+            return None
+
+        album = track.get("album") or {}
+        images = album.get("images") or []
+        year = None
+        rd = album.get("release_date")
+        if isinstance(rd, str) and len(rd) >= 4 and rd[:4].isdigit():
+            year = int(rd[:4])
+
+        # Only update album if we're not preserving it
+        if not preserve_artist_album:
+            album_name = album.get("name")
+            song.album = album_name or song.album
+        
+        # Always update album cover and year
+        if images:
+            song.album_cover = images[0].get("url") or song.album_cover
+        if year:
+            song.year = year
+
+        # Ensure artist record exists and attach image if available
+        artist_name = (track.get("artists") or [{}])[0].get("name")
+        if artist_name:
+            artist = db.query(Artist).filter(Artist.name == artist_name).first()
+            if not artist:
+                # Try to fetch artist image
+                artist_img = None
+                try:
+                    search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
+                    items = (search.get("artists") or {}).get("items") or []
+                    if items and (items[0].get("images") or []):
+                        artist_img = items[0]["images"][0].get("url")
+                except Exception:
+                    pass
+                artist = Artist(name=artist_name, image_url=artist_img)
+                db.add(artist)
+                db.flush()
+            
+            # Only update artist if we're not preserving it
+            if not preserve_artist_album:
+                song.artist = artist_name
+                song.artist_id = artist.id
+
+        db.add(song)
+        db.commit()
+        db.refresh(song)
+        return song
+    except Exception:
+        # swallow to avoid breaking core flows
+        db.rollback()
+        return None
+
+
+def auto_enhance_song(song_id: int, db: Session, preserve_artist_album: bool = False) -> bool:
+    sp = _get_client()
+    if sp is None:
+        # No credentials; skip silently
+        return False
+
+    song = db.query(Song).get(song_id)
+    if not song:
+        return False
+
+    try:
+        query = f"{song.title} {song.artist}".strip()
+        results = sp.search(q=query, type="track", limit=1)
+        items = (results.get("tracks") or {}).get("items") or []
+        if not items:
+            return False
+        track_id = items[0].get("id")
+        if not track_id:
+            return False
+        return enhance_song_with_track_data(song_id, track_id, db, preserve_artist_album) is not None
+    except Exception:
+        return False
+
+# Router for Spotify endpoints
 router = APIRouter(prefix="/spotify", tags=["Spotify"])
 
-def extract_playlist_id(playlist_url: str) -> str:
-    """Extract playlist ID from Spotify URL"""
-    # Handle various Spotify URL formats
-    patterns = [
-        r"open\.spotify\.com/playlist/([a-zA-Z0-9]+)",
-        r"spotify\.com/playlist/([a-zA-Z0-9]+)",
-        r"playlist/([a-zA-Z0-9]+)"
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, playlist_url)
-        if match:
-            return match.group(1)
-    
-    raise HTTPException(status_code=400, detail="Invalid Spotify playlist URL")
+class TracklistItem(BaseModel):
+    spotify_track_id: Optional[str] = None
+    title: str
+    title_clean: str
+    artist: str
+    track_number: Optional[int] = None
+    disc_number: Optional[int] = None
+    in_pack: bool = False
+    status: Optional[str] = None
+    song_id: Optional[int] = None
+    official: bool = False
+    pre_existing: bool = False
+    irrelevant: bool = False
 
-def import_playlist_songs(playlist_url: str, status: str, pack_name: str, current_user, db: Session = None):
-    """Import songs from Spotify playlist"""
-    if not db:
-        db = SessionLocal()
-    
-    try:
-        # Initialize Spotify client
-        sp = Spotify(auth_manager=SpotifyClientCredentials(
-            client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIFY_CLIENT_SECRET
-        ))
-        
-        # Extract playlist ID and get tracks
-        playlist_id = extract_playlist_id(playlist_url)
-        results = sp.playlist_tracks(playlist_id)
-        
-        created_songs = []
-        count = 0
-        
-        # Map status string to SongStatus enum
-        status_map = {
-            "Future Plans": SongStatus.future,
-            "In Progress": SongStatus.wip,
-            "Released": SongStatus.released
-        }
-        song_status = status_map.get(status, SongStatus.future)
-        
-        # Handle pack creation/finding
-        pack_id = None
-        if pack_name and pack_name.strip():
-            # Try to find existing pack
-            existing_pack = db.query(Pack).filter(Pack.name == pack_name).first()
-            if existing_pack:
-                pack_id = existing_pack.id
-            else:
-                # Create new pack
-                new_pack = Pack(name=pack_name, user_id=current_user.id)
-                db.add(new_pack)
-                db.flush()  # Get the ID without committing
-                pack_id = new_pack.id
-        
-        while results:
-            for item in results['items']:
-                track = item['track']
-                if not track:
-                    continue
-                
-                title = track['name']
-                artist = track['artists'][0]['name']
-                album = track['album']['name']
-                year = int(track['album']['release_date'][:4]) if track['album'].get('release_date') else None
-                cover = track['album']['images'][0]['url'] if track['album']['images'] else None
-                
-                # Check if song already exists for this user (as owner or collaborator)
-                from api.data_access import check_song_duplicate_for_user
-                if check_song_duplicate_for_user(db, title, artist, current_user):
-                    continue
-                
-                # Create new song
-                song = Song(
-                    artist=artist,
-                    title=title,
-                    album=album,
-                    year=year,
-                    album_cover=cover,
-                    status=song_status,
-                    pack_id=pack_id,
-                    user_id=current_user.id
-                )
-                
-                db.add(song)
-                created_songs.append(song)
-                count += 1
-            
-            db.commit()
-            
-            # Fetch next page if available
-            if results['next']:
-                results = sp.next(results)
-                time.sleep(0.5)  # throttle to avoid rate limits
-            else:
-                break
-        
-        return created_songs, count
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to import playlist: {str(e)}")
-
-@router.post("/import-playlist")
-def import_spotify_playlist(
-    playlist_url: str = Body(...),
-    status: str = Body(...),
-    pack: Optional[str] = Body(None),
+@router.get("/album-tracklist", response_model=List[TracklistItem])
+def get_album_tracklist(
+    artist: str = Query(..., description="Artist name"),
+    album: str = Query(..., description="Album name"),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_active_user)
 ):
-    """Import songs from Spotify playlist"""
-    
-    # Validate inputs
-    if not playlist_url.strip():
-        raise HTTPException(status_code=400, detail="Playlist URL is required")
-    
-    valid_statuses = ["Future Plans", "In Progress", "Released"]
-    if status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
-    
+    """Get Spotify tracklist for an album"""
+    sp = _get_client()
+    if sp is None:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+
     try:
-        created_songs, count = import_playlist_songs(playlist_url, status, pack or "", current_user, db)
+        # Search for the album with multiple results to find the original version
+        results = sp.search(q=f"album:{album} artist:{artist}", type="album", limit=10)
+        if not results["albums"]["items"]:
+            return []
         
-        # Run clean remaster tags on all created songs
-        from api.tools import bulk_clean_remaster_tags_function
-        song_ids = [song.id for song in created_songs]
-        if song_ids:
-            bulk_clean_remaster_tags_function(song_ids, db, current_user.id)
+        # Try to find the original version (not deluxe, anniversary, remastered, etc.)
+        albums = results["albums"]["items"]
+        original_album = None
         
-        return {
-            "message": f"Successfully imported {count} songs from playlist",
-            "imported_count": count,
-            "song_ids": song_ids
-        }
+        # Look for albums without deluxe/anniversary/remastered keywords
+        for album_data in albums:
+            album_name = album_data.get("name", "").lower()
+            if not any(keyword in album_name for keyword in ["deluxe", "anniversary", "remastered", "expanded", "bonus", "special"]):
+                original_album = album_data
+                break
         
-    except HTTPException:
-        # Re-raise HTTP exceptions as-is
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to import playlist: {str(e)}")
+        # If no "clean" version found, use the first result
+        if not original_album:
+            original_album = albums[0]
+        
+        album_id = original_album["id"]
+        tracks = sp.album_tracks(album_id)
 
-@router.get("/{song_id}/spotify-options")
-def get_spotify_matches(song_id: int, db: Session = Depends(get_db)):
-    song = db.query(Song).get(song_id)
-    if not song:
-        raise HTTPException(status_code=404, detail="Song not found")
-
-    sp = Spotify(auth_manager=SpotifyClientCredentials(
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=SPOTIFY_CLIENT_SECRET
-    ))
-
-    results = sp.search(q=f"{song.title} {song.artist}", type="track", limit=5)
-    tracks = results.get("tracks", {}).get("items", [])
-
-    options = []
-    for track in tracks:
-        options.append({
-            "track_id": track["id"],
-            "title": track["name"],
-            "artist": track["artists"][0]["name"],
-            "album": track["album"]["name"],
-            "album_cover": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
-        })
-
-    return options
-
-def enhance_song_with_track_data(song_id: int, track_id: str, db: Session):
-    """Enhance a song with Spotify track data"""
-    song = db.query(Song).get(song_id)
-    if not song:
-        raise HTTPException(status_code=404, detail="Song not found")
-
-    sp = Spotify(auth_manager=SpotifyClientCredentials(
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=SPOTIFY_CLIENT_SECRET
-    ))
-
-    track = sp.track(track_id)
-    album = track["album"]
-
-    song.album = album["name"]
-    song.album_cover = album["images"][0]["url"] if album["images"] else None
-    
-    release_date = album.get("release_date")  # YYYY-MM-DD or YYYY
-    if release_date:
-        year = int(release_date.split("-")[0])
-        song.year = year
-
-    # --- Artist image logic ---
-    artist_name = track["artists"][0]["name"]
-    artist = db.query(Artist).filter_by(name=artist_name).first()
-    if not artist:
-        # Fetch artist image from Spotify
-        artist_search = sp.search(q=artist_name, type="artist", limit=1)
-        image_url = None
-        items = artist_search.get("artists", {}).get("items", [])
-        if items and items[0].get("images"):
-            image_url = items[0]["images"][0]["url"]
-        artist = Artist(name=artist_name, image_url=image_url)
-        db.add(artist)
-        db.flush()  # assign id
-    song.artist_obj = artist
-
-    db.commit()
-    db.refresh(song)
-    
-    # Auto-clean remaster tags after enhancement
-    try:
+        # Import the clean_string function
         from api.tools import clean_string
-        db.refresh(song)  # Refresh to get updated data from Spotify
         
-        cleaned_title = clean_string(song.title)
-        cleaned_album = clean_string(song.album or "")
-        
-        if cleaned_title != song.title or cleaned_album != song.album:
-            print(f"Cleaning remaster tags for song {song.id}")
-            song.title = cleaned_title
-            song.album = cleaned_album
-            db.commit()
-            print(f"Cleaned song {song.id}: title='{cleaned_title}', album='{cleaned_album}'")
-    except Exception as clean_error:
-        print(f"Failed to clean remaster tags for song {song.id}: {clean_error}")
-    
-    return song
+        items: List[TracklistItem] = []
+        for t in tracks.get('items', []):
+            raw_title = t.get('name') or ''
+            clean_title = clean_string(raw_title)
+            
+            # Check if this song is already official Rock Band DLC
+            # Note: We can't cache here since we don't have a series_id yet
+            # This will be checked again when the album series is created
+            is_dlc = False
+            try:
+                from models import RockBandDLC
+                # Use clean_title (without remaster tags) for DLC checking
+                dlc_entry = db.query(RockBandDLC).filter(
+                    RockBandDLC.title.ilike(clean_title),
+                    RockBandDLC.artist.ilike(artist)
+                ).first()
+                is_dlc = dlc_entry is not None
+                print(f"DEBUG: DLC check for '{clean_title}' by {artist}: {'FOUND' if is_dlc else 'NOT FOUND'}")
+            except Exception as e:
+                print(f"Error checking DLC status for {clean_title}: {e}")
+            
+            items.append(TracklistItem(
+                spotify_track_id=t.get('id'),
+                title=raw_title,
+                title_clean=clean_title,
+                artist=artist,
+                track_number=t.get('track_number'),
+                disc_number=t.get('disc_number'),
+                in_pack=False,  # No songs linked yet in create mode
+                status=None,
+                song_id=None,
+                official=is_dlc,
+                pre_existing=False  # No preexisting custom songs in create mode
+            ))
 
-@router.post("/{song_id}/enhance", response_model=SongOut)
-def enhance_song_with_track(song_id: int, req: EnhanceRequest, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    # Enhance the song
-    db_song = enhance_song_with_track_data(song_id, req.track_id, db)
-    
-    # Re-fetch the song with all relationships loaded
-    from sqlalchemy.orm import joinedload
-    db_song = db.query(Song).options(
-        joinedload(Song.collaborations).joinedload(Collaboration.user),
-        joinedload(Song.user),  # Load the song owner
-        joinedload(Song.pack_obj).joinedload(Pack.user),  # Load the pack relationship and its owner
-        joinedload(Song.authoring)  # Load the authoring data
-    ).filter(Song.id == db_song.id).first()
-    
-    # Build result with proper formatting (similar to songs endpoint)
-    song_dict = db_song.__dict__.copy()
-    
-    # Set author from user relationship
-    if db_song.user:
-        song_dict["author"] = db_song.user.username
-    
-    # Attach collaborations if any
-    song_dict["collaborations"] = []
-    if hasattr(db_song, "collaborations"):
-        collaborations_with_username = []
-        for collab in db_song.collaborations:
-            collab_dict = {
-                "id": collab.id,
-                "user_id": collab.user_id,
-                "username": collab.user.username,
-                "collaboration_type": collab.collaboration_type.value,
-                "created_at": collab.created_at
-            }
-            collaborations_with_username.append(collab_dict)
-        song_dict["collaborations"] = collaborations_with_username
-    
-    # Attach pack data if it exists
-    if db_song.pack_obj:
-        song_dict["pack_name"] = db_song.pack_obj.name
-        song_dict["pack_owner_id"] = db_song.pack_obj.user_id
-        song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
-    
-    # Determine if song is editable based on unified collaboration system (same logic as songs endpoint)
-    is_owner = db_song.user_id == current_user.id
-    
-    # Check if user has song-level collaboration
-    has_song_collaboration = db.query(Collaboration).filter(
-        Collaboration.song_id == db_song.id,
-        Collaboration.user_id == current_user.id,
-        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
-    ).first() is not None
-    
-    # Check if user has pack-level collaboration
-    has_pack_collaboration = db.query(Collaboration).filter(
-        Collaboration.pack_id == db_song.pack_id,
-        Collaboration.user_id == current_user.id,
-        Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
-    ).first() is not None
-    
-    # Song is editable if user owns it or has song-level edit collaboration
-    song_dict["is_editable"] = is_owner or has_song_collaboration
-    
-    # Add pack collaboration info if user has access via pack collaboration
-    if has_pack_collaboration and db_song.pack_id:
-        song_dict["pack_collaboration"] = {
-            "can_edit": has_song_collaboration,  # Only editable if direct song collaboration
-            "pack_id": db_song.pack_id
-        }
-    
-    return SongOut(**song_dict)
-
-def auto_enhance_song(song_id: int, db: Session):
-    """Automatically enhance a song with the best Spotify match"""
-    song = db.query(Song).get(song_id)
-    if not song:
-        print(f"Song {song_id} not found for auto-enhancement")
-        return False
-    
-    # Check if Spotify credentials are available
-    if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
-        print("Spotify credentials not available, skipping auto-enhancement")
-        return False
-    
-    try:
-        sp = Spotify(auth_manager=SpotifyClientCredentials(
-            client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIFY_CLIENT_SECRET
-        ))
-        
-        # Search for the song on Spotify
-        search_query = f"{song.title} {song.artist}"
-        results = sp.search(q=search_query, type="track", limit=1)
-        tracks = results.get("tracks", {}).get("items", [])
-        
-        if not tracks:
-            print(f"No Spotify match found for '{search_query}'")
-            return False
-        
-        # Use the first (best) match
-        track_id = tracks[0]["id"]
-        enhance_song_with_track_data(song_id, track_id, db)
-        print(f"Successfully auto-enhanced song '{song.title}' with Spotify data")
-        return True
+        # Sort by disc number first, then track number, then title
+        items.sort(key=lambda x: (x.disc_number or 1, x.track_number or 1e9, x.title_clean.lower()))
+        return items
         
     except Exception as e:
-        print(f"Error during auto-enhancement: {e}")
-        return False
+        raise HTTPException(status_code=500, detail=f"Failed to fetch album tracklist: {str(e)}")
 
-@router.patch("/{song_id}")
-def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(get_db)):
+
+@router.get("/{song_id}/spotify-options/")
+def get_spotify_options(
+    song_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get Spotify track options for a song"""
+    sp = _get_client()
+    if sp is None:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+
     song = db.query(Song).get(song_id)
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
 
-    for key, value in updates.items():
-        if hasattr(song, key):
-            setattr(song, key, value)
+    try:
+        # Search for tracks matching the song
+        query = f"{song.title} {song.artist}".strip()
+        results = sp.search(q=query, type="track", limit=10)
+        items = (results.get("tracks") or {}).get("items") or []
+        
+        options = []
+        for track in items:
+            album = track.get("album") or {}
+            artists = track.get("artists") or []
+            artist_name = artists[0].get("name") if artists else "Unknown"
+            
+            options.append({
+                "track_id": track.get("id"),
+                "title": track.get("name"),
+                "artist": artist_name,
+                "album": album.get("name"),
+                "year": album.get("release_date", "")[:4] if album.get("release_date") else None,
+                "album_cover": album.get("images", [{}])[0].get("url") if album.get("images") else None,
+                "duration_ms": track.get("duration_ms"),
+                "popularity": track.get("popularity")
+            })
+        
+        return options
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch Spotify options: {str(e)}")
 
-    db.commit()
-    db.refresh(song)
-    return song
+
+class EnhanceRequest(BaseModel):
+    track_id: str
+
+@router.post("/{song_id}/enhance/")
+def enhance_song(
+    song_id: int,
+    request: EnhanceRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Enhance a song with Spotify track data"""
+    enhanced_song = enhance_song_with_track_data(song_id, request.track_id, db, preserve_artist_album=False)
+    if not enhanced_song:
+        raise HTTPException(status_code=404, detail="Failed to enhance song")
+    
+    # Load the song with user relationship for proper serialization
+    song_with_user = db.query(Song).options(
+        joinedload(Song.user)
+    ).filter(Song.id == song_id).first()
+    
+    if not song_with_user:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    # Prepare song dict with author field
+    song_dict = song_with_user.__dict__.copy()
+    if song_with_user.user:
+        song_dict["author"] = song_with_user.user.username
+    
+    # Return a properly serialized response
+    from schemas import SongOut
+    return SongOut.model_validate(song_dict, from_attributes=True) 

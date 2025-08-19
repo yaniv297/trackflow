@@ -12,6 +12,8 @@ const AlbumSeriesModal = ({
   selectedSongs,
   songs,
   title = "Create Album Series",
+  openEditAfterCreate = false,
+  setOpenEditAfterCreate = () => {},
 }) => {
   if (!showModal) return null;
 
@@ -225,6 +227,17 @@ const AlbumSeriesModal = ({
               </div>
             </div>
           )}
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!openEditAfterCreate}
+              onChange={(e) => setOpenEditAfterCreate(e.target.checked)}
+            />
+            <span>
+              After creating, open the editor to add songs to the pack
+            </span>
+          </label>
         </div>
 
         <div

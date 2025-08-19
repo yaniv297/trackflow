@@ -42,6 +42,7 @@ const PackHeader = ({
   setCollaborationType,
   onSongAdded,
   onPackNameUpdate,
+  onDeletePack,
 }) => {
   const [showAddSongModal, setShowAddSongModal] = useState(false);
   const [showPackActions, setShowPackActions] = useState(false);
@@ -183,6 +184,20 @@ const PackHeader = ({
             })()}
 
             {/* Gear dropdown right next to pack name (no pencil) */}
+            {(() => {
+              // Check if user owns any songs in this pack
+              const userOwnedSongs = validSongsInPack.filter((song) => song.user_id === user?.id);
+              const isPackOwner = userOwnedSongs.length > 0;
+
+              // Check if user has pack edit collaboration (if userCollaborations is available)
+              const hasPackEditPermission = user && validSongsInPack.some(song => 
+                song.collaborations && song.collaborations.some(collab => 
+                  collab.username === user.username && collab.collaboration_type === "pack_edit"
+                )
+              );
+
+              return isPackOwner || hasPackEditPermission;
+            })() && (
             <span
               style={{ position: "relative", marginLeft: "0.4rem" }}
               data-pack-actions-dropdown
@@ -323,6 +338,33 @@ const PackHeader = ({
                       albumsWithEnoughSongs.length >= 2;
                     return (
                       <>
+                        {/* Edit album series is always available when we have any series */}
+                        {hasAlbumSeries && (
+                          <button
+                            onClick={() => {
+                              // fire an event to parent to open modal; we'll use a custom event for now
+                              const event = new CustomEvent(
+                                "open-edit-album-series",
+                                {
+                                  detail: {
+                                    packName,
+                                    packId: validSongsInPack[0]?.pack_id,
+                                    series: (seriesInfo || []).map((info) => ({
+                                      id: info.id,
+                                      number: info.number,
+                                      name: info.name,
+                                    })),
+                                  },
+                                }
+                              );
+                              window.dispatchEvent(event);
+                              setShowPackActions(false);
+                            }}
+                            style={dropdownItemStyle}
+                          >
+                            ✏️ Edit Album Series
+                          </button>
+                        )}
                         {canCreate && (
                           <button
                             onClick={() => {
@@ -354,9 +396,41 @@ const PackHeader = ({
                       </>
                     );
                   })()}
+
+                  {/* Separator */}
+                  <div
+                    style={{
+                      borderTop: "1px solid #eee",
+                      margin: "0.5rem 0",
+                    }}
+                  ></div>
+
+                  {/* Delete Pack */}
+                  <button
+                    onClick={() => {
+                      const packId = validSongsInPack[0]?.pack_id;
+                      if (packId && onDeletePack) {
+                        onDeletePack(packName, packId);
+                      }
+                      setShowPackActions(false);
+                    }}
+                    style={{
+                      ...dropdownItemStyle,
+                      color: "#dc3545",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#fff5f5";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    🗑️ Delete Pack
+                  </button>
                 </div>
               )}
             </span>
+            )}
           </span>
         </td>
       </tr>

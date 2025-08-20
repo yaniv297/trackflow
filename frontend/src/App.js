@@ -77,16 +77,23 @@ function AppContent() {
       // );
       const { artistName, albumName, status } = e.detail || {};
 
-      // Navigate to WIP page and then open the modal
-      navigate("/wip");
-
-      // Use setTimeout to ensure navigation completes before opening modal
-      setTimeout(() => {
+      // Only navigate to WIP page if we're not already there
+      if (window.location.pathname !== "/wip") {
+        navigate("/wip");
+        // Use setTimeout to ensure navigation completes before opening modal
+        setTimeout(() => {
+          const modalEvent = new CustomEvent("open-create-album-series-modal", {
+            detail: { artistName, albumName, status },
+          });
+          window.dispatchEvent(modalEvent);
+        }, 100);
+      } else {
+        // If already on WIP page, open modal immediately
         const modalEvent = new CustomEvent("open-create-album-series-modal", {
           detail: { artistName, albumName, status },
         });
         window.dispatchEvent(modalEvent);
-      }, 100);
+      }
     };
 
     window.addEventListener("open-create-album-series", createHandler);

@@ -200,10 +200,18 @@ export default function AlbumSeriesEditModal({
   const coverage = useMemo(() => {
     const relevantItems = items.filter((item) => !item.irrelevant);
     const total = relevantItems.length || 0;
-    const covered = relevantItems.reduce(
-      (acc, it) => acc + (it.in_pack || it.official || it.pre_existing ? 1 : 0),
-      0
-    );
+    const covered = relevantItems.reduce((acc, it) => {
+      // Count as covered if:
+      // 1. In pack, or
+      // 2. Official DLC, or
+      // 3. Preexisting, or
+      // 4. Has a meaningful status from database (Released, In Progress, WIP, Future Plans, etc.)
+      const hasStatus = it.status && it.status.toLowerCase() !== "missing";
+      return (
+        acc +
+        (it.in_pack || it.official || it.pre_existing || hasStatus ? 1 : 0)
+      );
+    }, 0);
     const percent = total ? Math.round((covered / total) * 100) : 0;
     return { covered, total, percent };
   }, [items]);
@@ -521,17 +529,19 @@ export default function AlbumSeriesEditModal({
       return statusPill("Released", colors.released);
     }
 
+    // Check for other statuses regardless of in_pack status
+    if (statusText.includes("progress")) {
+      return statusPill("In Progress", colors.inProgress);
+    }
+    if (statusText.includes("wip")) {
+      return statusPill("WIP", colors.planned);
+    }
+    if (statusText.includes("future")) {
+      return statusPill("Future Plans", colors.planned);
+    }
+
     // Songs in pack - check other statuses
     if (it.in_pack) {
-      if (statusText.includes("progress")) {
-        return statusPill("In Progress", colors.inProgress);
-      }
-      if (statusText.includes("wip")) {
-        return statusPill("WIP", colors.planned);
-      }
-      if (statusText.includes("future")) {
-        return statusPill("Future Plans", colors.planned);
-      }
       if (statusText) {
         return statusPill(it.status, colors.done);
       }

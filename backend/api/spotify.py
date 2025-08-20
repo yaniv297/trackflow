@@ -164,17 +164,23 @@ def get_album_tracklist(
         album_id = original_album["id"]
         tracks = sp.album_tracks(album_id)
 
-        # Import the clean_string function
-        from api.tools import clean_string
+        # Import the clean_string function and other tools
+        from api.tools import clean_string, normalize_title, titles_similar
+        
+        # Build a pool of globally released songs by the same artist to recognize releases
+        try:
+            global_songs = db.query(Song).filter(Song.artist.ilike(f"%{artist}%")).all()
+        except Exception:
+            global_songs = []
+        normalized_artist = normalize_title(artist or "")
         
         items: List[TracklistItem] = []
         for t in tracks.get('items', []):
             raw_title = t.get('name') or ''
             clean_title = clean_string(raw_title)
+            key = normalize_title(clean_title)
             
             # Check if this song is already official Rock Band DLC
-            # Note: We can't cache here since we don't have a series_id yet
-            # This will be checked again when the album series is created
             is_dlc = False
             try:
                 from models import RockBandDLC
@@ -187,6 +193,22 @@ def get_album_tracklist(
             except Exception as e:
                 print(f"Error checking DLC status for {clean_title}: {e}")
             
+            # Check for existing songs by the same artist using cleaned title + artist
+            s_global = None
+            status_val = None
+            if global_songs:
+                for gs in global_songs:
+                    # Check if artist matches (using containment and fuzzy matching)
+                    gs_artist_normalized = normalize_title(gs.artist or "")
+                    if (gs_artist_normalized.find(normalized_artist) != -1 or 
+                        normalized_artist.find(gs_artist_normalized) != -1):
+                        # Check if title matches (using cleaned title)
+                        gs_title_normalized = normalize_title(gs.title or "")
+                        if titles_similar(key, gs_title_normalized, threshold=0.92):
+                            s_global = gs
+                            status_val = gs.status
+                            break
+            
             items.append(TracklistItem(
                 spotify_track_id=t.get('id'),
                 title=raw_title,
@@ -195,8 +217,8 @@ def get_album_tracklist(
                 track_number=t.get('track_number'),
                 disc_number=t.get('disc_number'),
                 in_pack=False,  # No songs linked yet in create mode
-                status=None,
-                song_id=None,
+                status=status_val,  # Status from global song if found
+                song_id=s_global.id if s_global else None,
                 official=is_dlc,
                 pre_existing=False  # No preexisting custom songs in create mode
             ))

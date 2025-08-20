@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiPatch, apiPut } from "../utils/api";
 import UnifiedCollaborationModal from "./UnifiedCollaborationModal";
 import MovePackModal from "./MovePackModal";
 import FileHistoryModal from "./FileHistoryModal";
+import ChangeAlbumArtModal from "./ChangeAlbumArtModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
 import UserProfilePopup from "./UserProfilePopup";
@@ -40,6 +41,7 @@ export default function WipSongCard({
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showMovePackModal, setShowMovePackModal] = useState(false);
   const [showFileHistoryModal, setShowFileHistoryModal] = useState(false);
+  const [showChangeAlbumArtModal, setShowChangeAlbumArtModal] = useState(false);
   const [fileLinksCount, setFileLinksCount] = useState(0);
   const [lastKnownFileIds, setLastKnownFileIds] = useState(new Set());
   const isOptional = song.optional;
@@ -720,6 +722,32 @@ export default function WipSongCard({
                     Move to Pack
                   </button>
 
+                  <button
+                    onClick={() => {
+                      setShowChangeAlbumArtModal(true);
+                      setShowActionsDropdown(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    Change Album Art
+                  </button>
+
                   <div
                     style={{
                       borderTop: "1px solid #eee",
@@ -1125,6 +1153,19 @@ export default function WipSongCard({
             newSet.delete(deletedLinkId);
             return newSet;
           });
+        }}
+      />
+
+      {/* Change Album Art Modal */}
+      <ChangeAlbumArtModal
+        isOpen={showChangeAlbumArtModal}
+        onClose={() => setShowChangeAlbumArtModal(false)}
+        song={song}
+        onSuccess={(updatedSongData) => {
+          if (onSongUpdate) {
+            // Pass the updated song data to update the local state
+            onSongUpdate(song.id, updatedSongData);
+          }
         }}
       />
 

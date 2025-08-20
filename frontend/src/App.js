@@ -71,14 +71,26 @@ function AppContent() {
     // console.log("Setting up global event listeners in App.js");
 
     const createHandler = (e) => {
-      // console.log(
-      //   "Received open-create-album-series event in App.js",
-      //   e.detail
-      // );
-      const { artistName, albumName, status } = e.detail || {};
+      console.log(
+        "Received open-create-album-series event in App.js",
+        e.detail
+      );
+      console.log("Current pathname:", window.location.pathname);
+      const { artistName, albumName, status, skipNavigation } = e.detail || {};
+
+      // Check if we should skip navigation (when called from NewPackForm)
+      if (skipNavigation) {
+        console.log("Skipping navigation, opening modal immediately");
+        const modalEvent = new CustomEvent("open-create-album-series-modal", {
+          detail: { artistName, albumName, status },
+        });
+        window.dispatchEvent(modalEvent);
+        return;
+      }
 
       // Only navigate to WIP page if we're not already there
       if (window.location.pathname !== "/wip") {
+        console.log("Navigating to WIP page");
         navigate("/wip");
         // Use setTimeout to ensure navigation completes before opening modal
         setTimeout(() => {
@@ -88,6 +100,7 @@ function AppContent() {
           window.dispatchEvent(modalEvent);
         }, 100);
       } else {
+        console.log("Already on WIP page, opening modal immediately");
         // If already on WIP page, open modal immediately
         const modalEvent = new CustomEvent("open-create-album-series-modal", {
           detail: { artistName, albumName, status },

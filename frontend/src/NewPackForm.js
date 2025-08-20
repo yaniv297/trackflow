@@ -6,6 +6,7 @@ import SmartDropdown from "./components/SmartDropdown";
 import { apiPost, apiGet } from "./utils/api";
 import DLCWarning from "./components/DLCWarning";
 import MultipleDLCCheck from "./components/MultipleDLCCheck";
+import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -109,6 +110,45 @@ function NewPackForm() {
   const [entries, setEntries] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progress, setProgress] = useState({ phase: "", current: 0, total: 0 });
+
+  // Modal state for album series editor
+  const [editSeriesModal, setEditSeriesModal] = useState({
+    open: false,
+    packId: null,
+    series: [],
+    defaultSeriesId: null,
+    createMode: false,
+    createData: null,
+  });
+
+  // Event listener for opening the album series modal
+  useEffect(() => {
+    const createHandler = (e) => {
+      console.log(
+        "Received open-create-album-series-modal event in NewPackForm",
+        e.detail
+      );
+      const { artistName, albumName, status } = e.detail || {};
+
+      setEditSeriesModal({
+        open: true,
+        packId: null,
+        series: [],
+        defaultSeriesId: null,
+        createMode: true,
+        createData: { artistName, albumName, status },
+      });
+    };
+
+    window.addEventListener("open-create-album-series-modal", createHandler);
+
+    return () => {
+      window.removeEventListener(
+        "open-create-album-series-modal",
+        createHandler
+      );
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -280,28 +320,52 @@ function NewPackForm() {
             const optionsRes = await fetch(
               `${API_BASE_URL}/spotify/${song.id}/spotify-options`
             );
+            if (!optionsRes.ok) {
+              throw new Error(
+                `Failed to fetch Spotify options for song ${song.id}: ${optionsRes.status}`
+              );
+            }
             const options = await optionsRes.json();
 
             if (options.length > 0) {
-              await fetch(`${API_BASE_URL}/spotify/${song.id}/enhance`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ track_id: options[0].track_id }),
-              });
+              const enhanceRes = await fetch(
+                `${API_BASE_URL}/spotify/${song.id}/enhance`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ track_id: options[0].track_id }),
+                }
+              );
+              if (!enhanceRes.ok) {
+                throw new Error(
+                  `Failed to enhance song ${song.id}: ${enhanceRes.status}`
+                );
+              }
             }
           } catch (err) {
             console.warn(`Failed to enhance song ${song.id}`, err);
+            // Don't fail the entire process for enhancement errors
           }
         }
 
         // Cleanup phase
         setProgress({ phase: "Cleaning remaster tags", current: 1, total: 1 });
         window.showNotification("Cleaning remaster tags...", "info");
-        await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newIds),
-        });
+        try {
+          const cleanupRes = await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newIds),
+          });
+          if (!cleanupRes.ok) {
+            throw new Error(
+              `Failed to clean remaster tags: ${cleanupRes.status}`
+            );
+          }
+        } catch (err) {
+          console.warn("Failed to clean remaster tags", err);
+          // Don't fail the entire process for cleanup errors
+        }
 
         const successMessage = meta.isAlbumSeries
           ? `${createdSongs.length} song(s) added to album series "${meta.albumSeriesAlbum}", enhanced & cleaned.`
@@ -318,7 +382,59 @@ function NewPackForm() {
           }`
         );
       })
-      .catch((err) => window.showNotification(err.message, "error"))
+      .catch((err) => {
+        console.error("Pack creation error:", err);
+
+        // Enhanced error handling with specific messages
+        let errorMessage = "Failed to create pack";
+
+        if (err.message) {
+          const message = err.message.toLowerCase();
+
+          // Check for specific error cases
+          if (
+            message.includes("album series already exists") ||
+            message.includes("already exists") ||
+            message.includes("duplicate")
+          ) {
+            errorMessage = `Album series "${meta.albumSeriesAlbum}" by ${meta.albumSeriesArtist} already exists. Please use a different name or artist.`;
+          } else if (message.includes("not found") || message.includes("404")) {
+            errorMessage =
+              "One or more songs could not be found. Please check the song titles and try again.";
+          } else if (
+            message.includes("unauthorized") ||
+            message.includes("401")
+          ) {
+            errorMessage =
+              "You are not authorized to create packs. Please log in again.";
+          } else if (message.includes("forbidden") || message.includes("403")) {
+            errorMessage = "You don't have permission to create this pack.";
+          } else if (
+            message.includes("validation") ||
+            message.includes("invalid")
+          ) {
+            errorMessage =
+              "Invalid data provided. Please check your input and try again.";
+          } else if (
+            message.includes("spotify") ||
+            message.includes("spotify")
+          ) {
+            errorMessage =
+              "Failed to fetch data from Spotify. Please check your internet connection and try again.";
+          } else if (
+            message.includes("timeout") ||
+            message.includes("network")
+          ) {
+            errorMessage =
+              "Request timed out. Please check your internet connection and try again.";
+          } else {
+            // Use the original error message if no specific case matches
+            errorMessage = err.message;
+          }
+        }
+
+        window.showNotification(errorMessage, "error");
+      })
       .finally(() => {
         setIsSubmitting(false);
         setProgress({ phase: "", current: 0, total: 0 });
@@ -775,6 +891,7 @@ function NewPackForm() {
                     artistName: meta.albumSeriesArtist,
                     albumName: meta.albumSeriesAlbum,
                     status: meta.status,
+                    skipNavigation: true, // Add flag to skip navigation
                   },
                 });
                 // console.log("Dispatching event:", event);
@@ -915,6 +1032,34 @@ function NewPackForm() {
           )}
         </form>
       </div>
+
+      {/* Edit Album Series Modal */}
+      <AlbumSeriesEditModal
+        key={`${editSeriesModal.defaultSeriesId}-${editSeriesModal.packId}`}
+        isOpen={editSeriesModal.open}
+        onClose={() =>
+          setEditSeriesModal({
+            open: false,
+            packId: null,
+            series: [],
+            defaultSeriesId: null,
+            createMode: false,
+            createData: null,
+          })
+        }
+        packId={editSeriesModal.packId}
+        seriesList={editSeriesModal.series}
+        defaultSeriesId={editSeriesModal.defaultSeriesId}
+        createMode={editSeriesModal.createMode || false}
+        createData={editSeriesModal.createData || null}
+        onChanged={() => {
+          // Refresh the form or show success message
+          window.showNotification(
+            "Album series updated successfully!",
+            "success"
+          );
+        }}
+      />
     </div>
   );
 }

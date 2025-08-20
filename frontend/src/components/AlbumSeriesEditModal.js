@@ -1063,11 +1063,32 @@ export default function AlbumSeriesEditModal({
                                             );
                                           }
                                           if (!proceed) return;
-                                          await apiDelete(
-                                            `/songs/${it.song_id}`
-                                          );
-                                          if (onChanged) await onChanged();
-                                          await reload();
+
+                                          if (
+                                            createMode &&
+                                            it.song_id.startsWith("temp_")
+                                          ) {
+                                            // In create mode, just remove from local state for temporary songs
+                                            setItems((prev) =>
+                                              prev.map((item) =>
+                                                item.spotify_track_id ===
+                                                it.spotify_track_id
+                                                  ? {
+                                                      ...item,
+                                                      in_pack: false,
+                                                      song_id: null,
+                                                    }
+                                                  : item
+                                              )
+                                            );
+                                          } else {
+                                            // Normal delete for existing songs
+                                            await apiDelete(
+                                              `/songs/${it.song_id}`
+                                            );
+                                            if (onChanged) await onChanged();
+                                            await reload();
+                                          }
                                         } catch (err) {
                                           console.error(
                                             "Failed to delete song",

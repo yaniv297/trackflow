@@ -1,7 +1,7 @@
 import os
 from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
-from models import Song, Artist
+from models import Song, Artist, Collaboration
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -274,10 +274,16 @@ def get_spotify_options(
         raise HTTPException(status_code=404, detail="Song not found")
 
     try:
-        # Search for tracks matching the song
-        query = f"{song.title} {song.artist}".strip()
-        results = sp.search(q=query, type="track", limit=10)
+        # Search for tracks matching the song with more specific query
+        query = f'track:"{song.title}" artist:"{song.artist}"'.strip()
+        results = sp.search(q=query, type="track", limit=5)
         items = (results.get("tracks") or {}).get("items") or []
+        
+        # If no results with quoted search, try broader search
+        if not items:
+            query = f"{song.title} {song.artist}".strip()
+            results = sp.search(q=query, type="track", limit=5)
+            items = (results.get("tracks") or {}).get("items") or []
         
         options = []
         for track in items:
@@ -299,6 +305,7 @@ def get_spotify_options(
         return options
         
     except Exception as e:
+        print(f"Error in get_spotify_options: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch Spotify options: {str(e)}")
 
 
@@ -313,23 +320,66 @@ def enhance_song(
     current_user = Depends(get_current_active_user)
 ):
     """Enhance a song with Spotify track data"""
-    enhanced_song = enhance_song_with_track_data(song_id, request.track_id, db, preserve_artist_album=False)
-    if not enhanced_song:
-        raise HTTPException(status_code=404, detail="Failed to enhance song")
-    
-    # Load the song with user relationship for proper serialization
-    song_with_user = db.query(Song).options(
-        joinedload(Song.user)
-    ).filter(Song.id == song_id).first()
-    
-    if not song_with_user:
-        raise HTTPException(status_code=404, detail="Song not found")
-    
-    # Prepare song dict with author field
-    song_dict = song_with_user.__dict__.copy()
-    if song_with_user.user:
-        song_dict["author"] = song_with_user.user.username
-    
-    # Return a properly serialized response
-    from schemas import SongOut
-    return SongOut.model_validate(song_dict, from_attributes=True) 
+    try:
+        enhanced_song = enhance_song_with_track_data(song_id, request.track_id, db, preserve_artist_album=False)
+        if not enhanced_song:
+            raise HTTPException(status_code=404, detail="Failed to enhance song")
+        
+        # Load the song with all necessary relationships for proper serialization
+        song_with_user = db.query(Song).options(
+            joinedload(Song.user),
+            joinedload(Song.pack_obj),
+            joinedload(Song.collaborations).joinedload(Collaboration.user),
+            joinedload(Song.authoring)
+        ).filter(Song.id == song_id).first()
+        
+        if not song_with_user:
+            raise HTTPException(status_code=404, detail="Song not found")
+        
+        # Build result with proper collaboration formatting similar to songs.update endpoint
+        song = song_with_user
+        song_dict = {
+            "id": song.id,
+            "title": song.title,
+            "artist": song.artist,
+            "album": song.album,
+            "status": song.status,
+            "pack_id": song.pack_id,
+            "year": song.year,
+            "album_cover": song.album_cover,
+            "user_id": song.user_id,
+        }
+        # Author username
+        if song.user:
+            song_dict["author"] = song.user.username
+        # Pack info
+        if song.pack_obj:
+            song_dict["pack_name"] = song.pack_obj.name
+            song_dict["pack_owner_id"] = song.pack_obj.user_id
+            try:
+                from models import User
+                pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()
+                if pack_owner:
+                    song_dict["pack_owner_username"] = pack_owner.username
+            except Exception:
+                pass
+        # Collaborations with username
+        collaborations_with_username = []
+        if hasattr(song, "collaborations") and song.collaborations:
+            for collab in song.collaborations:
+                collaborations_with_username.append({
+                    "id": collab.id,
+                    "user_id": collab.user_id,
+                    "username": getattr(collab.user, "username", None),
+                    "collaboration_type": getattr(collab.collaboration_type, "value", None),
+                    "created_at": collab.created_at,
+                })
+        song_dict["collaborations"] = collaborations_with_username
+        # Serialize via schema
+        from schemas import SongOut
+        return SongOut.model_validate(song_dict)
+    except Exception as e:
+        print(f"Error in enhance_song: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to enhance song: {str(e)}") 

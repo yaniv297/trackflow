@@ -241,7 +241,7 @@ export default function WipSongCard({
         track_id = options[0].track_id;
       }
 
-      const enhancedSong = await apiPost(`/spotify/${song.id}/enhance`, {
+      const enhancedSong = await apiPost(`/spotify/${song.id}/enhance/`, {
         track_id: track_id,
       });
 
@@ -252,12 +252,8 @@ export default function WipSongCard({
         onSongUpdate(song.id, enhancedSong);
       }
 
-      // Also update local state
+      // Update local edit values (but don't mutate the song object directly)
       if (enhancedSong) {
-        // Update the song object with new data
-        Object.assign(song, enhancedSong);
-
-        // Update edit values
         setEditValues((prev) => ({
           ...prev,
           title: enhancedSong.title || prev.title,

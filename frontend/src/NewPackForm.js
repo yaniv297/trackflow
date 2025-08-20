@@ -329,7 +329,7 @@ function NewPackForm() {
 
             if (options.length > 0) {
               const enhanceRes = await fetch(
-                `${API_BASE_URL}/spotify/${song.id}/enhance`,
+                `${API_BASE_URL}/spotify/${song.id}/enhance/`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },

@@ -33,6 +33,16 @@ export default function AlbumSeriesEditModal({
   const canShow = isOpen; // Simplified: just show when isOpen is true
   // console.log("Modal canShow:", { isOpen, createMode, seriesId, canShow });
 
+  // Clear state immediately when modal opens to prevent showing old data
+  useEffect(() => {
+    if (isOpen) {
+      setItems([]);
+      setLoading(true);
+      setRowLoading({});
+      setLinkingKey(null);
+    }
+  }, [isOpen]);
+
   // Ensure seriesId is initialized when modal opens or when props change
   useEffect(() => {
     if (!isOpen) return;
@@ -134,7 +144,14 @@ export default function AlbumSeriesEditModal({
 
   useEffect(() => {
     // console.log("useEffect triggered:", { canShow, seriesId, createMode });
-    if (!canShow) return;
+    if (!canShow) {
+      // Clear state when modal closes
+      setItems([]);
+      setLoading(false);
+      setRowLoading({});
+      setLinkingKey(null);
+      return;
+    }
     // Only reload if we're in edit mode (seriesId exists and we're not in create mode)
     if (seriesId && !createMode) {
       reload();

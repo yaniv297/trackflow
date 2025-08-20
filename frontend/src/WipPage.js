@@ -915,6 +915,7 @@ function WipPage() {
 
       {/* Edit Album Series Modal */}
       <AlbumSeriesEditModal
+        key={`${editSeriesModal.defaultSeriesId}-${editSeriesModal.packId}`}
         isOpen={editSeriesModal.open}
         onClose={() =>
           setEditSeriesModal({

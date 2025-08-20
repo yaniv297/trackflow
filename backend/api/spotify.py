@@ -142,8 +142,35 @@ def get_album_tracklist(
 
     try:
         # Search for the album with multiple results to find the original version
-        results = sp.search(q=f"album:{album} artist:{artist}", type="album", limit=10)
-        if not results["albums"]["items"]:
+        # Handle cases where artist and album names are identical
+        if artist.lower() == album.lower():
+            # Try multiple search strategies for identical artist/album names
+            search_queries = [
+                f'album:"{album}" artist:"{artist}"',  # Quoted search
+                f'album:{album}',  # Just album name
+                f'artist:{artist} album:{album}',  # Reversed order
+                f'"{album}" "{artist}"',  # General search with quotes
+            ]
+        else:
+            # Normal case - different artist and album names
+            search_queries = [
+                f'album:"{album}" artist:"{artist}"',  # Quoted search
+                f'album:{album} artist:{artist}',  # Standard search
+            ]
+        
+        results = None
+        for query in search_queries:
+            try:
+                results = sp.search(q=query, type="album", limit=10)
+                if results["albums"]["items"]:
+                    print(f"Found results with query: {query}")
+                    break
+            except Exception as e:
+                print(f"Search query failed: {query} - {e}")
+                continue
+        
+        if not results or not results["albums"]["items"]:
+            print(f"No results found for album '{album}' by artist '{artist}' with any search query")
             return []
         
         # Try to find the original version (not deluxe, anniversary, remastered, etc.)

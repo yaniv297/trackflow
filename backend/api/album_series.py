@@ -610,8 +610,35 @@ def get_spotify_tracklist(series_id: int, db: Session = Depends(get_db), current
         client_secret=SPOTIFY_CLIENT_SECRET
     ))
 
-    results = sp.search(q=f"album:{series.album_name} artist:{series.artist_name}", type="album", limit=1)
-    if not results["albums"]["items"]:
+    # Handle cases where artist and album names are identical
+    if series.artist_name.lower() == series.album_name.lower():
+        # Try multiple search strategies for identical artist/album names
+        search_queries = [
+            f'album:"{series.album_name}" artist:"{series.artist_name}"',  # Quoted search
+            f'album:{series.album_name}',  # Just album name
+            f'artist:{series.artist_name} album:{series.album_name}',  # Reversed order
+            f'"{series.album_name}" "{series.artist_name}"',  # General search with quotes
+        ]
+    else:
+        # Normal case - different artist and album names
+        search_queries = [
+            f'album:"{series.album_name}" artist:"{series.artist_name}"',  # Quoted search
+            f'album:{series.album_name} artist:{series.artist_name}',  # Standard search
+        ]
+    
+    results = None
+    for query in search_queries:
+        try:
+            results = sp.search(q=query, type="album", limit=1)
+            if results["albums"]["items"]:
+                print(f"Found results with query: {query}")
+                break
+        except Exception as e:
+            print(f"Search query failed: {query} - {e}")
+            continue
+    
+    if not results or not results["albums"]["items"]:
+        print(f"No results found for album '{series.album_name}' by artist '{series.artist_name}' with any search query")
         return []
     album = results["albums"]["items"][0]
     album_id = album["id"]

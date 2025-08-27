@@ -75,9 +75,22 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                         artist_img = items[0]["images"][0].get("url")
                 except Exception:
                     pass
+                
+                # Create artist without specifying ID to let database auto-assign
                 artist = Artist(name=artist_name, image_url=artist_img)
                 db.add(artist)
-                db.flush()
+                try:
+                    db.flush()
+                except Exception as e:
+                    # If flush fails (e.g., duplicate), try to get existing artist
+                    print(f"Failed to create artist {artist_name}, trying to get existing: {e}")
+                    db.rollback()
+                    artist = db.query(Artist).filter(Artist.name == artist_name).first()
+                    if not artist:
+                        # If still no artist, create without image
+                        artist = Artist(name=artist_name, image_url=None)
+                        db.add(artist)
+                        db.flush()
             
             # Only update artist if we're not preserving it
             if not preserve_artist_album:

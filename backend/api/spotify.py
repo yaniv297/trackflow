@@ -15,6 +15,7 @@ SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "b1aefd1ba3504dc28a44
 
 def _get_client() -> Optional[Spotify]:
     if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
+        print(f"Spotify credentials missing: CLIENT_ID={'set' if SPOTIFY_CLIENT_ID else 'missing'}, CLIENT_SECRET={'set' if SPOTIFY_CLIENT_SECRET else 'missing'}")
         return None
     auth = SpotifyClientCredentials(
         client_id=SPOTIFY_CLIENT_ID,
@@ -26,16 +27,21 @@ def _get_client() -> Optional[Spotify]:
 def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, preserve_artist_album: bool = False) -> Optional[Song]:
     sp = _get_client()
     if sp is None:
+        print(f"Spotify client not available for song {song_id}")
         return None
 
     song = db.query(Song).get(song_id)
     if not song:
+        print(f"Song {song_id} not found in database")
         return None
 
     try:
+        print(f"Fetching track {track_id} from Spotify for song {song_id}")
         track = sp.track(track_id)
         if not track:
+            print(f"Track {track_id} not found on Spotify")
             return None
+        print(f"Successfully fetched track: {track.get('name', 'Unknown')} by {track.get('artists', [{}])[0].get('name', 'Unknown')}")
 
         album = track.get("album") or {}
         images = album.get("images") or []
@@ -78,12 +84,17 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                 song.artist = artist_name
                 song.artist_id = artist.id
 
+        print(f"Updating song {song_id} in database")
         db.add(song)
         db.commit()
         db.refresh(song)
+        print(f"Successfully enhanced song {song_id}")
         return song
-    except Exception:
+    except Exception as e:
         # swallow to avoid breaking core flows
+        print(f"Exception during enhancement of song {song_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         db.rollback()
         return None
 
@@ -323,7 +334,17 @@ def enhance_song(
     try:
         enhanced_song = enhance_song_with_track_data(song_id, request.track_id, db, preserve_artist_album=False)
         if not enhanced_song:
-            raise HTTPException(status_code=404, detail="Failed to enhance song")
+            # Check if it's a Spotify client issue
+            sp = _get_client()
+            if sp is None:
+                raise HTTPException(status_code=500, detail="Spotify service not available - credentials may be missing")
+            
+            # Check if song exists
+            song_exists = db.query(Song).filter(Song.id == song_id).first()
+            if not song_exists:
+                raise HTTPException(status_code=404, detail="Song not found")
+            
+            raise HTTPException(status_code=404, detail="Failed to enhance song - track may not be available on Spotify")
         
         # Load the song with all necessary relationships for proper serialization
         song_with_user = db.query(Song).options(

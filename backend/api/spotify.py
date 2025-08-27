@@ -64,50 +64,48 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
         # Ensure artist record exists and attach image if available
         artist_name = (track.get("artists") or [{}])[0].get("name")
         if artist_name:
-            # Use get_or_create pattern with retry logic
-            artist = None
-            max_retries = 3
+            # First try to get existing artist
+            artist = db.query(Artist).filter(Artist.name == artist_name).first()
             
-            for attempt in range(max_retries):
+            if not artist:
+                # Try to fetch artist image
+                artist_img = None
                 try:
-                    # First try to get existing artist
-                    artist = db.query(Artist).filter(Artist.name == artist_name).first()
+                    search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
+                    items = (search.get("artists") or {}).get("items") or []
+                    if items and (items[0].get("images") or []):
+                        artist_img = items[0]["images"][0].get("url")
+                except Exception:
+                    pass
+                
+                # Try to create new artist, but handle sequence issues gracefully
+                try:
+                    # Use raw SQL to let PostgreSQL handle ID assignment properly
+                    from sqlalchemy import text
+                    result = db.execute(
+                        text("INSERT INTO artists (name, image_url, user_id) VALUES (:name, :image_url, :user_id) RETURNING id"),
+                        {"name": artist_name, "image_url": artist_img, "user_id": None}
+                    )
+                    artist_id = result.scalar()
+                    db.commit()
                     
-                    if not artist:
-                        # Try to fetch artist image
-                        artist_img = None
-                        try:
-                            search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
-                            items = (search.get("artists") or {}).get("items") or []
-                            if items and (items[0].get("images") or []):
-                                artist_img = items[0]["images"][0].get("url")
-                        except Exception:
-                            pass
-                        
-                        # Create new artist
-                        artist = Artist(name=artist_name, image_url=artist_img)
-                        db.add(artist)
-                        db.flush()
-                        print(f"Successfully created artist {artist_name} with ID {artist.id}")
-                        break
-                    else:
-                        print(f"Found existing artist {artist_name} with ID {artist.id}")
-                        break
-                        
+                    # Fetch the created artist
+                    artist = db.query(Artist).filter(Artist.id == artist_id).first()
+                    print(f"Successfully created artist {artist_name} with ID {artist_id}")
+                    
                 except Exception as e:
-                    print(f"Attempt {attempt + 1} failed for artist {artist_name}: {e}")
+                    print(f"Failed to create artist {artist_name} with raw SQL: {e}")
                     db.rollback()
                     
-                    if attempt == max_retries - 1:
-                        # Last attempt - try to get existing artist one more time
-                        artist = db.query(Artist).filter(Artist.name == artist_name).first()
-                        if not artist:
-                            print(f"Failed to create or find artist {artist_name} after {max_retries} attempts")
-                            return None
+                    # Try to get existing artist (might have been created by another request)
+                    artist = db.query(Artist).filter(Artist.name == artist_name).first()
+                    if not artist:
+                        print(f"Could not create or find artist {artist_name}")
+                        return None
                     else:
-                        # Wait a bit before retrying
-                        import time
-                        time.sleep(0.1)
+                        print(f"Found existing artist {artist_name} with ID {artist.id} after creation failure")
+            else:
+                print(f"Found existing artist {artist_name} with ID {artist.id}")
             
             # Only update artist if we're not preserving it
             if not preserve_artist_album and artist:

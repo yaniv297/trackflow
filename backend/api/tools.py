@@ -67,6 +67,18 @@ def clean_string(title: str) -> str:
         "", title, flags=re.IGNORECASE
     )
 
+    # 9. Remove patterns like "(2010 Re-Mastered)"
+    title = re.sub(
+        r"\s*\([12][0-9]{3}\s*Re-Mastered\)",
+        "", title, flags=re.IGNORECASE
+    )
+
+    # 10. Remove patterns like "(50th Anniversary Edition)"
+    title = re.sub(
+        r"\s*\([1-9][0-9]?(st|nd|rd|th)\s+Anniversary\s+Edition\)",
+        "", title, flags=re.IGNORECASE
+    )
+
     return title.strip()
 
 

@@ -61,6 +61,12 @@ def clean_string(title: str) -> str:
         "", title, flags=re.IGNORECASE
     )
 
+    # 8. Remove patterns like "- 2008 re-mastered version"
+    title = re.sub(
+        r"\s*-\s*[12][0-9]{3}\s*re-mastered\s+version",
+        "", title, flags=re.IGNORECASE
+    )
+
     return title.strip()
 
 

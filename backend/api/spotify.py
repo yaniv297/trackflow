@@ -78,23 +78,25 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                 except Exception:
                     pass
                 
-                # Try to create new artist, but handle sequence issues gracefully
+                # Fix the sequence and create new artist
                 try:
-                    # Use raw SQL to let PostgreSQL handle ID assignment properly
                     from sqlalchemy import text
-                    result = db.execute(
-                        text("INSERT INTO artists (name, image_url, user_id) VALUES (:name, :image_url, :user_id) RETURNING id"),
-                        {"name": artist_name, "image_url": artist_img, "user_id": None}
-                    )
-                    artist_id = result.scalar()
+                    
+                    # First, reset the sequence to the correct next value
+                    # This finds the highest ID and sets the sequence to start from the next number
+                    db.execute(text("""
+                        SELECT setval('artists_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM artists), false)
+                    """))
                     db.commit()
                     
-                    # Fetch the created artist
-                    artist = db.query(Artist).filter(Artist.id == artist_id).first()
-                    print(f"Successfully created artist {artist_name} with ID {artist_id}")
+                    # Now create the artist normally
+                    artist = Artist(name=artist_name, image_url=artist_img)
+                    db.add(artist)
+                    db.flush()
+                    print(f"Successfully created artist {artist_name} with ID {artist.id}")
                     
                 except Exception as e:
-                    print(f"Failed to create artist {artist_name} with raw SQL: {e}")
+                    print(f"Failed to create artist {artist_name}: {e}")
                     db.rollback()
                     
                     # Try to get existing artist (might have been created by another request)

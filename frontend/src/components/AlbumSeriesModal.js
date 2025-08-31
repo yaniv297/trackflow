@@ -209,35 +209,77 @@ const AlbumSeriesModal = ({
                   background: "#f9f9f9",
                 }}
               >
-                {selectedSongs.map((songId) => {
-                  const song = songs.find((s) => s.id === songId);
-                  return song ? (
-                    <div
-                      key={songId}
-                      style={{
-                        fontSize: "0.85rem",
-                        padding: "0.2rem 0",
-                        borderBottom: "1px solid #eee",
-                      }}
-                    >
-                      {song.title} - {song.artist}
-                    </div>
-                  ) : null;
-                })}
+                {selectedSongs
+                  .map((songId) => songs.find((s) => s.id === songId))
+                  .filter(Boolean)
+                  .sort((a, b) => {
+                    // Determine if songs are from the main album
+                    const aIsFromMainAlbum =
+                      a.album &&
+                      formData.album_name &&
+                      a.album
+                        .toLowerCase()
+                        .includes(formData.album_name.toLowerCase());
+                    const bIsFromMainAlbum =
+                      b.album &&
+                      formData.album_name &&
+                      b.album
+                        .toLowerCase()
+                        .includes(formData.album_name.toLowerCase());
+
+                    // Album tracks first, then bonus tracks
+                    if (aIsFromMainAlbum && !bIsFromMainAlbum) return -1;
+                    if (!aIsFromMainAlbum && bIsFromMainAlbum) return 1;
+
+                    // Within the same category, sort alphabetically by title
+                    return a.title.localeCompare(b.title);
+                  })
+                  .map((song) => {
+                    // Determine if this song is from the main album or a bonus track
+                    const isFromMainAlbum =
+                      song.album &&
+                      formData.album_name &&
+                      song.album
+                        .toLowerCase()
+                        .includes(formData.album_name.toLowerCase());
+
+                    return (
+                      <div
+                        key={song.id}
+                        style={{
+                          fontSize: "0.85rem",
+                          padding: "0.2rem 0",
+                          borderBottom: "1px solid #eee",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            backgroundColor: isFromMainAlbum
+                              ? "#e8f5e8"
+                              : "#fff3cd",
+                            color: isFromMainAlbum ? "#2d5a2d" : "#856404",
+                            padding: "0.1rem 0.4rem",
+                            borderRadius: "3px",
+                            fontSize: "0.7rem",
+                            fontWeight: "600",
+                            minWidth: "50px",
+                            textAlign: "center",
+                          }}
+                        >
+                          {isFromMainAlbum ? "ALBUM" : "BONUS"}
+                        </span>
+                        <span style={{ flex: 1 }}>
+                          {song.title} - {song.artist}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}
-
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={!!openEditAfterCreate}
-              onChange={(e) => setOpenEditAfterCreate(e.target.checked)}
-            />
-            <span>
-              After creating, open the editor to add songs to the pack
-            </span>
-          </label>
         </div>
 
         <div

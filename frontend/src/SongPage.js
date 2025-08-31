@@ -35,6 +35,13 @@ function SongPage({ status }) {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showAlbumSeriesModal, setShowAlbumSeriesModal] = useState(false);
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
+  const [albumSeriesFormData, setAlbumSeriesFormData] = useState({
+    artist_name: "",
+    album_name: "",
+    year: "",
+    cover_image_url: "",
+    description: "",
+  });
   const [selectedItemForCollaboration, setSelectedItemForCollaboration] =
     useState(null);
   const [collaborationType, setCollaborationType] = useState("pack");
@@ -447,6 +454,88 @@ function SongPage({ status }) {
     });
   };
 
+  const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
+    console.log(
+      "Opening album series modal for pack:",
+      packName,
+      albumsWithEnoughSongs
+    );
+
+    // Find the songs in this pack
+    const packSongs = songs.filter((song) => song.pack_name === packName);
+
+    if (packSongs.length === 0) {
+      console.error("No songs found for pack:", packName);
+      return;
+    }
+
+    // Select all songs in the pack by default
+    const packSongIds = packSongs.map((song) => song.id);
+    setSelectedSongs(packSongIds);
+
+    // Pre-populate form data if possible
+    if (albumsWithEnoughSongs && albumsWithEnoughSongs.length > 0) {
+      const [albumName] = albumsWithEnoughSongs[0];
+      const firstSong = packSongs[0];
+      setAlbumSeriesFormData({
+        artist_name: firstSong?.artist || "",
+        album_name: albumName || "",
+        year: firstSong?.year || "",
+        cover_image_url: firstSong?.album_cover || "",
+        description: "",
+      });
+    }
+
+    // Open the traditional AlbumSeriesModal
+    setShowAlbumSeriesModal(true);
+  };
+
+  const handleAlbumSeriesSubmit = async () => {
+    if (selectedSongs.length === 0) {
+      window.showNotification("Please select songs first", "warning");
+      return;
+    }
+
+    try {
+      const firstSong = songs.find((song) => selectedSongs.includes(song.id));
+      if (!firstSong?.pack_name) {
+        window.showNotification("Selected songs must be in a pack", "error");
+        return;
+      }
+
+      await apiPost("/album-series/create-from-pack", {
+        pack_name: firstSong.pack_name,
+        artist_name: albumSeriesFormData.artist_name,
+        album_name: albumSeriesFormData.album_name,
+        year: parseInt(albumSeriesFormData.year) || null,
+        cover_image_url: albumSeriesFormData.cover_image_url || null,
+        description: albumSeriesFormData.description || null,
+      });
+
+      window.showNotification(
+        `Album series "${albumSeriesFormData.album_name}" created successfully!`,
+        "success"
+      );
+
+      setShowAlbumSeriesModal(false);
+      setSelectedSongs([]);
+      setAlbumSeriesFormData({
+        artist_name: "",
+        album_name: "",
+        year: "",
+        cover_image_url: "",
+        description: "",
+      });
+
+      // Clear cache and refresh
+      setSongsCache({});
+      fetchSongs();
+    } catch (error) {
+      console.error("Failed to create album series:", error);
+      window.showNotification("Failed to create album series", "error");
+    }
+  };
+
   return (
     <div className="app-container">
       <PageHeader
@@ -498,6 +587,7 @@ function SongPage({ status }) {
           onSongAdded={fetchSongs}
           onPackNameUpdate={handlePackNameUpdate}
           onDeletePack={handleDeletePack}
+          onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
         />
       )}
 
@@ -543,15 +633,13 @@ function SongPage({ status }) {
 
       {showAlbumSeriesModal && (
         <AlbumSeriesModal
-          isOpen={showAlbumSeriesModal}
+          showModal={showAlbumSeriesModal}
           onClose={() => setShowAlbumSeriesModal(false)}
+          formData={albumSeriesFormData}
+          setFormData={setAlbumSeriesFormData}
+          onSubmit={handleAlbumSeriesSubmit}
           selectedSongs={selectedSongs}
           songs={songs}
-          onComplete={() => {
-            setShowAlbumSeriesModal(false);
-            setSelectedSongs([]);
-            fetchSongs();
-          }}
         />
       )}
 

@@ -175,7 +175,6 @@ function WipPage() {
   });
 
   // Option: open the edit modal after creating an album series
-  const [openEditorAfterCreate, setOpenEditorAfterCreate] = useState(false);
 
   // If a pending request exists (set by NewPackForm), open the editor on mount
   useEffect(() => {
@@ -708,24 +707,6 @@ function WipPage() {
         `Album series created for "${albumSeriesForm.artist_name} - ${albumSeriesForm.album_name}"`,
         "success"
       );
-
-      // Optionally open the edit modal to add songs
-      if (openEditorAfterCreate && created && created.id) {
-        const event = new CustomEvent("open-edit-album-series", {
-          detail: {
-            packName,
-            packId,
-            series: [
-              {
-                id: created.id,
-                number: created.series_number,
-                name: created.album_name,
-              },
-            ],
-          },
-        });
-        window.dispatchEvent(event);
-      }
     } catch (error) {
       console.error("Failed to create album series:", error);
       window.showNotification("Failed to create album series", "error");
@@ -858,24 +839,6 @@ function WipPage() {
                 }}
               />
             </div>
-
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: "1rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={openEditorAfterCreate}
-                onChange={(e) => setOpenEditorAfterCreate(e.target.checked)}
-              />
-              <span>
-                After creating, open the editor to add songs to the pack
-              </span>
-            </label>
 
             <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
               <button

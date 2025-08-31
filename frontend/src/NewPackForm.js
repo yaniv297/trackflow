@@ -392,12 +392,17 @@ function NewPackForm() {
           const message = err.message.toLowerCase();
 
           // Check for specific error cases
-          if (
-            message.includes("album series already exists") ||
+          if (message.includes("album series already exists")) {
+            errorMessage = `Album series "${meta.albumSeriesAlbum}" by ${meta.albumSeriesArtist} already exists. Please use a different name or artist.`;
+          } else if (message.includes("some songs could not be created")) {
+            // This is a song duplication error, show the actual backend message
+            errorMessage = err.message;
+          } else if (
             message.includes("already exists") ||
             message.includes("duplicate")
           ) {
-            errorMessage = `Album series "${meta.albumSeriesAlbum}" by ${meta.albumSeriesArtist} already exists. Please use a different name or artist.`;
+            // Generic duplication error, show the backend message
+            errorMessage = err.message;
           } else if (message.includes("not found") || message.includes("404")) {
             errorMessage =
               "One or more songs could not be found. Please check the song titles and try again.";

@@ -434,8 +434,14 @@ function SongPage({ status }) {
       message: `Are you sure you want to delete "${packName}"? This will permanently delete the pack and all songs in it.`,
       onConfirm: async () => {
         try {
+          console.log(`Deleting pack: ${packName} with ID: ${packId}`);
+          if (!packId) {
+            throw new Error("Pack ID is missing - cannot delete pack");
+          }
+
           // Delete the pack (this will cascade delete songs and album series)
-          await apiDelete(`/packs/${packId}`);
+          const response = await apiDelete(`/packs/${packId}`);
+          console.log("Pack deletion response:", response);
 
           // Clear cache and refresh
           setSongsCache({});
@@ -447,8 +453,12 @@ function SongPage({ status }) {
           );
         } catch (error) {
           console.error("Failed to delete pack:", error);
-          window.showNotification("Failed to delete pack", "error");
+          window.showNotification(
+            `Failed to delete pack: ${error.message}`,
+            "error"
+          );
         }
+        setAlertConfig((prev) => ({ ...prev, isOpen: false }));
       },
       type: "danger",
     });

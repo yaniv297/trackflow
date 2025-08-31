@@ -36,6 +36,7 @@ const WipPackCard = ({
   onRenamePack,
   onMovePackToFuturePlans,
   onCreateAlbumSeries,
+  onShowAlbumSeriesModal,
   onDeletePack,
   // Collaboration data
   userCollaborations,
@@ -93,12 +94,8 @@ const WipPackCard = ({
 
   // State for pack settings modal
   const [showPackSettings, setShowPackSettings] = React.useState(false);
-  const [packSettingsMode, setPackSettingsMode] = React.useState(null); // 'rename', 'status', 'album-series'
+  const [packSettingsMode, setPackSettingsMode] = React.useState(null); // 'rename', 'status'
   const [newPackName, setNewPackName] = React.useState(packName);
-  const [albumSeriesForm, setAlbumSeriesForm] = React.useState({
-    artist_name: "",
-    album_name: "",
-  });
 
   // State for pack dropdown
   const [showPackDropdown, setShowPackDropdown] = React.useState(false);
@@ -544,8 +541,11 @@ const WipPackCard = ({
                     seriesWithThreshold.length === 0 && (
                       <button
                         onClick={() => {
-                          setPackSettingsMode("album-series");
-                          setShowPackSettings(true);
+                          onShowAlbumSeriesModal &&
+                            onShowAlbumSeriesModal(
+                              packName,
+                              albumsWithEnoughSongs
+                            );
                           setShowPackDropdown(false);
                         }}
                         style={{
@@ -1262,7 +1262,11 @@ const WipPackCard = ({
                 </button>
                 {albumsWithEnoughSongs.length >= 1 && (
                   <button
-                    onClick={() => setPackSettingsMode("album-series")}
+                    onClick={() => {
+                      onShowAlbumSeriesModal &&
+                        onShowAlbumSeriesModal(packName, albumsWithEnoughSongs);
+                      setShowPackSettings(false);
+                    }}
                     style={{
                       padding: "0.75rem 1rem",
                       background: "#f8f9fa",
@@ -1393,114 +1397,6 @@ const WipPackCard = ({
                   </button>
                   <button
                     onClick={() => setPackSettingsMode(null)}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      background: "#f8f9fa",
-                      color: "#495057",
-                      border: "1px solid #dee2e6",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "0.9rem",
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {packSettingsMode === "album-series" && (
-              <div>
-                <h4 style={{ marginBottom: "1rem" }}>Create Album Series</h4>
-                <p style={{ marginBottom: "1rem", color: "#666" }}>
-                  Create an album series from songs in this pack. The pack must
-                  have at least 4 songs from the same album.
-                </p>
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display: "block", marginBottom: "0.5rem" }}>
-                    Artist Name:
-                  </label>
-                  <input
-                    type="text"
-                    value={albumSeriesForm.artist_name}
-                    onChange={(e) =>
-                      setAlbumSeriesForm((prev) => ({
-                        ...prev,
-                        artist_name: e.target.value,
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display: "block", marginBottom: "0.5rem" }}>
-                    Album Name:
-                  </label>
-                  <input
-                    type="text"
-                    value={albumSeriesForm.album_name}
-                    onChange={(e) =>
-                      setAlbumSeriesForm((prev) => ({
-                        ...prev,
-                        album_name: e.target.value,
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                    }}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    onClick={() => {
-                      onCreateAlbumSeries(packName, albumSeriesForm);
-                      setShowPackSettings(false);
-                      setPackSettingsMode(null);
-                      setAlbumSeriesForm({ artist_name: "", album_name: "" });
-                    }}
-                    disabled={
-                      !albumSeriesForm.artist_name.trim() ||
-                      !albumSeriesForm.album_name.trim()
-                    }
-                    style={{
-                      padding: "0.5rem 1rem",
-                      background:
-                        albumSeriesForm.artist_name.trim() &&
-                        albumSeriesForm.album_name.trim()
-                          ? "#6f42c1"
-                          : "#e9ecef",
-                      color:
-                        albumSeriesForm.artist_name.trim() &&
-                        albumSeriesForm.album_name.trim()
-                          ? "white"
-                          : "#6c757d",
-                      border: "1px solid #dee2e6",
-                      borderRadius: "6px",
-                      cursor:
-                        albumSeriesForm.artist_name.trim() &&
-                        albumSeriesForm.album_name.trim()
-                          ? "pointer"
-                          : "not-allowed",
-                      fontSize: "0.9rem",
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    Create
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPackSettingsMode(null);
-                      setAlbumSeriesForm({ artist_name: "", album_name: "" });
-                    }}
                     style={{
                       padding: "0.5rem 1rem",
                       background: "#f8f9fa",

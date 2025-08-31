@@ -366,56 +366,32 @@ function WipPage() {
   };
 
   const handleDeletePack = async (packName, packId) => {
-    try {
-      // Get all songs in the pack
-      const packSongs = songs.filter(
-        (s) => (s.pack_name || "(no pack)") === packName
-      );
-
-      // Check if there are any album series associated with this pack
-      const albumSeriesIds = new Set();
-      packSongs.forEach((song) => {
-        if (song.album_series_id) {
-          albumSeriesIds.add(song.album_series_id);
-        }
-      });
-
-      // Delete all songs in the pack
-      for (const song of packSongs) {
-        await apiDelete(`/songs/${song.id}`);
-      }
-
-      // Delete any associated album series
-      for (const seriesId of albumSeriesIds) {
+    setAlertConfig({
+      isOpen: true,
+      title: "Delete Pack",
+      message: `Are you sure you want to delete "${packName}"? This will permanently delete the pack and all songs in it.`,
+      onConfirm: async () => {
         try {
-          await apiDelete(`/album-series/${seriesId}`);
+          // Delete the pack using the proper backend endpoint (this will cascade delete songs and album series)
+          await apiDelete(`/packs/${packId}`);
+
+          // Remove songs from current view (optimistic update)
+          setSongs((prev) =>
+            prev.filter((song) => (song.pack_name || "(no pack)") !== packName)
+          );
+
+          window.showNotification(
+            `Pack "${packName}" deleted successfully`,
+            "success"
+          );
         } catch (error) {
-          console.error(`Failed to delete album series ${seriesId}:`, error);
+          console.error("Failed to delete pack:", error);
+          window.showNotification("Failed to delete pack", "error");
         }
-      }
-
-      // Delete the pack itself
-      if (packId) {
-        await apiDelete(`/packs/${packId}`);
-      }
-
-      // Remove songs from current view
-      setSongs((prev) =>
-        prev.filter((song) => (song.pack_name || "(no pack)") !== packName)
-      );
-
-      const seriesMessage =
-        albumSeriesIds.size > 0
-          ? ` and ${albumSeriesIds.size} album series`
-          : "";
-      window.showNotification(
-        `Pack "${packName}"${seriesMessage} and all its songs deleted successfully`,
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to delete pack:", error);
-      window.showNotification("Failed to delete pack", "error");
-    }
+        setAlertConfig((prev) => ({ ...prev, isOpen: false }));
+      },
+      type: "danger",
+    });
   };
 
   const releasePack = (pack) => {
@@ -568,6 +544,36 @@ function WipPage() {
       // Revert optimistic update on error
       refreshSongs();
     }
+  };
+
+  const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
+    console.log(
+      "Opening album series modal for pack:",
+      packName,
+      albumsWithEnoughSongs
+    );
+
+    const packSongs = songs.filter((song) => song.pack_name === packName);
+    if (packSongs.length === 0) {
+      console.error("No songs found for pack:", packName);
+      return;
+    }
+
+    const packSongIds = packSongs.map((song) => song.id);
+    setSelectedSongs(packSongIds);
+
+    if (albumsWithEnoughSongs && albumsWithEnoughSongs.length > 0) {
+      const [albumName] = albumsWithEnoughSongs[0];
+      const firstSong = packSongs[0];
+      setAlbumSeriesForm({
+        artist_name: firstSong?.artist || "",
+        album_name: albumName || "",
+        year: firstSong?.year || "",
+        cover_image_url: firstSong?.album_cover || "",
+        description: "",
+      });
+    }
+    setShowAlbumSeriesModal(true);
   };
 
   const handleMakeDoubleAlbumSeries = async (pack, albumsWithEnoughSongs) => {
@@ -762,6 +768,7 @@ function WipPage() {
             onRenamePack={handleRenamePack}
             onMovePackToFuturePlans={handleMovePackToFuturePlans}
             onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
+            onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
             onDeletePack={handleDeletePack}
             userCollaborations={userCollaborations}
           />
@@ -769,111 +776,15 @@ function WipPage() {
 
       {/* Album Series Modal */}
       {showAlbumSeriesModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: "2rem",
-              borderRadius: "8px",
-              width: "90%",
-              maxWidth: "500px",
-              maxHeight: "80vh",
-              overflow: "auto",
-            }}
-          >
-            <h3 style={{ marginBottom: "1rem" }}>Create Album Series</h3>
-
-            <div style={{ marginBottom: "1rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem" }}>
-                Artist Name:
-              </label>
-              <input
-                type="text"
-                value={albumSeriesForm.artist_name}
-                onChange={(e) =>
-                  setAlbumSeriesForm((prev) => ({
-                    ...prev,
-                    artist_name: e.target.value,
-                  }))
-                }
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "1rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem" }}>
-                Album Name:
-              </label>
-              <input
-                type="text"
-                value={albumSeriesForm.album_name}
-                onChange={(e) =>
-                  setAlbumSeriesForm((prev) => ({
-                    ...prev,
-                    album_name: e.target.value,
-                  }))
-                }
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-              <button
-                onClick={handleCreateAlbumSeries}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "#4CAF50",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                }}
-              >
-                Create Album Series
-              </button>
-              <button
-                onClick={() => setShowAlbumSeriesModal(false)}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "#6c757d",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <AlbumSeriesModal
+          showModal={showAlbumSeriesModal}
+          onClose={() => setShowAlbumSeriesModal(false)}
+          formData={albumSeriesForm}
+          setFormData={setAlbumSeriesForm}
+          onSubmit={handleCreateAlbumSeries}
+          selectedSongs={selectedSongs}
+          songs={songs}
+        />
       )}
 
       {/* Edit Album Series Modal */}

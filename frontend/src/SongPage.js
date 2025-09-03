@@ -71,6 +71,8 @@ function SongPage({ status }) {
   const [showDoubleAlbumSeriesModal, setShowDoubleAlbumSeriesModal] =
     useState(false);
   const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
+  const [isExecutingDoubleAlbumSeries, setIsExecutingDoubleAlbumSeries] =
+    useState(false);
 
   // Use collaboration hook
   const { fetchCollaborations, getPackCollaborators } = useCollaborations();
@@ -560,6 +562,11 @@ function SongPage({ status }) {
       return;
     }
 
+    // Prevent multiple modal openings
+    if (showDoubleAlbumSeriesModal || isExecutingDoubleAlbumSeries) {
+      return;
+    }
+
     const packSongs = songs.filter((song) => song.pack_name === packName);
     const mostCommonArtist = packSongs[0]?.artist;
 
@@ -593,7 +600,7 @@ function SongPage({ status }) {
     }
 
     // Show confirmation modal instead of immediately executing
-    const newPackName = `${packName} - ${secondAlbumName}`;
+    const newPackName = `${secondAlbumName} Album Series`;
     setDoubleAlbumSeriesData({
       packName,
       secondAlbumName,
@@ -605,7 +612,9 @@ function SongPage({ status }) {
   };
 
   const executeDoubleAlbumSeries = async () => {
-    if (!doubleAlbumSeriesData) return;
+    if (!doubleAlbumSeriesData || isExecutingDoubleAlbumSeries) return;
+
+    setIsExecutingDoubleAlbumSeries(true);
 
     const {
       packName,
@@ -649,6 +658,8 @@ function SongPage({ status }) {
     } catch (error) {
       console.error("Error creating double album series:", error);
       window.showNotification("Failed to create double album series", "error");
+    } finally {
+      setIsExecutingDoubleAlbumSeries(false);
     }
   };
 
@@ -769,6 +780,7 @@ function SongPage({ status }) {
             setDoubleAlbumSeriesData(null);
           }}
           onConfirm={executeDoubleAlbumSeries}
+          isExecuting={isExecutingDoubleAlbumSeries}
           packName={doubleAlbumSeriesData.packName}
           secondAlbumName={doubleAlbumSeriesData.secondAlbumName}
           songsToMove={doubleAlbumSeriesData.songsToMove}

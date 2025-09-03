@@ -4,6 +4,7 @@ const DoubleAlbumSeriesModal = ({
   isOpen,
   onClose,
   onConfirm,
+  isExecuting,
   packName,
   secondAlbumName,
   songsToMove,
@@ -25,7 +26,7 @@ const DoubleAlbumSeriesModal = ({
         alignItems: "center",
         zIndex: 1000,
       }}
-      onClick={onClose}
+      onClick={isExecuting ? undefined : onClose}
     >
       <div
         style={{
@@ -184,6 +185,21 @@ const DoubleAlbumSeriesModal = ({
           </div>
         </div>
 
+        {isExecuting && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "16px",
+              color: "#666",
+              fontSize: "14px",
+              borderTop: "1px solid #eee",
+              marginBottom: "16px",
+            }}
+          >
+            ⏳ Creating double album series... Please wait.
+          </div>
+        )}
+
         <div
           style={{
             display: "flex",
@@ -195,44 +211,60 @@ const DoubleAlbumSeriesModal = ({
         >
           <button
             onClick={onClose}
+            disabled={isExecuting}
             style={{
               padding: "10px 20px",
               border: "1px solid #ddd",
               borderRadius: "6px",
-              backgroundColor: "white",
-              color: "#666",
-              cursor: "pointer",
+              backgroundColor: isExecuting ? "#f8f9fa" : "white",
+              color: isExecuting ? "#ccc" : "#666",
+              cursor: isExecuting ? "not-allowed" : "pointer",
               fontSize: "14px",
             }}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#f8f9fa";
+              if (!isExecuting) {
+                e.target.style.backgroundColor = "#f8f9fa";
+              }
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "white";
+              if (!isExecuting) {
+                e.target.style.backgroundColor = isExecuting
+                  ? "#f8f9fa"
+                  : "white";
+              }
             }}
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
+            disabled={isExecuting}
             style={{
               padding: "10px 20px",
               border: "none",
               borderRadius: "6px",
-              backgroundColor: "#5a8fcf",
+              backgroundColor: isExecuting ? "#ccc" : "#5a8fcf",
               color: "white",
-              cursor: "pointer",
+              cursor: isExecuting ? "not-allowed" : "pointer",
               fontSize: "14px",
               fontWeight: "500",
             }}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#4a7cbd";
+              if (!isExecuting) {
+                e.target.style.backgroundColor = "#4a7cbd";
+              }
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#5a8fcf";
+              if (!isExecuting) {
+                e.target.style.backgroundColor = isExecuting
+                  ? "#ccc"
+                  : "#5a8fcf";
+              }
             }}
           >
-            🎵🎵 Create Double Album Series
+            {isExecuting
+              ? "🎵🎵 Creating..."
+              : "🎵🎵 Create Double Album Series"}
           </button>
         </div>
       </div>

@@ -84,7 +84,7 @@ const DoubleAlbumSeriesModal = ({
               <span
                 style={{ color: "#666", fontSize: "14px", marginLeft: "8px" }}
               >
-                ({songsToMove.length} songs)
+                ({songsToMove.length} songs total, including optional ones)
               </span>
             </div>
           </div>
@@ -133,7 +133,25 @@ const DoubleAlbumSeriesModal = ({
                   alignItems: "center",
                 }}
               >
-                <span style={{ fontSize: "14px" }}>{song.title}</span>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <span style={{ fontSize: "14px" }}>{song.title}</span>
+                  {song.optional && (
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "#ff9800",
+                        backgroundColor: "#fff3e0",
+                        padding: "2px 6px",
+                        borderRadius: "10px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      OPTIONAL
+                    </span>
+                  )}
+                </div>
                 <span style={{ fontSize: "12px", color: "#666" }}>
                   {song.artist}
                 </span>
@@ -155,6 +173,7 @@ const DoubleAlbumSeriesModal = ({
             <ul style={{ margin: "8px 0 0 20px", padding: 0 }}>
               <li>
                 All songs from "{secondAlbumName}" will be moved to a new pack
+                (including optional songs)
               </li>
               <li>
                 A new album series will be created for "{secondAlbumName}"

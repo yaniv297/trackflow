@@ -615,12 +615,12 @@ function WipPage() {
 
     const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
     const songsInSecondAlbum = packSongs.filter(
-      (song) => song.album === secondAlbumName && !song.optional
+      (song) => song.album === secondAlbumName
     );
 
     if (songsInSecondAlbum.length < 4) {
       window.showNotification(
-        `"${secondAlbumName}" needs at least 4 songs for album series (found ${songsInSecondAlbum.length})`,
+        `"${secondAlbumName}" needs at least 4 songs for album series (found ${songsInSecondAlbum.length} total songs including optional ones)`,
         "error"
       );
       return;

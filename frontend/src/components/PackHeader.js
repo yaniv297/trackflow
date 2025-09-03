@@ -409,12 +409,8 @@ const PackHeader = ({
                   <button
                     onClick={() => {
                       const packId = validSongsInPack[0]?.pack_id;
-                      console.log(`Pack deletion - packName: ${packName}, packId: ${packId}, validSongs:`, validSongsInPack.map(s => ({ id: s.id, pack_id: s.pack_id, pack_name: s.pack_name })));
                       if (packId && onDeletePack) {
                         onDeletePack(packName, packId);
-                      } else {
-                        console.error("Cannot delete pack - missing packId or onDeletePack callback");
-                        window.showNotification("Cannot delete pack - missing pack ID", "error");
                       }
                       setShowPackActions(false);
                     }}

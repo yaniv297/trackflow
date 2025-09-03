@@ -190,38 +190,24 @@ def delete_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depe
         if song.album_series_id:
             album_series_ids.add(song.album_series_id)
     
-    print(f"Pack deletion: Found {len(album_series_ids)} album series to check: {album_series_ids}")
-    
     # Delete all songs in the pack
     for song in songs:
-        print(f"Deleting song {song.id}: {song.title} (album_series_id: {song.album_series_id})")
         db.delete(song)
     
     # Delete the pack
-    print(f"Deleting pack {pack.id}: {pack.name}")
     db.delete(pack)
-    
-    # Flush changes to make them visible for subsequent queries
-    db.flush()
     
     # Check for orphaned album series and delete them
     orphaned_series_count = 0
     for series_id in album_series_ids:
-        print(f"Checking album series {series_id} for orphaned status...")
         # Check if any songs still reference this album series
         remaining_songs = db.query(Song).filter(Song.album_series_id == series_id).first()
-        print(f"Album series {series_id}: found {1 if remaining_songs else 0} remaining songs")
         if not remaining_songs:
             # No songs left, delete the album series
             series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
             if series:
-                print(f"Deleting orphaned album series {series_id}: {series.album_name}")
                 db.delete(series)
                 orphaned_series_count += 1
-            else:
-                print(f"Album series {series_id} not found in database")
-        else:
-            print(f"Album series {series_id} still has songs, not deleting")
     
     # Commit the transaction
     db.commit()

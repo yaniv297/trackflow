@@ -6,6 +6,7 @@ import BulkEditModal from "./components/BulkEditModal";
 import CustomAlert from "./components/CustomAlert";
 import CustomPrompt from "./components/CustomPrompt";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
+import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
 import Fireworks from "./components/Fireworks";
 import LoadingSpinner from "./components/LoadingSpinner";
@@ -67,6 +68,9 @@ function SongPage({ status }) {
     series: [],
     defaultSeriesId: null,
   });
+  const [showDoubleAlbumSeriesModal, setShowDoubleAlbumSeriesModal] =
+    useState(false);
+  const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
 
   // Use collaboration hook
   const { fetchCollaborations, getPackCollaborators } = useCollaborations();
@@ -434,14 +438,12 @@ function SongPage({ status }) {
       message: `Are you sure you want to delete "${packName}"? This will permanently delete the pack and all songs in it.`,
       onConfirm: async () => {
         try {
-          console.log(`Deleting pack: ${packName} with ID: ${packId}`);
           if (!packId) {
             throw new Error("Pack ID is missing - cannot delete pack");
           }
 
           // Delete the pack (this will cascade delete songs and album series)
-          const response = await apiDelete(`/packs/${packId}`);
-          console.log("Pack deletion response:", response);
+          await apiDelete(`/packs/${packId}`);
 
           // Clear cache and refresh
           setSongsCache({});
@@ -546,6 +548,110 @@ function SongPage({ status }) {
     }
   };
 
+  const handleMakeDoubleAlbumSeries = async (
+    packName,
+    albumsWithEnoughSongs
+  ) => {
+    if (!albumsWithEnoughSongs || albumsWithEnoughSongs.length < 2) {
+      window.showNotification(
+        "Pack must have at least 2 albums with 4+ songs each for double album series",
+        "error"
+      );
+      return;
+    }
+
+    const packSongs = songs.filter((song) => song.pack_name === packName);
+    const mostCommonArtist = packSongs[0]?.artist;
+
+    // Find the album that's NOT already in an album series (or pick the second one)
+    const existingSeriesAlbum = packSongs.find(
+      (song) => song.album_series_id
+    )?.album;
+    const albumsToChooseFrom = albumsWithEnoughSongs.filter(
+      ([albumName]) => albumName !== existingSeriesAlbum
+    );
+
+    if (albumsToChooseFrom.length === 0) {
+      window.showNotification(
+        "No suitable album found for double album series",
+        "error"
+      );
+      return;
+    }
+
+    const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
+    const songsInSecondAlbum = packSongs.filter(
+      (song) => song.album === secondAlbumName && !song.optional
+    );
+
+    if (songsInSecondAlbum.length < 4) {
+      window.showNotification(
+        `"${secondAlbumName}" needs at least 4 songs for album series (found ${songsInSecondAlbum.length})`,
+        "error"
+      );
+      return;
+    }
+
+    // Show confirmation modal instead of immediately executing
+    const newPackName = `${packName} - ${secondAlbumName}`;
+    setDoubleAlbumSeriesData({
+      packName,
+      secondAlbumName,
+      songsToMove: songsInSecondAlbum,
+      newPackName,
+      mostCommonArtist,
+    });
+    setShowDoubleAlbumSeriesModal(true);
+  };
+
+  const executeDoubleAlbumSeries = async () => {
+    if (!doubleAlbumSeriesData) return;
+
+    const {
+      packName,
+      secondAlbumName,
+      songsToMove,
+      newPackName,
+      mostCommonArtist,
+    } = doubleAlbumSeriesData;
+
+    try {
+      // Update all songs from the second album to the new pack
+      const songIdsToMove = songsToMove.map((song) => song.id);
+
+      // Update pack names for songs in the second album
+      await Promise.all(
+        songIdsToMove.map((songId) =>
+          apiPatch(`/songs/${songId}`, { pack: newPackName })
+        )
+      );
+
+      // Create album series for the second album
+      await apiPost("/album-series/create-from-pack", {
+        pack_name: newPackName,
+        artist_name: mostCommonArtist,
+        album_name: secondAlbumName,
+        year: null,
+        cover_image_url: null,
+        description: null,
+      });
+
+      window.showNotification(
+        `Double album series created! "${secondAlbumName}" split into its own album series with ${songsToMove.length} songs.`,
+        "success"
+      );
+
+      // Close modal and refresh songs to show the updated structure
+      setShowDoubleAlbumSeriesModal(false);
+      setDoubleAlbumSeriesData(null);
+      setSongsCache({});
+      fetchSongs();
+    } catch (error) {
+      console.error("Error creating double album series:", error);
+      window.showNotification("Failed to create double album series", "error");
+    }
+  };
+
   return (
     <div className="app-container">
       <PageHeader
@@ -598,6 +704,7 @@ function SongPage({ status }) {
           onPackNameUpdate={handlePackNameUpdate}
           onDeletePack={handleDeletePack}
           onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
+          onMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
         />
       )}
 
@@ -650,6 +757,22 @@ function SongPage({ status }) {
           onSubmit={handleAlbumSeriesSubmit}
           selectedSongs={selectedSongs}
           songs={songs}
+        />
+      )}
+
+      {/* Double Album Series Confirmation Modal */}
+      {showDoubleAlbumSeriesModal && doubleAlbumSeriesData && (
+        <DoubleAlbumSeriesModal
+          isOpen={showDoubleAlbumSeriesModal}
+          onClose={() => {
+            setShowDoubleAlbumSeriesModal(false);
+            setDoubleAlbumSeriesData(null);
+          }}
+          onConfirm={executeDoubleAlbumSeries}
+          packName={doubleAlbumSeriesData.packName}
+          secondAlbumName={doubleAlbumSeriesData.secondAlbumName}
+          songsToMove={doubleAlbumSeriesData.songsToMove}
+          newPackName={doubleAlbumSeriesData.newPackName}
         />
       )}
 

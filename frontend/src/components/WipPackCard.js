@@ -570,6 +570,39 @@ const WipPackCard = ({
                       </button>
                     )}
 
+                  {/* Make Double Album Series if conditions are met */}
+                  {canMakeDoubleAlbumSeries && (
+                    <button
+                      onClick={() => {
+                        onHandleMakeDoubleAlbumSeries &&
+                          onHandleMakeDoubleAlbumSeries(
+                            packName,
+                            albumsWithEnoughSongs
+                          );
+                        setShowPackDropdown(false);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        width: "100%",
+                        padding: "0.5rem 1rem",
+                        textAlign: "left",
+                        color: "#5a8fcf",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = "#f8f9fa";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      🎵🎵 Make Double Album Series
+                    </button>
+                  )}
+
                   {/* Edit Album Series if any exists */}
                   {seriesInfo && seriesInfo.length > 0 && packId && (
                     <button

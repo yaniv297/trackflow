@@ -10,6 +10,7 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
+import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
 
 // Utility function to capitalize artist and album names (keeping for compatibility)
 // eslint-disable-next-line no-unused-vars
@@ -173,6 +174,9 @@ function WipPage() {
     createMode: false,
     createData: null,
   });
+  const [showDoubleAlbumSeriesModal, setShowDoubleAlbumSeriesModal] =
+    useState(false);
+  const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
 
   // Option: open the edit modal after creating an album series
 
@@ -576,9 +580,109 @@ function WipPage() {
     setShowAlbumSeriesModal(true);
   };
 
-  const handleMakeDoubleAlbumSeries = async (pack, albumsWithEnoughSongs) => {
-    // Implementation for double album series
-    // This is a complex function that would need to be extracted from the original
+  const handleMakeDoubleAlbumSeries = async (
+    packName,
+    albumsWithEnoughSongs
+  ) => {
+    if (!albumsWithEnoughSongs || albumsWithEnoughSongs.length < 2) {
+      window.showNotification(
+        "Pack must have at least 2 albums with 4+ songs each for double album series",
+        "error"
+      );
+      return;
+    }
+
+    const packSongs = songs.filter(
+      (song) => (song.pack_name || "(no pack)") === packName
+    );
+    const mostCommonArtist = packSongs[0]?.artist;
+
+    // Find the album that's NOT already in an album series (or pick the second one)
+    const existingSeriesAlbum = packSongs.find(
+      (song) => song.album_series_id
+    )?.album;
+    const albumsToChooseFrom = albumsWithEnoughSongs.filter(
+      ([albumName]) => albumName !== existingSeriesAlbum
+    );
+
+    if (albumsToChooseFrom.length === 0) {
+      window.showNotification(
+        "No suitable album found for double album series",
+        "error"
+      );
+      return;
+    }
+
+    const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
+    const songsInSecondAlbum = packSongs.filter(
+      (song) => song.album === secondAlbumName && !song.optional
+    );
+
+    if (songsInSecondAlbum.length < 4) {
+      window.showNotification(
+        `"${secondAlbumName}" needs at least 4 songs for album series (found ${songsInSecondAlbum.length})`,
+        "error"
+      );
+      return;
+    }
+
+    // Show confirmation modal instead of immediately executing
+    const newPackName = `${packName} - ${secondAlbumName}`;
+    setDoubleAlbumSeriesData({
+      packName,
+      secondAlbumName,
+      songsToMove: songsInSecondAlbum,
+      newPackName,
+      mostCommonArtist,
+    });
+    setShowDoubleAlbumSeriesModal(true);
+  };
+
+  const executeDoubleAlbumSeries = async () => {
+    if (!doubleAlbumSeriesData) return;
+
+    const {
+      packName,
+      secondAlbumName,
+      songsToMove,
+      newPackName,
+      mostCommonArtist,
+    } = doubleAlbumSeriesData;
+
+    try {
+      // Update all songs from the second album to the new pack
+      const songIdsToMove = songsToMove.map((song) => song.id);
+
+      // Update pack names for songs in the second album
+      await Promise.all(
+        songIdsToMove.map((songId) =>
+          apiPatch(`/songs/${songId}`, { pack: newPackName })
+        )
+      );
+
+      // Create album series for the second album
+      await apiPost("/album-series/create-from-pack", {
+        pack_name: newPackName,
+        artist_name: mostCommonArtist,
+        album_name: secondAlbumName,
+        year: null,
+        cover_image_url: null,
+        description: null,
+      });
+
+      window.showNotification(
+        `Double album series created! "${secondAlbumName}" split into its own album series with ${songsToMove.length} songs.`,
+        "success"
+      );
+
+      // Close modal and refresh songs to show the updated structure
+      setShowDoubleAlbumSeriesModal(false);
+      setDoubleAlbumSeriesData(null);
+      refreshSongs();
+    } catch (error) {
+      console.error("Error creating double album series:", error);
+      window.showNotification("Failed to create double album series", "error");
+    }
   };
 
   const handleCollaborationSaved = async () => {
@@ -784,6 +888,22 @@ function WipPage() {
           onSubmit={handleCreateAlbumSeries}
           selectedSongs={selectedSongs}
           songs={songs}
+        />
+      )}
+
+      {/* Double Album Series Confirmation Modal */}
+      {showDoubleAlbumSeriesModal && doubleAlbumSeriesData && (
+        <DoubleAlbumSeriesModal
+          isOpen={showDoubleAlbumSeriesModal}
+          onClose={() => {
+            setShowDoubleAlbumSeriesModal(false);
+            setDoubleAlbumSeriesData(null);
+          }}
+          onConfirm={executeDoubleAlbumSeries}
+          packName={doubleAlbumSeriesData.packName}
+          secondAlbumName={doubleAlbumSeriesData.secondAlbumName}
+          songsToMove={doubleAlbumSeriesData.songsToMove}
+          newPackName={doubleAlbumSeriesData.newPackName}
         />
       )}
 

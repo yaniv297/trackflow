@@ -41,6 +41,7 @@ const SongTable = ({
   onPackNameUpdate,
   onDeletePack,
   onShowAlbumSeriesModal,
+  onMakeDoubleAlbumSeries,
 }) => {
   const [localSortStates, setLocalSortStates] = useState({});
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -224,8 +225,8 @@ const SongTable = ({
           canMakeDoubleAlbumSeries={canMakeDoubleAlbumSeries}
           albumsWithEnoughSongs={albumsWithEnoughSongs}
           onMakeDoubleAlbumSeries={() =>
-            onShowAlbumSeriesModal &&
-            onShowAlbumSeriesModal(packName, albumsWithEnoughSongs)
+            onMakeDoubleAlbumSeries &&
+            onMakeDoubleAlbumSeries(packName, albumsWithEnoughSongs)
           }
           onShowAlbumSeriesModal={() =>
             onShowAlbumSeriesModal &&

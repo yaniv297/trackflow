@@ -301,9 +301,31 @@ function WipPage() {
 
   const updateSongData = (songId, updatedSongData) => {
     setSongs((prev) =>
-      prev.map((song) =>
-        song.id === songId ? { ...song, ...updatedSongData } : song
-      )
+      prev.map((song) => {
+        if (song.id === songId) {
+          // Only update specific fields to avoid overwriting completion status
+          const updatedSong = { ...song };
+
+          // Safe fields that can be updated without affecting song status
+          const safeFields = [
+            "album_cover",
+            "title",
+            "artist",
+            "album",
+            "year",
+            "notes",
+          ];
+
+          safeFields.forEach((field) => {
+            if (updatedSongData.hasOwnProperty(field)) {
+              updatedSong[field] = updatedSongData[field];
+            }
+          });
+
+          return updatedSong;
+        }
+        return song;
+      })
     );
   };
 

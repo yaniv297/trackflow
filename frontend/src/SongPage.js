@@ -628,12 +628,10 @@ function SongPage({ status }) {
       // Update all songs from the second album to the new pack
       const songIdsToMove = songsToMove.map((song) => song.id);
 
-      // Update pack names for songs in the second album
-      await Promise.all(
-        songIdsToMove.map((songId) =>
-          apiPatch(`/songs/${songId}`, { pack: newPackName })
-        )
-      );
+      // Update pack names for songs in the second album (sequentially to avoid race conditions)
+      for (const songId of songIdsToMove) {
+        await apiPatch(`/songs/${songId}`, { pack: newPackName });
+      }
 
       // Create album series for the second album
       await apiPost("/album-series/create-from-pack", {

@@ -626,12 +626,23 @@ function WipPage() {
     );
     const mostCommonArtist = packSongs[0]?.artist;
 
-    // Find the album that's NOT already in an album series (or pick the second one)
-    const existingSeriesAlbum = packSongs.find(
-      (song) => song.album_series_id
-    )?.album;
+    // Find the album that should be the "base" album series (the one that stays)
+    // This should be the album with the most songs that has an album_series_id
+    const albumSeriesCounts = {};
+    packSongs.forEach((song) => {
+      if (song.album_series_id && song.album) {
+        albumSeriesCounts[song.album] =
+          (albumSeriesCounts[song.album] || 0) + 1;
+      }
+    });
+
+    // Find the album with the most songs in the album series (this becomes the "base")
+    const baseAlbumSeries = Object.entries(albumSeriesCounts).sort(
+      (a, b) => b[1] - a[1]
+    )[0]?.[0];
+
     const albumsToChooseFrom = albumsWithEnoughSongs.filter(
-      ([albumName]) => albumName !== existingSeriesAlbum
+      ([albumName]) => albumName !== baseAlbumSeries
     );
 
     if (albumsToChooseFrom.length === 0) {

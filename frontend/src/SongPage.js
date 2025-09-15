@@ -11,7 +11,7 @@ import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
 import Fireworks from "./components/Fireworks";
 import LoadingSpinner from "./components/LoadingSpinner";
 import useCollaborations from "./hooks/useCollaborations";
-import { apiGet, apiPost, apiDelete, apiPatch } from "./utils/api";
+import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 
 function SongPage({ status }) {
@@ -289,6 +289,20 @@ function SongPage({ status }) {
 
       const movedIds = new Set(songsToMove.map((s) => s.id));
 
+      // Group songs by album series for status updates
+      const seriesGroups = {};
+      songsToMove.forEach((song) => {
+        if (song.album_series_id) {
+          if (!seriesGroups[song.album_series_id]) {
+            seriesGroups[song.album_series_id] = [];
+          }
+          seriesGroups[song.album_series_id].push(song);
+        }
+      });
+
+      console.log("DEBUG: Songs to move:", songsToMove);
+      console.log("DEBUG: Series groups:", seriesGroups);
+
       // Optimistic UI update
       setSongs((prev) => {
         if (status === "Future Plans") {
@@ -306,6 +320,29 @@ function SongPage({ status }) {
           apiPatch(`/songs/${song.id}`, { status: "In Progress" })
         )
       );
+
+      // Update album series status to "in_progress" if any songs belong to a series
+      for (const [seriesId, seriesSongs] of Object.entries(seriesGroups)) {
+        if (seriesSongs.length > 0) {
+          try {
+            console.log(
+              `DEBUG: Updating album series ${seriesId} status to in_progress`
+            );
+            const response = await apiPut(`/album-series/${seriesId}/status`, {
+              status: "in_progress",
+            });
+            console.log(
+              `DEBUG: Album series ${seriesId} status update response:`,
+              response
+            );
+          } catch (err) {
+            console.error(
+              `Failed to update album series ${seriesId} status:`,
+              err
+            );
+          }
+        }
+      }
 
       // Invalidate cache so fetchSongs pulls fresh data
       setSongsCache({});
@@ -570,12 +607,23 @@ function SongPage({ status }) {
     const packSongs = songs.filter((song) => song.pack_name === packName);
     const mostCommonArtist = packSongs[0]?.artist;
 
-    // Find the album that's NOT already in an album series (or pick the second one)
-    const existingSeriesAlbum = packSongs.find(
-      (song) => song.album_series_id
-    )?.album;
+    // Find the album that should be the "base" album series (the one that stays)
+    // This should be the album with the most songs that has an album_series_id
+    const albumSeriesCounts = {};
+    packSongs.forEach((song) => {
+      if (song.album_series_id && song.album) {
+        albumSeriesCounts[song.album] =
+          (albumSeriesCounts[song.album] || 0) + 1;
+      }
+    });
+
+    // Find the album with the most songs in the album series (this becomes the "base")
+    const baseAlbumSeries = Object.entries(albumSeriesCounts).sort(
+      (a, b) => b[1] - a[1]
+    )[0]?.[0];
+
     const albumsToChooseFrom = albumsWithEnoughSongs.filter(
-      ([albumName]) => albumName !== existingSeriesAlbum
+      ([albumName]) => albumName !== baseAlbumSeries
     );
 
     if (albumsToChooseFrom.length === 0) {

@@ -582,12 +582,26 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
 
 @router.post("/release-pack")
 def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    # Find the pack by name
+    # Find the pack by name (first check if user owns it)
     pack = db.query(Pack).filter(Pack.name == pack_name, Pack.user_id == current_user.id).first()
-    if not pack:
-        raise HTTPException(status_code=404, detail="Pack not found or not owned by user")
     
-    # Get all songs in this pack
+    # If user doesn't own it, check if they have PACK_EDIT collaboration permission
+    if not pack:
+        pack = db.query(Pack).filter(Pack.name == pack_name).first()
+        if not pack:
+            raise HTTPException(status_code=404, detail="Pack not found")
+        
+        # Check if user has PACK_EDIT permission on this pack
+        has_pack_edit = db.query(Collaboration).filter(
+            Collaboration.pack_id == pack.id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+        ).first()
+        
+        if not has_pack_edit:
+            raise HTTPException(status_code=403, detail="You don't have permission to release this pack")
+    
+    # Get ALL songs in this pack (regardless of who owns them)
     songs = db.query(Song).filter(Song.pack_id == pack.id).all()
     
     # Define authoring fields that need to be complete
@@ -619,22 +633,22 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
     
     # Handle optional songs
     if optional_songs:
-        # Create a new pack for optional songs
+        # Create a new pack for optional songs under the original pack owner's account
         optional_pack_name = f"{pack_name} Optional Songs"
         
-        # Check if optional pack already exists
+        # Check if optional pack already exists (under the original pack owner)
         existing_optional_pack = db.query(Pack).filter(
             Pack.name == optional_pack_name, 
-            Pack.user_id == current_user.id
+            Pack.user_id == pack.user_id
         ).first()
         
         if existing_optional_pack:
             optional_pack = existing_optional_pack
         else:
-            # Create new pack for optional songs
+            # Create new pack for optional songs under the original pack owner's account
             optional_pack = Pack(
                 name=optional_pack_name,
-                user_id=current_user.id
+                user_id=pack.user_id  # Use original pack owner, not current user
             )
             db.add(optional_pack)
             db.flush()  # Get the ID

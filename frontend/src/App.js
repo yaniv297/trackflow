@@ -19,6 +19,7 @@ import AlbumSeriesPage from "./AlbumSeriesPage";
 import NotificationManager from "./components/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
+import WorkflowSettings from "./components/WorkflowSettings";
 import "./App.css";
 
 function AppContent() {
@@ -211,6 +212,31 @@ function AppContent() {
                       }
                     >
                       User Settings
+                    </div>
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        navigate("/settings/workflow");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      Workflow Settings
                     </div>
                     <div
                       onClick={() => {
@@ -452,6 +478,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <UserSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/workflow"
+            element={
+              <ProtectedRoute>
+                <WorkflowSettings />
               </ProtectedRoute>
             }
           />

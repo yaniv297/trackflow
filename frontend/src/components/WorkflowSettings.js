@@ -18,7 +18,12 @@ const WorkflowSettings = () => {
       const workflowData = await apiGet("/workflows/my-workflow");
 
       setWorkflow(workflowData);
-      setEditingSteps([...workflowData.steps]);
+      // Attach stable client-side ids to avoid remounting on each keystroke
+      const withLocalIds = (workflowData.steps || []).map((s, i) => ({
+        ...s,
+        _localId: s.id || `local-${Date.now()}-${i}`,
+      }));
+      setEditingSteps(withLocalIds);
     } catch (error) {
       console.error("Failed to load workflow data:", error);
       window.showNotification("Failed to load workflow settings", "error");
@@ -42,13 +47,13 @@ const WorkflowSettings = () => {
 
       // Ensure order indices are sequential
       const stepsWithCorrectOrder = editingSteps.map((step, index) => ({
-        ...step,
+        step_name: step.step_name,
+        display_name: step.display_name,
         order_index: index,
       }));
 
       const updatedWorkflow = await apiPut("/workflows/my-workflow", {
         name: workflow.name,
-        description: workflow.description,
         steps: stepsWithCorrectOrder,
       });
 
@@ -67,11 +72,8 @@ const WorkflowSettings = () => {
     const newStep = {
       step_name: `custom_step_${Date.now()}`,
       display_name: "New Step",
-      description: "",
       order_index: editingSteps.length,
-      is_required: true,
-      category: "custom",
-      is_enabled: true,
+      _localId: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     };
     setEditingSteps([...editingSteps, newStep]);
   };
@@ -106,15 +108,12 @@ const WorkflowSettings = () => {
   const resetToDefault = async () => {
     try {
       setSaving(true);
-
-      // Reset to default workflow by creating a new workflow from the default template
       await apiPost("/workflows/reset-to-default");
-
       window.showNotification(
         "Successfully reset to default workflow!",
         "success"
       );
-      loadWorkflowData(); // Reload to show new workflow
+      loadWorkflowData();
     } catch (error) {
       console.error("Failed to reset to default:", error);
       window.showNotification("Failed to reset to default", "error");
@@ -157,194 +156,95 @@ const WorkflowSettings = () => {
   }
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
-          🎵 Workflow Settings
-        </h1>
-        <p style={{ color: "#666", fontSize: "1rem" }}>
-          Customize your authoring workflow. Songs will show progress based on
-          these steps.
-        </p>
+    <div style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
+      <div style={{ marginBottom: "1rem", display: "flex", gap: 12 }}>
+        <input
+          type="text"
+          value={workflow.name}
+          onChange={(e) => setWorkflow({ ...workflow, name: e.target.value })}
+          style={{
+            flex: 1,
+            padding: "0.5rem 0.75rem",
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            fontSize: "1rem",
+          }}
+        />
+        <button
+          onClick={resetToDefault}
+          disabled={saving}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: "#6b7280",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            cursor: saving ? "not-allowed" : "pointer",
+            fontSize: "0.9rem",
+          }}
+        >
+          Reset to Default
+        </button>
       </div>
 
-      {/* Workflow Basic Info */}
       <div
         style={{
           backgroundColor: "white",
-          padding: "1.5rem",
-          borderRadius: "8px",
-          marginBottom: "2rem",
-          border: "1px solid #e1e5e9",
-        }}
-      >
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
-          Workflow Information
-        </h2>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "0.5rem",
-              fontWeight: "500",
-            }}
-          >
-            Workflow Name
-          </label>
-          <input
-            type="text"
-            value={workflow.name}
-            onChange={(e) => setWorkflow({ ...workflow, name: e.target.value })}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "4px",
-              fontSize: "1rem",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "0.5rem",
-              fontWeight: "500",
-            }}
-          >
-            Description
-          </label>
-          <textarea
-            value={workflow.description || ""}
-            onChange={(e) =>
-              setWorkflow({ ...workflow, description: e.target.value })
-            }
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "0.75rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "4px",
-              fontSize: "1rem",
-              resize: "vertical",
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-          <button
-            onClick={resetToDefault}
-            disabled={saving}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: "#6b7280",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: saving ? "not-allowed" : "pointer",
-              fontSize: "1rem",
-              opacity: saving ? 0.6 : 1,
-            }}
-          >
-            🔄 Reset to Default
-          </button>
-
-          <div style={{ color: "#666", fontSize: "0.9rem" }}>
-            {editingSteps.length} steps total •{" "}
-            {editingSteps.filter((s) => s.is_required).length} required
-          </div>
-        </div>
-      </div>
-
-      {/* Workflow Steps */}
-      <div
-        style={{
-          backgroundColor: "white",
-          padding: "1.5rem",
-          borderRadius: "8px",
-          marginBottom: "2rem",
+          padding: "1rem",
+          borderRadius: 8,
           border: "1px solid #e1e5e9",
         }}
       >
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
+            justifyContent: "flex-end",
             marginBottom: "1rem",
           }}
         >
-          <h2 style={{ fontSize: "1.25rem", margin: 0 }}>Workflow Steps</h2>
           <button
             onClick={addStep}
             style={{
-              padding: "0.5rem 1rem",
+              padding: "0.4rem 0.9rem",
               backgroundColor: "#10b981",
               color: "white",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: 6,
               cursor: "pointer",
-              fontSize: "0.9rem",
             }}
           >
             ➕ Add Step
           </button>
         </div>
 
-        <div
-          style={{
-            marginBottom: "1rem",
-            padding: "1rem",
-            backgroundColor: "#f3f4f6",
-            borderRadius: "4px",
-          }}
-        >
-          <p style={{ margin: 0, fontSize: "0.9rem", color: "#666" }}>
-            💡 <strong>Tip:</strong> Drag steps to reorder them. Required steps
-            must be completed for songs to be marked as finished.
-          </p>
-        </div>
-
         {editingSteps.map((step, index) => (
           <div
-            key={step.step_name || index}
+            key={step._localId || index}
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             style={{
               border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              padding: "1rem",
-              marginBottom: "0.75rem",
-              backgroundColor: step.is_enabled ? "white" : "#f9fafb",
-              opacity: step.is_enabled ? 1 : 0.7,
+              borderRadius: 6,
+              padding: "0.75rem",
+              marginBottom: "0.6rem",
+              backgroundColor: "white",
               cursor: "move",
-              transition: "all 0.2s",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                marginBottom: "0.75rem",
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div
                 style={{
                   backgroundColor: "#6b7280",
                   color: "white",
-                  width: "24px",
-                  height: "24px",
+                  minWidth: 24,
+                  height: 24,
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: "0.8rem",
-                  cursor: "grab",
+                  fontSize: 12,
                 }}
               >
                 {index + 1}
@@ -359,100 +259,28 @@ const WorkflowSettings = () => {
                 placeholder="Step name"
                 style={{
                   flex: 1,
-                  padding: "0.5rem",
+                  padding: "0.4rem 0.6rem",
                   border: "1px solid #d1d5db",
-                  borderRadius: "4px",
+                  borderRadius: 6,
                   fontSize: "1rem",
-                  fontWeight: "500",
                 }}
               />
-
-              <select
-                value={step.category || ""}
-                onChange={(e) => updateStep(index, "category", e.target.value)}
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <option value="">No category</option>
-                <option value="preparation">Preparation</option>
-                <option value="tracking">Tracking</option>
-                <option value="authoring">Authoring</option>
-                <option value="production">Production</option>
-                <option value="media">Media</option>
-                <option value="finishing">Finishing</option>
-                <option value="custom">Custom</option>
-              </select>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={step.is_required}
-                  onChange={(e) =>
-                    updateStep(index, "is_required", e.target.checked)
-                  }
-                />
-                Required
-              </label>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={step.is_enabled}
-                  onChange={(e) =>
-                    updateStep(index, "is_enabled", e.target.checked)
-                  }
-                />
-                Enabled
-              </label>
 
               <button
                 onClick={() => deleteStep(index)}
                 style={{
-                  padding: "0.5rem",
+                  padding: "0.4rem 0.6rem",
                   backgroundColor: "#ef4444",
                   color: "white",
                   border: "none",
-                  borderRadius: "4px",
+                  borderRadius: 6,
                   cursor: "pointer",
-                  fontSize: "0.8rem",
+                  fontSize: "0.85rem",
                 }}
               >
                 🗑️
               </button>
             </div>
-
-            <input
-              type="text"
-              value={step.description || ""}
-              onChange={(e) => updateStep(index, "description", e.target.value)}
-              placeholder="Optional description for this step"
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #d1d5db",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-                color: "#666",
-              }}
-            />
           </div>
         ))}
 
@@ -460,10 +288,10 @@ const WorkflowSettings = () => {
           <div
             style={{
               textAlign: "center",
-              padding: "2rem",
+              padding: "1.25rem",
               color: "#666",
               border: "2px dashed #d1d5db",
-              borderRadius: "6px",
+              borderRadius: 6,
             }}
           >
             No workflow steps. Click "Add Step" to get started.
@@ -471,8 +299,14 @@ const WorkflowSettings = () => {
         )}
       </div>
 
-      {/* Save Button */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "0.75rem",
+          marginTop: 12,
+        }}
+      >
         <button
           onClick={() => {
             setEditingSteps([...workflow.steps]);
@@ -480,13 +314,12 @@ const WorkflowSettings = () => {
           }}
           disabled={saving}
           style={{
-            padding: "0.75rem 1.5rem",
+            padding: "0.6rem 1.1rem",
             backgroundColor: "#6b7280",
             color: "white",
             border: "none",
-            borderRadius: "4px",
+            borderRadius: 6,
             cursor: "pointer",
-            fontSize: "1rem",
           }}
         >
           Reset Changes
@@ -496,13 +329,12 @@ const WorkflowSettings = () => {
           onClick={saveWorkflow}
           disabled={saving}
           style={{
-            padding: "0.75rem 1.5rem",
+            padding: "0.6rem 1.1rem",
             backgroundColor: saving ? "#9ca3af" : "#10b981",
             color: "white",
             border: "none",
-            borderRadius: "4px",
+            borderRadius: 6,
             cursor: saving ? "not-allowed" : "pointer",
-            fontSize: "1rem",
           }}
         >
           {saving ? "💾 Saving..." : "💾 Save Workflow"}

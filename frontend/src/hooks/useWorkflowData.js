@@ -51,8 +51,6 @@ export const useWorkflowData = (user) => {
         "Failed to load user workflow, falling back to static fields:",
         error
       );
-      // For now, we'll fall back to static fields
-      // In the future, this should create a default workflow for the user
       setError(error);
       setUserWorkflow(null);
     } finally {
@@ -60,72 +58,47 @@ export const useWorkflowData = (user) => {
     }
   };
 
-  // Dynamic authoring fields based on user's workflow
+  // Dynamic authoring fields based on user's workflow (simplified)
   const authoringFields = useMemo(() => {
     if (!userWorkflow || !userWorkflow.steps) {
       return fallbackAuthoringFields;
     }
 
     return userWorkflow.steps
-      .filter((step) => step.is_enabled)
+      .slice()
       .sort((a, b) => a.order_index - b.order_index)
       .map((step) => step.step_name);
   }, [userWorkflow, fallbackAuthoringFields]);
 
-  // Get workflow step display information
+  // Get workflow step display information (simplified)
   const getStepDisplayInfo = useMemo(() => {
     if (!userWorkflow || !userWorkflow.steps) {
-      // Return fallback display info
       return (stepName) => {
         const displayName = stepName
           .split("_")
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join(" ");
 
-        return {
-          displayName,
-          description: null,
-          category: null,
-          isRequired: true,
-        };
+        return { displayName };
       };
     }
 
     const stepMap = new Map(
       userWorkflow.steps.map((step) => [
         step.step_name,
-        {
-          displayName: step.display_name,
-          description: step.description,
-          category: step.category,
-          isRequired: step.is_required,
-        },
+        { displayName: step.display_name },
       ])
     );
 
     return (stepName) => {
-      return (
-        stepMap.get(stepName) || {
-          displayName: stepName,
-          description: null,
-          category: null,
-          isRequired: true,
-        }
-      );
+      return stepMap.get(stepName) || { displayName: stepName };
     };
   }, [userWorkflow]);
 
-  // Get required steps only
+  // All steps are required in simplified model
   const requiredAuthoringFields = useMemo(() => {
-    if (!userWorkflow || !userWorkflow.steps) {
-      return fallbackAuthoringFields; // Assume all fallback fields are required
-    }
-
-    return userWorkflow.steps
-      .filter((step) => step.is_enabled && step.is_required)
-      .sort((a, b) => a.order_index - b.order_index)
-      .map((step) => step.step_name);
-  }, [userWorkflow, fallbackAuthoringFields]);
+    return authoringFields;
+  }, [authoringFields]);
 
   // Check if a song is complete based on the user's workflow
   const isSongComplete = useMemo(() => {
@@ -152,26 +125,10 @@ export const useWorkflowData = (user) => {
     };
   }, [authoringFields]);
 
-  // Group steps by category for better display
+  // No categories in simplified model
   const getStepsByCategory = useMemo(() => {
-    if (!userWorkflow || !userWorkflow.steps) {
-      return { "": authoringFields }; // Return all fields in default category
-    }
-
-    const grouped = {};
-    userWorkflow.steps
-      .filter((step) => step.is_enabled)
-      .sort((a, b) => a.order_index - b.order_index)
-      .forEach((step) => {
-        const category = step.category || "Other";
-        if (!grouped[category]) {
-          grouped[category] = [];
-        }
-        grouped[category].push(step.step_name);
-      });
-
-    return grouped;
-  }, [userWorkflow, authoringFields]);
+    return { "": authoringFields };
+  }, [authoringFields]);
 
   // Refresh workflow data
   const refreshWorkflow = async () => {
@@ -200,4 +157,3 @@ export const useWorkflowData = (user) => {
     isUsingFallback,
   };
 };
-

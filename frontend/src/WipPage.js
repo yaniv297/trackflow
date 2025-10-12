@@ -426,7 +426,7 @@ function WipPage() {
     setAlertConfig({
       isOpen: true,
       title: "Release Pack",
-      message: `Are you sure you want to release "${pack}"? This will move completed songs to "Released" status and move incomplete optional songs back to "Future Plans" with a new pack name.`,
+      message: `Are you sure you want to release "${pack}"? This will move completed songs to "Released" status and move incomplete optional songs back to "Future Plans" with a new pack name. Any album series associated with this pack will also be released and assigned a series number.`,
       type: "warning",
       onConfirm: async () => {
         try {
@@ -441,8 +441,12 @@ function WipPage() {
 
           // Handle the response
           if (response.details) {
-            const { completed_songs, optional_songs, optional_pack_name } =
-              response.details;
+            const {
+              completed_songs,
+              optional_songs,
+              optional_pack_name,
+              released_series,
+            } = response.details;
 
             // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
             setSongs((prev) =>
@@ -458,6 +462,12 @@ function WipPage() {
             }
             if (optional_songs > 0) {
               message += ` ${optional_songs} optional song(s) moved to Future Plans in pack "${optional_pack_name}".`;
+            }
+            if (released_series && released_series.length > 0) {
+              const seriesInfo = released_series
+                .map((s) => `#${s.series_number} ${s.name}`)
+                .join(", ");
+              message += ` Album series ${seriesInfo} released!`;
             }
 
             window.showNotification(message, "success");

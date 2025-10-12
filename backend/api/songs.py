@@ -4,10 +4,11 @@ from sqlalchemy import or_, func
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring, Artist
+from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Artist
 from api.auth import get_current_active_user
 from typing import Optional
 from typing import List
+from datetime import datetime
 
 router = APIRouter(prefix="/songs", tags=["Songs"])
 
@@ -643,23 +644,54 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
             song.status = SongStatus.future
             song.pack_id = optional_pack.id
     
+    # Check if any completed songs belong to album series and auto-release them
+    album_series_ids = set()
+    for song in completed_songs:
+        if song.album_series_id:
+            album_series_ids.add(song.album_series_id)
+    
+    released_series = []
+    for series_id in album_series_ids:
+        series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+        if series and series.status != "released":
+            # Find the next available series number
+            max_series_number = db.query(AlbumSeries.series_number).filter(
+                AlbumSeries.series_number.isnot(None)
+            ).order_by(AlbumSeries.series_number.desc()).first()
+            
+            next_series_number = 1 if max_series_number is None else max_series_number[0] + 1
+            
+            # Update series
+            series.series_number = next_series_number
+            series.status = "released"
+            series.updated_at = datetime.utcnow()
+            
+            released_series.append({
+                "name": f"{series.artist_name} - {series.album_name}",
+                "series_number": next_series_number
+            })
+    
     db.commit()
     
     # Prepare response message
     completed_count = len(completed_songs)
     optional_count = len(optional_songs)
     
-    if optional_count > 0:
-        return {
-            "message": f"Released pack: {pack_name}",
-            "details": {
-                "completed_songs": completed_count,
-                "optional_songs": optional_count,
-                "optional_pack_name": f"{pack_name} Optional Songs"
-            }
-        }
-    else:
-        return {"message": f"Released pack: {pack_name}"}
+    response = {
+        "message": f"Released pack: {pack_name}",
+    }
+    
+    if optional_count > 0 or released_series:
+        response["details"] = {}
+        if completed_count > 0:
+            response["details"]["completed_songs"] = completed_count
+        if optional_count > 0:
+            response["details"]["optional_songs"] = optional_count
+            response["details"]["optional_pack_name"] = f"{pack_name} Optional Songs"
+        if released_series:
+            response["details"]["released_series"] = released_series
+    
+    return response
 
 @router.post("/bulk-delete")
 def bulk_delete(data: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):

@@ -399,6 +399,14 @@ export default function WipSongCard({
     [editValues.artist, editValues.album].filter(Boolean).join(" ")
   )}`;
 
+  // Genius lyrics search (Artist Title)
+  const geniusQuery = [editValues.artist, editValues.title]
+    .filter(Boolean)
+    .join(" ");
+  const geniusUrl = `https://genius.com/search?q=${encodeURIComponent(
+    geniusQuery
+  )}`;
+
   return (
     <div
       className="WipSongCard"
@@ -510,6 +518,31 @@ export default function WipSongCard({
                     >
                       W
                     </span>
+                  </a>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <a
+                    href={geniusUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Search lyrics on Genius"
+                    style={{
+                      textDecoration: "none",
+                      color: "#ffdd00",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Genius bolt-like icon */}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 2l-2 7h3l-3 13 8-10h-4l6-10z" />
+                    </svg>
                   </a>
                   <span style={{ color: "#ccc" }}>|</span>
                   <a

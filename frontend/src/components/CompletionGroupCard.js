@@ -1,0 +1,74 @@
+import React from "react";
+import WipSongCard from "./WipSongCard";
+
+const CompletionGroupCard = ({
+  categoryName,
+  songs,
+  isCollapsed,
+  onToggle,
+  user,
+  authoringFields,
+  selectedSongs,
+  // Action handlers
+  onUpdateAuthoringField,
+  onToggleOptional,
+  onDeleteSong,
+  onSongUpdate,
+}) => {
+  if (!songs || songs.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: "1.5rem" }}>
+      {/* Category Header - match pack view styling */}
+      <h4
+        onClick={onToggle}
+        style={{
+          marginTop: "0",
+          marginBottom: "1rem",
+          color: "#6c757d",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <span>{isCollapsed ? "▶" : "▼"}</span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.4rem",
+          }}
+        >
+          {categoryName}
+          <span style={{ color: "#666", fontWeight: 400 }}>
+            ({songs.length} {songs.length === 1 ? "song" : "songs"})
+          </span>
+        </span>
+      </h4>
+
+      {/* Songs List */}
+      {!isCollapsed && (
+        <div>
+          {songs.map((song) => (
+            <WipSongCard
+              key={song.id}
+              song={song}
+              showPackName={true}
+              onAuthoringUpdate={(field, value) =>
+                onUpdateAuthoringField(song.id, field, value)
+              }
+              onDelete={() => onDeleteSong(song.id)}
+              onToggleOptional={() => onToggleOptional(song.id)}
+              defaultExpanded={false}
+              readOnly={song.user_id !== user?.id}
+              onSongUpdate={onSongUpdate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CompletionGroupCard;

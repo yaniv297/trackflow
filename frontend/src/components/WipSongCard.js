@@ -17,6 +17,7 @@ export default function WipSongCard({
   defaultExpanded,
   readOnly = false,
   onSongUpdate,
+  showPackName = false,
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -455,61 +456,21 @@ export default function WipSongCard({
                 </>
               )}
             </div>
-          </div>
 
-          <div style={{ textAlign: "right", minWidth: 150 }}>
-            <div
-              style={{
-                background: "#eee",
-                borderRadius: 6,
-                height: 10,
-                overflow: "hidden",
-                marginBottom: 4,
-              }}
-            >
+            {showPackName && song.pack_name && (
               <div
                 style={{
-                  background: percent === 100 ? "#2ecc71" : "#3498db",
-                  width: `${percent}%`,
-                  height: "100%",
+                  fontSize: "0.85rem",
+                  color: "#999",
+                  marginTop: "0.2rem",
                 }}
-              />
-            </div>
-            <small style={{ fontSize: "0.8rem", color: "#444" }}>
-              {filled} / {safeParts.length} parts
-            </small>
-            {!isComplete && !readOnly && (
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  marginLeft: "0.7rem",
-                  fontSize: "0.89rem",
-                  color: "#bbb",
-                  cursor: "pointer",
-                  fontWeight: 400,
-                }}
-                title={
-                  isOptional ? "This song is optional" : "This song is core"
-                }
               >
-                <input
-                  type="checkbox"
-                  checked={isOptional}
-                  onChange={() => onToggleOptional(song.id, isOptional)}
-                  style={{
-                    marginRight: "0.25em",
-                    accentColor: "#b0c4de",
-                    width: "0.95em",
-                    height: "0.95em",
-                  }}
-                />
-                Optional
-              </label>
+                Pack: {song.pack_name}
+              </div>
             )}
           </div>
 
-          {/* File History Button - For collaborative songs or finished songs */}
+          {/* File History Button placed before the progress bar for alignment */}
           {!readOnly && (wipCollaborations.length > 0 || isFinished) && (
             <div style={{ position: "relative", marginRight: "0.5rem" }}>
               <button
@@ -564,6 +525,60 @@ export default function WipSongCard({
               )}
             </div>
           )}
+
+          <div style={{ textAlign: "right", minWidth: 150 }}>
+            <div
+              style={{
+                background: "#eee",
+                borderRadius: 6,
+                height: 10,
+                overflow: "hidden",
+                marginBottom: 4,
+              }}
+            >
+              <div
+                style={{
+                  background: percent === 100 ? "#2ecc71" : "#3498db",
+                  width: `${percent}%`,
+                  height: "100%",
+                }}
+              />
+            </div>
+            <small style={{ fontSize: "0.8rem", color: "#444" }}>
+              {filled} / {safeParts.length} parts
+            </small>
+            {!isComplete && !readOnly && (
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  marginLeft: "0.7rem",
+                  fontSize: "0.89rem",
+                  color: "#bbb",
+                  cursor: "pointer",
+                  fontWeight: 400,
+                }}
+                title={
+                  isOptional ? "This song is optional" : "This song is core"
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={isOptional}
+                  onChange={() => onToggleOptional(song.id, isOptional)}
+                  style={{
+                    marginRight: "0.25em",
+                    accentColor: "#b0c4de",
+                    width: "0.95em",
+                    height: "0.95em",
+                  }}
+                />
+                Optional
+              </label>
+            )}
+          </div>
+
+          {/* File History Button moved left of progress bar */}
 
           {!readOnly && song.user_id === currentUser?.id && (
             <div style={{ position: "relative" }} data-actions-dropdown>

@@ -1,9 +1,55 @@
 import React from "react";
 
-const WipPageHeader = ({ grouped, collapsedPacks, onToggleAll }) => {
+const WipPageHeader = ({
+  grouped,
+  collapsedPacks,
+  onToggleAll,
+  viewMode,
+  onViewModeChange,
+}) => {
   return (
     <>
-      <h2>🧪 WIP Packs</h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+        }}
+      >
+        <h2>🧪 WIP Packs</h2>
+
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button
+            onClick={() => onViewModeChange("pack")}
+            style={{
+              backgroundColor: viewMode === "pack" ? "#5a8fcf" : "#eee",
+              color: viewMode === "pack" ? "white" : "#333",
+              border: "1px solid #ccc",
+              padding: "0.5rem 1rem",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: viewMode === "pack" ? "bold" : "normal",
+            }}
+          >
+            📦 By Pack
+          </button>
+          <button
+            onClick={() => onViewModeChange("completion")}
+            style={{
+              backgroundColor: viewMode === "completion" ? "#5a8fcf" : "#eee",
+              color: viewMode === "completion" ? "white" : "#333",
+              border: "1px solid #ccc",
+              padding: "0.5rem 1rem",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: viewMode === "completion" ? "bold" : "normal",
+            }}
+          >
+            📊 By Completion
+          </button>
+        </div>
+      </div>
 
       <button
         onClick={onToggleAll}
@@ -16,7 +62,11 @@ const WipPageHeader = ({ grouped, collapsedPacks, onToggleAll }) => {
           cursor: "pointer",
         }}
       >
-        {grouped.every(({ pack }) => collapsedPacks[pack])
+        {viewMode === "pack"
+          ? grouped.every(({ pack }) => collapsedPacks[pack])
+            ? "🔽 Expand All"
+            : "🔼 Collapse All"
+          : Object.values(collapsedPacks).every((v) => v)
           ? "🔽 Expand All"
           : "🔼 Collapse All"}
       </button>

@@ -145,6 +145,7 @@ function WipPage() {
 
   // UI State
   const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
+  const [searchQuery, setSearchQuery] = useState("");
   const [newSongData, setNewSongData] = useState({});
   const [showAddForm, setShowAddForm] = useState(null);
   const [selectedSongs, setSelectedSongs] = useState([]);
@@ -203,7 +204,15 @@ function WipPage() {
     const collaboratorSongs = [];
     const optionalCollaboratorSongs = [];
 
-    songs.forEach((song) => {
+    const matchesSearch = (s) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.trim().toLowerCase();
+      return [s.title, s.artist, s.album, s.pack_name]
+        .map((v) => (v || "").toString().toLowerCase())
+        .some((v) => v.includes(q));
+    };
+
+    songs.filter(matchesSearch).forEach((song) => {
       const isOwner = song.user_id === user?.id;
       const completionPercent = getCompletionPercent(song);
 
@@ -237,7 +246,30 @@ function WipPage() {
       collaboratorSongs,
       optionalCollaboratorSongs,
     };
-  }, [songs, authoringFields, user]);
+  }, [songs, authoringFields, user, searchQuery]);
+
+  // Filtered packs for Pack view based on search
+  const filteredGrouped = useMemo(() => {
+    if (!searchQuery) return grouped;
+    const q = searchQuery.trim().toLowerCase();
+    const matches = (s) =>
+      [s.title, s.artist, s.album, s.pack_name]
+        .map((v) => (v || "").toString().toLowerCase())
+        .some((v) => v.includes(q));
+
+    return grouped
+      .map((packData) => {
+        const filteredCore = (packData.coreSongs || []).filter(matches);
+        const filteredAll = (packData.allSongs || []).filter(matches);
+        if (filteredAll.length === 0) return null;
+        return {
+          ...packData,
+          coreSongs: filteredCore,
+          allSongs: filteredAll,
+        };
+      })
+      .filter(Boolean);
+  }, [grouped, searchQuery]);
 
   // Option: open the edit modal after creating an album series
 
@@ -968,6 +1000,8 @@ function WipPage() {
         onToggleAll={toggleAll}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       {/* Loading Spinner */}
@@ -976,7 +1010,7 @@ function WipPage() {
       {/* Pack View */}
       {!loading &&
         viewMode === "pack" &&
-        grouped.map((packData) => (
+        (searchQuery ? filteredGrouped : grouped).map((packData) => (
           <WipPackCard
             key={packData.pack}
             packName={packData.pack}

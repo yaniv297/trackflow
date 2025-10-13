@@ -374,6 +374,31 @@ export default function WipSongCard({
     safeParts.length > 0 ? Math.round((filled / safeParts.length) * 100) : 0;
   const isComplete = safeParts.length > 0 && filled === safeParts.length;
 
+  // Build external links for album
+  // Wikipedia prefers the canonical title: "{Album} ({Artist} album)"
+  const wikipediaTitle = [
+    editValues.album,
+    editValues.artist ? `(${editValues.artist} album)` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const wikipediaUrl = `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(
+    wikipediaTitle
+  )}`;
+
+  // Apple Music search for "Artist Album"
+  const appleMusicQuery = [editValues.artist, editValues.album]
+    .filter(Boolean)
+    .join(" ");
+  const appleMusicUrl = `https://music.apple.com/search?term=${encodeURIComponent(
+    appleMusicQuery
+  )}&media=music`;
+
+  // Spotify search
+  const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(
+    [editValues.artist, editValues.album].filter(Boolean).join(" ")
+  )}`;
+
   return (
     <div
       className="WipSongCard"
@@ -441,8 +466,98 @@ export default function WipSongCard({
               {/* Removed optional/core toggle from header */}
             </div>
 
-            <div style={{ fontSize: "0.9rem", color: "#888" }}>
+            <div
+              style={{
+                fontSize: "0.9rem",
+                color: "#888",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+              }}
+            >
               {renderEditable("album")}
+              {/* External links: Wikipedia, Apple Music, Spotify */}
+              {editValues.album && (
+                <>
+                  <a
+                    href={wikipediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open on Wikipedia"
+                    style={{
+                      textDecoration: "none",
+                      color: "#3366cc",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Wikipedia badge: circular W glyph */}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        border: "1px solid #3366cc",
+                        fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                        fontWeight: 700,
+                        fontSize: 11,
+                        lineHeight: 1,
+                      }}
+                    >
+                      W
+                    </span>
+                  </a>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <a
+                    href={appleMusicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open on Apple Music"
+                    style={{
+                      textDecoration: "none",
+                      color: "#000", // neutral black like Apple's glyph
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Apple logo glyph */}
+                  </a>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <a
+                    href={spotifyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open on Spotify"
+                    style={{
+                      textDecoration: "none",
+                      color: "#1DB954",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Simple Spotify circle with waves */}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path
+                        fill="#fff"
+                        d="M7 14c3-.8 7-.6 9.5.6.4.2.9 0 1.1-.4.2-.4 0-.9-.4-1.1C14.6 12.8 10.7 12.6 7.4 13.5c-.5.1-.8.6-.7 1 .1.4.6.7 1 .5zM7 11.3c3.5-1 8-0.8 11 .7.4.2.9 0 1.1-.4.2-.4 0-.9-.4-1.1-3.3-1.7-8.3-1.9-12.1-.8-.4.1-.7.6-.6 1 .1.4.6.7 1 .6z"
+                      />
+                    </svg>
+                  </a>
+                </>
+              )}
               {editValues.year && (
                 <>
                   {" "}

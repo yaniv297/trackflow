@@ -6,6 +6,8 @@ const WipPageHeader = ({
   onToggleAll,
   viewMode,
   onViewModeChange,
+  searchQuery,
+  onSearchChange,
 }) => {
   return (
     <>
@@ -15,11 +17,25 @@ const WipPageHeader = ({
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "1rem",
+          gap: "1rem",
         }}
       >
         <h2>🧪 WIP Packs</h2>
 
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search title, artist, album, pack..."
+            style={{
+              padding: "0.5rem 0.75rem",
+              border: "1px solid #ccc",
+              borderRadius: "6px",
+              minWidth: 260,
+            }}
+          />
+
           <button
             onClick={() => onViewModeChange("pack")}
             style={{

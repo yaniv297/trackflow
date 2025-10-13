@@ -407,6 +407,14 @@ export default function WipSongCard({
     geniusQuery
   )}`;
 
+  // Google search (Artist Album)
+  const googleQuery = [editValues.artist, editValues.album]
+    .filter(Boolean)
+    .join(" ");
+  const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(
+    googleQuery
+  )}`;
+
   return (
     <div
       className="WipSongCard"
@@ -542,6 +550,33 @@ export default function WipSongCard({
                       aria-hidden="true"
                     >
                       <path d="M12 2l-2 7h3l-3 13 8-10h-4l6-10z" />
+                    </svg>
+                  </a>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <a
+                    href={googleUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Google search"
+                    style={{
+                      textDecoration: "none",
+                      color: "#4285F4",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Simple Google G */}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="#4285F4"
+                        d="M21.35 11.1h-8.9v2.96h5.2c-.23 1.27-1.57 3.73-5.2 3.73-3.13 0-5.68-2.59-5.68-5.78s2.55-5.78 5.68-5.78c1.78 0 2.96.75 3.64 1.39l2.48-2.39C17.19 3.8 15.2 3 13.05 3 7.99 3 3.88 7.03 3.88 12s4.11 9 9.17 9c5.3 0 8.8-3.72 8.8-8.97 0-.6-.06-1.06-.15-1.93z"
+                      />
                     </svg>
                   </a>
                   <span style={{ color: "#ccc" }}>|</span>

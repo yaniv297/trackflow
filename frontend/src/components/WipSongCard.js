@@ -415,6 +415,14 @@ export default function WipSongCard({
     googleQuery
   )}`;
 
+  // Ultimate Guitar search (Artist Title)
+  const ultimateGuitarQuery = [editValues.artist, editValues.title]
+    .filter(Boolean)
+    .join(" ");
+  const ultimateGuitarUrl = `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(
+    ultimateGuitarQuery
+  )}`;
+
   return (
     <div
       className="WipSongCard"
@@ -631,6 +639,31 @@ export default function WipSongCard({
                         fill="#fff"
                         d="M7 14c3-.8 7-.6 9.5.6.4.2.9 0 1.1-.4.2-.4 0-.9-.4-1.1C14.6 12.8 10.7 12.6 7.4 13.5c-.5.1-.8.6-.7 1 .1.4.6.7 1 .5zM7 11.3c3.5-1 8-0.8 11 .7.4.2.9 0 1.1-.4.2-.4 0-.9-.4-1.1-3.3-1.7-8.3-1.9-12.1-.8-.4.1-.7.6-.6 1 .1.4.6.7 1 .6z"
                       />
+                    </svg>
+                  </a>
+                  <span style={{ color: "#ccc" }}>|</span>
+                  <a
+                    href={ultimateGuitarUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Search on Ultimate Guitar"
+                    style={{
+                      textDecoration: "none",
+                      color: "#FF6B35",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Guitar icon */}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M19.59 3.59c-.38-.38-.89-.59-1.42-.59H5.83c-.53 0-1.04.21-1.42.59L2.59 5.41c-.38.38-.59.89-.59 1.42v10.34c0 .53.21 1.04.59 1.42l1.82 1.82c.38.38.89.59 1.42.59h12.34c.53 0 1.04-.21 1.42-.59l1.82-1.82c.38-.38.59-.89.59-1.42V6.83c0-.53-.21-1.04-.59-1.42L19.59 3.59zM12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
                     </svg>
                   </a>
                 </>

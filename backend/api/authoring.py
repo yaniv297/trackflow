@@ -99,12 +99,7 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
                 ),
                 {"song_id": song.id, "step_name": step_name, "is_completed": 1 if is_completed else 0},
             )
-        # Mirror to legacy boolean if such a column exists
-        try:
-            if hasattr(song.authoring, step_name):
-                setattr(song.authoring, step_name, is_completed)
-        except Exception:
-            pass
+        # Note: Legacy authoring table mirroring removed as it's a view
     
     db.commit()
     db.refresh(song)
@@ -171,8 +166,7 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
             ),
             {"sid": song.id, "step": step},
         )
-        if hasattr(song.authoring, step):
-            setattr(song.authoring, step, True)
+        # Note: Legacy authoring table mirroring removed as it's a view
 
     db.commit()
     db.refresh(song)

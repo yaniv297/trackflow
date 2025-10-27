@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
+import { useWorkflowData } from "./hooks/useWorkflowData";
 import WipPageHeader from "./components/WipPageHeader";
 import WipPackCard from "./components/WipPackCard";
 import CompletionGroupCard from "./components/CompletionGroupCard";
@@ -136,12 +137,14 @@ function WipPage() {
     collapsedPacks,
     setCollapsedPacks,
     grouped,
-    authoringFields,
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
     loading,
   } = useWipData(user);
+
+  // Get dynamic workflow fields for the current user
+  const { authoringFields } = useWorkflowData(user);
 
   // UI State
   const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
@@ -387,6 +390,8 @@ function WipPage() {
 
   // Song Management
   const updateAuthoringField = (songId, field, value) => {
+    console.log(`Updating field ${field} to ${value} for song ${songId}`);
+
     setSongs((prev) => {
       const updated = prev.map((song) =>
         song.id === songId
@@ -402,12 +407,33 @@ function WipPage() {
         (f) => song.authoring?.[f] === true
       );
 
+      // Debug logging
+      console.log(`Song ${songId} (${song.title}):`, {
+        completedFields: completedFields.length,
+        totalFields: authoringFields.length,
+        authoring: song.authoring,
+        isComplete: completedFields.length === authoringFields.length,
+        workflowFields: authoringFields,
+        fieldStatus: authoringFields.map((field) => ({
+          field,
+          value: song.authoring?.[field],
+          isCompleted: song.authoring?.[field] === true,
+        })),
+      });
+
       apiPut(`/authoring/${songId}`, { [field]: value }).catch((error) => {
         console.error("Failed to update authoring field:", error);
       });
 
       if (completedFields.length === authoringFields.length) {
+        console.log(`🎉 Song ${songId} (${song.title}) is now complete!`);
         setFireworksTrigger((prev) => prev + 1);
+
+        // Show completion notification (song stays in "In Progress" until pack is released)
+        window.showNotification(
+          `🎉 "${song.title}" is now complete! Ready for pack release.`,
+          "success"
+        );
       }
 
       return updated;
@@ -778,7 +804,7 @@ function WipPage() {
       return;
     }
 
-    const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
+    const [secondAlbumName] = albumsToChooseFrom[0];
     const songsInSecondAlbum = packSongs.filter(
       (song) => song.album === secondAlbumName
     );
@@ -808,13 +834,8 @@ function WipPage() {
 
     setIsExecutingDoubleAlbumSeries(true);
 
-    const {
-      packName,
-      secondAlbumName,
-      songsToMove,
-      newPackName,
-      mostCommonArtist,
-    } = doubleAlbumSeriesData;
+    const { secondAlbumName, songsToMove, newPackName, mostCommonArtist } =
+      doubleAlbumSeriesData;
 
     try {
       // Update all songs from the second album to the new pack
@@ -974,7 +995,7 @@ function WipPage() {
         return;
       }
 
-      const created = await apiPost("/album-series/", {
+      await apiPost("/album-series/", {
         pack_id: packId,
         artist_name: albumSeriesForm.artist_name,
         album_name: albumSeriesForm.album_name,

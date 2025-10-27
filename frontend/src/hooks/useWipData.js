@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiGet } from "../utils/api";
+import { useWorkflowData } from "./useWorkflowData";
 
 export const useWipData = (user) => {
   const [songs, setSongs] = useState([]);
@@ -8,26 +9,8 @@ export const useWipData = (user) => {
   const [collapsedPacks, setCollapsedPacks] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const authoringFields = useMemo(
-    () => [
-      "demucs",
-      "midi",
-      "tempo_map",
-      "fake_ending",
-      "drums",
-      "bass",
-      "guitar",
-      "vocals",
-      "harmonies",
-      "pro_keys",
-      "keys",
-      "animations",
-      "drum_fills",
-      "overdrive",
-      "compile",
-    ],
-    []
-  );
+  // Get dynamic workflow fields for the current user
+  const { authoringFields } = useWorkflowData(user);
 
   // Helper function to get list of collaborating users for a pack
   const getPackCollaborators = (packId, validSongsInPack) => {
@@ -156,9 +139,17 @@ export const useWipData = (user) => {
   const grouped = useMemo(() => {
     const getFilledCount = (song) => {
       if (!song.authoring) return 0;
-      return authoringFields.reduce((count, field) => {
+
+      // Only check fields that exist in both the workflow and the song's authoring data
+      const availableFields = authoringFields.filter(
+        (field) => song.authoring && song.authoring.hasOwnProperty(field)
+      );
+
+      const filledCount = availableFields.reduce((count, field) => {
         return count + (song.authoring[field] === true ? 1 : 0);
       }, 0);
+
+      return filledCount;
     };
 
     const groups = songs.reduce((acc, song) => {
@@ -173,7 +164,17 @@ export const useWipData = (user) => {
 
     const packStats = Object.entries(groups).map(([pack, songs]) => {
       const coreSongs = songs.filter((s) => !s.optional);
-      const totalParts = coreSongs.length * authoringFields.length;
+      const optionalSongs = songs.filter((s) => s.optional);
+
+      // Calculate total parts based on available fields for each song
+      const totalParts = coreSongs.reduce((total, song) => {
+        if (!song.authoring) return total;
+        const availableFields = authoringFields.filter(
+          (field) => song.authoring && song.authoring.hasOwnProperty(field)
+        );
+        return total + availableFields.length;
+      }, 0);
+
       const filledParts = coreSongs.reduce(
         (sum, song) => sum + song.filledCount,
         0
@@ -181,11 +182,37 @@ export const useWipData = (user) => {
       const percent =
         totalParts > 0 ? Math.round((filledParts / totalParts) * 100) : 0;
 
+      // Categorize songs within the pack
+      const completedSongs = coreSongs.filter((song) => {
+        if (!song.authoring) return false;
+        const availableFields = authoringFields.filter(
+          (field) => song.authoring && song.authoring.hasOwnProperty(field)
+        );
+        const filledCount = availableFields.reduce((count, field) => {
+          return count + (song.authoring[field] === true ? 1 : 0);
+        }, 0);
+        return filledCount === availableFields.length;
+      });
+
+      const inProgressSongs = coreSongs.filter((song) => {
+        if (!song.authoring) return true;
+        const availableFields = authoringFields.filter(
+          (field) => song.authoring && song.authoring.hasOwnProperty(field)
+        );
+        const filledCount = availableFields.reduce((count, field) => {
+          return count + (song.authoring[field] === true ? 1 : 0);
+        }, 0);
+        return filledCount < availableFields.length; // Only songs that are NOT complete
+      });
+
       return {
         pack,
         percent,
         coreSongs,
         allSongs: songs,
+        completedSongs,
+        inProgressSongs,
+        optionalSongs,
       };
     });
 

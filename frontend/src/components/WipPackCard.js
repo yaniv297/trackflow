@@ -8,6 +8,9 @@ const WipPackCard = ({
   percent,
   coreSongs,
   allSongs,
+  completedSongs,
+  inProgressSongs,
+  optionalSongs,
   collapsedPacks,
   user,
   grouped,
@@ -814,27 +817,11 @@ const WipPackCard = ({
           {/* Core Songs - Active (In Progress) */}
           {(() => {
             // Separate core songs into active and completed
-            const activeCoreSongs = sortedUserCoreSongs.filter((song) => {
-              const songFilledParts = authoringFields.reduce((count, field) => {
-                return count + (song.authoring?.[field] === true ? 1 : 0);
-              }, 0);
-              const songPercent =
-                authoringFields.length > 0
-                  ? Math.round((songFilledParts / authoringFields.length) * 100)
-                  : 0;
-              return songPercent < 100; // Not finished
-            });
+            // Use inProgressSongs from pack data instead of calculating
+            const activeCoreSongs = inProgressSongs || [];
 
-            const completedCoreSongs = sortedUserCoreSongs.filter((song) => {
-              const songFilledParts = authoringFields.reduce((count, field) => {
-                return count + (song.authoring?.[field] === true ? 1 : 0);
-              }, 0);
-              const songPercent =
-                authoringFields.length > 0
-                  ? Math.round((songFilledParts / authoringFields.length) * 100)
-                  : 0;
-              return songPercent === 100; // Finished
-            });
+            // Use completedSongs from pack data instead of calculating
+            const completedCoreSongs = completedSongs || [];
 
             return (
               <>

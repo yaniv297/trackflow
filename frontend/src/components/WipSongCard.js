@@ -30,6 +30,11 @@ export default function WipSongCard({
   };
   const [localAuthoring, setLocalAuthoring] = useState(song.authoring || {});
   const [progress, setProgress] = useState({}); // song_progress map: step -> boolean
+
+  // Update localAuthoring when song.authoring changes
+  useEffect(() => {
+    setLocalAuthoring(song.authoring || {});
+  }, [song.authoring]);
   const [spotifyOptions, setSpotifyOptions] = useState([]);
   const [loadingSpotify, setLoadingSpotify] = useState(false);
   const [editing, setEditing] = useState({});
@@ -355,9 +360,13 @@ export default function WipSongCard({
   };
 
   // For progress calculation, use song_progress if present, else legacy
-  const safeParts = fields;
+  // SIMPLE FIX: Use the same logic as the pack view
+  const availableFields = fields.filter(
+    (field) => song.authoring && song.authoring.hasOwnProperty(field)
+  );
+  const safeParts = availableFields;
   const filled = safeParts.filter((f) =>
-    progress.hasOwnProperty(f) ? progress[f] : localAuthoring?.[f]
+    progress.hasOwnProperty(f) ? progress[f] : song.authoring?.[f]
   ).length;
   const percent =
     safeParts.length > 0 ? Math.round((filled / safeParts.length) * 100) : 0;

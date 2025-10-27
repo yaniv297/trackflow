@@ -9,7 +9,7 @@ router = APIRouter(prefix="/stats", tags=["Stats"])
 
 @router.get("/")
 def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    included_statuses = [SongStatus.released, SongStatus.wip]
+    included_statuses = [SongStatus.released]
 
     # Build base filter for songs the user has access to (owner OR collaborator)
     song_access_filter = or_(
@@ -277,7 +277,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
 
 @router.get("/year/{year}/details")
 def get_year_details(year: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    included_statuses = [SongStatus.released, SongStatus.wip]
+    included_statuses = [SongStatus.released]
     
     # Build base filter for songs the user has access to (owner OR collaborator)
     song_access_filter = or_(

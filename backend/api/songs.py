@@ -4,10 +4,11 @@ from sqlalchemy import or_, func
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
-from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Authoring, Artist
+from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Artist
 from api.auth import get_current_active_user
 from typing import Optional
 from typing import List
+from datetime import datetime
 
 router = APIRouter(prefix="/songs", tags=["Songs"])
 
@@ -581,12 +582,26 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
 
 @router.post("/release-pack")
 def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    # Find the pack by name
+    # Find the pack by name (first check if user owns it)
     pack = db.query(Pack).filter(Pack.name == pack_name, Pack.user_id == current_user.id).first()
-    if not pack:
-        raise HTTPException(status_code=404, detail="Pack not found or not owned by user")
     
-    # Get all songs in this pack
+    # If user doesn't own it, check if they have PACK_EDIT collaboration permission
+    if not pack:
+        pack = db.query(Pack).filter(Pack.name == pack_name).first()
+        if not pack:
+            raise HTTPException(status_code=404, detail="Pack not found")
+        
+        # Check if user has PACK_EDIT permission on this pack
+        has_pack_edit = db.query(Collaboration).filter(
+            Collaboration.pack_id == pack.id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+        ).first()
+        
+        if not has_pack_edit:
+            raise HTTPException(status_code=403, detail="You don't have permission to release this pack")
+    
+    # Get ALL songs in this pack (regardless of who owns them)
     songs = db.query(Song).filter(Song.pack_id == pack.id).all()
     
     # Define authoring fields that need to be complete
@@ -618,22 +633,22 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
     
     # Handle optional songs
     if optional_songs:
-        # Create a new pack for optional songs
+        # Create a new pack for optional songs under the original pack owner's account
         optional_pack_name = f"{pack_name} Optional Songs"
         
-        # Check if optional pack already exists
+        # Check if optional pack already exists (under the original pack owner)
         existing_optional_pack = db.query(Pack).filter(
             Pack.name == optional_pack_name, 
-            Pack.user_id == current_user.id
+            Pack.user_id == pack.user_id
         ).first()
         
         if existing_optional_pack:
             optional_pack = existing_optional_pack
         else:
-            # Create new pack for optional songs
+            # Create new pack for optional songs under the original pack owner's account
             optional_pack = Pack(
                 name=optional_pack_name,
-                user_id=current_user.id
+                user_id=pack.user_id  # Use original pack owner, not current user
             )
             db.add(optional_pack)
             db.flush()  # Get the ID
@@ -643,23 +658,54 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
             song.status = SongStatus.future
             song.pack_id = optional_pack.id
     
+    # Check if any completed songs belong to album series and auto-release them
+    album_series_ids = set()
+    for song in completed_songs:
+        if song.album_series_id:
+            album_series_ids.add(song.album_series_id)
+    
+    released_series = []
+    for series_id in album_series_ids:
+        series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
+        if series and series.status != "released":
+            # Find the next available series number
+            max_series_number = db.query(AlbumSeries.series_number).filter(
+                AlbumSeries.series_number.isnot(None)
+            ).order_by(AlbumSeries.series_number.desc()).first()
+            
+            next_series_number = 1 if max_series_number is None else max_series_number[0] + 1
+            
+            # Update series
+            series.series_number = next_series_number
+            series.status = "released"
+            series.updated_at = datetime.utcnow()
+            
+            released_series.append({
+                "name": f"{series.artist_name} - {series.album_name}",
+                "series_number": next_series_number
+            })
+    
     db.commit()
     
     # Prepare response message
     completed_count = len(completed_songs)
     optional_count = len(optional_songs)
     
-    if optional_count > 0:
-        return {
-            "message": f"Released pack: {pack_name}",
-            "details": {
-                "completed_songs": completed_count,
-                "optional_songs": optional_count,
-                "optional_pack_name": f"{pack_name} Optional Songs"
-            }
-        }
-    else:
-        return {"message": f"Released pack: {pack_name}"}
+    response = {
+        "message": f"Released pack: {pack_name}",
+    }
+    
+    if optional_count > 0 or released_series:
+        response["details"] = {}
+        if completed_count > 0:
+            response["details"]["completed_songs"] = completed_count
+        if optional_count > 0:
+            response["details"]["optional_songs"] = optional_count
+            response["details"]["optional_pack_name"] = f"{pack_name} Optional Songs"
+        if released_series:
+            response["details"]["released_series"] = released_series
+    
+    return response
 
 @router.post("/bulk-delete")
 def bulk_delete(data: dict = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):

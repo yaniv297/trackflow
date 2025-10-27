@@ -211,16 +211,6 @@ export default function StatsPage() {
           value={stats.by_status["Released"] || 0}
           color="#28a745"
         />
-        <StatCard
-          title="Ready to Release"
-          value={stats.fully_ready_wips}
-          color="#ffc107"
-        />
-        <StatCard
-          title="In Progress"
-          value={stats.by_status["In Progress"] || 0}
-          color="#17a2b8"
-        />
         <StatCard title="Packs" value={stats.total_packs} color="#6f42c1" />
         <StatCard title="Artists" value={stats.total_artists} color="#fd7e14" />
         <StatCard
@@ -482,75 +472,6 @@ export default function StatsPage() {
                     )}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* AUTHORING PROGRESS */}
-      {stats.authoring_progress && (
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "12px",
-            padding: "1rem 1.5rem",
-            border: "1px solid #eee",
-            marginBottom: "2rem",
-          }}
-        >
-          <h3>🔧 WIP Progress</h3>
-          <div style={{ marginTop: "1rem" }}>
-            {Object.entries(stats.authoring_progress).map(([field, count]) => (
-              <div
-                key={field}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: "0.5rem",
-                  gap: "1rem",
-                }}
-              >
-                <div style={{ minWidth: "120px", fontWeight: "bold" }}>
-                  {field
-                    .replace(/_/g, " ")
-                    .replace(/\b\w/g, (l) => l.toUpperCase())}
-                </div>
-                <div
-                  style={{
-                    background: "#ddd",
-                    borderRadius: "4px",
-                    height: "20px",
-                    flex: 1,
-                    position: "relative",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "#28a745",
-                      width: `${Math.min(
-                        (count /
-                          Math.max(
-                            ...Object.values(stats.authoring_progress)
-                          )) *
-                          100,
-                        100
-                      )}%`,
-                      height: "100%",
-                      borderRadius: "4px",
-                      transition: "width 0.3s",
-                    }}
-                  />
-                </div>
-                <div
-                  style={{
-                    minWidth: "40px",
-                    textAlign: "right",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {count}
-                </div>
               </div>
             ))}
           </div>

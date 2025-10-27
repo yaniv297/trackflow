@@ -3,6 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
 import WipPageHeader from "./components/WipPageHeader";
 import WipPackCard from "./components/WipPackCard";
+import CompletionGroupCard from "./components/CompletionGroupCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
@@ -143,6 +144,8 @@ function WipPage() {
   } = useWipData(user);
 
   // UI State
+  const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
+  const [searchQuery, setSearchQuery] = useState("");
   const [newSongData, setNewSongData] = useState({});
   const [showAddForm, setShowAddForm] = useState(null);
   const [selectedSongs, setSelectedSongs] = useState([]);
@@ -179,6 +182,94 @@ function WipPage() {
   const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
   const [isExecutingDoubleAlbumSeries, setIsExecutingDoubleAlbumSeries] =
     useState(false);
+
+  // Group songs by completion status
+  const completionGroups = useMemo(() => {
+    const getFilledCount = (song) => {
+      if (!song.authoring) return 0;
+      return authoringFields.reduce((count, field) => {
+        return count + (song.authoring[field] === true ? 1 : 0);
+      }, 0);
+    };
+
+    const getCompletionPercent = (song) => {
+      const filledCount = getFilledCount(song);
+      return Math.round((filledCount / authoringFields.length) * 100);
+    };
+
+    // Separate songs by category
+    const completed = [];
+    const inProgress = [];
+    const optional = [];
+    const collaboratorSongs = [];
+    const optionalCollaboratorSongs = [];
+
+    const matchesSearch = (s) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.trim().toLowerCase();
+      return [s.title, s.artist, s.album, s.pack_name]
+        .map((v) => (v || "").toString().toLowerCase())
+        .some((v) => v.includes(q));
+    };
+
+    songs.filter(matchesSearch).forEach((song) => {
+      const isOwner = song.user_id === user?.id;
+      const completionPercent = getCompletionPercent(song);
+
+      if (!isOwner) {
+        // Songs by collaborators
+        if (song.optional) {
+          optionalCollaboratorSongs.push({ ...song, completionPercent });
+        } else {
+          collaboratorSongs.push({ ...song, completionPercent });
+        }
+      } else if (song.optional) {
+        // Optional songs by current user
+        optional.push({ ...song, completionPercent });
+      } else if (completionPercent === 100) {
+        // Completed songs
+        completed.push({ ...song, completionPercent });
+      } else {
+        // In progress songs
+        inProgress.push({ ...song, completionPercent });
+      }
+    });
+
+    // Sort in progress songs by completion percentage (descending)
+    inProgress.sort((a, b) => b.completionPercent - a.completionPercent);
+    collaboratorSongs.sort((a, b) => b.completionPercent - a.completionPercent);
+
+    return {
+      completed,
+      inProgress,
+      optional,
+      collaboratorSongs,
+      optionalCollaboratorSongs,
+    };
+  }, [songs, authoringFields, user, searchQuery]);
+
+  // Filtered packs for Pack view based on search
+  const filteredGrouped = useMemo(() => {
+    if (!searchQuery) return grouped;
+    const q = searchQuery.trim().toLowerCase();
+    const matches = (s) =>
+      [s.title, s.artist, s.album, s.pack_name]
+        .map((v) => (v || "").toString().toLowerCase())
+        .some((v) => v.includes(q));
+
+    return grouped
+      .map((packData) => {
+        const filteredCore = (packData.coreSongs || []).filter(matches);
+        const filteredAll = (packData.allSongs || []).filter(matches);
+        if (filteredAll.length === 0) return null;
+        return {
+          ...packData,
+          coreSongs: filteredCore,
+          allSongs: filteredAll,
+        };
+      })
+      .filter(Boolean);
+  }, [grouped, searchQuery]);
 
   // Option: open the edit modal after creating an album series
 
@@ -262,12 +353,36 @@ function WipPage() {
   };
 
   const toggleAll = () => {
-    const allCollapsed = grouped.every(({ pack }) => collapsedPacks[pack]);
-    const newState = {};
-    grouped.forEach(({ pack }) => {
-      newState[pack] = !allCollapsed;
-    });
-    setCollapsedPacks(newState);
+    if (viewMode === "pack") {
+      const allCollapsed = grouped.every(({ pack }) => collapsedPacks[pack]);
+      const newState = {};
+      grouped.forEach(({ pack }) => {
+        newState[pack] = !allCollapsed;
+      });
+      setCollapsedPacks(newState);
+    } else {
+      // Completion view
+      const categories = [
+        "completed",
+        "inProgress",
+        "optional",
+        "collaboratorSongs",
+        "optionalCollaboratorSongs",
+      ];
+      const allCollapsed = categories.every((cat) => collapsedPacks[cat]);
+      const newState = { ...collapsedPacks };
+      categories.forEach((cat) => {
+        newState[cat] = !allCollapsed;
+      });
+      setCollapsedPacks(newState);
+    }
+  };
+
+  const toggleCategory = (categoryName) => {
+    setCollapsedPacks((prev) => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }));
   };
 
   // Song Management
@@ -426,7 +541,7 @@ function WipPage() {
     setAlertConfig({
       isOpen: true,
       title: "Release Pack",
-      message: `Are you sure you want to release "${pack}"? This will move completed songs to "Released" status and move incomplete optional songs back to "Future Plans" with a new pack name.`,
+      message: `Are you sure you want to release "${pack}"? This will move completed songs to "Released" status and move incomplete optional songs back to "Future Plans" with a new pack name. Any album series associated with this pack will also be released and assigned a series number.`,
       type: "warning",
       onConfirm: async () => {
         try {
@@ -441,8 +556,12 @@ function WipPage() {
 
           // Handle the response
           if (response.details) {
-            const { completed_songs, optional_songs, optional_pack_name } =
-              response.details;
+            const {
+              completed_songs,
+              optional_songs,
+              optional_pack_name,
+              released_series,
+            } = response.details;
 
             // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
             setSongs((prev) =>
@@ -458,6 +577,12 @@ function WipPage() {
             }
             if (optional_songs > 0) {
               message += ` ${optional_songs} optional song(s) moved to Future Plans in pack "${optional_pack_name}".`;
+            }
+            if (released_series && released_series.length > 0) {
+              const seriesInfo = released_series
+                .map((s) => `#${s.series_number} ${s.name}`)
+                .join(", ");
+              message += ` Album series ${seriesInfo} released!`;
             }
 
             window.showNotification(message, "success");
@@ -873,13 +998,19 @@ function WipPage() {
         grouped={grouped}
         collapsedPacks={collapsedPacks}
         onToggleAll={toggleAll}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       {/* Loading Spinner */}
       {loading && <LoadingSpinner message="Loading WIP songs..." />}
 
+      {/* Pack View */}
       {!loading &&
-        grouped.map((packData) => (
+        viewMode === "pack" &&
+        (searchQuery ? filteredGrouped : grouped).map((packData) => (
           <WipPackCard
             key={packData.pack}
             packName={packData.pack}
@@ -919,6 +1050,86 @@ function WipPage() {
             userCollaborations={userCollaborations}
           />
         ))}
+
+      {/* Completion View */}
+      {!loading && viewMode === "completion" && (
+        <>
+          <CompletionGroupCard
+            categoryName="Completed Songs"
+            categoryIcon="✅"
+            songs={completionGroups.completed}
+            isCollapsed={collapsedPacks.completed !== false}
+            onToggle={() => toggleCategory("completed")}
+            user={user}
+            authoringFields={authoringFields}
+            selectedSongs={selectedSongs}
+            onUpdateAuthoringField={updateAuthoringField}
+            onToggleOptional={toggleOptional}
+            onDeleteSong={handleDeleteSong}
+            onSongUpdate={updateSongData}
+          />
+
+          <CompletionGroupCard
+            categoryName="In Progress"
+            categoryIcon="🚧"
+            songs={completionGroups.inProgress}
+            isCollapsed={collapsedPacks.inProgress !== false}
+            onToggle={() => toggleCategory("inProgress")}
+            user={user}
+            authoringFields={authoringFields}
+            selectedSongs={selectedSongs}
+            onUpdateAuthoringField={updateAuthoringField}
+            onToggleOptional={toggleOptional}
+            onDeleteSong={handleDeleteSong}
+            onSongUpdate={updateSongData}
+          />
+
+          <CompletionGroupCard
+            categoryName="Optional Songs"
+            categoryIcon="⭐"
+            songs={completionGroups.optional}
+            isCollapsed={collapsedPacks.optional !== false}
+            onToggle={() => toggleCategory("optional")}
+            user={user}
+            authoringFields={authoringFields}
+            selectedSongs={selectedSongs}
+            onUpdateAuthoringField={updateAuthoringField}
+            onToggleOptional={toggleOptional}
+            onDeleteSong={handleDeleteSong}
+            onSongUpdate={updateSongData}
+          />
+
+          <CompletionGroupCard
+            categoryName="Songs by Collaborators"
+            categoryIcon="👥"
+            songs={completionGroups.collaboratorSongs}
+            isCollapsed={collapsedPacks.collaboratorSongs !== false}
+            onToggle={() => toggleCategory("collaboratorSongs")}
+            user={user}
+            authoringFields={authoringFields}
+            selectedSongs={selectedSongs}
+            onUpdateAuthoringField={updateAuthoringField}
+            onToggleOptional={toggleOptional}
+            onDeleteSong={handleDeleteSong}
+            onSongUpdate={updateSongData}
+          />
+
+          <CompletionGroupCard
+            categoryName="Optional Songs by Collaborators"
+            categoryIcon="⭐👥"
+            songs={completionGroups.optionalCollaboratorSongs}
+            isCollapsed={collapsedPacks.optionalCollaboratorSongs !== false}
+            onToggle={() => toggleCategory("optionalCollaboratorSongs")}
+            user={user}
+            authoringFields={authoringFields}
+            selectedSongs={selectedSongs}
+            onUpdateAuthoringField={updateAuthoringField}
+            onToggleOptional={toggleOptional}
+            onDeleteSong={handleDeleteSong}
+            onSongUpdate={updateSongData}
+          />
+        </>
+      )}
 
       {/* Album Series Modal */}
       {showAlbumSeriesModal && (

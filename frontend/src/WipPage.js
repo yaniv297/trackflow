@@ -240,21 +240,24 @@ function WipPage() {
       const completionPercent = getCompletionPercent(song);
 
       if (!isOwner) {
-        // Songs by collaborators
+        // Songs by collaborators - only show if they have collaboration access
         if (song.optional) {
           optionalCollaboratorSongs.push({ ...song, completionPercent });
         } else {
           collaboratorSongs.push({ ...song, completionPercent });
         }
-      } else if (song.optional) {
-        // Optional songs by current user
-        optional.push({ ...song, completionPercent });
-      } else if (completionPercent === 100) {
-        // Completed songs
-        completed.push({ ...song, completionPercent });
       } else {
-        // In progress songs
-        inProgress.push({ ...song, completionPercent });
+        // Songs owned by current user
+        if (song.optional) {
+          // Optional songs by current user
+          optional.push({ ...song, completionPercent });
+        } else if (completionPercent === 100) {
+          // Completed songs by current user
+          completed.push({ ...song, completionPercent });
+        } else {
+          // In progress songs by current user
+          inProgress.push({ ...song, completionPercent });
+        }
       }
     });
 
@@ -1069,6 +1072,8 @@ function WipPage() {
             completedSongs={packData.completedSongs}
             inProgressSongs={packData.inProgressSongs}
             optionalSongs={packData.optionalSongs}
+            collaboratorSongs={packData.collaboratorSongs}
+            collaboratorOptionalSongs={packData.collaboratorOptionalSongs}
             collapsedPacks={collapsedPacks}
             user={user}
             grouped={grouped}

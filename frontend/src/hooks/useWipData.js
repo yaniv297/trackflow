@@ -152,6 +152,7 @@ export const useWipData = (user) => {
       return filledCount;
     };
 
+    // Group ALL songs by pack (both owned and collaborator songs)
     const groups = songs.reduce((acc, song) => {
       const pack = song.pack_name || "(no pack)";
       if (!acc[pack]) acc[pack] = [];
@@ -182,8 +183,16 @@ export const useWipData = (user) => {
       const percent =
         totalParts > 0 ? Math.round((filledParts / totalParts) * 100) : 0;
 
-      // Categorize songs within the pack
-      const completedSongs = coreSongs.filter((song) => {
+      // Categorize songs within the pack by ownership and completion
+      const ownedSongs = coreSongs.filter((song) => song.user_id === user?.id);
+      const collaboratorSongs = coreSongs.filter(
+        (song) => song.user_id !== user?.id
+      );
+      const collaboratorOptionalSongs = optionalSongs.filter(
+        (song) => song.user_id !== user?.id
+      );
+
+      const completedSongs = ownedSongs.filter((song) => {
         if (!song.authoring) return false;
         const availableFields = authoringFields.filter(
           (field) => song.authoring && song.authoring.hasOwnProperty(field)
@@ -194,7 +203,7 @@ export const useWipData = (user) => {
         return filledCount === availableFields.length;
       });
 
-      const inProgressSongs = coreSongs.filter((song) => {
+      const inProgressSongs = ownedSongs.filter((song) => {
         if (!song.authoring) return true;
         const availableFields = authoringFields.filter(
           (field) => song.authoring && song.authoring.hasOwnProperty(field)
@@ -213,6 +222,8 @@ export const useWipData = (user) => {
         completedSongs,
         inProgressSongs,
         optionalSongs,
+        collaboratorSongs,
+        collaboratorOptionalSongs,
       };
     });
 

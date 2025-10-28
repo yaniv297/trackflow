@@ -19,6 +19,7 @@ export default function WipSongCard({
   readOnly = false,
   onSongUpdate,
   showPackName = false,
+  authoringFields: authoringFieldsProp,
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -55,9 +56,15 @@ export default function WipSongCard({
   const isOptional = song.optional;
   const { user: currentUser } = useAuth();
   const { authoringFields } = useWorkflowData(currentUser);
+
+  // Prefer fields provided via props (owner's workflow) over current user's
+  const effectiveAuthoringFields = React.useMemo(() => {
+    if (authoringFieldsProp && authoringFieldsProp.length > 0)
+      return authoringFieldsProp;
+    return authoringFields && authoringFields.length > 0 ? authoringFields : [];
+  }, [authoringFieldsProp, authoringFields]);
   const isFinished = React.useMemo(() => {
-    const wfFields =
-      authoringFields && authoringFields.length > 0 ? authoringFields : [];
+    const wfFields = effectiveAuthoringFields;
     if (wfFields.length === 0) return false;
     // Prefer song_progress if loaded; fallback to legacy authoring
     if (Object.keys(progress).length > 0) {
@@ -65,7 +72,7 @@ export default function WipSongCard({
     }
     if (!song.authoring) return false;
     return wfFields.every((f) => song.authoring?.[f] === true);
-  }, [song.authoring, authoringFields, progress]);
+  }, [song.authoring, effectiveAuthoringFields, progress]);
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   const loadWipCollaborations = useCallback(async () => {
@@ -166,8 +173,7 @@ export default function WipSongCard({
     };
   }, [showActionsDropdown]);
 
-  const fields =
-    authoringFields && authoringFields.length > 0 ? authoringFields : [];
+  const fields = effectiveAuthoringFields;
 
   const handleDelete = () => {
     if (onDelete) {

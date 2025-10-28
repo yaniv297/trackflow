@@ -91,6 +91,31 @@ async def get_my_workflow_summary(
     """Get a summary of the current user's workflow"""
     raise HTTPException(status_code=404, detail="Not implemented yet")
 
+@router.get("/user/{user_id}/workflow-fields")
+async def get_user_workflow_fields(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get workflow fields for a specific user (for collaborator songs)"""
+    # Get the user's workflow steps
+    steps = db.execute(text("""
+        SELECT uws.step_name, uws.display_name, uws.order_index
+        FROM user_workflows uw
+        JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+        WHERE uw.user_id = :uid
+        ORDER BY uws.order_index
+    """), {"uid": user_id}).fetchall()
+    
+    if not steps:
+        # If no custom workflow, return empty array
+        return {"authoringFields": []}
+    
+    # Extract just the step names
+    authoring_fields = [step[0] for step in steps]
+    
+    return {"authoringFields": authoring_fields}
+
 @router.put("/my-workflow", response_model=UserWorkflowOut)
 async def update_my_workflow(
     workflow_update: UserWorkflowUpdate,

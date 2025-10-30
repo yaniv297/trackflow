@@ -366,14 +366,12 @@ export default function WipSongCard({
   };
 
   // For progress calculation, use song_progress if present, else legacy
-  // SIMPLE FIX: Use the same logic as the pack view
-  const availableFields = fields.filter(
-    (field) => song.authoring && song.authoring.hasOwnProperty(field)
-  );
-  const safeParts = availableFields;
-  const filled = safeParts.filter((f) =>
-    progress.hasOwnProperty(f) ? progress[f] : song.authoring?.[f]
-  ).length;
+  // Use workflow fields as the source of truth, then check what exists in song.authoring
+  const safeParts = fields; // Use all workflow fields as the total
+  const filled = safeParts.filter((f) => {
+    // Use the same logic as the UI: check progress first, then localAuthoring
+    return progress.hasOwnProperty(f) ? progress[f] : localAuthoring?.[f];
+  }).length;
   const percent =
     safeParts.length > 0 ? Math.round((filled / safeParts.length) * 100) : 0;
   const isComplete = safeParts.length > 0 && filled === safeParts.length;
@@ -807,9 +805,7 @@ export default function WipSongCard({
             )}
           </div>
 
-          {/* File History Button moved left of progress bar */}
-
-          {!readOnly && song.user_id === currentUser?.id && (
+          {!readOnly && song.is_editable && (
             <div style={{ position: "relative" }} data-actions-dropdown>
               <button
                 onClick={() => setShowActionsDropdown(!showActionsDropdown)}

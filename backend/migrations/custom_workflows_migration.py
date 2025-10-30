@@ -33,10 +33,10 @@ def create_new_tables(engine):
     """Create the new workflow tables"""
     print("Creating new workflow tables...")
     with engine.begin() as conn:
-        # Create workflow_templates table (SQLite-compatible)
+        # Create workflow_templates table (PostgreSQL-compatible)
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS workflow_templates (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name VARCHAR NOT NULL,
             description TEXT,
             is_default BOOLEAN DEFAULT FALSE,
@@ -51,7 +51,7 @@ def create_new_tables(engine):
         # Create workflow_template_steps table (simplified - no category/description/required)
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS workflow_template_steps (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             template_id INTEGER NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
             step_name VARCHAR NOT NULL,
             display_name VARCHAR NOT NULL,
@@ -67,7 +67,7 @@ def create_new_tables(engine):
         # Create user_workflows table
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS user_workflows (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             name VARCHAR NOT NULL,
             description TEXT,
@@ -84,7 +84,7 @@ def create_new_tables(engine):
         # Create user_workflow_steps table (simplified - only core fields)
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS user_workflow_steps (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             workflow_id INTEGER NOT NULL REFERENCES user_workflows(id) ON DELETE CASCADE,
             step_name VARCHAR NOT NULL,
             display_name VARCHAR NOT NULL,
@@ -100,7 +100,7 @@ def create_new_tables(engine):
         # Create song_progress table
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS song_progress (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
             step_name VARCHAR NOT NULL,
             is_completed BOOLEAN DEFAULT FALSE,
@@ -121,25 +121,27 @@ def populate_default_template(engine):
     """Populate the single default workflow template"""
     print("Populating default workflow template...")
     
-    # Single default workflow - matches current authoring system
+    # Default workflow for existing users (matches legacy boolean fields exactly)
     default_template = {
         "name": "Standard Workflow",
         "description": "Default authoring workflow for Rock Band songs",
         "is_default": True,
         "steps": [
-            ("tempo_map", "Tempo Map", 0),
-            ("drums", "Drums", 1),
-            ("bass", "Bass", 2),
-            ("guitar", "Guitar", 3),
-            ("vocals", "Vocals", 4),
-            ("harmonies", "Harmonies", 5),
-            ("pro_keys", "Pro Keys", 6),
-            ("keys", "Keys", 7),
-            ("venue", "Venue", 8),
-            ("animations", "Animations", 9),
-            ("drum_fills", "Drum Fills", 10),
-            ("overdrive", "Overdrive", 11),
-            ("compile", "Compile", 12),
+            ("demucs", "Demucs", 0),
+            ("midi", "MIDI", 1),
+            ("tempo_map", "Tempo Map", 2),
+            ("fake_ending", "Fake Ending", 3),
+            ("drums", "Drums", 4),
+            ("bass", "Bass", 5),
+            ("guitar", "Guitar", 6),
+            ("vocals", "Vocals", 7),
+            ("harmonies", "Harmonies", 8),
+            ("pro_keys", "Pro Keys", 9),
+            ("keys", "Keys", 10),
+            ("animations", "Animations", 11),
+            ("drum_fills", "Drum Fills", 12),
+            ("overdrive", "Overdrive", 13),
+            ("compile", "Compile", 14),
         ]
     }
     
@@ -173,8 +175,8 @@ def populate_default_template(engine):
     print("✅ Default workflow template populated successfully")
 
 def create_user_workflows(engine):
-    """Create user workflows for existing users based on the default template"""
-    print("Creating user workflows for existing users...")
+    """Create user workflows ONLY for existing core users (yaniv297, jphn)."""
+    print("Creating user workflows for core users (yaniv297, jphn)...")
     with engine.begin() as conn:
         # Get the default template ID
         result = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1"))
@@ -182,24 +184,29 @@ def create_user_workflows(engine):
         if not row:
             raise RuntimeError("Default workflow template not found after insert")
         default_template_id = row[0]
-        
-        # Get all users
-        users = conn.execute(text("SELECT id FROM users")).fetchall()
-        
-        for user_row in users:
-            user_id = user_row[0]
-            
+
+        # Only target the two existing users
+        users = conn.execute(text("SELECT id, username FROM users WHERE username IN ('yaniv297', 'jphn')")).fetchall()
+
+        created_count = 0
+        for user_id, username in users:
+            # Skip if a workflow already exists for this user
+            existing = conn.execute(text("SELECT 1 FROM user_workflows WHERE user_id = :uid"), {"uid": user_id}).fetchone()
+            if existing:
+                print(f" - Skipping {username}: workflow already exists")
+                continue
+
             # Create user workflow based on default template
             result = conn.execute(text("""
                 INSERT INTO user_workflows (user_id, name, description, template_id)
-                VALUES (:user_id, 'My Workflow', 'Customized workflow based on Standard Rock Band template', :template_id)
+                VALUES (:user_id, 'My Workflow', 'Customized workflow based on legacy steps', :template_id)
                 RETURNING id
             """), {
                 "user_id": user_id,
                 "template_id": default_template_id
             })
             workflow_id = result.fetchone()[0]
-            
+
             # Copy steps from default template to user workflow
             conn.execute(text("""
                 INSERT INTO user_workflow_steps 
@@ -212,8 +219,9 @@ def create_user_workflows(engine):
                 "workflow_id": workflow_id,
                 "template_id": default_template_id
             })
+            created_count += 1
 
-    print(f"✅ Created workflows for {len(users)} users")
+    print(f"✅ Created workflows for {created_count} users")
 
 def migrate_authoring_data(engine):
     """Migrate existing authoring data to the new song_progress table"""

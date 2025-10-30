@@ -191,31 +191,29 @@ function WipPage() {
     const getFilledCount = (song) => {
       if (!song.authoring) return 0;
 
-      // Only check fields that exist in both the workflow and the song's authoring data
-      const availableFields = authoringFields.filter(
-        (field) => song.authoring && song.authoring.hasOwnProperty(field)
-      );
-
-      return availableFields.reduce((count, field) => {
-        return count + (song.authoring[field] === true ? 1 : 0);
+      // Use workflow fields as the source of truth, then check what exists in song.authoring
+      return authoringFields.reduce((count, field) => {
+        if (song.authoring && song.authoring.hasOwnProperty(field)) {
+          return count + (song.authoring[field] === true ? 1 : 0);
+        }
+        return count; // Field doesn't exist in song.authoring, so it's not completed
       }, 0);
     };
 
     const getCompletionPercent = (song) => {
       if (!song.authoring) return 0;
 
-      // Only check fields that exist in both the workflow and the song's authoring data
-      const availableFields = authoringFields.filter(
-        (field) => song.authoring && song.authoring.hasOwnProperty(field)
-      );
+      // Use workflow fields as the source of truth
+      if (authoringFields.length === 0) return 0;
 
-      if (availableFields.length === 0) return 0;
-
-      const filledCount = availableFields.reduce((count, field) => {
-        return count + (song.authoring[field] === true ? 1 : 0);
+      const filledCount = authoringFields.reduce((count, field) => {
+        if (song.authoring && song.authoring.hasOwnProperty(field)) {
+          return count + (song.authoring[field] === true ? 1 : 0);
+        }
+        return count; // Field doesn't exist in song.authoring, so it's not completed
       }, 0);
 
-      const percent = Math.round((filledCount / availableFields.length) * 100);
+      const percent = Math.round((filledCount / authoringFields.length) * 100);
 
       return percent;
     };
@@ -412,57 +410,50 @@ function WipPage() {
   };
 
   // Song Management
-  const updateAuthoringField = (songId, field, value) => {
+  const updateAuthoringField = async (songId, field, value) => {
     console.log(`Updating field ${field} to ${value} for song ${songId}`);
 
     setSongs((prev) => {
-      const updated = prev.map((song) =>
-        song.id === songId
-          ? {
-              ...song,
-              authoring: { ...(song.authoring || {}), [field]: value },
-            }
-          : song
-      );
+      const updated = prev.map((song) => {
+        if (song.id !== songId) return song;
 
-      const song = updated.find((s) => s.id === songId);
+        const nextAuthoring = { ...(song.authoring || {}), [field]: value };
+        const nextProgress = { ...(song.progress || {}), [field]: value };
 
-      // Only check fields that exist in both the workflow and the song's authoring data
-      const availableFields = authoringFields.filter(
-        (field) => song.authoring && song.authoring.hasOwnProperty(field)
-      );
-
-      const completedFields = availableFields.filter(
-        (f) => song.authoring?.[f] === true
-      );
-
-      // Debug logging
-      console.log(`Song ${songId} (${song.title}):`, {
-        completedFields: completedFields.length,
-        availableFields: availableFields.length,
-        totalWorkflowFields: authoringFields.length,
-        authoring: song.authoring,
-        isComplete: completedFields.length === availableFields.length,
-        workflowFields: authoringFields,
-        availableFieldsList: availableFields,
-        fieldStatus: availableFields.map((field) => ({
-          field,
-          value: song.authoring?.[field],
-          isCompleted: song.authoring?.[field] === true,
-        })),
+        return {
+          ...song,
+          authoring: nextAuthoring,
+          progress: nextProgress,
+        };
       });
 
+      const changed = updated.find((s) => s.id === songId);
+
+      // Recalculate completion using workflow fields as source of truth
+      const filledCount = authoringFields.reduce((count, f) => {
+        const v =
+          changed.progress && changed.progress.hasOwnProperty(f)
+            ? changed.progress[f]
+            : changed.authoring?.[f];
+        return count + (v === true ? 1 : 0);
+      }, 0);
+      const isComplete = filledCount === authoringFields.length;
+
+      // Debug logging
+      // console.log(`Song ${songId} (${changed.title}) updated:`, { filledCount, total: authoringFields.length, isComplete });
+
+      // Persist to backend (fire-and-forget)
       apiPut(`/authoring/${songId}`, { [field]: value }).catch((error) => {
         console.error("Failed to update authoring field:", error);
       });
 
-      if (completedFields.length === availableFields.length) {
-        console.log(`🎉 Song ${songId} (${song.title}) is now complete!`);
+      if (isComplete) {
+        console.log(`🎉 Song ${songId} (${changed.title}) is now complete!`);
         setFireworksTrigger((prev) => prev + 1);
 
         // Show completion notification (song stays in "In Progress" until pack is released)
         window.showNotification(
-          `🎉 "${song.title}" is now complete! Ready for pack release.`,
+          `🎉 "${changed.title}" is now complete! Ready for pack release.`,
           "success"
         );
       }

@@ -9,7 +9,13 @@ import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
 import LoadingSpinner from "./components/LoadingSpinner";
+import WorkflowErrorBoundary from "./components/WorkflowErrorBoundary";
+import WorkflowLoadingSpinner from "./components/WorkflowLoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
+import {
+  getSongCompletionPercentage,
+  isSongComplete
+} from "./utils/progressUtils";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
@@ -188,35 +194,6 @@ function WipPage() {
 
   // Group songs by completion status
   const completionGroups = useMemo(() => {
-    const getFilledCount = (song) => {
-      if (!song.authoring) return 0;
-
-      // Use workflow fields as the source of truth, then check what exists in song.authoring
-      return authoringFields.reduce((count, field) => {
-        if (song.authoring && song.authoring.hasOwnProperty(field)) {
-          return count + (song.authoring[field] === true ? 1 : 0);
-        }
-        return count; // Field doesn't exist in song.authoring, so it's not completed
-      }, 0);
-    };
-
-    const getCompletionPercent = (song) => {
-      if (!song.authoring) return 0;
-
-      // Use workflow fields as the source of truth
-      if (authoringFields.length === 0) return 0;
-
-      const filledCount = authoringFields.reduce((count, field) => {
-        if (song.authoring && song.authoring.hasOwnProperty(field)) {
-          return count + (song.authoring[field] === true ? 1 : 0);
-        }
-        return count; // Field doesn't exist in song.authoring, so it's not completed
-      }, 0);
-
-      const percent = Math.round((filledCount / authoringFields.length) * 100);
-
-      return percent;
-    };
 
     // Separate songs by category
     const completed = [];
@@ -235,7 +212,8 @@ function WipPage() {
 
     songs.filter(matchesSearch).forEach((song) => {
       const isOwner = song.user_id === user?.id;
-      const completionPercent = getCompletionPercent(song);
+      const completionPercent = getSongCompletionPercentage(song, authoringFields);
+      const isComplete = isSongComplete(song, authoringFields);
 
       if (!isOwner) {
         // Songs by collaborators - only show if they have collaboration access
@@ -249,7 +227,7 @@ function WipPage() {
         if (song.optional) {
           // Optional songs by current user
           optional.push({ ...song, completionPercent });
-        } else if (completionPercent === 100) {
+        } else if (isComplete) {
           // Completed songs by current user
           completed.push({ ...song, completionPercent });
         } else {
@@ -417,30 +395,16 @@ function WipPage() {
       const updated = prev.map((song) => {
         if (song.id !== songId) return song;
 
-        const nextAuthoring = { ...(song.authoring || {}), [field]: value };
         const nextProgress = { ...(song.progress || {}), [field]: value };
 
         return {
           ...song,
-          authoring: nextAuthoring,
           progress: nextProgress,
         };
       });
 
       const changed = updated.find((s) => s.id === songId);
-
-      // Recalculate completion using workflow fields as source of truth
-      const filledCount = authoringFields.reduce((count, f) => {
-        const v =
-          changed.progress && changed.progress.hasOwnProperty(f)
-            ? changed.progress[f]
-            : changed.authoring?.[f];
-        return count + (v === true ? 1 : 0);
-      }, 0);
-      const isComplete = filledCount === authoringFields.length;
-
-      // Debug logging
-      // console.log(`Song ${songId} (${changed.title}) updated:`, { filledCount, total: authoringFields.length, isComplete });
+      const isComplete = isSongComplete(changed, authoringFields);
 
       // Persist to backend (fire-and-forget)
       apiPut(`/authoring/${songId}`, { [field]: value }).catch((error) => {
@@ -448,14 +412,7 @@ function WipPage() {
       });
 
       if (isComplete) {
-        console.log(`🎉 Song ${songId} (${changed.title}) is now complete!`);
         setFireworksTrigger((prev) => prev + 1);
-
-        // Show completion notification (song stays in "In Progress" until pack is released)
-        window.showNotification(
-          `🎉 "${changed.title}" is now complete! Ready for pack release.`,
-          "success"
-        );
       }
 
       return updated;
@@ -1034,8 +991,9 @@ function WipPage() {
   };
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <Fireworks trigger={fireworksTrigger} />
+    <WorkflowErrorBoundary>
+      <div style={{ padding: "2rem" }}>
+        <Fireworks trigger={fireworksTrigger} />
 
       <WipPageHeader
         grouped={grouped}
@@ -1048,7 +1006,7 @@ function WipPage() {
       />
 
       {/* Loading Spinner */}
-      {loading && <LoadingSpinner message="Loading WIP songs..." />}
+      {loading && <WorkflowLoadingSpinner message="Loading WIP songs..." size="large" />}
 
       {/* Pack View */}
       {!loading &&
@@ -1277,7 +1235,8 @@ function WipPage() {
         message={alertConfig.message}
         type={alertConfig.type}
       />
-    </div>
+      </div>
+    </WorkflowErrorBoundary>
   );
 }
 

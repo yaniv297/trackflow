@@ -72,9 +72,7 @@ const CompletionGroupCard = ({
         <div>
           {songs.map((song) => {
             // Get the song owner's workflow fields
-            const songOwnerFields =
-              getWorkflowFields(song.user_id) ||
-              Object.keys(song.authoring || {});
+            const songOwnerFields = getWorkflowFields(song.user_id) || [];
 
             return (
               <WipSongCard

@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiGet } from "../utils/api";
 import { useWorkflowData } from "./useWorkflowData";
+import {
+  getCompletedFieldsCount,
+  getSongCompletionPercentage,
+  isSongComplete
+} from "../utils/progressUtils";
 
 export const useWipData = (user) => {
   const [songs, setSongs] = useState([]);
@@ -169,47 +174,6 @@ export const useWipData = (user) => {
 
   // Group songs by pack with statistics
   const grouped = useMemo(() => {
-    const getFilledCount = (song) => {
-      if (!song.authoring) return 0;
-
-      // Use the same logic as WipSongCard: check progress first, then song.authoring
-      // This matches the UI display logic exactly
-      const filledCount = authoringFields.reduce((count, field) => {
-        // Check if song has progress data (from song_progress table)
-        if (song.progress && song.progress.hasOwnProperty(field)) {
-          return count + (song.progress[field] === true ? 1 : 0);
-        }
-        // Fallback to song.authoring
-        if (song.authoring && song.authoring.hasOwnProperty(field)) {
-          return count + (song.authoring[field] === true ? 1 : 0);
-        }
-        return count; // Field doesn't exist in either, so it's not completed
-      }, 0);
-
-      // Debug logging for specific songs
-      if (
-        song.title === "And it Stoned Me" ||
-        song.title === "Into the Mystic"
-      ) {
-        console.log(`SONG DEBUG - ${song.title}:`, {
-          filledCount,
-          authoringFieldsLength: authoringFields.length,
-          authoring: song.authoring,
-          progress: song.progress,
-          fieldValues: authoringFields.map((field) => ({
-            field,
-            progressValue: song.progress?.[field],
-            authoringValue: song.authoring?.[field],
-            hasProgressProperty:
-              song.progress && song.progress.hasOwnProperty(field),
-            hasAuthoringProperty:
-              song.authoring && song.authoring.hasOwnProperty(field),
-          })),
-        });
-      }
-
-      return filledCount;
-    };
 
     // Group ALL songs by pack (both owned and collaborator songs)
     const groups = songs.reduce((acc, song) => {
@@ -217,7 +181,7 @@ export const useWipData = (user) => {
       if (!acc[pack]) acc[pack] = [];
       acc[pack].push({
         ...song,
-        filledCount: getFilledCount(song),
+        filledCount: getCompletedFieldsCount(song, authoringFields),
       });
       return acc;
     }, {});
@@ -246,22 +210,18 @@ export const useWipData = (user) => {
       );
 
       const completedSongs = ownedSongs.filter((song) => {
-        if (!song.authoring) return false;
-        const filledCount = getFilledCount(song);
-        return filledCount === authoringFields.length;
+        return isSongComplete(song, authoringFields);
       });
 
       const inProgressSongs = ownedSongs.filter((song) => {
-        if (!song.authoring) return true;
-        const filledCount = getFilledCount(song);
-        return filledCount < authoringFields.length; // Only songs that are NOT complete
+        return !isSongComplete(song, authoringFields);
       });
 
       // Sort songs by completion percentage (descending - highest first)
       const sortByCompletion = (songList) => {
         return songList.sort((a, b) => {
-          const aPercent = a.filledCount / authoringFields.length;
-          const bPercent = b.filledCount / authoringFields.length;
+          const aPercent = getSongCompletionPercentage(a, authoringFields);
+          const bPercent = getSongCompletionPercentage(b, authoringFields);
           return bPercent - aPercent; // Descending order
         });
       };

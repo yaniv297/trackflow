@@ -7,6 +7,10 @@ import ChangeAlbumArtModal from "./ChangeAlbumArtModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
 import { useWorkflowData } from "../hooks/useWorkflowData";
+import {
+  getFieldCompletion,
+  getSongProgressData
+} from "../utils/progressUtils";
 import UserProfilePopup from "./UserProfilePopup";
 
 export default function WipSongCard({
@@ -29,13 +33,12 @@ export default function WipSongCard({
     if (expandedProp !== undefined) return; // ignore toggle if controlled
     setExpandedInternal((e) => !e);
   };
-  const [localAuthoring, setLocalAuthoring] = useState(song.authoring || {});
-  const [progress, setProgress] = useState({}); // song_progress map: step -> boolean
+  const [progress, setProgress] = useState(song.progress || {});
 
-  // Update localAuthoring when song.authoring changes
+  // Update progress when song.progress changes
   useEffect(() => {
-    setLocalAuthoring(song.authoring || {});
-  }, [song.authoring]);
+    setProgress(song.progress || {});
+  }, [song.progress]);
   const [spotifyOptions, setSpotifyOptions] = useState([]);
   const [loadingSpotify, setLoadingSpotify] = useState(false);
   const [editing, setEditing] = useState({});
@@ -63,16 +66,12 @@ export default function WipSongCard({
       return authoringFieldsProp;
     return authoringFields && authoringFields.length > 0 ? authoringFields : [];
   }, [authoringFieldsProp, authoringFields]);
-  const isFinished = React.useMemo(() => {
-    const wfFields = effectiveAuthoringFields;
-    if (wfFields.length === 0) return false;
-    // Prefer song_progress if loaded; fallback to legacy authoring
-    if (Object.keys(progress).length > 0) {
-      return wfFields.every((f) => progress[f] === true);
-    }
-    if (!song.authoring) return false;
-    return wfFields.every((f) => song.authoring?.[f] === true);
-  }, [song.authoring, effectiveAuthoringFields, progress]);
+  
+  const progressData = React.useMemo(() => {
+    return getSongProgressData(song, effectiveAuthoringFields);
+  }, [song, effectiveAuthoringFields]);
+  
+  const isFinished = progressData.isComplete;
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   const loadWipCollaborations = useCallback(async () => {
@@ -94,7 +93,8 @@ export default function WipSongCard({
       });
       setProgress(map);
     } catch (e) {
-      // Silent fallback; progress stays empty and we rely on legacy
+      console.warn(`Failed to load progress for song ${song.id}:`, e);
+      // Silent fallback; progress stays empty and we rely on existing data
     }
   }, [song.id]);
 
@@ -182,18 +182,12 @@ export default function WipSongCard({
   };
 
   const toggleAuthoringField = async (field) => {
-    // Prefer new progress map; mirror legacy will be done server-side
-    const currentVal = progress.hasOwnProperty(field)
-      ? !!progress[field]
-      : !!localAuthoring[field];
+    const currentVal = getFieldCompletion(song, field);
     const nextVal = !currentVal;
 
     // Optimistic update
     setProgress((prev) => ({ ...prev, [field]: nextVal }));
-    if (!song.authoring) song.authoring = {};
-    song.authoring[field] = nextVal;
-    setLocalAuthoring((prev) => ({ ...prev, [field]: nextVal }));
-
+    
     try {
       await apiPut(`/authoring/${song.id}`, { [field]: nextVal });
       // Re-sync from server to avoid double-click visual glitches
@@ -202,8 +196,6 @@ export default function WipSongCard({
     } catch (error) {
       // Revert on failure
       setProgress((prev) => ({ ...prev, [field]: currentVal }));
-      song.authoring[field] = currentVal;
-      setLocalAuthoring((prev) => ({ ...prev, [field]: currentVal }));
       console.error(`Error updating ${field}:`, error);
     }
   };
@@ -337,16 +329,11 @@ export default function WipSongCard({
         updates[f] = true;
       });
 
-      // Use PUT method; backend writes song_progress and mirrors legacy
+      // Use PUT method; backend writes song_progress
       await apiPut(`/authoring/${song.id}`, updates);
 
       // Update UI state
       setProgress((prev) => {
-        const next = { ...prev };
-        partsToMark.forEach((f) => (next[f] = true));
-        return next;
-      });
-      setLocalAuthoring((prev) => {
         const next = { ...prev };
         partsToMark.forEach((f) => (next[f] = true));
         return next;
@@ -365,16 +352,11 @@ export default function WipSongCard({
     }
   };
 
-  // For progress calculation, use song_progress if present, else legacy
-  // Use workflow fields as the source of truth, then check what exists in song.authoring
-  const safeParts = fields; // Use all workflow fields as the total
-  const filled = safeParts.filter((f) => {
-    // Use the same logic as the UI: check progress first, then localAuthoring
-    return progress.hasOwnProperty(f) ? progress[f] : localAuthoring?.[f];
-  }).length;
-  const percent =
-    safeParts.length > 0 ? Math.round((filled / safeParts.length) * 100) : 0;
-  const isComplete = safeParts.length > 0 && filled === safeParts.length;
+  // Use unified progress calculation
+  const filled = progressData.completedCount;
+  const percent = progressData.percentage;
+  const isComplete = progressData.isComplete;
+  const safeParts = fields;
 
   // Build external links for album
   // Wikipedia prefers the canonical title: "{Album} ({Artist} album)"
@@ -1167,9 +1149,7 @@ export default function WipSongCard({
                             }}
                           >
                             {unassignedFields.map((field) => {
-                              const filled = progress.hasOwnProperty(field)
-                                ? progress[field]
-                                : localAuthoring?.[field];
+                              const filled = getFieldCompletion(song, field);
                               const displayName = field
                                 .split("_")
                                 .map((w) => w[0].toUpperCase() + w.slice(1))
@@ -1236,7 +1216,7 @@ export default function WipSongCard({
                               }}
                             >
                               {assignedFields.map((field) => {
-                                const filled = localAuthoring?.[field];
+                                const filled = getFieldCompletion(song, field);
                                 const displayName = field
                                   .split("_")
                                   .map((w) => w[0].toUpperCase() + w.slice(1))
@@ -1284,9 +1264,7 @@ export default function WipSongCard({
                   style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}
                 >
                   {fields.map((field) => {
-                    const filled = progress.hasOwnProperty(field)
-                      ? progress[field]
-                      : localAuthoring?.[field];
+                    const filled = getFieldCompletion(song, field);
                     const displayName = field
                       .split("_")
                       .map((w) => w[0].toUpperCase() + w.slice(1))

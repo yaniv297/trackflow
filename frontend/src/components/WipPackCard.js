@@ -3,6 +3,7 @@ import SmartDropdown from "./SmartDropdown";
 import WipSongCard from "./WipSongCard";
 import DLCWarning from "./DLCWarning";
 import { useUserWorkflowFields } from "../hooks/useUserWorkflowFields";
+import { getSongCompletionPercentage, isSongComplete } from "../utils/progressUtils";
 
 const WipPackCard = ({
   packName,
@@ -869,21 +870,8 @@ const WipPackCard = ({
                     </h4>
                     {!completedSongsCollapsed &&
                       completedCoreSongs.map((song) => {
-                        const songFilledParts = authoringFields.reduce(
-                          (count, field) => {
-                            return (
-                              count + (song.authoring?.[field] === true ? 1 : 0)
-                            );
-                          },
-                          0
-                        );
-                        const songPercent =
-                          authoringFields.length > 0
-                            ? Math.round(
-                                (songFilledParts / authoringFields.length) * 100
-                              )
-                            : 0;
-                        const isFinished = songPercent === 100;
+                        const songPercent = getSongCompletionPercentage(song, authoringFields);
+                        const isFinished = isSongComplete(song, authoringFields);
 
                         return (
                           <WipSongCard
@@ -925,21 +913,8 @@ const WipPackCard = ({
                     </h4>
                     {!activeSongsCollapsed &&
                       activeCoreSongs.map((song) => {
-                        const songFilledParts = authoringFields.reduce(
-                          (count, field) => {
-                            return (
-                              count + (song.authoring?.[field] === true ? 1 : 0)
-                            );
-                          },
-                          0
-                        );
-                        const songPercent =
-                          authoringFields.length > 0
-                            ? Math.round(
-                                (songFilledParts / authoringFields.length) * 100
-                              )
-                            : 0;
-                        const isFinished = songPercent === 100;
+                        const songPercent = getSongCompletionPercentage(song, authoringFields);
+                        const isFinished = isSongComplete(song, authoringFields);
 
                         return (
                           <WipSongCard
@@ -984,20 +959,9 @@ const WipPackCard = ({
               </h4>
               {!collaborationSongsCollapsed &&
                 sortedCollaborationSongs.map((song) => {
-                  // Calculate if collaboration song is finished (100% authoring complete)
-                  const songFilledParts = authoringFields.reduce(
-                    (count, field) => {
-                      return count + (song.authoring?.[field] === true ? 1 : 0);
-                    },
-                    0
-                  );
-                  const songPercent =
-                    authoringFields.length > 0
-                      ? Math.round(
-                          (songFilledParts / authoringFields.length) * 100
-                        )
-                      : 0;
-                  const isFinished = songPercent === 100;
+                  // Calculate if collaboration song is finished
+                  const songPercent = getSongCompletionPercentage(song, authoringFields);
+                  const isFinished = isSongComplete(song, authoringFields);
 
                   return (
                     <WipSongCard
@@ -1037,20 +1001,9 @@ const WipPackCard = ({
               </h4>
               {!optionalCollapsed &&
                 sortedUserOptionalSongs.map((song) => {
-                  // Calculate if optional song is finished (100% authoring complete)
-                  const songFilledParts = authoringFields.reduce(
-                    (count, field) => {
-                      return count + (song.authoring?.[field] === true ? 1 : 0);
-                    },
-                    0
-                  );
-                  const songPercent =
-                    authoringFields.length > 0
-                      ? Math.round(
-                          (songFilledParts / authoringFields.length) * 100
-                        )
-                      : 0;
-                  const isFinished = songPercent === 100;
+                  // Calculate if optional song is finished
+                  const songPercent = getSongCompletionPercentage(song, authoringFields);
+                  const isFinished = isSongComplete(song, authoringFields);
 
                   return (
                     <WipSongCard
@@ -1093,29 +1046,11 @@ const WipPackCard = ({
               {!collaboratorSongsCollapsed &&
                 sortedCollaboratorCoreSongs.map((song) => {
                   // Get the song owner's workflow fields
-                  const songOwnerFields =
-                    getWorkflowFields(song.user_id) ||
-                    Object.keys(song.authoring || {});
-
-                  // For collaborator songs, only check fields that exist in the song's authoring data
-                  // This matches the logic used for other song types
-                  const availableFields = songOwnerFields.filter(
-                    (field) =>
-                      song.authoring && song.authoring.hasOwnProperty(field)
-                  );
-                  const songFilledParts = availableFields.reduce(
-                    (count, field) => {
-                      return count + (song.authoring?.[field] === true ? 1 : 0);
-                    },
-                    0
-                  );
-                  const songPercent =
-                    availableFields.length > 0
-                      ? Math.round(
-                          (songFilledParts / availableFields.length) * 100
-                        )
-                      : 0;
-                  const isFinished = songPercent === 100;
+                  const songOwnerFields = getWorkflowFields(song.user_id) || [];
+                  
+                  // Use owner's workflow fields for calculations
+                  const songPercent = getSongCompletionPercentage(song, songOwnerFields);
+                  const isFinished = isSongComplete(song, songOwnerFields);
 
                   return (
                     <WipSongCard
@@ -1162,28 +1097,11 @@ const WipPackCard = ({
               {!collaboratorOptionalCollapsed &&
                 collaboratorOptionalSongsFromPack.map((song) => {
                   // Get the song owner's workflow fields
-                  const songOwnerFields =
-                    getWorkflowFields(song.user_id) ||
-                    Object.keys(song.authoring || {});
-
-                  // For collaborator optional songs, only check fields that exist in the song's authoring data
-                  const availableFields = songOwnerFields.filter(
-                    (field) =>
-                      song.authoring && song.authoring.hasOwnProperty(field)
-                  );
-                  const songFilledParts = availableFields.reduce(
-                    (count, field) => {
-                      return count + (song.authoring?.[field] === true ? 1 : 0);
-                    },
-                    0
-                  );
-                  const songPercent =
-                    availableFields.length > 0
-                      ? Math.round(
-                          (songFilledParts / availableFields.length) * 100
-                        )
-                      : 0;
-                  const isFinished = songPercent === 100;
+                  const songOwnerFields = getWorkflowFields(song.user_id) || [];
+                  
+                  // Use owner's workflow fields for calculations
+                  const songPercent = getSongCompletionPercentage(song, songOwnerFields);
+                  const isFinished = isSongComplete(song, songOwnerFields);
 
                   return (
                     <WipSongCard

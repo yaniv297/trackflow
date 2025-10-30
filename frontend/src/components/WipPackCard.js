@@ -2,12 +2,18 @@ import React, { useState } from "react";
 import SmartDropdown from "./SmartDropdown";
 import WipSongCard from "./WipSongCard";
 import DLCWarning from "./DLCWarning";
+import { useUserWorkflowFields } from "../hooks/useUserWorkflowFields";
 
 const WipPackCard = ({
   packName,
   percent,
   coreSongs,
   allSongs,
+  completedSongs,
+  inProgressSongs,
+  optionalSongs,
+  collaboratorSongs,
+  collaboratorOptionalSongs,
   collapsedPacks,
   user,
   grouped,
@@ -56,29 +62,16 @@ const WipPackCard = ({
       )
   );
 
-  // Songs owned by others that the current user has NO collaboration on (read-only)
-  const collaboratorOwnedSongs = allSongs.filter(
-    (song) =>
-      song.user_id !== user?.id &&
-      (!song.collaborations ||
-        !song.collaborations.some(
-          (collab) =>
-            collab.username === user?.username &&
-            collab.collaboration_type === "song_edit"
-        ))
-  );
+  // Use collaboratorSongs from pack data instead of calculating
+  const collaboratorOwnedSongs = collaboratorSongs || [];
 
   // Further separate user's songs into core and optional
   const userCoreSongs = userOwnedSongs.filter((song) => !song.optional);
   const userOptionalSongs = userOwnedSongs.filter((song) => song.optional);
 
-  // Separate collaborator songs into core and optional
-  const collaboratorCoreSongs = collaboratorOwnedSongs.filter(
-    (song) => !song.optional
-  );
-  const collaboratorOptionalSongs = collaboratorOwnedSongs.filter(
-    (song) => song.optional
-  );
+  // Use collaborator songs from pack data
+  const collaboratorCoreSongs = collaboratorSongs || [];
+  const collaboratorOptionalSongsFromPack = collaboratorOptionalSongs || [];
 
   // State for collapsing sections
   const [optionalCollapsed, setOptionalCollapsed] = React.useState(true);
@@ -91,6 +84,38 @@ const WipPackCard = ({
   const [completedSongsCollapsed, setCompletedSongsCollapsed] =
     React.useState(true); // Collapsed by default
   const [activeSongsCollapsed, setActiveSongsCollapsed] = React.useState(false); // Expanded by default for active songs
+
+  // Hook to fetch workflow fields for different users
+  const { fetchUserWorkflowFields, getWorkflowFields } =
+    useUserWorkflowFields();
+
+  // Fetch workflow fields for all unique song owners
+  React.useEffect(() => {
+    const uniqueUserIds = new Set();
+
+    // Collect all unique user IDs from all songs
+    [
+      ...(completedSongs || []),
+      ...(inProgressSongs || []),
+      ...(collaboratorSongs || []),
+      ...(collaboratorOptionalSongs || []),
+    ].forEach((song) => {
+      if (song.user_id) {
+        uniqueUserIds.add(song.user_id);
+      }
+    });
+
+    // Fetch workflow fields for each unique user
+    uniqueUserIds.forEach((userId) => {
+      fetchUserWorkflowFields(userId);
+    });
+  }, [
+    completedSongs,
+    inProgressSongs,
+    collaboratorSongs,
+    collaboratorOptionalSongs,
+    fetchUserWorkflowFields,
+  ]);
 
   // State for pack settings modal
   const [showPackSettings, setShowPackSettings] = React.useState(false);
@@ -814,27 +839,11 @@ const WipPackCard = ({
           {/* Core Songs - Active (In Progress) */}
           {(() => {
             // Separate core songs into active and completed
-            const activeCoreSongs = sortedUserCoreSongs.filter((song) => {
-              const songFilledParts = authoringFields.reduce((count, field) => {
-                return count + (song.authoring?.[field] === true ? 1 : 0);
-              }, 0);
-              const songPercent =
-                authoringFields.length > 0
-                  ? Math.round((songFilledParts / authoringFields.length) * 100)
-                  : 0;
-              return songPercent < 100; // Not finished
-            });
+            // Use inProgressSongs from pack data instead of calculating
+            const activeCoreSongs = inProgressSongs || [];
 
-            const completedCoreSongs = sortedUserCoreSongs.filter((song) => {
-              const songFilledParts = authoringFields.reduce((count, field) => {
-                return count + (song.authoring?.[field] === true ? 1 : 0);
-              }, 0);
-              const songPercent =
-                authoringFields.length > 0
-                  ? Math.round((songFilledParts / authoringFields.length) * 100)
-                  : 0;
-              return songPercent === 100; // Finished
-            });
+            // Use completedSongs from pack data instead of calculating
+            const completedCoreSongs = completedSongs || [];
 
             return (
               <>
@@ -1083,17 +1092,27 @@ const WipPackCard = ({
               </h4>
               {!collaboratorSongsCollapsed &&
                 sortedCollaboratorCoreSongs.map((song) => {
-                  // Calculate if collaborator song is finished (100% authoring complete)
-                  const songFilledParts = authoringFields.reduce(
+                  // Get the song owner's workflow fields
+                  const songOwnerFields =
+                    getWorkflowFields(song.user_id) ||
+                    Object.keys(song.authoring || {});
+
+                  // For collaborator songs, only check fields that exist in the song's authoring data
+                  // This matches the logic used for other song types
+                  const availableFields = songOwnerFields.filter(
+                    (field) =>
+                      song.authoring && song.authoring.hasOwnProperty(field)
+                  );
+                  const songFilledParts = availableFields.reduce(
                     (count, field) => {
                       return count + (song.authoring?.[field] === true ? 1 : 0);
                     },
                     0
                   );
                   const songPercent =
-                    authoringFields.length > 0
+                    availableFields.length > 0
                       ? Math.round(
-                          (songFilledParts / authoringFields.length) * 100
+                          (songFilledParts / availableFields.length) * 100
                         )
                       : 0;
                   const isFinished = songPercent === 100;
@@ -1102,7 +1121,7 @@ const WipPackCard = ({
                     <WipSongCard
                       key={song.id}
                       song={song}
-                      authoringFields={authoringFields}
+                      authoringFields={songOwnerFields}
                       onAuthoringUpdate={onUpdateAuthoringField}
                       onToggleOptional={onToggleOptional}
                       onDelete={onDeleteSong}
@@ -1118,7 +1137,7 @@ const WipPackCard = ({
           )}
 
           {/* Collaborator Optional Songs */}
-          {collaboratorOptionalSongs.length > 0 && (
+          {collaboratorOptionalSongsFromPack.length > 0 && (
             <>
               <h4
                 style={{
@@ -1138,21 +1157,30 @@ const WipPackCard = ({
               >
                 <span>{collaboratorOptionalCollapsed ? "▶" : "▼"}</span>
                 Optional Songs by Collaborators (
-                {collaboratorOptionalSongs.length})
+                {collaboratorOptionalSongsFromPack.length})
               </h4>
               {!collaboratorOptionalCollapsed &&
-                sortedCollaboratorOptionalSongs.map((song) => {
-                  // Calculate if collaborator optional song is finished (100% authoring complete)
-                  const songFilledParts = authoringFields.reduce(
+                collaboratorOptionalSongsFromPack.map((song) => {
+                  // Get the song owner's workflow fields
+                  const songOwnerFields =
+                    getWorkflowFields(song.user_id) ||
+                    Object.keys(song.authoring || {});
+
+                  // For collaborator optional songs, only check fields that exist in the song's authoring data
+                  const availableFields = songOwnerFields.filter(
+                    (field) =>
+                      song.authoring && song.authoring.hasOwnProperty(field)
+                  );
+                  const songFilledParts = availableFields.reduce(
                     (count, field) => {
                       return count + (song.authoring?.[field] === true ? 1 : 0);
                     },
                     0
                   );
                   const songPercent =
-                    authoringFields.length > 0
+                    availableFields.length > 0
                       ? Math.round(
-                          (songFilledParts / authoringFields.length) * 100
+                          (songFilledParts / availableFields.length) * 100
                         )
                       : 0;
                   const isFinished = songPercent === 100;
@@ -1161,7 +1189,7 @@ const WipPackCard = ({
                     <WipSongCard
                       key={song.id}
                       song={song}
-                      authoringFields={authoringFields}
+                      authoringFields={songOwnerFields}
                       onAuthoringUpdate={onUpdateAuthoringField}
                       onToggleOptional={onToggleOptional}
                       onDelete={onDeleteSong}

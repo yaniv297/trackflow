@@ -7,6 +7,7 @@ from schemas import AuthoringOut
 from api.data_access import get_authoring_by_song_id
 from models import Song, WipCollaboration, Authoring, Collaboration, CollaborationType
 from api.auth import get_current_active_user
+from sqlalchemy import text
 
 class EditPartsRequest(BaseModel):
     disabled_parts: List[str]
@@ -39,6 +40,10 @@ def get_authoring(song_id: int, db: Session = Depends(get_db), current_user = De
 
 @router.put("/{song_id}")
 def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Update authoring for a song.
+    Writes to the new song_progress table (one row per step), and keeps the legacy
+    Authoring booleans in sync for backward compatibility during transition.
+    """
     # Check if the song exists and current user has access (owns it OR is a collaborator)
     song = db.query(Song).filter(Song.id == song_id).first()
     if not song:
@@ -57,7 +62,7 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
     if not can_access:
         raise HTTPException(status_code=403, detail="You don't have permission to update this song's authoring")
 
-    # Ensure authoring exists
+    # Ensure legacy authoring row exists (temporary during cutover)
     if not song.authoring:
         authoring = Authoring(song_id=song.id)
         db.add(authoring)
@@ -65,8 +70,36 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
         db.refresh(authoring)
         song.authoring = authoring
 
-    for key, value in updates.items():
-        setattr(song.authoring, key, value)
+    # Upsert into song_progress and mirror to legacy booleans
+    for step_name, value in updates.items():
+        is_completed = bool(value)
+        # song_progress upsert (SQLite-compatible using insert-or-update pattern)
+        # Try update first
+        updated = db.execute(
+            text(
+                """
+                UPDATE song_progress
+                SET is_completed = :is_completed,
+                    completed_at = CASE WHEN :is_completed = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE song_id = :song_id AND step_name = :step_name
+                """
+            ),
+            {"is_completed": 1 if is_completed else 0, "song_id": song.id, "step_name": step_name},
+        )
+        if updated.rowcount == 0:
+            db.execute(
+                text(
+                    """
+                    INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
+                    VALUES (:song_id, :step_name, :is_completed,
+                            CASE WHEN :is_completed = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+                            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """
+                ),
+                {"song_id": song.id, "step_name": step_name, "is_completed": 1 if is_completed else 0},
+            )
+        # Note: Legacy authoring table mirroring removed as it's a view
     
     db.commit()
     db.refresh(song)
@@ -92,7 +125,7 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
     if not can_access:
         raise HTTPException(status_code=403, detail="You don't have permission to complete this song's authoring")
 
-    # Ensure authoring progress exists
+    # Ensure legacy authoring progress exists (temporary during cutover)
     if not song.authoring:
         authoring = Authoring(song_id=song.id)
         db.add(authoring)
@@ -100,13 +133,40 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
         db.refresh(authoring)
         song.authoring = authoring
 
-    # Set all fields to True
-    for field in [
+    # Determine steps to complete from owner's workflow; fallback to legacy list
+    rows = db.execute(
+        text(
+            """
+            SELECT uws.step_name
+            FROM user_workflows uw
+            JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+            WHERE uw.user_id = :uid
+            ORDER BY uws.order_index
+            """
+        ),
+        {"uid": song.user_id},
+    ).fetchall()
+    step_names = [r[0] for r in rows] or [
         "demucs", "midi", "tempo_map", "fake_ending", "drums", "bass", "guitar",
-        "vocals", "harmonies", "pro_keys", "keys", "animations",
-        "drum_fills", "overdrive", "compile"
-    ]:
-        setattr(song.authoring, field, True)
+        "vocals", "harmonies", "pro_keys", "keys", "animations", "drum_fills", "overdrive", "compile"
+    ]
+
+    # Upsert all steps as completed
+    for step in step_names:
+        db.execute(
+            text(
+                """
+                INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
+                VALUES (:sid, :step, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(song_id, step_name) DO UPDATE SET
+                  is_completed = 1,
+                  completed_at = CURRENT_TIMESTAMP,
+                  updated_at = CURRENT_TIMESTAMP
+                """
+            ),
+            {"sid": song.id, "step": step},
+        )
+        # Note: Legacy authoring table mirroring removed as it's a view
 
     db.commit()
     db.refresh(song)

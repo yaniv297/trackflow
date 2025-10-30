@@ -18,6 +18,7 @@ from api import user_settings as user_settings
 from api import file_links as file_links
 from api import spotify as spotify
 from api import rockband_dlc as rockband_dlc
+from api import workflows as workflows
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -82,6 +83,7 @@ app.include_router(collaborations.router)
 app.include_router(user_settings.router)
 app.include_router(file_links.router)
 app.include_router(rockband_dlc.router)
+app.include_router(workflows.router)
 
 @app.on_event("startup")
 async def startup_event():

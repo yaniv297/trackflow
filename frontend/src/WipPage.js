@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
+import { useWorkflowData } from "./hooks/useWorkflowData";
 import WipPageHeader from "./components/WipPageHeader";
 import WipPackCard from "./components/WipPackCard";
 import CompletionGroupCard from "./components/CompletionGroupCard";
@@ -136,12 +137,14 @@ function WipPage() {
     collapsedPacks,
     setCollapsedPacks,
     grouped,
-    authoringFields,
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
     loading,
   } = useWipData(user);
+
+  // Get dynamic workflow fields for the current user
+  const { authoringFields } = useWorkflowData(user);
 
   // UI State
   const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
@@ -187,14 +190,32 @@ function WipPage() {
   const completionGroups = useMemo(() => {
     const getFilledCount = (song) => {
       if (!song.authoring) return 0;
+
+      // Use workflow fields as the source of truth, then check what exists in song.authoring
       return authoringFields.reduce((count, field) => {
-        return count + (song.authoring[field] === true ? 1 : 0);
+        if (song.authoring && song.authoring.hasOwnProperty(field)) {
+          return count + (song.authoring[field] === true ? 1 : 0);
+        }
+        return count; // Field doesn't exist in song.authoring, so it's not completed
       }, 0);
     };
 
     const getCompletionPercent = (song) => {
-      const filledCount = getFilledCount(song);
-      return Math.round((filledCount / authoringFields.length) * 100);
+      if (!song.authoring) return 0;
+
+      // Use workflow fields as the source of truth
+      if (authoringFields.length === 0) return 0;
+
+      const filledCount = authoringFields.reduce((count, field) => {
+        if (song.authoring && song.authoring.hasOwnProperty(field)) {
+          return count + (song.authoring[field] === true ? 1 : 0);
+        }
+        return count; // Field doesn't exist in song.authoring, so it's not completed
+      }, 0);
+
+      const percent = Math.round((filledCount / authoringFields.length) * 100);
+
+      return percent;
     };
 
     // Separate songs by category
@@ -217,21 +238,24 @@ function WipPage() {
       const completionPercent = getCompletionPercent(song);
 
       if (!isOwner) {
-        // Songs by collaborators
+        // Songs by collaborators - only show if they have collaboration access
         if (song.optional) {
           optionalCollaboratorSongs.push({ ...song, completionPercent });
         } else {
           collaboratorSongs.push({ ...song, completionPercent });
         }
-      } else if (song.optional) {
-        // Optional songs by current user
-        optional.push({ ...song, completionPercent });
-      } else if (completionPercent === 100) {
-        // Completed songs
-        completed.push({ ...song, completionPercent });
       } else {
-        // In progress songs
-        inProgress.push({ ...song, completionPercent });
+        // Songs owned by current user
+        if (song.optional) {
+          // Optional songs by current user
+          optional.push({ ...song, completionPercent });
+        } else if (completionPercent === 100) {
+          // Completed songs by current user
+          completed.push({ ...song, completionPercent });
+        } else {
+          // In progress songs by current user
+          inProgress.push({ ...song, completionPercent });
+        }
       }
     });
 
@@ -386,28 +410,52 @@ function WipPage() {
   };
 
   // Song Management
-  const updateAuthoringField = (songId, field, value) => {
+  const updateAuthoringField = async (songId, field, value) => {
+    console.log(`Updating field ${field} to ${value} for song ${songId}`);
+
     setSongs((prev) => {
-      const updated = prev.map((song) =>
-        song.id === songId
-          ? {
-              ...song,
-              authoring: { ...(song.authoring || {}), [field]: value },
-            }
-          : song
-      );
+      const updated = prev.map((song) => {
+        if (song.id !== songId) return song;
 
-      const song = updated.find((s) => s.id === songId);
-      const completedFields = authoringFields.filter(
-        (f) => song.authoring?.[f] === true
-      );
+        const nextAuthoring = { ...(song.authoring || {}), [field]: value };
+        const nextProgress = { ...(song.progress || {}), [field]: value };
 
+        return {
+          ...song,
+          authoring: nextAuthoring,
+          progress: nextProgress,
+        };
+      });
+
+      const changed = updated.find((s) => s.id === songId);
+
+      // Recalculate completion using workflow fields as source of truth
+      const filledCount = authoringFields.reduce((count, f) => {
+        const v =
+          changed.progress && changed.progress.hasOwnProperty(f)
+            ? changed.progress[f]
+            : changed.authoring?.[f];
+        return count + (v === true ? 1 : 0);
+      }, 0);
+      const isComplete = filledCount === authoringFields.length;
+
+      // Debug logging
+      // console.log(`Song ${songId} (${changed.title}) updated:`, { filledCount, total: authoringFields.length, isComplete });
+
+      // Persist to backend (fire-and-forget)
       apiPut(`/authoring/${songId}`, { [field]: value }).catch((error) => {
         console.error("Failed to update authoring field:", error);
       });
 
-      if (completedFields.length === authoringFields.length) {
+      if (isComplete) {
+        console.log(`🎉 Song ${songId} (${changed.title}) is now complete!`);
         setFireworksTrigger((prev) => prev + 1);
+
+        // Show completion notification (song stays in "In Progress" until pack is released)
+        window.showNotification(
+          `🎉 "${changed.title}" is now complete! Ready for pack release.`,
+          "success"
+        );
       }
 
       return updated;
@@ -778,7 +826,7 @@ function WipPage() {
       return;
     }
 
-    const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
+    const [secondAlbumName] = albumsToChooseFrom[0];
     const songsInSecondAlbum = packSongs.filter(
       (song) => song.album === secondAlbumName
     );
@@ -808,13 +856,8 @@ function WipPage() {
 
     setIsExecutingDoubleAlbumSeries(true);
 
-    const {
-      packName,
-      secondAlbumName,
-      songsToMove,
-      newPackName,
-      mostCommonArtist,
-    } = doubleAlbumSeriesData;
+    const { secondAlbumName, songsToMove, newPackName, mostCommonArtist } =
+      doubleAlbumSeriesData;
 
     try {
       // Update all songs from the second album to the new pack
@@ -974,7 +1017,7 @@ function WipPage() {
         return;
       }
 
-      const created = await apiPost("/album-series/", {
+      await apiPost("/album-series/", {
         pack_id: packId,
         artist_name: albumSeriesForm.artist_name,
         album_name: albumSeriesForm.album_name,
@@ -1017,6 +1060,11 @@ function WipPage() {
             percent={packData.percent}
             coreSongs={packData.coreSongs}
             allSongs={packData.allSongs}
+            completedSongs={packData.completedSongs}
+            inProgressSongs={packData.inProgressSongs}
+            optionalSongs={packData.optionalSongs}
+            collaboratorSongs={packData.collaboratorSongs}
+            collaboratorOptionalSongs={packData.collaboratorOptionalSongs}
             collapsedPacks={collapsedPacks}
             user={user}
             grouped={grouped}

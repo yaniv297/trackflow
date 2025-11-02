@@ -392,32 +392,48 @@ function WipPage() {
   const updateAuthoringField = async (songId, field, value) => {
     console.log(`Updating field ${field} to ${value} for song ${songId}`);
 
-    setSongs((prev) => {
-      const updated = prev.map((song) => {
+    // Update local state immediately (optimistic)
+    setSongs((prev) =>
+      prev.map((song) => {
         if (song.id !== songId) return song;
-
         const nextProgress = { ...(song.progress || {}), [field]: value };
+        return { ...song, progress: nextProgress };
+      })
+    );
 
-        return {
-          ...song,
-          progress: nextProgress,
-        };
-      });
+    // Persist to backend and wait for it
+    try {
+      await apiPut(`/authoring/${songId}`, { [field]: value });
 
-      const changed = updated.find((s) => s.id === songId);
-      const isComplete = isSongComplete(changed, authoringFields);
-
-      // Persist to backend (fire-and-forget)
-      apiPut(`/authoring/${songId}`, { [field]: value }).catch((error) => {
-        console.error("Failed to update authoring field:", error);
-      });
-
-      if (isComplete) {
-        setFireworksTrigger((prev) => prev + 1);
+      // Check if song is now complete for fireworks
+      const updatedSong = songs.find((s) => s.id === songId);
+      if (updatedSong) {
+        const isComplete = isSongComplete(
+          {
+            ...updatedSong,
+            progress: { ...(updatedSong.progress || {}), [field]: value },
+          },
+          authoringFields
+        );
+        if (isComplete) {
+          setFireworksTrigger((prev) => prev + 1);
+        }
       }
-
-      return updated;
-    });
+    } catch (error) {
+      console.error("Failed to update authoring field:", error);
+      // Revert optimistic update on error
+      setSongs((prev) =>
+        prev.map((song) => {
+          if (song.id !== songId) return song;
+          const revertedProgress = {
+            ...(song.progress || {}),
+            [field]: !value,
+          };
+          return { ...song, progress: revertedProgress };
+        })
+      );
+      throw error; // Re-throw so WipSongCard can handle it
+    }
   };
 
   const updateSongData = (songId, updatedSongData) => {

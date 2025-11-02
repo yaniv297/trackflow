@@ -185,17 +185,18 @@ export default function WipSongCard({
     const currentVal = getFieldCompletion(song, field);
     const nextVal = !currentVal;
 
-    // Optimistic update
+    // Optimistic local update
     setProgress((prev) => ({ ...prev, [field]: nextVal }));
 
-    try {
-      await apiPut(`/authoring/${song.id}`, { [field]: nextVal });
-      // Optimistic update already applied above - no need to refetch
-      if (onAuthoringUpdate) onAuthoringUpdate(song.id, field, nextVal);
-    } catch (error) {
-      // Revert on failure
-      setProgress((prev) => ({ ...prev, [field]: currentVal }));
-      console.error(`Error updating ${field}:`, error);
+    // Let parent handle the API call - it will update global state and call API
+    if (onAuthoringUpdate) {
+      try {
+        await onAuthoringUpdate(song.id, field, nextVal);
+      } catch (error) {
+        // Revert on failure
+        setProgress((prev) => ({ ...prev, [field]: currentVal }));
+        console.error(`Error updating ${field}:`, error);
+      }
     }
   };
 

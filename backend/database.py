@@ -26,13 +26,11 @@ engine = create_engine(
 	pool_pre_ping=True,
 	pool_recycle=300,
 	# Optimize pool size for SQLite (smaller pool to avoid locks)
-	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 5,
-	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
+	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 20,
+	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 40,
 	pool_timeout=30
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-print(f"📦 Connected to database: {SQLALCHEMY_DATABASE_URL}")
 
 # Lightweight migration for SQLite: add column if missing
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
@@ -91,7 +89,6 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 # Dependency for FastAPI
 def get_db():
 	db = SessionLocal()
-	print(f"📦 Connected to database: {SQLALCHEMY_DATABASE_URL}")
 	try:
 		yield db
 	finally:

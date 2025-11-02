@@ -1,40 +1,40 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { apiGet } from "../utils/api";
+
+// GLOBAL cache shared across all component instances (outside React state)
+const globalWorkflowCache = {};
+const globalLoadingState = {};
+const pendingRequests = {};
 
 /**
  * Hook to fetch and cache workflow fields for different users
- * Used for displaying collaborator songs with their owner's workflow
+ * Uses a global cache to avoid duplicate API calls across components
  */
 export const useUserWorkflowFields = () => {
-  const [workflowFieldsCache, setWorkflowFieldsCache] = useState({});
-  const [loading, setLoading] = useState({});
+  const [, forceUpdate] = useState(0);
 
-  const fetchUserWorkflowFields = useCallback(
-    async (userId) => {
-      // Return cached data if available
-      if (workflowFieldsCache[userId]) {
-        return workflowFieldsCache[userId];
-      }
+  const fetchUserWorkflowFields = useCallback(async (userId) => {
+    // Return cached data if available
+    if (globalWorkflowCache[userId]) {
+      return globalWorkflowCache[userId];
+    }
 
-      // Return empty array if already loading
-      if (loading[userId]) {
-        return [];
-      }
+    // If already fetching, wait for existing request
+    if (pendingRequests[userId]) {
+      return pendingRequests[userId];
+    }
 
+    // Start new fetch
+    globalLoadingState[userId] = true;
+    pendingRequests[userId] = (async () => {
       try {
-        setLoading((prev) => ({ ...prev, [userId]: true }));
-
         const response = await apiGet(
           `/workflows/user/${userId}/workflow-fields`
         );
-        let authoringFields = response.authoringFields || [];
+        const authoringFields = response.authoringFields || [];
 
-        // Cache the result
-        setWorkflowFieldsCache((prev) => ({
-          ...prev,
-          [userId]: authoringFields,
-        }));
-
+        // Cache globally
+        globalWorkflowCache[userId] = authoringFields;
         return authoringFields;
       } catch (error) {
         console.error(
@@ -43,29 +43,44 @@ export const useUserWorkflowFields = () => {
         );
         return [];
       } finally {
-        setLoading((prev) => ({ ...prev, [userId]: false }));
+        globalLoadingState[userId] = false;
+        delete pendingRequests[userId];
       }
-    },
-    [workflowFieldsCache, loading]
-  );
+    })();
 
-  const getWorkflowFields = useCallback(
-    (userId) => {
-      // Return undefined if not yet loaded, so callers can defer rendering
-      return workflowFieldsCache[userId];
-    },
-    [workflowFieldsCache]
-  );
+    return pendingRequests[userId];
+  }, []);
+
+  const getWorkflowFields = useCallback((userId) => {
+    return globalWorkflowCache[userId];
+  }, []);
 
   const clearCache = useCallback(() => {
-    setWorkflowFieldsCache({});
-    setLoading({});
+    Object.keys(globalWorkflowCache).forEach(
+      (key) => delete globalWorkflowCache[key]
+    );
+    Object.keys(globalLoadingState).forEach(
+      (key) => delete globalLoadingState[key]
+    );
+    Object.keys(pendingRequests).forEach((key) => delete pendingRequests[key]);
+    forceUpdate((prev) => prev + 1);
   }, []);
+
+  // Listen for cache invalidation events
+  useEffect(() => {
+    const handleInvalidate = () => clearCache();
+    window.addEventListener("workflow-fields-invalidate", handleInvalidate);
+    return () =>
+      window.removeEventListener(
+        "workflow-fields-invalidate",
+        handleInvalidate
+      );
+  }, [clearCache]);
 
   return {
     fetchUserWorkflowFields,
     getWorkflowFields,
     clearCache,
-    isLoading: (userId) => loading[userId] || false,
+    isLoading: (userId) => globalLoadingState[userId] || false,
   };
 };

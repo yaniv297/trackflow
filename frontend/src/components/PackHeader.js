@@ -288,11 +288,12 @@ const PackHeader = ({
                     <button
                       onClick={() => {
                         if (setShowCollaborationModal) {
+                          const packId = validSongsInPack[0]?.pack_id;
                           setShowCollaborationModal(true);
                           setSelectedItemForCollaboration &&
                             setSelectedItemForCollaboration({
-                              type: "pack",
-                              packName,
+                              id: packId,
+                              name: packName,
                             });
                           setCollaborationType && setCollaborationType("pack");
                         }

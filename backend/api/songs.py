@@ -228,8 +228,7 @@ def get_filtered_songs(
         song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
         
         # Set author from user relationship
-        if song.user:
-            song_dict["author"] = song.user.username
+        song_dict["author"] = song.user.username if song.user else None
         
         # Include authoring data for completion tracking
         # Note: authoring is deprecated, but keep for backward compatibility

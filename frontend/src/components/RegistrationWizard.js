@@ -88,7 +88,7 @@ const RegistrationWizard = () => {
     setStep(2);
   };
 
-  const handleStep2Submit = () => {
+  const handleStep2Submit = async () => {
     if (!email || !password || !confirmPassword) {
       setError("All fields are required");
       return;
@@ -104,6 +104,13 @@ const RegistrationWizard = () => {
       return;
     }
 
+    // Validate email format
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailPattern.test(email)) {
+      setError("Invalid email format");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -112,6 +119,32 @@ const RegistrationWizard = () => {
     if (password.length < 6) {
       setError("Password must be at least 6 characters");
       return;
+    }
+
+    // Check if username/email already exist (for new users)
+    if (isNewUser) {
+      setLoading(true);
+      try {
+        // Check if username exists
+        const usersResponse = await apiGet("/auth/users");
+        const existingUsernames = (usersResponse || []).map((u) =>
+          u.username.toLowerCase()
+        );
+
+        if (existingUsernames.includes(username.toLowerCase())) {
+          setError("Username already taken");
+          setLoading(false);
+          return;
+        }
+
+        // Check if email exists (we'll get an error from backend if it does, but check anyway)
+        // Note: The /auth/users endpoint doesn't expose emails for privacy, so we'll rely on backend validation
+      } catch (error) {
+        console.error("Validation check failed:", error);
+        // Continue anyway - backend will catch it
+      } finally {
+        setLoading(false);
+      }
     }
 
     setError("");

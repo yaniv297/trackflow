@@ -80,12 +80,12 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
                 """
                 UPDATE song_progress
                 SET is_completed = :is_completed,
-                    completed_at = CASE WHEN :is_completed = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+                    completed_at = CASE WHEN :is_completed = TRUE THEN CURRENT_TIMESTAMP ELSE NULL END,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE song_id = :song_id AND step_name = :step_name
                 """
             ),
-            {"is_completed": 1 if is_completed else 0, "song_id": song.id, "step_name": step_name},
+            {"is_completed": is_completed, "song_id": song.id, "step_name": step_name},
         )
         if updated.rowcount == 0:
             db.execute(
@@ -93,11 +93,11 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
                     """
                     INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
                     VALUES (:song_id, :step_name, :is_completed,
-                            CASE WHEN :is_completed = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+                            CASE WHEN :is_completed = TRUE THEN CURRENT_TIMESTAMP ELSE NULL END,
                             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """
                 ),
-                {"song_id": song.id, "step_name": step_name, "is_completed": 1 if is_completed else 0},
+                {"song_id": song.id, "step_name": step_name, "is_completed": is_completed},
             )
         # Note: Legacy authoring table mirroring removed as it's a view
     

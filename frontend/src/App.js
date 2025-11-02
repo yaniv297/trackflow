@@ -21,6 +21,7 @@ import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
 import WorkflowSettings from "./components/WorkflowSettings";
 import HelpPage from "./HelpPage";
+import ContactPage from "./ContactPage";
 import "./App.css";
 
 function AppContent() {
@@ -242,7 +243,7 @@ function AppContent() {
                     <div
                       onClick={() => {
                         setShowUserDropdown(false);
-                        navigate("/help");
+                        navigate("/contact");
                       }}
                       style={{
                         display: "block",
@@ -262,7 +263,7 @@ function AppContent() {
                         (e.target.style.background = "transparent")
                       }
                     >
-                      Help & FAQ
+                      Contact
                     </div>
                     <div
                       onClick={() => {
@@ -419,6 +420,9 @@ function AppContent() {
             <NavLink to="/stats" activeclassname="active">
               Stats
             </NavLink>
+            <NavLink to="/help" activeclassname="active">
+              Help
+            </NavLink>
           </nav>
         )}
 
@@ -520,6 +524,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <HelpPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <ProtectedRoute>
+                <ContactPage />
               </ProtectedRoute>
             }
           />

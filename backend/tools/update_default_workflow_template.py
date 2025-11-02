@@ -35,7 +35,7 @@ NEW_STEPS = [
 def main():
     with engine.begin() as conn:
         # Ensure a default template exists
-        tmpl = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+        tmpl = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1")).fetchone()
         if not tmpl:
             # Create one if missing
             conn.execute(text(
@@ -44,7 +44,7 @@ def main():
                 VALUES ('Standard Workflow', 'Default authoring workflow', 1, 1)
                 """
             ))
-            tmpl = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+            tmpl = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1")).fetchone()
         template_id = tmpl[0]
 
         # Replace steps

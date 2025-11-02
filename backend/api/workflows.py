@@ -40,7 +40,7 @@ async def get_my_workflow(
     result = db.execute(text("SELECT id, user_id, name, description, template_id, created_at, updated_at FROM user_workflows WHERE user_id = :uid"), {"uid": current_user.id}).fetchone()
     if not result:
         # Create from default template if missing
-        tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+        tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1")).fetchone()
         if not tmpl:
             raise HTTPException(status_code=500, detail="Default workflow template missing")
         db.execute(text("INSERT INTO user_workflows (user_id, name, description, template_id, created_at, updated_at) VALUES (:uid, 'My Workflow', 'Customized workflow', :tid, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"), {"uid": current_user.id, "tid": tmpl[0]})

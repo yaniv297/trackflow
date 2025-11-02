@@ -160,7 +160,7 @@ def populate_default_template(engine):
             "is_system": True
         })
         # Fetch inserted id (SQLite-compatible)
-        result = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 ORDER BY id DESC LIMIT 1"))
+        result = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE ORDER BY id DESC LIMIT 1"))
         template_id = result.fetchone()[0]
         
         # Insert steps

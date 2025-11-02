@@ -190,8 +190,7 @@ export default function WipSongCard({
 
     try {
       await apiPut(`/authoring/${song.id}`, { [field]: nextVal });
-      // Re-sync from server to avoid double-click visual glitches
-      await loadSongProgress();
+      // Optimistic update already applied above - no need to refetch
       if (onAuthoringUpdate) onAuthoringUpdate(song.id, field, nextVal);
     } catch (error) {
       // Revert on failure

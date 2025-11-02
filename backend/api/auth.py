@@ -101,6 +101,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_active: bool
+    is_admin: bool = False
     created_at: str
     
     class Config:
@@ -164,6 +165,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
             username=db_user.username,
             email=db_user.email,
             is_active=db_user.is_active,
+            is_admin=db_user.is_admin,
             created_at=db_user.created_at.isoformat()
         )
     }
@@ -202,6 +204,7 @@ def get_current_user_info(current_user: User = Depends(get_current_active_user))
         username=current_user.username,
         email=current_user.email,
         is_active=current_user.is_active,
+        is_admin=current_user.is_admin,
         created_at=current_user.created_at.isoformat()
     )
 

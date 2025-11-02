@@ -1011,8 +1011,8 @@ function HelpPage() {
             <section style={sectionStyle}>
               <h3 style={subHeadingStyle}>What Is The Album Series?</h3>
               <p style={textStyle}>
-                The Album Series is a <strong>collaborative community project</strong> where members contribute complete album 
-                releases. Only finished albums get official series numbers and appear on the public Album Series page for 
+                The Album Series is a <strong>collaborative community project</strong> where members contribute album-centric 
+                packs. Only album series releases get official series numbers and appear on the public Album Series page for 
                 everyone to see.
               </p>
 
@@ -1028,7 +1028,7 @@ function HelpPage() {
                   <li><strong>Community Project:</strong> One shared Album Series that all users contribute to</li>
                   <li><strong>Album-Centric Packs:</strong> Each entry focuses on songs from a specific album</li>
                   <li><strong>Private Development:</strong> Album series remain private while you work on them</li>
-                  <li><strong>Public Release:</strong> Only when released do they get series numbers and become visible to everyone</li>
+                  <li><strong>Public Release:</strong> When you release an album series, it gets a series number and becomes visible to everyone</li>
                   <li><strong>Any Album Qualifies:</strong> No themes or restrictions - any album can be added</li>
                 </ul>
               </div>
@@ -1133,7 +1133,7 @@ function HelpPage() {
                   <li><strong>🎵 Official DLC:</strong> Automatically detected as existing Rock Band DLC</li>
                   <li><strong>⚠️ Preexisting:</strong> Marked as already done by community</li>
                   <li><strong>❌ Missing:</strong> Not in pack yet, can be added with one click</li>
-                  <li><strong>🚫 Irrelevant:</strong> Marked as not relevant (interludes, skits, etc.)</li>
+                  <li><strong>🚫 Irrelevant:</strong> Marked as not relevant (interludes, skits, demos, bonus tracks etc.)</li>
                 </ul>
 
                 <h4 style={{ color: "#333" }}>Key Features</h4>

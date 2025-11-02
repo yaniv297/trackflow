@@ -206,7 +206,7 @@ async def update_my_workflow(
                     JOIN user_workflow_steps uws ON uws.step_name = sp.step_name
                     JOIN user_workflows uw ON uw.id = uws.workflow_id
                     WHERE uw.user_id = :uid
-                      AND sp.is_completed = 0
+                      AND sp.is_completed = FALSE
                   )
                   AND s.id IN (
                     -- Only include songs that have at least one progress entry (actively using new system)
@@ -303,7 +303,7 @@ async def get_song_progress(
         db.execute(text(
             """
             INSERT INTO song_progress (song_id, step_name, is_completed, created_at, updated_at)
-            VALUES (:sid, :step, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (:sid, :step, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT(song_id, step_name) DO NOTHING
             """
         ), {"sid": song_id, "step": step})

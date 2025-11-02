@@ -32,11 +32,16 @@ from models import Base, User, Song, Authoring
 def create_new_tables(engine):
     """Create the new workflow tables"""
     print("Creating new workflow tables...")
+    
+    # Detect database type
+    is_sqlite = 'sqlite' in str(engine.url).lower()
+    pk_type = "INTEGER PRIMARY KEY AUTOINCREMENT" if is_sqlite else "SERIAL PRIMARY KEY"
+    
     with engine.begin() as conn:
-        # Create workflow_templates table (PostgreSQL-compatible)
-        conn.execute(text("""
+        # Create workflow_templates table
+        conn.execute(text(f"""
         CREATE TABLE IF NOT EXISTS workflow_templates (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             name VARCHAR NOT NULL,
             description TEXT,
             is_default BOOLEAN DEFAULT FALSE,
@@ -49,9 +54,9 @@ def create_new_tables(engine):
         """))
         
         # Create workflow_template_steps table (simplified - no category/description/required)
-        conn.execute(text("""
+        conn.execute(text(f"""
         CREATE TABLE IF NOT EXISTS workflow_template_steps (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             template_id INTEGER NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
             step_name VARCHAR NOT NULL,
             display_name VARCHAR NOT NULL,
@@ -65,9 +70,9 @@ def create_new_tables(engine):
         """))
         
         # Create user_workflows table
-        conn.execute(text("""
+        conn.execute(text(f"""
         CREATE TABLE IF NOT EXISTS user_workflows (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             name VARCHAR NOT NULL,
             description TEXT,
@@ -82,9 +87,9 @@ def create_new_tables(engine):
         """))
         
         # Create user_workflow_steps table (simplified - only core fields)
-        conn.execute(text("""
+        conn.execute(text(f"""
         CREATE TABLE IF NOT EXISTS user_workflow_steps (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             workflow_id INTEGER NOT NULL REFERENCES user_workflows(id) ON DELETE CASCADE,
             step_name VARCHAR NOT NULL,
             display_name VARCHAR NOT NULL,
@@ -98,9 +103,9 @@ def create_new_tables(engine):
         """))
         
         # Create song_progress table
-        conn.execute(text("""
+        conn.execute(text(f"""
         CREATE TABLE IF NOT EXISTS song_progress (
-            id SERIAL PRIMARY KEY,
+            id {pk_type},
             song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
             step_name VARCHAR NOT NULL,
             is_completed BOOLEAN DEFAULT FALSE,
@@ -149,14 +154,15 @@ def populate_default_template(engine):
     with engine.begin() as conn:
         conn.execute(text("""
         INSERT INTO workflow_templates (name, description, is_default, is_system)
-        VALUES (:name, :description, :is_default, TRUE)
+        VALUES (:name, :description, :is_default, :is_system)
         """), {
             "name": default_template["name"],
             "description": default_template["description"],
-            "is_default": default_template["is_default"]
+            "is_default": default_template["is_default"],
+            "is_system": True
         })
         # Fetch inserted id (SQLite-compatible)
-        result = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1"))
+        result = conn.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 ORDER BY id DESC LIMIT 1"))
         template_id = result.fetchone()[0]
         
         # Insert steps

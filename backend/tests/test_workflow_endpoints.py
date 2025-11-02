@@ -480,3 +480,159 @@ class TestWorkflowAuthorization:
             json={"name": "Hacked Template"}
         )
         assert response.status_code == 404
+
+class TestWorkflowStepAddition:
+    def test_adding_step_to_completed_new_system_song(self, authenticated_client, mock_db, test_user):
+        """Test that songs completed via new workflow system get new steps auto-marked complete"""
+        
+        # Create a workflow with 2 steps
+        workflow = UserWorkflow(
+            user_id=test_user.id,
+            name="Test Workflow",
+            description="Test workflow"
+        )
+        mock_db.add(workflow)
+        mock_db.commit()
+        mock_db.refresh(workflow)
+        
+        # Add steps to workflow
+        step1 = UserWorkflowStep(
+            workflow_id=workflow.id,
+            step_name="step1",
+            display_name="Step 1",
+            order_index=0
+        )
+        step2 = UserWorkflowStep(
+            workflow_id=workflow.id,
+            step_name="step2", 
+            display_name="Step 2",
+            order_index=1
+        )
+        mock_db.add_all([step1, step2])
+        mock_db.commit()
+        
+        # Create a song
+        song = Song(
+            title="Test Song",
+            artist="Test Artist",
+            pack="Test Pack",
+            status="WIP",
+            user_id=test_user.id
+        )
+        mock_db.add(song)
+        mock_db.commit()
+        mock_db.refresh(song)
+        
+        # Mark all current steps as completed in song_progress
+        progress1 = SongProgress(
+            song_id=song.id,
+            step_name="step1",
+            is_completed=True,
+            completed_at=datetime.utcnow()
+        )
+        progress2 = SongProgress(
+            song_id=song.id,
+            step_name="step2", 
+            is_completed=True,
+            completed_at=datetime.utcnow()
+        )
+        mock_db.add_all([progress1, progress2])
+        mock_db.commit()
+        
+        # Now add a third step to the workflow
+        update_data = {
+            "steps": [
+                {"step_name": "step1", "display_name": "Step 1", "order_index": 0},
+                {"step_name": "step2", "display_name": "Step 2", "order_index": 1},
+                {"step_name": "step3", "display_name": "Step 3", "order_index": 2}  # New step
+            ]
+        }
+        
+        response = authenticated_client.put("/workflows/my-workflow", json=update_data)
+        assert response.status_code == 200
+        
+        # Verify the new step was auto-marked complete for the completed song
+        new_progress = mock_db.query(SongProgress).filter(
+            SongProgress.song_id == song.id,
+            SongProgress.step_name == "step3"
+        ).first()
+        
+        assert new_progress is not None
+        assert new_progress.is_completed == True
+        assert new_progress.completed_at is not None
+
+    def test_adding_step_to_incomplete_new_system_song(self, authenticated_client, mock_db, test_user):
+        """Test that songs incomplete via new workflow system get new steps marked incomplete"""
+        
+        # Create same setup as above but don't complete step2
+        workflow = UserWorkflow(
+            user_id=test_user.id,
+            name="Test Workflow", 
+            description="Test workflow"
+        )
+        mock_db.add(workflow)
+        mock_db.commit()
+        mock_db.refresh(workflow)
+        
+        step1 = UserWorkflowStep(
+            workflow_id=workflow.id,
+            step_name="step1",
+            display_name="Step 1", 
+            order_index=0
+        )
+        step2 = UserWorkflowStep(
+            workflow_id=workflow.id,
+            step_name="step2",
+            display_name="Step 2",
+            order_index=1
+        )
+        mock_db.add_all([step1, step2])
+        mock_db.commit()
+        
+        song = Song(
+            title="Incomplete Song",
+            artist="Test Artist", 
+            pack="Test Pack",
+            status="WIP",
+            user_id=test_user.id
+        )
+        mock_db.add(song)
+        mock_db.commit()
+        mock_db.refresh(song)
+        
+        # Only complete step1, leave step2 incomplete
+        progress1 = SongProgress(
+            song_id=song.id,
+            step_name="step1",
+            is_completed=True,
+            completed_at=datetime.utcnow()
+        )
+        progress2 = SongProgress(
+            song_id=song.id,
+            step_name="step2",
+            is_completed=False  # Incomplete!
+        )
+        mock_db.add_all([progress1, progress2])
+        mock_db.commit()
+        
+        # Add third step
+        update_data = {
+            "steps": [
+                {"step_name": "step1", "display_name": "Step 1", "order_index": 0},
+                {"step_name": "step2", "display_name": "Step 2", "order_index": 1}, 
+                {"step_name": "step3", "display_name": "Step 3", "order_index": 2}
+            ]
+        }
+        
+        response = authenticated_client.put("/workflows/my-workflow", json=update_data)
+        assert response.status_code == 200
+        
+        # Verify the new step was NOT auto-completed (song isn't fully done)
+        new_progress = mock_db.query(SongProgress).filter(
+            SongProgress.song_id == song.id,
+            SongProgress.step_name == "step3"
+        ).first()
+        
+        # New step should either not exist or be marked incomplete
+        if new_progress:
+            assert new_progress.is_completed == False

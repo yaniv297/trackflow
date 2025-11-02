@@ -46,8 +46,8 @@ async def get_my_workflow(
         db.execute(text("INSERT INTO user_workflows (user_id, name, description, template_id, created_at, updated_at) VALUES (:uid, 'My Workflow', 'Customized workflow', :tid, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"), {"uid": current_user.id, "tid": tmpl[0]})
         # Copy steps
         db.execute(text("""
-            INSERT INTO user_workflow_steps (workflow_id, step_name, display_name, description, order_index, is_required, category, is_enabled)
-            SELECT (SELECT id FROM user_workflows WHERE user_id = :uid), step_name, display_name, description, order_index, is_required, category, 1
+            INSERT INTO user_workflow_steps (workflow_id, step_name, display_name, order_index)
+            SELECT (SELECT id FROM user_workflows WHERE user_id = :uid), step_name, display_name, order_index
             FROM workflow_template_steps WHERE template_id = :tid
         """), {"uid": current_user.id, "tid": tmpl[0]})
         db.commit()
@@ -55,7 +55,7 @@ async def get_my_workflow(
 
     workflow_id = result[0]
     steps = db.execute(text("""
-        SELECT id, workflow_id, step_name, display_name, NULL as description, order_index, 1 as is_required, NULL as category, 1 as is_enabled
+        SELECT id, workflow_id, step_name, display_name, order_index
         FROM user_workflow_steps WHERE workflow_id = :wid ORDER BY order_index
     """), {"wid": workflow_id}).fetchall()
 
@@ -73,11 +73,7 @@ async def get_my_workflow(
                 "workflow_id": s[1],
                 "step_name": s[2],
                 "display_name": s[3],
-                "description": s[4],
-                "order_index": s[5],
-                "is_required": bool(s[6]),
-                "category": s[7],
-                "is_enabled": bool(s[8]),
+                "order_index": s[4],
             }
             for s in steps
         ],
@@ -180,8 +176,11 @@ async def update_my_workflow(
                           updated_at = CURRENT_TIMESTAMP
                     """), {"sid": song_id, "step": step})
 
-            # 2) WIP songs that are effectively finished (all legacy booleans true): also keep finished
-            fully_done = db.execute(text(
+            # 2) WIP songs that are effectively finished: also keep finished
+            # This includes both legacy (authoring table) and new (song_progress) completion tracking
+            
+            # A) Legacy authoring table - songs with all legacy booleans true
+            legacy_done = db.execute(text(
                 """
                 SELECT s.id
                 FROM songs s
@@ -193,8 +192,39 @@ async def update_my_workflow(
                        AND a.drum_fills = 1 AND a.overdrive = 1 AND a.compile = 1)
                 """
             ), {"uid": current_user.id}).fetchall()
+            
+            # B) New workflow system - songs where ALL current workflow steps are completed
+            new_system_done = db.execute(text(
+                """
+                SELECT s.id
+                FROM songs s
+                WHERE s.user_id = :uid
+                  AND s.id NOT IN (
+                    -- Exclude songs that have any incomplete steps in their current workflow
+                    SELECT DISTINCT sp.song_id
+                    FROM song_progress sp
+                    JOIN user_workflow_steps uws ON uws.step_name = sp.step_name
+                    JOIN user_workflows uw ON uw.id = uws.workflow_id
+                    WHERE uw.user_id = :uid
+                      AND sp.is_completed = 0
+                  )
+                  AND s.id IN (
+                    -- Only include songs that have at least one progress entry (actively using new system)
+                    SELECT DISTINCT sp2.song_id
+                    FROM song_progress sp2
+                    JOIN user_workflow_steps uws2 ON uws2.step_name = sp2.step_name
+                    JOIN user_workflows uw2 ON uw2.id = uws2.workflow_id
+                    WHERE uw2.user_id = :uid
+                  )
+                """
+            ), {"uid": current_user.id}).fetchall()
+            
+            # Combine both sets of completed songs
+            legacy_song_ids = {row[0] for row in legacy_done}
+            new_system_song_ids = {row[0] for row in new_system_done}
+            fully_done_song_ids = legacy_song_ids.union(new_system_song_ids)
 
-            for (song_id,) in fully_done:
+            for song_id in fully_done_song_ids:
                 for step in added:
                     db.execute(text("""
                         INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)

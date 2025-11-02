@@ -917,7 +917,9 @@ const WipPackCard = ({
                             onDelete={onDeleteSong}
                             selectedSongs={selectedSongs}
                             setSelectedSongs={onSetSelectedSongs}
-                            defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                            defaultExpanded={
+                              !isSongComplete(song, authoringFields)
+                            } // Finished songs collapsed, unfinished expanded
                             onSongUpdate={onSongUpdate}
                           />
                         );
@@ -962,7 +964,7 @@ const WipPackCard = ({
                       onDelete={onDeleteSong}
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
-                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      defaultExpanded={!isSongComplete(song, authoringFields)} // Finished songs collapsed, unfinished expanded
                       onSongUpdate={onSongUpdate}
                     />
                   );
@@ -1002,7 +1004,7 @@ const WipPackCard = ({
                       onDelete={onDeleteSong}
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
-                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      defaultExpanded={!isSongComplete(song, authoringFields)} // Finished songs collapsed, unfinished expanded
                       onSongUpdate={onSongUpdate}
                     />
                   );
@@ -1047,7 +1049,7 @@ const WipPackCard = ({
                       onDelete={onDeleteSong}
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
-                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      defaultExpanded={!isSongComplete(song, songOwnerFields)} // Finished songs collapsed, unfinished expanded
                       readOnly={true} // Songs by collaborators are read-only
                       onSongUpdate={onSongUpdate}
                     />
@@ -1096,7 +1098,7 @@ const WipPackCard = ({
                       onDelete={onDeleteSong}
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
-                      defaultExpanded={!isFinished} // Finished songs collapsed, unfinished expanded
+                      defaultExpanded={!isSongComplete(song, songOwnerFields)} // Finished songs collapsed, unfinished expanded
                       readOnly={true} // Songs by collaborators are read-only
                       onSongUpdate={onSongUpdate}
                     />

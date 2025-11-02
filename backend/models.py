@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'UserWorkflow', 'UserWorkflowStep', 'SongProgress', 'WorkflowTemplate', 'WorkflowTemplateStep']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC']
 
 class SongStatus(str, enum.Enum):
     released = "Released"

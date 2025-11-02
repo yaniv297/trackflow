@@ -332,6 +332,56 @@ async def get_song_progress(
         for r in rows
     ]
 
+@router.get("/songs/progress/bulk")
+async def get_bulk_song_progress(
+    song_ids: str,  # Comma-separated list of song IDs
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get progress for multiple songs at once to reduce API calls.
+    
+    Args:
+        song_ids: Comma-separated list of song IDs (e.g., "1,2,3,4,5")
+    
+    Returns:
+        Dict mapping song_id to progress map {step_name: is_completed}
+    """
+    if not song_ids:
+        return {}
+    
+    try:
+        ids = [int(id.strip()) for id in song_ids.split(",") if id.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid song_ids format")
+    
+    if not ids or len(ids) > 500:  # Limit to 500 songs per request
+        return {}
+    
+    # Fetch all progress for these songs in one query
+    placeholders = ",".join([f":id{i}" for i in range(len(ids))])
+    params = {f"id{i}": song_id for i, song_id in enumerate(ids)}
+    
+    rows = db.execute(text(f"""
+        SELECT song_id, step_name, is_completed
+        FROM song_progress
+        WHERE song_id IN ({placeholders})
+    """), params).fetchall()
+    
+    # Group by song_id
+    result = {}
+    for r in rows:
+        song_id = r[0]
+        if song_id not in result:
+            result[song_id] = {}
+        result[song_id][r[1]] = bool(r[2])  # step_name -> is_completed
+    
+    # Ensure all requested songs are in the result (even if no progress)
+    for song_id in ids:
+        if song_id not in result:
+            result[song_id] = {}
+    
+    return result
+
 @router.put("/songs/{song_id}/progress/{step_name}")
 async def update_song_progress(
     song_id: int,

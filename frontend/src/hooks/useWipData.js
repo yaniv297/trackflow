@@ -4,7 +4,7 @@ import { useWorkflowData } from "./useWorkflowData";
 import {
   getCompletedFieldsCount,
   getSongCompletionPercentage,
-  isSongComplete
+  isSongComplete,
 } from "../utils/progressUtils";
 
 export const useWipData = (user) => {
@@ -93,38 +93,27 @@ export const useWipData = (user) => {
     setLoading(true);
     apiGet("/songs/?status=In%20Progress")
       .then(async (data) => {
-        // After loading songs, fetch song_progress for each song and merge
+        // After loading songs, fetch song_progress for ALL songs in ONE bulk request
         try {
-          const progressResponses = await Promise.all(
-            (data || []).map(async (song) => {
-              try {
-                const rows = await apiGet(
-                  `/workflows/songs/${song.id}/progress`
-                );
-                const map = {};
-                (rows || []).forEach((r) => {
-                  map[r.step_name] = !!r.is_completed;
-                });
-                return { id: song.id, progress: map };
-              } catch (e) {
-                return { id: song.id, progress: {} };
-              }
-            })
-          );
+          if (data && data.length > 0) {
+            const songIds = data.map((s) => s.id).join(",");
+            const progressMap = await apiGet(
+              `/workflows/songs/progress/bulk?song_ids=${songIds}`
+            );
 
-          const idToProgress = new Map(
-            progressResponses.map((p) => [p.id, p.progress])
-          );
+            const songsWithProgress = data.map((s) => ({
+              ...s,
+              progress: progressMap[s.id] || {},
+            }));
 
-          const songsWithProgress = data.map((s) => ({
-            ...s,
-            progress: idToProgress.get(s.id) || {},
-          }));
-
-          setSongs(songsWithProgress);
+            setSongs(songsWithProgress);
+          } else {
+            setSongs(data || []);
+          }
         } catch (e) {
+          console.error("Failed to fetch bulk progress:", e);
           // Fallback to original songs if progress fetch fails
-          setSongs(data);
+          setSongs(data || []);
         }
 
         // Calculate pack completion and set initial collapsed state
@@ -174,7 +163,6 @@ export const useWipData = (user) => {
 
   // Group songs by pack with statistics
   const grouped = useMemo(() => {
-
     // Group ALL songs by pack (both owned and collaborator songs)
     const groups = songs.reduce((acc, song) => {
       const pack = song.pack_name || "(no pack)";

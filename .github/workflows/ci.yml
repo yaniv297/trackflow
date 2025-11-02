@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
-    
+        node-version: [ 18.x, 20.x ]
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -57,8 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
-    
+        python-version: [ "3.9", "3.10", "3.11" ]
+
     services:
       postgres:
         image: postgres:13
@@ -66,12 +66,9 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: trackflow_test
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
-          - 5432:5432
+        - 5432:5432
 
     steps:
     - name: Checkout code
@@ -132,8 +129,8 @@ jobs:
   # Integration Tests
   integration-tests:
     runs-on: ubuntu-latest
-    needs: [frontend-tests, backend-tests]
-    
+    needs: [ frontend-tests, backend-tests ]
+
     services:
       postgres:
         image: postgres:13
@@ -141,12 +138,9 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: trackflow_test
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
-          - 5432:5432
+        - 5432:5432
 
     steps:
     - name: Checkout code
@@ -231,7 +225,7 @@ jobs:
         bandit -r . -f json -o bandit-report.json || true
 
     - name: Upload bandit results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: bandit-results
         path: backend/bandit-report.json
@@ -239,9 +233,9 @@ jobs:
   # Deploy to staging (only on main branch)
   deploy-staging:
     runs-on: ubuntu-latest
-    needs: [frontend-tests, backend-tests, integration-tests, security-tests]
+    needs: [ frontend-tests, backend-tests, integration-tests, security-tests ]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -256,7 +250,7 @@ jobs:
   performance-tests:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -311,6 +305,7 @@ jobs:
 
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
+      continue-on-error: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

@@ -78,19 +78,23 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                 except Exception:
                     pass
                 
-                # Fix the sequence and create new artist
+                # Create new artist
                 try:
                     from sqlalchemy import text
                     
-                    # First, reset the sequence to the correct next value
-                    # This finds the highest ID and sets the sequence to start from the next number
-                    db.execute(text("""
-                        SELECT setval('artists_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM artists), false)
-                    """))
-                    db.commit()
+                    # Fix PostgreSQL sequence if needed (PostgreSQL only)
+                    db_url = str(db.bind.url)
+                    if 'postgresql' in db_url.lower():
+                        try:
+                            db.execute(text("""
+                                SELECT setval('artists_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM artists), false)
+                            """))
+                            db.commit()
+                        except Exception as seq_error:
+                            print(f"Sequence reset skipped: {seq_error}")
                     
-                    # Now create the artist normally
-                    artist = Artist(name=artist_name, image_url=artist_img)
+                    # Create the artist
+                    artist = Artist(name=artist_name, image_url=artist_img, user_id=song.user_id)
                     db.add(artist)
                     db.flush()
                     print(f"Successfully created artist {artist_name} with ID {artist.id}")

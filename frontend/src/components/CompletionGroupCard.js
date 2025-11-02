@@ -1,5 +1,6 @@
 import React from "react";
 import WipSongCard from "./WipSongCard";
+import { useUserWorkflowFields } from "../hooks/useUserWorkflowFields";
 
 const CompletionGroupCard = ({
   categoryName,
@@ -15,6 +16,25 @@ const CompletionGroupCard = ({
   onDeleteSong,
   onSongUpdate,
 }) => {
+  const { fetchUserWorkflowFields, getWorkflowFields } =
+    useUserWorkflowFields();
+
+  // Fetch workflow fields for all unique song owners
+  React.useEffect(() => {
+    const uniqueUserIds = new Set();
+
+    songs.forEach((song) => {
+      if (song.user_id) {
+        uniqueUserIds.add(song.user_id);
+      }
+    });
+
+    // Fetch workflow fields for each unique user
+    uniqueUserIds.forEach((userId) => {
+      fetchUserWorkflowFields(userId);
+    });
+  }, [songs, fetchUserWorkflowFields]);
+
   if (!songs || songs.length === 0) return null;
 
   return (
@@ -50,21 +70,27 @@ const CompletionGroupCard = ({
       {/* Songs List */}
       {!isCollapsed && (
         <div>
-          {songs.map((song) => (
-            <WipSongCard
-              key={song.id}
-              song={song}
-              showPackName={true}
-              onAuthoringUpdate={(field, value) =>
-                onUpdateAuthoringField(song.id, field, value)
-              }
-              onDelete={() => onDeleteSong(song.id)}
-              onToggleOptional={() => onToggleOptional(song.id)}
-              defaultExpanded={false}
-              readOnly={song.user_id !== user?.id}
-              onSongUpdate={onSongUpdate}
-            />
-          ))}
+          {songs.map((song) => {
+            // Get the song owner's workflow fields
+            const songOwnerFields = getWorkflowFields(song.user_id) || [];
+
+            return (
+              <WipSongCard
+                key={song.id}
+                song={song}
+                showPackName={true}
+                authoringFields={songOwnerFields}
+                onAuthoringUpdate={(field, value) =>
+                  onUpdateAuthoringField(song.id, field, value)
+                }
+                onDelete={() => onDeleteSong(song.id)}
+                onToggleOptional={() => onToggleOptional(song.id)}
+                defaultExpanded={false}
+                readOnly={song.user_id !== user?.id}
+                onSongUpdate={onSongUpdate}
+              />
+            );
+          })}
         </div>
       )}
     </div>

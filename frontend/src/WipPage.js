@@ -1,14 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
+import { useWorkflowData } from "./hooks/useWorkflowData";
 import WipPageHeader from "./components/WipPageHeader";
 import WipPackCard from "./components/WipPackCard";
 import CompletionGroupCard from "./components/CompletionGroupCard";
 import Fireworks from "./components/Fireworks";
 import CustomAlert from "./components/CustomAlert";
 import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
-import LoadingSpinner from "./components/LoadingSpinner";
+import WorkflowErrorBoundary from "./components/WorkflowErrorBoundary";
+import WorkflowLoadingSpinner from "./components/WorkflowLoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
+import {
+  getSongCompletionPercentage,
+  isSongComplete,
+} from "./utils/progressUtils";
 import AlbumSeriesModal from "./components/AlbumSeriesModal";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
@@ -136,12 +142,14 @@ function WipPage() {
     collapsedPacks,
     setCollapsedPacks,
     grouped,
-    authoringFields,
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
     loading,
   } = useWipData(user);
+
+  // Get dynamic workflow fields for the current user
+  const { authoringFields } = useWorkflowData(user);
 
   // UI State
   const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
@@ -185,18 +193,6 @@ function WipPage() {
 
   // Group songs by completion status
   const completionGroups = useMemo(() => {
-    const getFilledCount = (song) => {
-      if (!song.authoring) return 0;
-      return authoringFields.reduce((count, field) => {
-        return count + (song.authoring[field] === true ? 1 : 0);
-      }, 0);
-    };
-
-    const getCompletionPercent = (song) => {
-      const filledCount = getFilledCount(song);
-      return Math.round((filledCount / authoringFields.length) * 100);
-    };
-
     // Separate songs by category
     const completed = [];
     const inProgress = [];
@@ -214,24 +210,31 @@ function WipPage() {
 
     songs.filter(matchesSearch).forEach((song) => {
       const isOwner = song.user_id === user?.id;
-      const completionPercent = getCompletionPercent(song);
+      const completionPercent = getSongCompletionPercentage(
+        song,
+        authoringFields
+      );
+      const isComplete = isSongComplete(song, authoringFields);
 
       if (!isOwner) {
-        // Songs by collaborators
+        // Songs by collaborators - only show if they have collaboration access
         if (song.optional) {
           optionalCollaboratorSongs.push({ ...song, completionPercent });
         } else {
           collaboratorSongs.push({ ...song, completionPercent });
         }
-      } else if (song.optional) {
-        // Optional songs by current user
-        optional.push({ ...song, completionPercent });
-      } else if (completionPercent === 100) {
-        // Completed songs
-        completed.push({ ...song, completionPercent });
       } else {
-        // In progress songs
-        inProgress.push({ ...song, completionPercent });
+        // Songs owned by current user
+        if (song.optional) {
+          // Optional songs by current user
+          optional.push({ ...song, completionPercent });
+        } else if (isComplete) {
+          // Completed songs by current user
+          completed.push({ ...song, completionPercent });
+        } else {
+          // In progress songs by current user
+          inProgress.push({ ...song, completionPercent });
+        }
       }
     });
 
@@ -386,27 +389,30 @@ function WipPage() {
   };
 
   // Song Management
-  const updateAuthoringField = (songId, field, value) => {
+  const updateAuthoringField = async (songId, field, value) => {
+    console.log(`Updating field ${field} to ${value} for song ${songId}`);
+
     setSongs((prev) => {
-      const updated = prev.map((song) =>
-        song.id === songId
-          ? {
-              ...song,
-              authoring: { ...(song.authoring || {}), [field]: value },
-            }
-          : song
-      );
+      const updated = prev.map((song) => {
+        if (song.id !== songId) return song;
 
-      const song = updated.find((s) => s.id === songId);
-      const completedFields = authoringFields.filter(
-        (f) => song.authoring?.[f] === true
-      );
+        const nextProgress = { ...(song.progress || {}), [field]: value };
 
+        return {
+          ...song,
+          progress: nextProgress,
+        };
+      });
+
+      const changed = updated.find((s) => s.id === songId);
+      const isComplete = isSongComplete(changed, authoringFields);
+
+      // Persist to backend (fire-and-forget)
       apiPut(`/authoring/${songId}`, { [field]: value }).catch((error) => {
         console.error("Failed to update authoring field:", error);
       });
 
-      if (completedFields.length === authoringFields.length) {
+      if (isComplete) {
         setFireworksTrigger((prev) => prev + 1);
       }
 
@@ -778,7 +784,7 @@ function WipPage() {
       return;
     }
 
-    const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
+    const [secondAlbumName] = albumsToChooseFrom[0];
     const songsInSecondAlbum = packSongs.filter(
       (song) => song.album === secondAlbumName
     );
@@ -808,13 +814,8 @@ function WipPage() {
 
     setIsExecutingDoubleAlbumSeries(true);
 
-    const {
-      packName,
-      secondAlbumName,
-      songsToMove,
-      newPackName,
-      mostCommonArtist,
-    } = doubleAlbumSeriesData;
+    const { secondAlbumName, songsToMove, newPackName, mostCommonArtist } =
+      doubleAlbumSeriesData;
 
     try {
       // Update all songs from the second album to the new pack
@@ -974,7 +975,7 @@ function WipPage() {
         return;
       }
 
-      const created = await apiPost("/album-series/", {
+      await apiPost("/album-series/", {
         pack_id: packId,
         artist_name: albumSeriesForm.artist_name,
         album_name: albumSeriesForm.album_name,
@@ -991,245 +992,258 @@ function WipPage() {
   };
 
   return (
-    <div style={{ padding: "2rem" }}>
-      <Fireworks trigger={fireworksTrigger} />
+    <WorkflowErrorBoundary>
+      <div style={{ padding: "2rem" }}>
+        <Fireworks trigger={fireworksTrigger} />
 
-      <WipPageHeader
-        grouped={grouped}
-        collapsedPacks={collapsedPacks}
-        onToggleAll={toggleAll}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-
-      {/* Loading Spinner */}
-      {loading && <LoadingSpinner message="Loading WIP songs..." />}
-
-      {/* Pack View */}
-      {!loading &&
-        viewMode === "pack" &&
-        (searchQuery ? filteredGrouped : grouped).map((packData) => (
-          <WipPackCard
-            key={packData.pack}
-            packName={packData.pack}
-            percent={packData.percent}
-            coreSongs={packData.coreSongs}
-            allSongs={packData.allSongs}
-            collapsedPacks={collapsedPacks}
-            user={user}
-            grouped={grouped}
-            showAddForm={showAddForm}
-            newSongData={newSongData}
-            setNewSongData={setNewSongData}
-            authoringFields={authoringFields}
-            getPackCollaborators={getPackCollaborators}
-            selectedSongs={selectedSongs}
-            // Action handlers
-            onTogglePack={togglePack}
-            onSetShowAddForm={setShowAddForm}
-            onAddSongToPack={addSongToPack}
-            onSetShowCollaborationModal={setShowCollaborationModal}
-            onSetSelectedItemForCollaboration={setSelectedItemForCollaboration}
-            onSetCollaborationType={setCollaborationType}
-            onUpdateAuthoringField={updateAuthoringField}
-            onToggleOptional={toggleOptional}
-            onDeleteSong={handleDeleteSong}
-            onReleasePack={releasePack}
-            onHandleCreateAlbumSeries={handleCreateAlbumSeries}
-            onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
-            onSetSelectedSongs={setSelectedSongs}
-            onSongUpdate={updateSongData}
-            // Pack settings handlers
-            onRenamePack={handleRenamePack}
-            onMovePackToFuturePlans={handleMovePackToFuturePlans}
-            onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
-            onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
-            onDeletePack={handleDeletePack}
-            userCollaborations={userCollaborations}
-          />
-        ))}
-
-      {/* Completion View */}
-      {!loading && viewMode === "completion" && (
-        <>
-          <CompletionGroupCard
-            categoryName="Completed Songs"
-            categoryIcon="✅"
-            songs={completionGroups.completed}
-            isCollapsed={collapsedPacks.completed !== false}
-            onToggle={() => toggleCategory("completed")}
-            user={user}
-            authoringFields={authoringFields}
-            selectedSongs={selectedSongs}
-            onUpdateAuthoringField={updateAuthoringField}
-            onToggleOptional={toggleOptional}
-            onDeleteSong={handleDeleteSong}
-            onSongUpdate={updateSongData}
-          />
-
-          <CompletionGroupCard
-            categoryName="In Progress"
-            categoryIcon="🚧"
-            songs={completionGroups.inProgress}
-            isCollapsed={collapsedPacks.inProgress !== false}
-            onToggle={() => toggleCategory("inProgress")}
-            user={user}
-            authoringFields={authoringFields}
-            selectedSongs={selectedSongs}
-            onUpdateAuthoringField={updateAuthoringField}
-            onToggleOptional={toggleOptional}
-            onDeleteSong={handleDeleteSong}
-            onSongUpdate={updateSongData}
-          />
-
-          <CompletionGroupCard
-            categoryName="Optional Songs"
-            categoryIcon="⭐"
-            songs={completionGroups.optional}
-            isCollapsed={collapsedPacks.optional !== false}
-            onToggle={() => toggleCategory("optional")}
-            user={user}
-            authoringFields={authoringFields}
-            selectedSongs={selectedSongs}
-            onUpdateAuthoringField={updateAuthoringField}
-            onToggleOptional={toggleOptional}
-            onDeleteSong={handleDeleteSong}
-            onSongUpdate={updateSongData}
-          />
-
-          <CompletionGroupCard
-            categoryName="Songs by Collaborators"
-            categoryIcon="👥"
-            songs={completionGroups.collaboratorSongs}
-            isCollapsed={collapsedPacks.collaboratorSongs !== false}
-            onToggle={() => toggleCategory("collaboratorSongs")}
-            user={user}
-            authoringFields={authoringFields}
-            selectedSongs={selectedSongs}
-            onUpdateAuthoringField={updateAuthoringField}
-            onToggleOptional={toggleOptional}
-            onDeleteSong={handleDeleteSong}
-            onSongUpdate={updateSongData}
-          />
-
-          <CompletionGroupCard
-            categoryName="Optional Songs by Collaborators"
-            categoryIcon="⭐👥"
-            songs={completionGroups.optionalCollaboratorSongs}
-            isCollapsed={collapsedPacks.optionalCollaboratorSongs !== false}
-            onToggle={() => toggleCategory("optionalCollaboratorSongs")}
-            user={user}
-            authoringFields={authoringFields}
-            selectedSongs={selectedSongs}
-            onUpdateAuthoringField={updateAuthoringField}
-            onToggleOptional={toggleOptional}
-            onDeleteSong={handleDeleteSong}
-            onSongUpdate={updateSongData}
-          />
-        </>
-      )}
-
-      {/* Album Series Modal */}
-      {showAlbumSeriesModal && (
-        <AlbumSeriesModal
-          showModal={showAlbumSeriesModal}
-          onClose={() => setShowAlbumSeriesModal(false)}
-          formData={albumSeriesForm}
-          setFormData={setAlbumSeriesForm}
-          onSubmit={handleCreateAlbumSeries}
-          selectedSongs={selectedSongs}
-          songs={songs}
+        <WipPageHeader
+          grouped={grouped}
+          collapsedPacks={collapsedPacks}
+          onToggleAll={toggleAll}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
-      )}
 
-      {/* Double Album Series Confirmation Modal */}
-      {showDoubleAlbumSeriesModal && doubleAlbumSeriesData && (
-        <DoubleAlbumSeriesModal
-          isOpen={showDoubleAlbumSeriesModal}
-          onClose={() => {
-            setShowDoubleAlbumSeriesModal(false);
-            setDoubleAlbumSeriesData(null);
-          }}
-          onConfirm={executeDoubleAlbumSeries}
-          isExecuting={isExecutingDoubleAlbumSeries}
-          packName={doubleAlbumSeriesData.packName}
-          secondAlbumName={doubleAlbumSeriesData.secondAlbumName}
-          songsToMove={doubleAlbumSeriesData.songsToMove}
-          newPackName={doubleAlbumSeriesData.newPackName}
-        />
-      )}
+        {/* Loading Spinner */}
+        {loading && (
+          <WorkflowLoadingSpinner message="Loading WIP songs..." size="large" />
+        )}
 
-      {/* Edit Album Series Modal */}
-      <AlbumSeriesEditModal
-        key={`${editSeriesModal.defaultSeriesId}-${editSeriesModal.packId}`}
-        isOpen={editSeriesModal.open}
-        onClose={() =>
-          setEditSeriesModal({
-            open: false,
-            packId: null,
-            series: [],
-            defaultSeriesId: null,
-            createMode: false,
-            createData: null,
-          })
-        }
-        packId={editSeriesModal.packId}
-        seriesList={editSeriesModal.series}
-        defaultSeriesId={editSeriesModal.defaultSeriesId}
-        createMode={editSeriesModal.createMode || false}
-        createData={editSeriesModal.createData || null}
-        onChanged={() => {
-          // Invalidate and refresh WIP data
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new Event("songs-invalidate-cache"));
+        {/* Pack View */}
+        {!loading &&
+          viewMode === "pack" &&
+          (searchQuery ? filteredGrouped : grouped).map((packData) => (
+            <WipPackCard
+              key={packData.pack}
+              packName={packData.pack}
+              percent={packData.percent}
+              coreSongs={packData.coreSongs}
+              allSongs={packData.allSongs}
+              completedSongs={packData.completedSongs}
+              inProgressSongs={packData.inProgressSongs}
+              optionalSongs={packData.optionalSongs}
+              collaboratorSongs={packData.collaboratorSongs}
+              collaboratorOptionalSongs={packData.collaboratorOptionalSongs}
+              collapsedPacks={collapsedPacks}
+              user={user}
+              grouped={grouped}
+              showAddForm={showAddForm}
+              newSongData={newSongData}
+              setNewSongData={setNewSongData}
+              authoringFields={authoringFields}
+              getPackCollaborators={getPackCollaborators}
+              selectedSongs={selectedSongs}
+              // Action handlers
+              onTogglePack={togglePack}
+              onSetShowAddForm={setShowAddForm}
+              onAddSongToPack={addSongToPack}
+              onSetShowCollaborationModal={setShowCollaborationModal}
+              onSetSelectedItemForCollaboration={
+                setSelectedItemForCollaboration
+              }
+              onSetCollaborationType={setCollaborationType}
+              onUpdateAuthoringField={updateAuthoringField}
+              onToggleOptional={toggleOptional}
+              onDeleteSong={handleDeleteSong}
+              onReleasePack={releasePack}
+              onHandleCreateAlbumSeries={handleCreateAlbumSeries}
+              onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
+              onSetSelectedSongs={setSelectedSongs}
+              onSongUpdate={updateSongData}
+              // Pack settings handlers
+              onRenamePack={handleRenamePack}
+              onMovePackToFuturePlans={handleMovePackToFuturePlans}
+              onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
+              onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
+              onDeletePack={handleDeletePack}
+              userCollaborations={userCollaborations}
+            />
+          ))}
+
+        {/* Completion View */}
+        {!loading && viewMode === "completion" && (
+          <>
+            <CompletionGroupCard
+              categoryName="Completed Songs"
+              categoryIcon="✅"
+              songs={completionGroups.completed}
+              isCollapsed={collapsedPacks.completed !== false}
+              onToggle={() => toggleCategory("completed")}
+              user={user}
+              authoringFields={authoringFields}
+              selectedSongs={selectedSongs}
+              onUpdateAuthoringField={updateAuthoringField}
+              onToggleOptional={toggleOptional}
+              onDeleteSong={handleDeleteSong}
+              onSongUpdate={updateSongData}
+            />
+
+            <CompletionGroupCard
+              categoryName="In Progress"
+              categoryIcon="🚧"
+              songs={completionGroups.inProgress}
+              isCollapsed={collapsedPacks.inProgress !== false}
+              onToggle={() => toggleCategory("inProgress")}
+              user={user}
+              authoringFields={authoringFields}
+              selectedSongs={selectedSongs}
+              onUpdateAuthoringField={updateAuthoringField}
+              onToggleOptional={toggleOptional}
+              onDeleteSong={handleDeleteSong}
+              onSongUpdate={updateSongData}
+            />
+
+            <CompletionGroupCard
+              categoryName="Optional Songs"
+              categoryIcon="⭐"
+              songs={completionGroups.optional}
+              isCollapsed={collapsedPacks.optional !== false}
+              onToggle={() => toggleCategory("optional")}
+              user={user}
+              authoringFields={authoringFields}
+              selectedSongs={selectedSongs}
+              onUpdateAuthoringField={updateAuthoringField}
+              onToggleOptional={toggleOptional}
+              onDeleteSong={handleDeleteSong}
+              onSongUpdate={updateSongData}
+            />
+
+            <CompletionGroupCard
+              categoryName="Songs by Collaborators"
+              categoryIcon="👥"
+              songs={completionGroups.collaboratorSongs}
+              isCollapsed={collapsedPacks.collaboratorSongs !== false}
+              onToggle={() => toggleCategory("collaboratorSongs")}
+              user={user}
+              authoringFields={authoringFields}
+              selectedSongs={selectedSongs}
+              onUpdateAuthoringField={updateAuthoringField}
+              onToggleOptional={toggleOptional}
+              onDeleteSong={handleDeleteSong}
+              onSongUpdate={updateSongData}
+            />
+
+            <CompletionGroupCard
+              categoryName="Optional Songs by Collaborators"
+              categoryIcon="⭐👥"
+              songs={completionGroups.optionalCollaboratorSongs}
+              isCollapsed={collapsedPacks.optionalCollaboratorSongs !== false}
+              onToggle={() => toggleCategory("optionalCollaboratorSongs")}
+              user={user}
+              authoringFields={authoringFields}
+              selectedSongs={selectedSongs}
+              onUpdateAuthoringField={updateAuthoringField}
+              onToggleOptional={toggleOptional}
+              onDeleteSong={handleDeleteSong}
+              onSongUpdate={updateSongData}
+            />
+          </>
+        )}
+
+        {/* Album Series Modal */}
+        {showAlbumSeriesModal && (
+          <AlbumSeriesModal
+            showModal={showAlbumSeriesModal}
+            onClose={() => setShowAlbumSeriesModal(false)}
+            formData={albumSeriesForm}
+            setFormData={setAlbumSeriesForm}
+            onSubmit={handleCreateAlbumSeries}
+            selectedSongs={selectedSongs}
+            songs={songs}
+          />
+        )}
+
+        {/* Double Album Series Confirmation Modal */}
+        {showDoubleAlbumSeriesModal && doubleAlbumSeriesData && (
+          <DoubleAlbumSeriesModal
+            isOpen={showDoubleAlbumSeriesModal}
+            onClose={() => {
+              setShowDoubleAlbumSeriesModal(false);
+              setDoubleAlbumSeriesData(null);
+            }}
+            onConfirm={executeDoubleAlbumSeries}
+            isExecuting={isExecutingDoubleAlbumSeries}
+            packName={doubleAlbumSeriesData.packName}
+            secondAlbumName={doubleAlbumSeriesData.secondAlbumName}
+            songsToMove={doubleAlbumSeriesData.songsToMove}
+            newPackName={doubleAlbumSeriesData.newPackName}
+          />
+        )}
+
+        {/* Edit Album Series Modal */}
+        <AlbumSeriesEditModal
+          key={`${editSeriesModal.defaultSeriesId}-${editSeriesModal.packId}`}
+          isOpen={editSeriesModal.open}
+          onClose={() =>
+            setEditSeriesModal({
+              open: false,
+              packId: null,
+              series: [],
+              defaultSeriesId: null,
+              createMode: false,
+              createData: null,
+            })
           }
-          // Re-fetch page data
-          refreshSongs();
-        }}
-      />
+          packId={editSeriesModal.packId}
+          seriesList={editSeriesModal.series}
+          defaultSeriesId={editSeriesModal.defaultSeriesId}
+          createMode={editSeriesModal.createMode || false}
+          createData={editSeriesModal.createData || null}
+          onChanged={() => {
+            // Invalidate and refresh WIP data
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("songs-invalidate-cache"));
+            }
+            // Re-fetch page data
+            refreshSongs();
+          }}
+        />
 
-      {/* Unified Collaboration Modal */}
-      <UnifiedCollaborationModal
-        packId={
-          collaborationType === "pack" || collaborationType === "pack_share"
-            ? selectedItemForCollaboration?.id
-            : null
-        }
-        packName={
-          collaborationType === "pack" || collaborationType === "pack_share"
-            ? selectedItemForCollaboration?.name
-            : null
-        }
-        songId={
-          collaborationType === "song" ? selectedItemForCollaboration?.id : null
-        }
-        songTitle={
-          collaborationType === "song"
-            ? selectedItemForCollaboration?.name
-            : null
-        }
-        collaborationType={collaborationType}
-        isOpen={showCollaborationModal}
-        onClose={() => {
-          setShowCollaborationModal(false);
-          setSelectedItemForCollaboration(null);
-        }}
-        currentUser={user}
-        onCollaborationSaved={handleCollaborationSaved}
-      />
+        {/* Unified Collaboration Modal */}
+        <UnifiedCollaborationModal
+          packId={
+            collaborationType === "pack" || collaborationType === "pack_share"
+              ? selectedItemForCollaboration?.id
+              : null
+          }
+          packName={
+            collaborationType === "pack" || collaborationType === "pack_share"
+              ? selectedItemForCollaboration?.name
+              : null
+          }
+          songId={
+            collaborationType === "song"
+              ? selectedItemForCollaboration?.id
+              : null
+          }
+          songTitle={
+            collaborationType === "song"
+              ? selectedItemForCollaboration?.name
+              : null
+          }
+          collaborationType={collaborationType}
+          isOpen={showCollaborationModal}
+          onClose={() => {
+            setShowCollaborationModal(false);
+            setSelectedItemForCollaboration(null);
+          }}
+          currentUser={user}
+          onCollaborationSaved={handleCollaborationSaved}
+        />
 
-      {/* Custom Alert */}
-      <CustomAlert
-        isOpen={alertConfig.isOpen}
-        onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
-        onConfirm={alertConfig.onConfirm}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-      />
-    </div>
+        {/* Custom Alert */}
+        <CustomAlert
+          isOpen={alertConfig.isOpen}
+          onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
+          onConfirm={alertConfig.onConfirm}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+        />
+      </div>
+    </WorkflowErrorBoundary>
   );
 }
 

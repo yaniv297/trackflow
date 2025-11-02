@@ -6,6 +6,11 @@ import FileHistoryModal from "./FileHistoryModal";
 import ChangeAlbumArtModal from "./ChangeAlbumArtModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
+import { useWorkflowData } from "../hooks/useWorkflowData";
+import {
+  getFieldCompletion,
+  getSongProgressData,
+} from "../utils/progressUtils";
 import UserProfilePopup from "./UserProfilePopup";
 
 export default function WipSongCard({
@@ -18,6 +23,7 @@ export default function WipSongCard({
   readOnly = false,
   onSongUpdate,
   showPackName = false,
+  authoringFields: authoringFieldsProp,
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -27,7 +33,12 @@ export default function WipSongCard({
     if (expandedProp !== undefined) return; // ignore toggle if controlled
     setExpandedInternal((e) => !e);
   };
-  const [localAuthoring, setLocalAuthoring] = useState(song.authoring || {});
+  const [, setProgress] = useState(song.progress || {});
+
+  // Update progress when song.progress changes
+  useEffect(() => {
+    setProgress(song.progress || {});
+  }, [song.progress]);
   const [spotifyOptions, setSpotifyOptions] = useState([]);
   const [loadingSpotify, setLoadingSpotify] = useState(false);
   const [editing, setEditing] = useState({});
@@ -46,28 +57,21 @@ export default function WipSongCard({
   const [fileLinksCount, setFileLinksCount] = useState(0);
   const [lastKnownFileIds, setLastKnownFileIds] = useState(new Set());
   const isOptional = song.optional;
-  const isFinished = React.useMemo(() => {
-    const fields = [
-      "demucs",
-      "midi",
-      "tempo_map",
-      "fake_ending",
-      "drums",
-      "bass",
-      "guitar",
-      "vocals",
-      "harmonies",
-      "pro_keys",
-      "keys",
-      "animations",
-      "drum_fills",
-      "overdrive",
-      "compile",
-    ];
-    if (!song.authoring) return false;
-    return fields.every((f) => song.authoring?.[f] === true);
-  }, [song.authoring]);
   const { user: currentUser } = useAuth();
+  const { authoringFields } = useWorkflowData(currentUser);
+
+  // Prefer fields provided via props (owner's workflow) over current user's
+  const effectiveAuthoringFields = React.useMemo(() => {
+    if (authoringFieldsProp && authoringFieldsProp.length > 0)
+      return authoringFieldsProp;
+    return authoringFields && authoringFields.length > 0 ? authoringFields : [];
+  }, [authoringFieldsProp, authoringFields]);
+
+  const progressData = React.useMemo(() => {
+    return getSongProgressData(song, effectiveAuthoringFields);
+  }, [song, effectiveAuthoringFields]);
+
+  const isFinished = progressData.isComplete;
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   const loadWipCollaborations = useCallback(async () => {
@@ -79,10 +83,25 @@ export default function WipSongCard({
     }
   }, [song.id]);
 
-  // Load WIP collaborations when component mounts
+  // Fetch song progress from new endpoint
+  const loadSongProgress = useCallback(async () => {
+    try {
+      const rows = await apiGet(`/workflows/songs/${song.id}/progress`);
+      const map = {};
+      (rows || []).forEach((r) => {
+        map[r.step_name] = !!r.is_completed;
+      });
+      setProgress(map);
+    } catch (e) {
+      console.warn(`Failed to load progress for song ${song.id}:`, e);
+      // Silent fallback; progress stays empty and we rely on existing data
+    }
+  }, [song.id]);
+
   useEffect(() => {
     loadWipCollaborations();
-  }, [loadWipCollaborations]);
+    loadSongProgress();
+  }, [loadWipCollaborations, loadSongProgress]);
 
   // Load file links count when component mounts
   useEffect(() => {
@@ -154,23 +173,7 @@ export default function WipSongCard({
     };
   }, [showActionsDropdown]);
 
-  const fields = [
-    "demucs",
-    "midi",
-    "tempo_map",
-    "fake_ending",
-    "drums",
-    "bass",
-    "guitar",
-    "vocals",
-    "harmonies",
-    "pro_keys",
-    "keys",
-    "animations",
-    "drum_fills",
-    "overdrive",
-    "compile",
-  ];
+  const fields = effectiveAuthoringFields;
 
   const handleDelete = () => {
     if (onDelete) {
@@ -179,40 +182,25 @@ export default function WipSongCard({
   };
 
   const toggleAuthoringField = async (field) => {
-    // Ensure `song.authoring` exists
-    if (!song.authoring) {
-      song.authoring = {};
-    }
+    const currentVal = getFieldCompletion(song, field);
+    const nextVal = !currentVal;
 
-    const newValue = !localAuthoring[field];
+    // Optimistic update
+    setProgress((prev) => ({ ...prev, [field]: nextVal }));
 
-    const currentValue = song.authoring[field] || false;
-
-    // Optimistic UI update
-    song.authoring[field] = !currentValue;
-    setLocalAuthoring((prev) => ({ ...prev, [field]: newValue })); // trigger re-render
-
-    // Backend update - use PUT method
     try {
-      await apiPut(`/authoring/${song.id}`, { [field]: !currentValue });
-
-      setLocalAuthoring((prev) => ({
-        ...prev,
-        [field]: newValue,
-      }));
-
-      if (onAuthoringUpdate) {
-        onAuthoringUpdate(song.id, field, newValue);
-      }
+      await apiPut(`/authoring/${song.id}`, { [field]: nextVal });
+      // Re-sync from server to avoid double-click visual glitches
+      await loadSongProgress();
+      if (onAuthoringUpdate) onAuthoringUpdate(song.id, field, nextVal);
     } catch (error) {
+      // Revert on failure
+      setProgress((prev) => ({ ...prev, [field]: currentVal }));
       console.error(`Error updating ${field}:`, error);
-      // Revert optimistic update on error
-      song.authoring[field] = currentValue;
-      setLocalAuthoring((prev) => ({ ...prev, [field]: currentValue }));
     }
   };
 
-  const fetchSpotifyOptions = async () => {
+  const loadSpotifyOptions = async () => {
     setLoadingSpotify(true);
     try {
       const data = await apiGet(`/spotify/${song.id}/spotify-options`);
@@ -335,22 +323,21 @@ export default function WipSongCard({
 
   const markAllDone = async () => {
     try {
-      // Only mark enabled parts as complete
       const partsToMark = fields;
       const updates = {};
       partsToMark.forEach((f) => {
         updates[f] = true;
       });
 
-      // Use PUT method like toggleAuthoringField
+      // Use PUT method; backend writes song_progress
       await apiPut(`/authoring/${song.id}`, updates);
 
-      // Update UI state manually
-      const updatedFields = { ...localAuthoring };
-      partsToMark.forEach((f) => {
-        updatedFields[f] = true;
+      // Update UI state
+      setProgress((prev) => {
+        const next = { ...prev };
+        partsToMark.forEach((f) => (next[f] = true));
+        return next;
       });
-      setLocalAuthoring(updatedFields);
 
       if (onAuthoringUpdate) {
         partsToMark.forEach((f) => {
@@ -358,7 +345,6 @@ export default function WipSongCard({
         });
       }
 
-      // Show success notification
       window.showNotification("All parts marked as complete!", "success");
     } catch (err) {
       console.error("Failed to mark all complete", err);
@@ -366,13 +352,11 @@ export default function WipSongCard({
     }
   };
 
-  // For progress calculation, use all fields
+  // Use unified progress calculation
+  const filled = progressData.completedCount;
+  const percent = progressData.percentage;
+  const isComplete = progressData.isComplete;
   const safeParts = fields;
-
-  const filled = safeParts.filter((f) => localAuthoring?.[f]).length;
-  const percent =
-    safeParts.length > 0 ? Math.round((filled / safeParts.length) * 100) : 0;
-  const isComplete = safeParts.length > 0 && filled === safeParts.length;
 
   // Build external links for album
   // Wikipedia prefers the canonical title: "{Album} ({Artist} album)"
@@ -803,9 +787,7 @@ export default function WipSongCard({
             )}
           </div>
 
-          {/* File History Button moved left of progress bar */}
-
-          {!readOnly && song.user_id === currentUser?.id && (
+          {!readOnly && song.is_editable && (
             <div style={{ position: "relative" }} data-actions-dropdown>
               <button
                 onClick={() => setShowActionsDropdown(!showActionsDropdown)}
@@ -905,7 +887,7 @@ export default function WipSongCard({
 
                   <button
                     onClick={() => {
-                      fetchSpotifyOptions();
+                      loadSpotifyOptions();
                       setShowActionsDropdown(false);
                     }}
                     disabled={loadingSpotify}
@@ -1167,7 +1149,7 @@ export default function WipSongCard({
                             }}
                           >
                             {unassignedFields.map((field) => {
-                              const filled = localAuthoring?.[field];
+                              const filled = getFieldCompletion(song, field);
                               const displayName = field
                                 .split("_")
                                 .map((w) => w[0].toUpperCase() + w.slice(1))
@@ -1234,7 +1216,7 @@ export default function WipSongCard({
                               }}
                             >
                               {assignedFields.map((field) => {
-                                const filled = localAuthoring?.[field];
+                                const filled = getFieldCompletion(song, field);
                                 const displayName = field
                                   .split("_")
                                   .map((w) => w[0].toUpperCase() + w.slice(1))
@@ -1282,7 +1264,7 @@ export default function WipSongCard({
                   style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}
                 >
                   {fields.map((field) => {
-                    const filled = localAuthoring?.[field];
+                    const filled = getFieldCompletion(song, field);
                     const displayName = field
                       .split("_")
                       .map((w) => w[0].toUpperCase() + w.slice(1))

@@ -25,7 +25,7 @@ export default function AlbumSeriesEditModal({
   );
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
-  const [preexisting, setPreexisting] = useState({}); // key: spotify_track_id or title_clean -> bool
+  const [, setPreexisting] = useState({}); // key: spotify_track_id or title_clean -> bool
   const [rowLoading, setRowLoading] = useState({}); // key -> bool
   const [linkingKey, setLinkingKey] = useState(null);
   const [packSongs, setPackSongs] = useState([]);
@@ -191,6 +191,7 @@ export default function AlbumSeriesEditModal({
   }, [seriesList, seriesId]);
   const seriesAlbumName = currentSeries?.name || "";
 
+  // eslint-disable-next-line no-unused-vars
   const missingTracks = useMemo(() => {
     return items.filter(
       (it) => !it.in_pack && !it.official && !it.pre_existing && !it.irrelevant
@@ -250,6 +251,7 @@ export default function AlbumSeriesEditModal({
   }, [packSongs]);
 
   // Detect a fully done WIP based on authoring flags
+  // eslint-disable-next-line no-unused-vars
   const isFinishedAuthoring = (song) => {
     if (!song || !song.authoring) return false;
     const fields = [
@@ -311,6 +313,7 @@ export default function AlbumSeriesEditModal({
 
       // Create the album series
       const packName = `${createData.albumName} Album Series`;
+      // eslint-disable-next-line no-unused-vars
       const seriesResponse = await apiPost("/album-series/create-from-pack", {
         pack_name: packName,
         artist_name: createData.artistName,

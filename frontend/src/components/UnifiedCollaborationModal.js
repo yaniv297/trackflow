@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { apiPost, apiGet, apiDelete, apiPut } from "../utils/api";
 import UserDropdown from "./UserDropdown";
-import { useAuth } from "../contexts/AuthContext";
 import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
 import UserProfilePopup from "./UserProfilePopup";
 

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import BulkActions from "./BulkActions";
 import AddSongToPack from "./AddSongToPack";
 
 const dropdownItemStyle = {
@@ -186,250 +185,260 @@ const PackHeader = ({
             {/* Gear dropdown right next to pack name (no pencil) */}
             {(() => {
               // Check if user owns any songs in this pack
-              const userOwnedSongs = validSongsInPack.filter((song) => song.user_id === user?.id);
+              const userOwnedSongs = validSongsInPack.filter(
+                (song) => song.user_id === user?.id
+              );
               const isPackOwner = userOwnedSongs.length > 0;
 
               // Check if user has pack edit collaboration (if userCollaborations is available)
-              const hasPackEditPermission = user && validSongsInPack.some(song => 
-                song.collaborations && song.collaborations.some(collab => 
-                  collab.username === user.username && collab.collaboration_type === "pack_edit"
-                )
-              );
+              const hasPackEditPermission =
+                user &&
+                validSongsInPack.some(
+                  (song) =>
+                    song.collaborations &&
+                    song.collaborations.some(
+                      (collab) =>
+                        collab.username === user.username &&
+                        collab.collaboration_type === "pack_edit"
+                    )
+                );
 
               return isPackOwner || hasPackEditPermission;
             })() && (
-            <span
-              style={{ position: "relative", marginLeft: "0.4rem" }}
-              data-pack-actions-dropdown
-            >
-              <button
-                onClick={() => setShowPackActions((v) => !v)}
-                style={{
-                  background: "#007bff",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: 24,
-                  height: 24,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                title="Pack actions"
-                onMouseEnter={(e) => (e.target.style.background = "#0056b3")}
-                onMouseLeave={(e) => (e.target.style.background = "#007bff")}
+              <span
+                style={{ position: "relative", marginLeft: "0.4rem" }}
+                data-pack-actions-dropdown
               >
-                ⚙️
-              </button>
-
-              {showPackActions && (
-                <div
+                <button
+                  onClick={() => setShowPackActions((v) => !v)}
                   style={{
-                    position: "absolute",
-                    top: "100%",
-                    right: 0,
-                    background: "white",
-                    border: "1px solid #ddd",
-                    borderRadius: 6,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    zIndex: 1000,
-                    minWidth: 220,
-                    padding: "0.5rem 0",
+                    background: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: 24,
+                    height: 24,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
+                  title="Pack actions"
+                  onMouseEnter={(e) => (e.target.style.background = "#0056b3")}
+                  onMouseLeave={(e) => (e.target.style.background = "#007bff")}
                 >
-                  {/* Edit Pack Name */}
-                  <button
-                    onClick={() => {
-                      setNewPackName(packName);
-                      setRenameModalOpen(true);
-                      setShowPackActions(false);
-                    }}
-                    style={dropdownItemStyle}
-                  >
-                    ✏️ Edit Pack Name
-                  </button>
+                  ⚙️
+                </button>
 
-                  {/* Start Work */}
-                  {status === "Future Plans" && (
-                    <button
-                      onClick={() => {
-                        onStartWork(validSongsInPack.map((s) => s.id));
-                        setShowPackActions(false);
-                      }}
-                      style={dropdownItemStyle}
-                    >
-                      🔨 Start Work
-                    </button>
-                  )}
-
-                  {/* Add Song */}
-                  {validSongsInPack[0]?.pack_id && (
-                    <button
-                      onClick={() => {
-                        setShowAddSongModal(true);
-                        setShowPackActions(false);
-                      }}
-                      style={dropdownItemStyle}
-                    >
-                      ＋ Add Song
-                    </button>
-                  )}
-
-                  {/* Collaborations */}
-                  <button
-                    onClick={() => {
-                      if (setShowCollaborationModal) {
-                        setShowCollaborationModal(true);
-                        setSelectedItemForCollaboration &&
-                          setSelectedItemForCollaboration({
-                            type: "pack",
-                            packName,
-                          });
-                        setCollaborationType && setCollaborationType("pack");
-                      }
-                      setShowPackActions(false);
-                    }}
-                    style={dropdownItemStyle}
-                  >
-                    👥 Collaborations
-                  </button>
-
-                  {/* Bulk Options */}
-                  <button
-                    onClick={() => {
-                      onBulkEdit && onBulkEdit();
-                      setShowPackActions(false);
-                    }}
-                    style={dropdownItemStyle}
-                  >
-                    📋 Bulk Options
-                  </button>
-
-                  {/* Album Series actions */}
-                  {(() => {
-                    const hasAlbumSeries = validSongsInPack.some(
-                      (s) => s.album_series_id
-                    );
-                    const uniqueSongSeriesCount = new Set(
-                      validSongsInPack
-                        .map((s) => s && s.album_series_id)
-                        .filter(
-                          (id) => id !== null && id !== undefined && id !== ""
-                        )
-                        .map((id) =>
-                          typeof id === "string" ? parseInt(id, 10) : id
-                        )
-                        .filter((id) => Number.isInteger(id))
-                    ).size;
-                    const isAlreadyDouble =
-                      (Array.isArray(validSeries)
-                        ? validSeries.length
-                        : uniqueSongSeriesCount) >= 2;
-                    const canCreate =
-                      !hasAlbumSeries &&
-                      albumsWithEnoughSongs &&
-                      albumsWithEnoughSongs.length >= 1;
-                    const canSplitDouble =
-                      hasAlbumSeries &&
-                      !isAlreadyDouble &&
-                      albumsWithEnoughSongs &&
-                      albumsWithEnoughSongs.length >= 2;
-                    return (
-                      <>
-                        {/* Edit album series is always available when we have any series */}
-                        {hasAlbumSeries && (
-                          <button
-                            onClick={() => {
-                              // fire an event to parent to open modal; we'll use a custom event for now
-                              const event = new CustomEvent(
-                                "open-edit-album-series",
-                                {
-                                  detail: {
-                                    packName,
-                                    packId: validSongsInPack[0]?.pack_id,
-                                    series: (seriesInfo || []).map((info) => ({
-                                      id: info.id,
-                                      number: info.number,
-                                      name: info.name,
-                                    })),
-                                  },
-                                }
-                              );
-                              window.dispatchEvent(event);
-                              setShowPackActions(false);
-                            }}
-                            style={dropdownItemStyle}
-                          >
-                            ✏️ Edit Album Series
-                          </button>
-                        )}
-                        {canCreate && (
-                          <button
-                            onClick={() => {
-                              onShowAlbumSeriesModal(
-                                packName,
-                                albumsWithEnoughSongs
-                              );
-                              setShowPackActions(false);
-                            }}
-                            style={dropdownItemStyle}
-                          >
-                            🎵 Make Album Series
-                          </button>
-                        )}
-                        {canSplitDouble && (
-                          <button
-                            onClick={() => {
-                              onMakeDoubleAlbumSeries(
-                                packName,
-                                albumsWithEnoughSongs
-                              );
-                              setShowPackActions(false);
-                            }}
-                            style={dropdownItemStyle}
-                          >
-                            🎵🎵 Make Double Album Series
-                          </button>
-                        )}
-                      </>
-                    );
-                  })()}
-
-                  {/* Separator */}
+                {showPackActions && (
                   <div
                     style={{
-                      borderTop: "1px solid #eee",
-                      margin: "0.5rem 0",
-                    }}
-                  ></div>
-
-                  {/* Delete Pack */}
-                  <button
-                    onClick={() => {
-                      const packId = validSongsInPack[0]?.pack_id;
-                      if (packId && onDeletePack) {
-                        onDeletePack(packName, packId);
-                      }
-                      setShowPackActions(false);
-                    }}
-                    style={{
-                      ...dropdownItemStyle,
-                      color: "#dc3545",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = "#fff5f5";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = "transparent";
+                      position: "absolute",
+                      top: "100%",
+                      right: 0,
+                      background: "white",
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      zIndex: 1000,
+                      minWidth: 220,
+                      padding: "0.5rem 0",
                     }}
                   >
-                    🗑️ Delete Pack
-                  </button>
-                </div>
-              )}
-            </span>
+                    {/* Edit Pack Name */}
+                    <button
+                      onClick={() => {
+                        setNewPackName(packName);
+                        setRenameModalOpen(true);
+                        setShowPackActions(false);
+                      }}
+                      style={dropdownItemStyle}
+                    >
+                      ✏️ Edit Pack Name
+                    </button>
+
+                    {/* Start Work */}
+                    {status === "Future Plans" && (
+                      <button
+                        onClick={() => {
+                          onStartWork(validSongsInPack.map((s) => s.id));
+                          setShowPackActions(false);
+                        }}
+                        style={dropdownItemStyle}
+                      >
+                        🔨 Start Work
+                      </button>
+                    )}
+
+                    {/* Add Song */}
+                    {validSongsInPack[0]?.pack_id && (
+                      <button
+                        onClick={() => {
+                          setShowAddSongModal(true);
+                          setShowPackActions(false);
+                        }}
+                        style={dropdownItemStyle}
+                      >
+                        ＋ Add Song
+                      </button>
+                    )}
+
+                    {/* Collaborations */}
+                    <button
+                      onClick={() => {
+                        if (setShowCollaborationModal) {
+                          setShowCollaborationModal(true);
+                          setSelectedItemForCollaboration &&
+                            setSelectedItemForCollaboration({
+                              type: "pack",
+                              packName,
+                            });
+                          setCollaborationType && setCollaborationType("pack");
+                        }
+                        setShowPackActions(false);
+                      }}
+                      style={dropdownItemStyle}
+                    >
+                      👥 Collaborations
+                    </button>
+
+                    {/* Bulk Options */}
+                    <button
+                      onClick={() => {
+                        onBulkEdit && onBulkEdit();
+                        setShowPackActions(false);
+                      }}
+                      style={dropdownItemStyle}
+                    >
+                      📋 Bulk Options
+                    </button>
+
+                    {/* Album Series actions */}
+                    {(() => {
+                      const hasAlbumSeries = validSongsInPack.some(
+                        (s) => s.album_series_id
+                      );
+                      const uniqueSongSeriesCount = new Set(
+                        validSongsInPack
+                          .map((s) => s && s.album_series_id)
+                          .filter(
+                            (id) => id !== null && id !== undefined && id !== ""
+                          )
+                          .map((id) =>
+                            typeof id === "string" ? parseInt(id, 10) : id
+                          )
+                          .filter((id) => Number.isInteger(id))
+                      ).size;
+                      const isAlreadyDouble =
+                        (Array.isArray(validSeries)
+                          ? validSeries.length
+                          : uniqueSongSeriesCount) >= 2;
+                      const canCreate =
+                        !hasAlbumSeries &&
+                        albumsWithEnoughSongs &&
+                        albumsWithEnoughSongs.length >= 1;
+                      const canSplitDouble =
+                        hasAlbumSeries &&
+                        !isAlreadyDouble &&
+                        albumsWithEnoughSongs &&
+                        albumsWithEnoughSongs.length >= 2;
+                      return (
+                        <>
+                          {/* Edit album series is always available when we have any series */}
+                          {hasAlbumSeries && (
+                            <button
+                              onClick={() => {
+                                // fire an event to parent to open modal; we'll use a custom event for now
+                                const event = new CustomEvent(
+                                  "open-edit-album-series",
+                                  {
+                                    detail: {
+                                      packName,
+                                      packId: validSongsInPack[0]?.pack_id,
+                                      series: (seriesInfo || []).map(
+                                        (info) => ({
+                                          id: info.id,
+                                          number: info.number,
+                                          name: info.name,
+                                        })
+                                      ),
+                                    },
+                                  }
+                                );
+                                window.dispatchEvent(event);
+                                setShowPackActions(false);
+                              }}
+                              style={dropdownItemStyle}
+                            >
+                              ✏️ Edit Album Series
+                            </button>
+                          )}
+                          {canCreate && (
+                            <button
+                              onClick={() => {
+                                onShowAlbumSeriesModal(
+                                  packName,
+                                  albumsWithEnoughSongs
+                                );
+                                setShowPackActions(false);
+                              }}
+                              style={dropdownItemStyle}
+                            >
+                              🎵 Make Album Series
+                            </button>
+                          )}
+                          {canSplitDouble && (
+                            <button
+                              onClick={() => {
+                                onMakeDoubleAlbumSeries(
+                                  packName,
+                                  albumsWithEnoughSongs
+                                );
+                                setShowPackActions(false);
+                              }}
+                              style={dropdownItemStyle}
+                            >
+                              🎵🎵 Make Double Album Series
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    {/* Separator */}
+                    <div
+                      style={{
+                        borderTop: "1px solid #eee",
+                        margin: "0.5rem 0",
+                      }}
+                    ></div>
+
+                    {/* Delete Pack */}
+                    <button
+                      onClick={() => {
+                        const packId = validSongsInPack[0]?.pack_id;
+                        if (packId && onDeletePack) {
+                          onDeletePack(packName, packId);
+                        }
+                        setShowPackActions(false);
+                      }}
+                      style={{
+                        ...dropdownItemStyle,
+                        color: "#dc3545",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = "#fff5f5";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      🗑️ Delete Pack
+                    </button>
+                  </div>
+                )}
+              </span>
             )}
           </span>
         </td>

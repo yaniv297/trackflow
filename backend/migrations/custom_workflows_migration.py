@@ -126,27 +126,25 @@ def populate_default_template(engine):
     """Populate the single default workflow template"""
     print("Populating default workflow template...")
     
-    # Default workflow for existing users (matches legacy boolean fields exactly)
+    # Default workflow for new users
     default_template = {
         "name": "Standard Workflow",
         "description": "Default authoring workflow for Rock Band songs",
         "is_default": True,
         "steps": [
-            ("demucs", "Demucs", 0),
-            ("midi", "MIDI", 1),
-            ("tempo_map", "Tempo Map", 2),
-            ("fake_ending", "Fake Ending", 3),
-            ("drums", "Drums", 4),
-            ("bass", "Bass", 5),
-            ("guitar", "Guitar", 6),
-            ("vocals", "Vocals", 7),
-            ("harmonies", "Harmonies", 8),
-            ("pro_keys", "Pro Keys", 9),
-            ("keys", "Keys", 10),
-            ("animations", "Animations", 11),
-            ("drum_fills", "Drum Fills", 12),
-            ("overdrive", "Overdrive", 13),
-            ("compile", "Compile", 14),
+            ("tempo_map", "Tempo Map", 0),
+            ("drums", "Drums", 1),
+            ("bass", "Bass", 2),
+            ("guitar", "Guitar", 3),
+            ("vocals", "Vocals", 4),
+            ("harmonies", "Harmonies", 5),
+            ("pro_keys", "Pro Keys", 6),
+            ("keys", "Keys", 7),
+            ("venue", "Venue", 8),
+            ("animations", "Animations", 9),
+            ("drum_fills", "Drum Fills", 10),
+            ("overdrive", "Overdrive", 11),
+            ("compile", "Compile", 12),
         ]
     }
     

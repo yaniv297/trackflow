@@ -159,85 +159,47 @@ async def update_my_workflow(
         new_names = {s.step_name for s in workflow_update.steps}
     db.commit()
 
-    # Auto-complete new steps for songs that are Released
+    # Add new steps to WIP songs only (bulk insert)
     if new_names is not None:
         added = list(new_names - prior_names)
         if added:
-            # 1) Released songs: always keep finished
-            released = db.execute(text("SELECT id FROM songs WHERE user_id = :uid AND status = 'Released'"), {"uid": current_user.id}).fetchall()
-            for (song_id,) in released:
-                for step in added:
-                    db.execute(text("""
-                        INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                        VALUES (:sid, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT(song_id, step_name) DO UPDATE SET
-                          is_completed = TRUE,
-                          completed_at = CURRENT_TIMESTAMP,
-                          updated_at = CURRENT_TIMESTAMP
-                    """), {"sid": song_id, "step": step})
-
-            # 2) WIP songs that are effectively finished: also keep finished
-            # This includes both legacy (authoring table) and new (song_progress) completion tracking
+            # Bulk insert for 100% complete WIP songs (new steps marked complete)
+            for step in added:
+                db.execute(text("""
+                    INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
+                    SELECT s.id, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    FROM songs s
+                    JOIN authoring a ON a.song_id = s.id
+                    WHERE s.user_id = :uid AND s.status = 'In Progress'
+                      AND (a.demucs = TRUE AND a.midi = TRUE AND a.tempo_map = TRUE AND a.fake_ending = TRUE
+                           AND a.drums = TRUE AND a.bass = TRUE AND a.guitar = TRUE AND a.vocals = TRUE
+                           AND a.harmonies = TRUE AND a.pro_keys = TRUE AND a.keys = TRUE AND a.animations = TRUE
+                           AND a.drum_fills = TRUE AND a.overdrive = TRUE AND a.compile = TRUE)
+                    ON CONFLICT(song_id, step_name) DO NOTHING
+                """), {"uid": current_user.id, "step": step})
             
-            # A) Legacy authoring table - songs with all legacy booleans true
-            legacy_done = db.execute(text(
-                """
-                SELECT s.id
-                FROM songs s
-                JOIN authoring a ON a.song_id = s.id
-                WHERE s.user_id = :uid
-                  AND (a.demucs = 1 AND a.midi = 1 AND a.tempo_map = 1 AND a.fake_ending = 1
-                       AND a.drums = 1 AND a.bass = 1 AND a.guitar = 1 AND a.vocals = 1
-                       AND a.harmonies = 1 AND a.pro_keys = 1 AND a.keys = 1 AND a.animations = 1
-                       AND a.drum_fills = 1 AND a.overdrive = 1 AND a.compile = 1)
-                """
-            ), {"uid": current_user.id}).fetchall()
-            
-            # B) New workflow system - songs where ALL current workflow steps are completed
-            new_system_done = db.execute(text(
-                """
-                SELECT s.id
-                FROM songs s
-                WHERE s.user_id = :uid
-                  AND s.id NOT IN (
-                    -- Exclude songs that have any incomplete steps in their current workflow
-                    SELECT DISTINCT sp.song_id
-                    FROM song_progress sp
-                    JOIN user_workflow_steps uws ON uws.step_name = sp.step_name
-                    JOIN user_workflows uw ON uw.id = uws.workflow_id
-                    WHERE uw.user_id = :uid
-                      AND sp.is_completed = FALSE
-                  )
-                  AND s.id IN (
-                    -- Only include songs that have at least one progress entry (actively using new system)
-                    SELECT DISTINCT sp2.song_id
-                    FROM song_progress sp2
-                    JOIN user_workflow_steps uws2 ON uws2.step_name = sp2.step_name
-                    JOIN user_workflows uw2 ON uw2.id = uws2.workflow_id
-                    WHERE uw2.user_id = :uid
-                  )
-                """
-            ), {"uid": current_user.id}).fetchall()
-            
-            # Combine both sets of completed songs
-            legacy_song_ids = {row[0] for row in legacy_done}
-            new_system_song_ids = {row[0] for row in new_system_done}
-            fully_done_song_ids = legacy_song_ids.union(new_system_song_ids)
+            # Bulk insert for incomplete WIP songs (new steps marked incomplete)
+            for step in added:
+                db.execute(text("""
+                    INSERT INTO song_progress (song_id, step_name, is_completed, created_at, updated_at)
+                    SELECT s.id, :step, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    FROM songs s
+                    WHERE s.user_id = :uid AND s.status = 'In Progress'
+                    AND s.id NOT IN (
+                        SELECT s2.id FROM songs s2
+                        JOIN authoring a ON a.song_id = s2.id
+                        WHERE s2.user_id = :uid AND s2.status = 'In Progress'
+                          AND (a.demucs = TRUE AND a.midi = TRUE AND a.tempo_map = TRUE AND a.fake_ending = TRUE
+                               AND a.drums = TRUE AND a.bass = TRUE AND a.guitar = TRUE AND a.vocals = TRUE
+                               AND a.harmonies = TRUE AND a.pro_keys = TRUE AND a.keys = TRUE AND a.animations = TRUE
+                               AND a.drum_fills = TRUE AND a.overdrive = TRUE AND a.compile = TRUE)
+                    )
+                    ON CONFLICT(song_id, step_name) DO NOTHING
+                """), {"uid": current_user.id, "step": step})
 
-            for song_id in fully_done_song_ids:
-                for step in added:
-                    db.execute(text("""
-                        INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                        VALUES (:sid, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT(song_id, step_name) DO UPDATE SET
-                          is_completed = TRUE,
-                          completed_at = CURRENT_TIMESTAMP,
-                          updated_at = CURRENT_TIMESTAMP
-                    """), {"sid": song_id, "step": step})
-
-            db.commit()
-
-    # Return updated
+    db.commit()
+    
+    # Return updated workflow
     return await get_my_workflow(db, current_user)
 
 @router.post("/reset-to-default", response_model=UserWorkflowOut)

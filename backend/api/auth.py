@@ -112,19 +112,116 @@ class Token(BaseModel):
     token_type: str
     user: UserResponse
 
+@router.get("/unclaimed-users")
+def get_unclaimed_users(db: Session = Depends(get_db)):
+    """Get list of users who exist in system but haven't logged in yet (unclaimed accounts).
+    These are users created through collaborations who haven't claimed their account yet."""
+    unclaimed = db.query(User).filter(User.last_login_at == None).all()
+    
+    return [{"id": u.id, "username": u.username} for u in unclaimed]
+
+@router.post("/claim-user", response_model=Token)
+def claim_existing_user(
+    claim_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Claim an existing unclaimed user account by setting password and creating workflow.
+    
+    Expected data: {user_id, email, password, workflow_steps}
+    """
+    user_id = claim_data.get("user_id")
+    email = claim_data.get("email")
+    password = claim_data.get("password")
+    workflow_steps = claim_data.get("workflow_steps", [])
+    
+    if not all([user_id, email, password]):
+        raise HTTPException(status_code=400, detail="user_id, email, and password required")
+    
+    # Get the unclaimed user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify user is unclaimed
+    if user.last_login_at:
+        raise HTTPException(status_code=400, detail="User already claimed")
+    
+    # Check if email is already in use
+    existing_email = db.query(User).filter(User.email == email, User.id != user_id).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already in use")
+    
+    # Claim the user
+    user.email = email
+    user.hashed_password = get_password_hash(password)
+    user.is_active = True
+    user.last_login_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    
+    # Create user workflow (import from workflows API)
+    from sqlalchemy import text
+    # Get default template
+    tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+    if tmpl:
+        db.execute(text("""
+            INSERT INTO user_workflows (user_id, name, description, template_id)
+            VALUES (:uid, 'My Workflow', 'Custom workflow', :tid)
+            ON CONFLICT(user_id) DO NOTHING
+        """), {"uid": user.id, "tid": tmpl[0]})
+        
+        workflow_result = db.execute(text("SELECT id FROM user_workflows WHERE user_id = :uid"), {"uid": user.id}).fetchone()
+        if workflow_result and workflow_steps:
+            workflow_id = workflow_result[0]
+            # Clear existing steps and add custom ones
+            db.execute(text("DELETE FROM user_workflow_steps WHERE workflow_id = :wid"), {"wid": workflow_id})
+            for i, step in enumerate(workflow_steps):
+                db.execute(text("""
+                    INSERT INTO user_workflow_steps (workflow_id, step_name, display_name, order_index)
+                    VALUES (:wid, :step_name, :display_name, :order_index)
+                """), {"wid": workflow_id, "step_name": step["step_name"], "display_name": step["display_name"], "order_index": i})
+        db.commit()
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=1440)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserResponse(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            is_active=user.is_active,
+            created_at=user.created_at.isoformat()
+        )
+    }
+
 @router.post("/register", response_model=Token)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
+def register(registration_data: dict, db: Session = Depends(get_db)):
+    """Register a brand new user with custom workflow."""
+    username = registration_data.get("username")
+    email = registration_data.get("email")
+    password = registration_data.get("password")
+    workflow_steps = registration_data.get("workflow_steps", [])
+    
+    if not all([username, email, password]):
+        raise HTTPException(status_code=400, detail="username, email, and password required")
+    
     # Basic email validation
     import re
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    if not re.match(email_pattern, user_data.email):
+    if not re.match(email_pattern, email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email format"
         )
     
     # Check if username already exists
-    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    existing_user = db.query(User).filter(User.username == username).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -132,7 +229,7 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         )
     
     # Check if email already exists
-    existing_email = db.query(User).filter(User.email == user_data.email).first()
+    existing_email = db.query(User).filter(User.email == email).first()
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -140,16 +237,39 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         )
     
     # Create new user
-    hashed_password = get_password_hash(user_data.password)
+    hashed_password = get_password_hash(password)
     db_user = User(
-        username=user_data.username,
-        email=user_data.email,
+        username=username,
+        email=email,
         hashed_password=hashed_password
     )
     
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    
+    # Set login timestamp
+    db_user.last_login_at = datetime.utcnow()
+    db.commit()
+    
+    # Create user workflow
+    from sqlalchemy import text
+    tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+    if tmpl:
+        db.execute(text("""
+            INSERT INTO user_workflows (user_id, name, description, template_id)
+            VALUES (:uid, 'My Workflow', 'Custom workflow', :tid)
+        """), {"uid": db_user.id, "tid": tmpl[0]})
+        
+        workflow_result = db.execute(text("SELECT id FROM user_workflows WHERE user_id = :uid"), {"uid": db_user.id}).fetchone()
+        if workflow_result and workflow_steps:
+            workflow_id = workflow_result[0]
+            for i, step in enumerate(workflow_steps):
+                db.execute(text("""
+                    INSERT INTO user_workflow_steps (workflow_id, step_name, display_name, order_index)
+                    VALUES (:wid, :step_name, :display_name, :order_index)
+                """), {"wid": workflow_id, "step_name": step["step_name"], "display_name": step["display_name"], "order_index": i})
+        db.commit()
     
     # Create access token
     access_token_expires = timedelta(minutes=1440)  # 24 hours
@@ -179,6 +299,10 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Update last login timestamp
+    user.last_login_at = datetime.utcnow()
+    db.commit()
     
     access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(

@@ -9,7 +9,7 @@ import {
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginForm from "./components/LoginForm";
-import RegisterForm from "./components/RegisterForm";
+import RegistrationWizard from "./components/RegistrationWizard";
 import SongPage from "./SongPage";
 import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
@@ -398,7 +398,7 @@ function AppContent() {
 
         <Routes>
           <Route path="/login" element={<LoginForm />} />
-          <Route path="/register" element={<RegisterForm />} />
+          <Route path="/register" element={<RegistrationWizard />} />
 
           {/* Protected Routes */}
           <Route

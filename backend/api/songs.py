@@ -232,12 +232,8 @@ def get_filtered_songs(
             song_dict["author"] = song.user.username
         
         # Include authoring data for completion tracking
-        if hasattr(song, "authoring") and song.authoring:
-            song_dict["authoring"] = song.authoring.__dict__.copy()
-            # Remove SQLAlchemy internal fields
-            song_dict["authoring"].pop("_sa_instance_state", None)
-        else:
-            song_dict["authoring"] = None
+        # Note: authoring is deprecated, but keep for backward compatibility
+        song_dict["authoring"] = None
         
         # Attach collaborations with username lookup
         if hasattr(song, "collaborations"):

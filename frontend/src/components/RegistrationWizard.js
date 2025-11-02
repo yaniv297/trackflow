@@ -181,6 +181,9 @@ const RegistrationWizard = () => {
 
       window.showNotification("Account created successfully!", "success");
 
+      // Show welcome message after redirect
+      sessionStorage.setItem("show_welcome", "true");
+
       // Reload to trigger auth context
       window.location.href = "/wip";
     } catch (error) {

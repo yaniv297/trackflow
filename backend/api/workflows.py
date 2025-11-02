@@ -163,51 +163,32 @@ async def update_my_workflow(
     if new_names is not None:
         added = list(new_names - prior_names)
         if added:
-            # Find songs where ALL existing steps (before the new ones) are complete
-            # Use song_progress directly to count completed steps
-            existing_step_count = len(prior_names)
+            # Simpler, faster approach using COUNT
+            prior_count = len(prior_names)
             
-            # Build list of existing step names for query
-            prior_step_list = list(prior_names)
-            
-            # Bulk insert/update for songs with all existing steps complete (mark new steps as complete)
             for step in added:
-                # Build dynamic query to check all prior steps
-                step_checks = " AND ".join([f"EXISTS (SELECT 1 FROM song_progress sp{i} WHERE sp{i}.song_id = s.id AND sp{i}.step_name = :step{i} AND sp{i}.is_completed = TRUE)" 
-                                           for i in range(len(prior_step_list))])
-                
-                params = {"uid": current_user.id, "step": step}
-                params.update({f"step{i}": prior_step_list[i] for i in range(len(prior_step_list))})
-                
-                db.execute(text(f"""
+                # Songs with all prior steps complete → mark new step complete
+                db.execute(text("""
                     INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
                     SELECT s.id, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                     FROM songs s
                     WHERE s.user_id = :uid AND s.status = 'In Progress'
-                    AND {step_checks}
+                    AND (SELECT COUNT(*) FROM song_progress sp WHERE sp.song_id = s.id AND sp.is_completed = TRUE) >= :prior_count
                     ON CONFLICT(song_id, step_name) DO UPDATE SET
                         is_completed = TRUE,
                         completed_at = CURRENT_TIMESTAMP,
                         updated_at = CURRENT_TIMESTAMP
-                """), params)
-            
-            # Bulk insert for incomplete WIP songs (mark new steps as incomplete)
-            # For songs that don't have all prior steps complete
-            for step in added:
-                # Build NOT EXISTS checks for incomplete songs
-                not_all_complete = f"NOT ({step_checks})" if step_checks else "TRUE"
+                """), {"uid": current_user.id, "step": step, "prior_count": prior_count})
                 
-                params_incomplete = {"uid": current_user.id, "step": step}
-                params_incomplete.update({f"step{i}": prior_step_list[i] for i in range(len(prior_step_list))})
-                
-                db.execute(text(f"""
+                # All other WIP songs → mark new step incomplete
+                db.execute(text("""
                     INSERT INTO song_progress (song_id, step_name, is_completed, created_at, updated_at)
                     SELECT s.id, :step, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                     FROM songs s
                     WHERE s.user_id = :uid AND s.status = 'In Progress'
-                    AND ({not_all_complete} OR NOT EXISTS (SELECT 1 FROM song_progress WHERE song_id = s.id LIMIT 1))
+                    AND (SELECT COUNT(*) FROM song_progress sp WHERE sp.song_id = s.id AND sp.is_completed = TRUE) < :prior_count
                     ON CONFLICT(song_id, step_name) DO NOTHING
-                """), params_incomplete)
+                """), {"uid": current_user.id, "step": step, "prior_count": prior_count})
 
     db.commit()
     

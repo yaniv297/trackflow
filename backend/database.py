@@ -19,23 +19,16 @@ elif SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
 	# Optimize for PostgreSQL/Supabase
 	connect_args["connect_timeout"] = 10
 	connect_args["application_name"] = "trackflow"
-	# SSL configuration for Supabase
-	connect_args["sslmode"] = "require"
-	connect_args["keepalives"] = 1
-	connect_args["keepalives_idle"] = 30
-	connect_args["keepalives_interval"] = 10
-	connect_args["keepalives_count"] = 5
 
 engine = create_engine(
 	SQLALCHEMY_DATABASE_URL, 
 	connect_args=connect_args,
 	pool_pre_ping=True,
-	pool_recycle=180,  # Recycle connections every 3 minutes (before Supabase timeout)
+	pool_recycle=300,
 	# Optimize pool size for SQLite (smaller pool to avoid locks)
-	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
-	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 20,
-	pool_timeout=30,
-	echo_pool=False  # Disable pool logging for production
+	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 5,
+	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
+	pool_timeout=30
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

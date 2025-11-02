@@ -13,7 +13,11 @@ COPY main.py .
 COPY database.py .
 COPY models.py .
 COPY schemas.py .
+COPY workflow_models.py .
+COPY workflow_schemas.py .
+COPY auth.py .
 COPY api/ ./api/
+COPY migrations/ ./migrations/
 COPY __init__.py .
 
 # Expose port (will be overridden by Railway)

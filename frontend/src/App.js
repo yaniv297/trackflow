@@ -20,6 +20,7 @@ import NotificationManager from "./components/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
 import WorkflowSettings from "./components/WorkflowSettings";
+import HelpPage from "./HelpPage";
 import "./App.css";
 
 function AppContent() {
@@ -237,6 +238,31 @@ function AppContent() {
                       }
                     >
                       Workflow Settings
+                    </div>
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        navigate("/help");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      Help & FAQ
                     </div>
                     <div
                       onClick={() => {
@@ -486,6 +512,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <WorkflowSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute>
+                <HelpPage />
               </ProtectedRoute>
             }
           />

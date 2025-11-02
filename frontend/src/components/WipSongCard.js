@@ -9,7 +9,7 @@ import { useUserProfilePopup } from "../hooks/useUserProfilePopup";
 import { useWorkflowData } from "../hooks/useWorkflowData";
 import {
   getFieldCompletion,
-  getSongProgressData
+  getSongProgressData,
 } from "../utils/progressUtils";
 import UserProfilePopup from "./UserProfilePopup";
 
@@ -33,7 +33,7 @@ export default function WipSongCard({
     if (expandedProp !== undefined) return; // ignore toggle if controlled
     setExpandedInternal((e) => !e);
   };
-  const [progress, setProgress] = useState(song.progress || {});
+  const [, setProgress] = useState(song.progress || {});
 
   // Update progress when song.progress changes
   useEffect(() => {
@@ -66,11 +66,11 @@ export default function WipSongCard({
       return authoringFieldsProp;
     return authoringFields && authoringFields.length > 0 ? authoringFields : [];
   }, [authoringFieldsProp, authoringFields]);
-  
+
   const progressData = React.useMemo(() => {
     return getSongProgressData(song, effectiveAuthoringFields);
   }, [song, effectiveAuthoringFields]);
-  
+
   const isFinished = progressData.isComplete;
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
@@ -187,7 +187,7 @@ export default function WipSongCard({
 
     // Optimistic update
     setProgress((prev) => ({ ...prev, [field]: nextVal }));
-    
+
     try {
       await apiPut(`/authoring/${song.id}`, { [field]: nextVal });
       // Re-sync from server to avoid double-click visual glitches

@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React from "react";
 import SmartDropdown from "./SmartDropdown";
 import WipSongCard from "./WipSongCard";
 import DLCWarning from "./DLCWarning";
 import { useUserWorkflowFields } from "../hooks/useUserWorkflowFields";
-import { getSongCompletionPercentage, isSongComplete } from "../utils/progressUtils";
+import {
+  getSongCompletionPercentage,
+  isSongComplete,
+} from "../utils/progressUtils";
 
 const WipPackCard = ({
   packName,
@@ -64,7 +67,7 @@ const WipPackCard = ({
   );
 
   // Use collaboratorSongs from pack data instead of calculating
-  const collaboratorOwnedSongs = collaboratorSongs || [];
+  // const collaboratorOwnedSongs = collaboratorSongs || [];
 
   // Further separate user's songs into core and optional
   const userCoreSongs = userOwnedSongs.filter((song) => !song.optional);
@@ -127,9 +130,6 @@ const WipPackCard = ({
   const [showPackDropdown, setShowPackDropdown] = React.useState(false);
 
   // Sort songs by completion (filledCount) descending
-  const sortedUserCoreSongs = userCoreSongs
-    .slice()
-    .sort((a, b) => b.filledCount - a.filledCount);
   const sortedUserOptionalSongs = userOptionalSongs
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
@@ -137,9 +137,6 @@ const WipPackCard = ({
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
   const sortedCollaboratorCoreSongs = collaboratorCoreSongs
-    .slice()
-    .sort((a, b) => b.filledCount - a.filledCount);
-  const sortedCollaboratorOptionalSongs = collaboratorOptionalSongs
     .slice()
     .sort((a, b) => b.filledCount - a.filledCount);
 
@@ -870,9 +867,6 @@ const WipPackCard = ({
                     </h4>
                     {!completedSongsCollapsed &&
                       completedCoreSongs.map((song) => {
-                        const songPercent = getSongCompletionPercentage(song, authoringFields);
-                        const isFinished = isSongComplete(song, authoringFields);
-
                         return (
                           <WipSongCard
                             key={song.id}
@@ -913,9 +907,6 @@ const WipPackCard = ({
                     </h4>
                     {!activeSongsCollapsed &&
                       activeCoreSongs.map((song) => {
-                        const songPercent = getSongCompletionPercentage(song, authoringFields);
-                        const isFinished = isSongComplete(song, authoringFields);
-
                         return (
                           <WipSongCard
                             key={song.id}
@@ -960,8 +951,6 @@ const WipPackCard = ({
               {!collaborationSongsCollapsed &&
                 sortedCollaborationSongs.map((song) => {
                   // Calculate if collaboration song is finished
-                  const songPercent = getSongCompletionPercentage(song, authoringFields);
-                  const isFinished = isSongComplete(song, authoringFields);
 
                   return (
                     <WipSongCard
@@ -1002,8 +991,6 @@ const WipPackCard = ({
               {!optionalCollapsed &&
                 sortedUserOptionalSongs.map((song) => {
                   // Calculate if optional song is finished
-                  const songPercent = getSongCompletionPercentage(song, authoringFields);
-                  const isFinished = isSongComplete(song, authoringFields);
 
                   return (
                     <WipSongCard
@@ -1047,10 +1034,8 @@ const WipPackCard = ({
                 sortedCollaboratorCoreSongs.map((song) => {
                   // Get the song owner's workflow fields
                   const songOwnerFields = getWorkflowFields(song.user_id) || [];
-                  
+
                   // Use owner's workflow fields for calculations
-                  const songPercent = getSongCompletionPercentage(song, songOwnerFields);
-                  const isFinished = isSongComplete(song, songOwnerFields);
 
                   return (
                     <WipSongCard
@@ -1098,10 +1083,8 @@ const WipPackCard = ({
                 collaboratorOptionalSongsFromPack.map((song) => {
                   // Get the song owner's workflow fields
                   const songOwnerFields = getWorkflowFields(song.user_id) || [];
-                  
+
                   // Use owner's workflow fields for calculations
-                  const songPercent = getSongCompletionPercentage(song, songOwnerFields);
-                  const isFinished = isSongComplete(song, songOwnerFields);
 
                   return (
                     <WipSongCard

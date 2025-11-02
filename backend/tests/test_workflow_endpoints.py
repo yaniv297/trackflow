@@ -1,9 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from datetime import datetime
 from main import app
 from database import get_db
-from models import User, WorkflowTemplate, WorkflowInstance, WorkflowTask
+from models import User, Song, SongProgress, UserWorkflow, UserWorkflowStep
 from auth import get_current_user
 import json
 

@@ -4,7 +4,7 @@ import { apiGet, apiPut } from "./utils/api";
 import "./UserSettings.css";
 
 function UserSettings() {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 

@@ -634,7 +634,7 @@ function SongPage({ status }) {
       return;
     }
 
-    const [secondAlbumName, secondAlbumCount] = albumsToChooseFrom[0];
+    const [secondAlbumName] = albumsToChooseFrom[0];
     const songsInSecondAlbum = packSongs.filter(
       (song) => song.album === secondAlbumName
     );
@@ -664,13 +664,8 @@ function SongPage({ status }) {
 
     setIsExecutingDoubleAlbumSeries(true);
 
-    const {
-      packName,
-      secondAlbumName,
-      songsToMove,
-      newPackName,
-      mostCommonArtist,
-    } = doubleAlbumSeriesData;
+    const { secondAlbumName, songsToMove, newPackName, mostCommonArtist } =
+      doubleAlbumSeriesData;
 
     try {
       // Update all songs from the second album to the new pack

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost, apiGet } from "./utils/api";
 import SmartDropdown from "./components/SmartDropdown";
-import UserDropdown from "./components/UserDropdown";
 import DLCWarning from "./components/DLCWarning";
 
 // Utility function to capitalize artist and album names

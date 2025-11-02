@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "./config";
-import UserDropdown from "./components/UserDropdown";
 import SmartDropdown from "./components/SmartDropdown";
-import { apiPost, apiGet } from "./utils/api";
-import DLCWarning from "./components/DLCWarning";
+import { apiPost } from "./utils/api";
 import MultipleDLCCheck from "./components/MultipleDLCCheck";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 

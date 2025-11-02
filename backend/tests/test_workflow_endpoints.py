@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 from main import app
 from database import get_db
-from models import User, Song, SongProgress, UserWorkflow, UserWorkflowStep
+from models import User, Song
+from workflow_models import WorkflowTemplate, WorkflowTemplateStep, UserWorkflow, UserWorkflowStep, SongProgress
 from auth import get_current_user
 import json
 
@@ -171,7 +172,7 @@ class TestWorkflowTemplates:
         response = authenticated_client.get(f"/workflows/templates/{template.id}")
         assert response.status_code == 404
 
-class TestWorkflowInstances:
+class TestUserWorkflows:
     def test_create_workflow_instance(self, authenticated_client, mock_db, test_user):
         # Create template first
         template = WorkflowTemplate(
@@ -214,7 +215,7 @@ class TestWorkflowInstances:
         mock_db.commit()
         mock_db.refresh(template)
         
-        instance = WorkflowInstance(
+        instance = UserWorkflow(
             template_id=template.id,
             name="Test Instance",
             status="active",
@@ -242,7 +243,7 @@ class TestWorkflowInstances:
         mock_db.commit()
         mock_db.refresh(template)
         
-        instance = WorkflowInstance(
+        instance = UserWorkflow(
             template_id=template.id,
             name="Test Instance",
             status="active",
@@ -262,7 +263,7 @@ class TestWorkflowInstances:
         data = response.json()
         assert data["status"] == "completed"
 
-class TestWorkflowTasks:
+class TestSongProgresss:
     def test_create_workflow_task(self, authenticated_client, mock_db, test_user):
         template = WorkflowTemplate(
             name="Template",
@@ -274,7 +275,7 @@ class TestWorkflowTasks:
         mock_db.commit()
         mock_db.refresh(template)
         
-        instance = WorkflowInstance(
+        instance = UserWorkflow(
             template_id=template.id,
             name="Instance",
             status="active",
@@ -311,7 +312,7 @@ class TestWorkflowTasks:
         mock_db.commit()
         mock_db.refresh(template)
         
-        instance = WorkflowInstance(
+        instance = UserWorkflow(
             template_id=template.id,
             name="Instance",
             status="active",
@@ -322,7 +323,7 @@ class TestWorkflowTasks:
         mock_db.commit()
         mock_db.refresh(instance)
         
-        task = WorkflowTask(
+        task = SongProgress(
             workflow_instance_id=instance.id,
             step_id="1",
             name="Test Task",
@@ -354,7 +355,7 @@ class TestWorkflowTasks:
         mock_db.commit()
         mock_db.refresh(template)
         
-        instance = WorkflowInstance(
+        instance = UserWorkflow(
             template_id=template.id,
             name="Instance",
             status="active",
@@ -365,7 +366,7 @@ class TestWorkflowTasks:
         mock_db.commit()
         mock_db.refresh(instance)
         
-        task = WorkflowTask(
+        task = SongProgress(
             workflow_instance_id=instance.id,
             step_id="1",
             name="User Task",

@@ -169,9 +169,9 @@ async def update_my_workflow(
                 for step in added:
                     db.execute(text("""
                         INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                        VALUES (:sid, :step, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        VALUES (:sid, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         ON CONFLICT(song_id, step_name) DO UPDATE SET
-                          is_completed = 1,
+                          is_completed = TRUE,
                           completed_at = CURRENT_TIMESTAMP,
                           updated_at = CURRENT_TIMESTAMP
                     """), {"sid": song_id, "step": step})
@@ -228,9 +228,9 @@ async def update_my_workflow(
                 for step in added:
                     db.execute(text("""
                         INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                        VALUES (:sid, :step, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        VALUES (:sid, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         ON CONFLICT(song_id, step_name) DO UPDATE SET
-                          is_completed = 1,
+                          is_completed = TRUE,
                           completed_at = CURRENT_TIMESTAMP,
                           updated_at = CURRENT_TIMESTAMP
                     """), {"sid": song_id, "step": step})

@@ -3,6 +3,21 @@ from models import SongStatus
 from typing import Optional, List
 from datetime import datetime
 
+class UserOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+    last_login_at: Optional[datetime] = None
+    display_name: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+    discord_username: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
 class SongCollaborationCreate(BaseModel):
     author: str  # Username of the collaborator
     role: Optional[str] = None

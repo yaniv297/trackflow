@@ -153,6 +153,27 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
+  const updateAuth = async (newToken, username) => {
+    // Update token
+    setToken(newToken);
+    localStorage.setItem("token", newToken);
+
+    // Fetch user data with the new token
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${newToken}`,
+        },
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+    }
+  };
+
   const value = {
     user,
     token,
@@ -162,6 +183,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     refreshToken,
     updateUser,
+    updateAuth,
     isAuthenticated: !!user,
   };
 

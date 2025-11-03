@@ -23,14 +23,29 @@ import WorkflowSettings from "./components/WorkflowSettings";
 import HelpPage from "./HelpPage";
 import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
+import AdminPage from "./AdminPage";
 import "./App.css";
 
 function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedUsername, setImpersonatedUsername] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isAuthenticated, loading } = useAuth();
+  const { user, logout, isAuthenticated, loading, updateAuth } = useAuth();
+
+  // Check if we're impersonating
+  useEffect(() => {
+    const impersonating = localStorage.getItem("impersonating");
+    if (impersonating) {
+      setIsImpersonating(true);
+      setImpersonatedUsername(impersonating);
+    } else {
+      setIsImpersonating(false);
+      setImpersonatedUsername("");
+    }
+  }, [user]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -132,9 +147,56 @@ function AppContent() {
     navigate("/login");
   };
 
+  const handleExitImpersonation = async () => {
+    const adminToken = localStorage.getItem("admin_token");
+    if (adminToken) {
+      // Restore admin token
+      localStorage.setItem("token", adminToken);
+      localStorage.removeItem("admin_token");
+      localStorage.removeItem("impersonating");
+
+      // Update auth context and reload
+      await updateAuth(adminToken, null);
+      window.location.href = "/admin";
+    }
+  };
+
   return (
     <NotificationManager>
       <div className="app-container">
+        {isImpersonating && (
+          <div
+            style={{
+              background: "#ffc107",
+              color: "#000",
+              padding: "10px 20px",
+              textAlign: "center",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "15px",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            <span>👤 Impersonating: {impersonatedUsername}</span>
+            <button
+              onClick={handleExitImpersonation}
+              style={{
+                background: "#333",
+                color: "white",
+                border: "none",
+                padding: "6px 15px",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontWeight: "600",
+                fontSize: "13px",
+              }}
+            >
+              Exit Impersonation
+            </button>
+          </div>
+        )}
         <div
           style={{
             display: "flex",
@@ -449,6 +511,11 @@ function AppContent() {
             <NavLink to="/help" activeclassname="active">
               Help
             </NavLink>
+            {user?.is_admin && (
+              <NavLink to="/admin" activeclassname="active">
+                👑 Admin
+              </NavLink>
+            )}
           </nav>
         )}
 
@@ -566,6 +633,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <BugReportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
               </ProtectedRoute>
             }
           />

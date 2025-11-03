@@ -75,6 +75,19 @@ export const AuthProvider = ({ children }) => {
       setToken(data.access_token);
       setUser(data.user);
       localStorage.setItem("token", data.access_token);
+
+      // Check if this is user's first login by checking if last_login_at was just set
+      if (data.user.last_login_at) {
+        const loginTime = new Date(data.user.last_login_at);
+        const now = new Date();
+        const secondsSinceLogin = (now - loginTime) / 1000;
+
+        // If last_login_at is very recent (< 5 seconds), it's first login
+        if (secondsSinceLogin < 5) {
+          sessionStorage.setItem("show_welcome", "true");
+        }
+      }
+
       return data;
     } catch (error) {
       throw error;

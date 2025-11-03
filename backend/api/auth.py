@@ -162,7 +162,7 @@ def claim_existing_user(
     # Create user workflow (import from workflows API)
     from sqlalchemy import text
     # Get default template
-    tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+    tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1")).fetchone()
     if tmpl:
         db.execute(text("""
             INSERT INTO user_workflows (user_id, name, description, template_id)
@@ -254,7 +254,7 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
     
     # Create user workflow
     from sqlalchemy import text
-    tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
+    tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1")).fetchone()
     if tmpl:
         db.execute(text("""
             INSERT INTO user_workflows (user_id, name, description, template_id)

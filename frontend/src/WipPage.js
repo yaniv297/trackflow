@@ -151,6 +151,23 @@ function WipPage() {
   // Get dynamic workflow fields for the current user
   const { authoringFields } = useWorkflowData(user);
 
+  // Show welcome notification for first-time users
+  useEffect(() => {
+    const showWelcome = sessionStorage.getItem("show_welcome");
+    if (showWelcome === "true") {
+      sessionStorage.removeItem("show_welcome");
+      setTimeout(() => {
+        if (window.showNotification) {
+          window.showNotification(
+            "🎉 Welcome to TrackFlow! Click ⚙️ → Help & FAQ to learn about features and get started.",
+            "success",
+            12000
+          );
+        }
+      }, 800);
+    }
+  }, []);
+
   // UI State
   const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
   const [searchQuery, setSearchQuery] = useState("");

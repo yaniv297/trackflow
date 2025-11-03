@@ -92,11 +92,74 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
     # For released series, show all
     # For in_progress and planned series, only show if user is involved
     
+    from sqlalchemy import func, case
+    
     # Get all series
     all_series = db.query(AlbumSeries).order_by(
         AlbumSeries.series_number.nulls_last(),
         AlbumSeries.created_at.desc()
     ).all()
+    
+    if not all_series:
+        return []
+    
+    series_ids = [s.id for s in all_series]
+    
+    # Bulk fetch: song counts per series
+    song_counts_query = db.query(
+        Song.album_series_id,
+        func.count(Song.id).label('count')
+    ).filter(
+        Song.album_series_id.in_(series_ids)
+    ).group_by(Song.album_series_id).all()
+    song_count_map = {row[0]: row[1] for row in song_counts_query}
+    
+    # Bulk fetch: series where user owns songs
+    user_owned_series = set(
+        row[0] for row in db.query(Song.album_series_id).filter(
+            Song.album_series_id.in_(series_ids),
+            Song.user_id == current_user.id
+        ).distinct().all()
+    )
+    
+    # Bulk fetch: series where user is collaborator
+    user_collab_series = set(
+        row[0] for row in db.query(Song.album_series_id).join(Collaboration).filter(
+            Song.album_series_id.in_(series_ids),
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).distinct().all()
+    )
+    
+    # Bulk fetch: authors (song owners + collaborators) per series
+    song_authors_query = db.query(
+        Song.album_series_id,
+        User.username
+    ).join(User, Song.user_id == User.id).filter(
+        Song.album_series_id.in_(series_ids),
+        User.username.isnot(None)
+    ).distinct().all()
+    
+    collab_authors_query = db.query(
+        Song.album_series_id,
+        User.username
+    ).join(Collaboration, Collaboration.song_id == Song.id).join(
+        User, Collaboration.user_id == User.id
+    ).filter(
+        Song.album_series_id.in_(series_ids),
+        User.username.isnot(None)
+    ).distinct().all()
+    
+    # Build authors map
+    authors_map = {}
+    for series_id, username in song_authors_query + collab_authors_query:
+        if series_id not in authors_map:
+            authors_map[series_id] = set()
+        authors_map[series_id].add(username)
+    
+    # Convert sets to sorted lists
+    for series_id in authors_map:
+        authors_map[series_id] = sorted(list(authors_map[series_id]))
     
     # Filter series based on user involvement
     filtered_series = []
@@ -107,31 +170,16 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
             continue
             
         # For in_progress and planned series, check if user is involved
-        # User is involved if they own any song in the series OR are a collaborator on any song
-        user_involved = db.query(Song).filter(
-            Song.album_series_id == s.id,
-            Song.user_id == current_user.id
-        ).first() is not None
-        
-        if not user_involved:
-            # Check if user is a collaborator on any song in this series
-            user_collaboration = db.query(Collaboration).join(Song).filter(
-                Song.album_series_id == s.id,
-                Collaboration.user_id == current_user.id,
-                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
-            ).first()
-            user_involved = user_collaboration is not None
+        user_involved = s.id in user_owned_series or s.id in user_collab_series
             
         if user_involved:
             filtered_series.append(s)
     
-    # Add song count and authors to each series
+    # Build response with cached data
     result = []
     for s in filtered_series:
-        song_count = db.query(Song).filter(
-            Song.album_series_id == s.id
-        ).count()
-        authors = get_unique_authors_for_series(db, s.id)
+        song_count = song_count_map.get(s.id, 0)
+        authors = authors_map.get(s.id, [])
         
         # Create response object
         response_data = {

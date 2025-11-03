@@ -20,6 +20,9 @@ import NotificationManager from "./components/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
 import WorkflowSettings from "./components/WorkflowSettings";
+import HelpPage from "./HelpPage";
+import ContactPage from "./ContactPage";
+import BugReportPage from "./BugReportPage";
 import "./App.css";
 
 function AppContent() {
@@ -241,6 +244,56 @@ function AppContent() {
                     <div
                       onClick={() => {
                         setShowUserDropdown(false);
+                        navigate("/contact");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      Contact
+                    </div>
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        navigate("/bug-report");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      🐛 Report a Bug
+                    </div>
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
                         handleLogout();
                       }}
                       style={{
@@ -393,6 +446,9 @@ function AppContent() {
             <NavLink to="/stats" activeclassname="active">
               Stats
             </NavLink>
+            <NavLink to="/help" activeclassname="active">
+              Help
+            </NavLink>
           </nav>
         )}
 
@@ -486,6 +542,30 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <WorkflowSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute>
+                <HelpPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <ProtectedRoute>
+                <ContactPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bug-report"
+            element={
+              <ProtectedRoute>
+                <BugReportPage />
               </ProtectedRoute>
             }
           />

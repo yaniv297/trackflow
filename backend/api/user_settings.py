@@ -17,7 +17,7 @@ class UserSettingsUpdate(BaseModel):
 class UserSettingsResponse(BaseModel):
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
     created_at: Optional[str] = None
@@ -25,7 +25,7 @@ class UserSettingsResponse(BaseModel):
 class UserProfileResponse(BaseModel):
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
     created_at: Optional[str] = None

@@ -6,7 +6,7 @@ from datetime import datetime
 class UserOut(BaseModel):
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
     is_active: bool
     is_admin: bool
     created_at: datetime

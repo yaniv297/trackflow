@@ -80,11 +80,13 @@ const CompletionGroupCard = ({
                 song={song}
                 showPackName={true}
                 authoringFields={songOwnerFields}
-                onAuthoringUpdate={(field, value) =>
-                  onUpdateAuthoringField(song.id, field, value)
+                onAuthoringUpdate={(songId, field, value) =>
+                  onUpdateAuthoringField(songId, field, value)
                 }
                 onDelete={() => onDeleteSong(song.id)}
-                onToggleOptional={() => onToggleOptional(song.id)}
+                onToggleOptional={(songId, isOptional) =>
+                  onToggleOptional(songId, isOptional)
+                }
                 defaultExpanded={false}
                 readOnly={song.user_id !== user?.id}
                 onSongUpdate={onSongUpdate}

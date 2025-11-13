@@ -137,6 +137,27 @@ def claim_existing_user(
     if not all([user_id, email, password]):
         raise HTTPException(status_code=400, detail="user_id, email, and password required")
     
+    # Input validation
+    import re
+    
+    # Validate user_id is integer
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+    
+    # Email validation
+    email = email.strip().lower()
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+    
+    # Password validation
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    if not re.search(r'[A-Za-z]', password) or not re.search(r'\d', password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one letter and one number")
+    
     # Get the unclaimed user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -211,8 +232,24 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
     if not all([username, email, password]):
         raise HTTPException(status_code=400, detail="username, email, and password required")
     
-    # Basic email validation
+    # Input validation and sanitization
     import re
+    
+    # Username validation
+    username = username.strip()
+    if len(username) < 3 or len(username) > 50:
+        raise HTTPException(status_code=400, detail="Username must be between 3 and 50 characters")
+    if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+        raise HTTPException(status_code=400, detail="Username can only contain letters, numbers, underscores, and hyphens")
+    
+    # Password validation
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    if not re.search(r'[A-Za-z]', password) or not re.search(r'\d', password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one letter and one number")
+    
+    # Email validation
+    email = email.strip().lower()
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(email_pattern, email):
         raise HTTPException(

@@ -265,14 +265,32 @@ async def get_song_progress(
     db.commit()
 
     # Return all progress rows for this song for the steps
-    rows = db.execute(text(
+    if step_names:
+        # Create parameterized query for IN clause
+        step_params = {}
+        placeholders = []
+        for i, step_name in enumerate(step_names):
+            param_name = f"step_{i}"
+            step_params[param_name] = step_name
+            placeholders.append(f":{param_name}")
+        
+        in_clause = ",".join(placeholders)
+        query = f"""
+            SELECT id, song_id, step_name, is_completed, completed_at, created_at, updated_at
+            FROM song_progress WHERE song_id = :sid AND step_name IN ({in_clause})
+            ORDER BY step_name
         """
-        SELECT id, song_id, step_name, is_completed, completed_at, created_at, updated_at
-        FROM song_progress WHERE song_id = :sid AND step_name IN (%s)
-        ORDER BY step_name
-        """ % (",".join([":s%d" % i for i in range(len(step_names))]) if step_names else "'__none__'")),
-        {**{"sid": song_id}, **{f"s{i}": n for i, n in enumerate(step_names)}}
-    ).fetchall()
+        params = {"sid": song_id, **step_params}
+    else:
+        # No step names provided, return empty result
+        query = """
+            SELECT id, song_id, step_name, is_completed, completed_at, created_at, updated_at
+            FROM song_progress WHERE song_id = :sid AND step_name IN ('__none__')
+            ORDER BY step_name
+        """
+        params = {"sid": song_id}
+    
+    rows = db.execute(text(query), params).fetchall()
 
     return [
         {

@@ -72,6 +72,7 @@ def add_pack_collaborator(
         ).first()
         
         if existing:
+            print(f"Collaboration already exists: pack_id={pack_id}, user_id={request.user_id}, type={permission}")
             continue  # Skip if already exists
         
         # Create new collaboration
@@ -83,14 +84,19 @@ def add_pack_collaborator(
         )
         db.add(collab)
         collaborations.append(collab)
+        print(f"Created collaboration: pack_id={pack_id}, user_id={request.user_id}, type={permission}")
     
     db.commit()
+    print(f"Committed {len(collaborations)} new collaborations for user {request.user_id} on pack {pack_id}")
     
     # Return all collaborations for this user on this pack
     result = db.query(Collaboration).filter(
         Collaboration.pack_id == pack_id,
         Collaboration.user_id == request.user_id
     ).all()
+    print(f"Total collaborations for user {request.user_id} on pack {pack_id}: {len(result)}")
+    for r in result:
+        print(f"  - {r.collaboration_type.value}")
     
     return [
         CollaborationResponse(

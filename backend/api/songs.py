@@ -129,11 +129,13 @@ def get_filtered_songs(
     ).all()
     user_song_collab_ids = {c.song_id for c in user_song_collaborations}
     
-    user_pack_collaborations = db.query(Collaboration.pack_id).filter(
+    # Get pack collaborations separated by type
+    user_pack_collaborations = db.query(Collaboration.pack_id, Collaboration.collaboration_type).filter(
         Collaboration.user_id == current_user.id,
         Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
     ).all()
     user_pack_collab_ids = {c.pack_id for c in user_pack_collaborations if c.pack_id}
+    user_pack_edit_ids = {c.pack_id for c in user_pack_collaborations if c.pack_id and c.collaboration_type == CollaborationType.PACK_EDIT}
     
     # Get packs owned by current user
     user_owned_packs = db.query(Pack.id).filter(Pack.user_id == current_user.id).all()
@@ -279,14 +281,15 @@ def get_filtered_songs(
         is_owner = song.user_id == current_user.id
         has_song_collaboration = song.id in user_song_collab_ids
         has_pack_collaboration = song.pack_id in user_pack_collab_ids if song.pack_id else False
+        has_pack_edit_collaboration = song.pack_id in user_pack_edit_ids if song.pack_id else False
         
-        # Song is editable if user owns it or has song-level edit collaboration
-        song_dict["is_editable"] = is_owner or has_song_collaboration
+        # Song is editable if user owns it, has song-level edit collaboration, or has pack edit collaboration
+        song_dict["is_editable"] = is_owner or has_song_collaboration or has_pack_edit_collaboration
         
         # Add pack collaboration info if user has access via pack collaboration
         if has_pack_collaboration and song.pack_id:
             song_dict["pack_collaboration"] = {
-                "can_edit": has_song_collaboration,  # Only editable if direct song collaboration
+                "can_edit": has_pack_edit_collaboration,  # Can edit if has PACK_EDIT permission
                 "pack_id": int(song.pack_id)  # Ensure it's an integer
             }
         

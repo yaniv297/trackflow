@@ -190,17 +190,13 @@ const PackHeader = ({
               );
               const isPackOwner = userOwnedSongs.length > 0;
 
-              // Check if user has pack edit collaboration (if userCollaborations is available)
+              // Check if user has pack edit collaboration via pack_collaboration field
               const hasPackEditPermission =
                 user &&
                 validSongsInPack.some(
                   (song) =>
-                    song.collaborations &&
-                    song.collaborations.some(
-                      (collab) =>
-                        collab.username === user.username &&
-                        collab.collaboration_type === "pack_edit"
-                    )
+                    song.pack_collaboration && 
+                    song.pack_collaboration.can_edit === true
                 );
 
               return isPackOwner || hasPackEditPermission;

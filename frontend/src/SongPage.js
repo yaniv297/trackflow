@@ -300,8 +300,6 @@ function SongPage({ status }) {
         }
       });
 
-      console.log("DEBUG: Songs to move:", songsToMove);
-      console.log("DEBUG: Series groups:", seriesGroups);
 
       // Optimistic UI update
       setSongs((prev) => {
@@ -325,16 +323,9 @@ function SongPage({ status }) {
       for (const [seriesId, seriesSongs] of Object.entries(seriesGroups)) {
         if (seriesSongs.length > 0) {
           try {
-            console.log(
-              `DEBUG: Updating album series ${seriesId} status to in_progress`
-            );
             const response = await apiPut(`/album-series/${seriesId}/status`, {
               status: "in_progress",
             });
-            console.log(
-              `DEBUG: Album series ${seriesId} status update response:`,
-              response
-            );
           } catch (err) {
             console.error(
               `Failed to update album series ${seriesId} status:`,

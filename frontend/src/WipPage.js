@@ -407,7 +407,6 @@ function WipPage() {
 
   // Song Management
   const updateAuthoringField = async (songId, field, value) => {
-    console.log(`Updating field ${field} to ${value} for song ${songId}`);
 
     // Update local state immediately (optimistic)
     setSongs((prev) =>
@@ -739,12 +738,6 @@ function WipPage() {
   };
 
   const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
-    console.log(
-      "Opening album series modal for pack:",
-      packName,
-      albumsWithEnoughSongs
-    );
-
     const packSongs = songs.filter((song) => song.pack_name === packName);
     if (packSongs.length === 0) {
       console.error("No songs found for pack:", packName);

@@ -67,7 +67,6 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 updates
               );
               await apiPatch(`/songs/${id}/`, updates);
-              console.log(`BulkEditModal: Successfully updated song ${id}`);
               setProgress({
                 current: i + 1,
                 total: selectedSongs.length,
@@ -175,7 +174,6 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
             // Clear the progress interval
             clearInterval(progressInterval);
 
-            console.log("Bulk enhance response:", response);
 
             if (response && response.total_enhanced !== undefined) {
               setProgress({
@@ -258,7 +256,6 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
 
     // Ensure onComplete is called to refresh the parent component
     if (onComplete) {
-      console.log("BulkEditModal: Calling onComplete to refresh parent...");
       onComplete();
     }
   };

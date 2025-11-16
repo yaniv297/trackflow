@@ -1,9 +1,10 @@
 # backend/database.py
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from models import Base
 import os
+import logging
 
 SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./songs.db")
 
@@ -24,12 +25,12 @@ engine = create_engine(
 	SQLALCHEMY_DATABASE_URL, 
 	connect_args=connect_args,
 	pool_pre_ping=True,
-	pool_recycle=300,
+	pool_recycle=1800,
 	# Optimize pool size for SQLite (smaller pool to avoid locks)
 	# Increased pool size for PostgreSQL to handle concurrent async requests
-	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
-	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 20,
-	pool_timeout=30,
+	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 50,
+	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 100,
+	pool_timeout=10,
 	# Enable echo_pool to help debug connection issues (optional, can remove in production)
 	echo_pool=False
 )
@@ -88,6 +89,20 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 			conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_overrides_title ON album_series_overrides(title_clean)")
 	except Exception as e:
 		print(f"⚠️ Overrides table migration skipped or failed: {e}")
+
+# Add connection pool monitoring for PostgreSQL
+if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+	@event.listens_for(engine, "connect")
+	def connect(dbapi_connection, connection_record):
+		logging.info(f"New connection created. Pool status: {engine.pool.status()}")
+
+	@event.listens_for(engine, "checkout")
+	def checkout(dbapi_connection, connection_record, connection_proxy):
+		logging.info(f"Connection checked out. Pool status: {engine.pool.status()}")
+
+	@event.listens_for(engine, "checkin")
+	def checkin(dbapi_connection, connection_record):
+		logging.info(f"Connection returned. Pool status: {engine.pool.status()}")
 
 # Dependency for FastAPI
 def get_db():

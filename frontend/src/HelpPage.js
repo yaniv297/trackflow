@@ -230,8 +230,8 @@ function HelpPage() {
                   planned songs
                   <br />
                   • Select songs you want to work on
-                  <br />• Click the <strong>"Start Work"</strong> button to move
-                  them to WIP
+                  <br />• Open the pack’s <strong>actions dropdown (gear)</strong> and click
+                  <strong> "Start Work"</strong> to move them to WIP
                   <br />• Your songs will now appear on the{" "}
                   <strong>WIP page</strong> with progress tracking
                 </p>
@@ -361,8 +361,7 @@ function HelpPage() {
                   authors
                 </li>
                 <li>
-                  <strong>Album Series:</strong> Convert packs to album series
-                  for advanced organization
+                  <strong>Album Series:</strong> Convert packs to album series if they center on a specific album
                 </li>
               </ul>
 

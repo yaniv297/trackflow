@@ -743,7 +743,11 @@ function SongPage({ status }) {
           onBulkDelete={() => {}} // Placeholder for now
           onBulkEnhance={() => {}} // Placeholder for now
           onCleanTitles={() => {}} // Placeholder for now
-          onSongAdded={fetchSongs}
+          onSongAdded={() => {
+            // Ensure we bypass the local cache so new songs appear immediately
+            setSongsCache({});
+            fetchSongs();
+          }}
           onPackNameUpdate={handlePackNameUpdate}
           onDeletePack={handleDeletePack}
           onShowAlbumSeriesModal={handleShowAlbumSeriesModal}

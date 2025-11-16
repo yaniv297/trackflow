@@ -150,9 +150,8 @@ def delete_song_from_db(db: Session, song_id: int) -> bool:
     for attempt in range(max_retries):
         try:
             # Delete all related records in a single transaction
-            # Delete authoring row if exists
-            db.query(Authoring).filter(Authoring.song_id == song_id).delete()
-            print(f"  Deleted authoring records for song {song_id}")
+            # Do NOT touch the authoring table here. In some installations it's a VIEW
+            # and is not directly deletable. We only remove dependent rows we own.
 
             # Delete all collaborations at once
             collab_count = db.query(Collaboration).filter(Collaboration.song_id == song_id).count()

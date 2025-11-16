@@ -86,6 +86,36 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 	except Exception as e:
 		print(f"⚠️ Overrides table migration skipped or failed: {e}")
 
+	# Ensure feature_requests table has is_done column
+	try:
+		with engine.begin() as conn:
+			cols = conn.exec_driver_sql("PRAGMA table_info(feature_requests)").fetchall()
+			col_names = {row[1] for row in cols}
+			if cols and "is_done" not in col_names:
+				conn.exec_driver_sql("ALTER TABLE feature_requests ADD COLUMN is_done BOOLEAN DEFAULT 0")
+				print("✅ Added is_done column to feature_requests table")
+	except Exception as e:
+		print(f"⚠️ Feature requests is_done column migration skipped or failed: {e}")
+
+	# Ensure feature_request_comments table has parent_comment_id, is_edited, and is_deleted columns
+	try:
+		with engine.begin() as conn:
+			cols = conn.exec_driver_sql("PRAGMA table_info(feature_request_comments)").fetchall()
+			col_names = {row[1] for row in cols}
+			if cols:
+				if "parent_comment_id" not in col_names:
+					conn.exec_driver_sql("ALTER TABLE feature_request_comments ADD COLUMN parent_comment_id INTEGER")
+					conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_comments_parent ON feature_request_comments(parent_comment_id)")
+					print("✅ Added parent_comment_id column to feature_request_comments table")
+				if "is_edited" not in col_names:
+					conn.exec_driver_sql("ALTER TABLE feature_request_comments ADD COLUMN is_edited BOOLEAN DEFAULT 0")
+					print("✅ Added is_edited column to feature_request_comments table")
+				if "is_deleted" not in col_names:
+					conn.exec_driver_sql("ALTER TABLE feature_request_comments ADD COLUMN is_deleted BOOLEAN DEFAULT 0")
+					print("✅ Added is_deleted column to feature_request_comments table")
+	except Exception as e:
+		print(f"⚠️ Feature request comments column migration skipped or failed: {e}")
+
 # Dependency for FastAPI
 def get_db():
 	db = SessionLocal()

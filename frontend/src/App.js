@@ -24,6 +24,7 @@ import HelpPage from "./HelpPage";
 import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
+import FeatureRequestPage from "./FeatureRequestPage";
 import "./App.css";
 
 function AppContent() {
@@ -306,7 +307,7 @@ function AppContent() {
                     <div
                       onClick={() => {
                         setShowUserDropdown(false);
-                        navigate("/contact");
+                        navigate("/feature-requests");
                       }}
                       style={{
                         display: "block",
@@ -326,7 +327,7 @@ function AppContent() {
                         (e.target.style.background = "transparent")
                       }
                     >
-                      Contact
+                      Feature Requests
                     </div>
                     <div
                       onClick={() => {
@@ -352,6 +353,31 @@ function AppContent() {
                       }
                     >
                       Report a Bug
+                    </div>
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        navigate("/contact");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      Contact
                     </div>
                     <div
                       onClick={() => {
@@ -641,6 +667,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/feature-requests"
+            element={
+              <ProtectedRoute>
+                <FeatureRequestPage />
               </ProtectedRoute>
             }
           />

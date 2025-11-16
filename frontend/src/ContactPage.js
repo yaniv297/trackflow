@@ -14,9 +14,44 @@ function ContactPage() {
         }}
       >
         <p style={{ lineHeight: "1.6", color: "#333", marginBottom: "1.5rem" }}>
-          Have questions, feedback, or need help with TrackFlow? Feel free to
-          reach out!
+          Have questions or need help with TrackFlow? Feel free to reach out!
         </p>
+
+        <div
+          style={{
+            marginBottom: "1.5rem",
+            padding: "1rem",
+            background: "#fff3cd",
+            borderRadius: "8px",
+            border: "1px solid #ffeaa7",
+          }}
+        >
+          <p style={{ lineHeight: "1.6", color: "#333", margin: 0, marginBottom: "0.5rem" }}>
+            <strong>📝 Before contacting:</strong>
+          </p>
+          <ul style={{ lineHeight: "1.8", color: "#333", margin: 0, paddingLeft: "1.5rem" }}>
+            <li>
+              Found a bug? Use the{" "}
+              <a
+                href="/bug-report"
+                style={{ color: "#007bff", textDecoration: "none" }}
+              >
+                Report a Bug
+              </a>{" "}
+              page
+            </li>
+            <li>
+              Have a feature idea? Submit it on the{" "}
+              <a
+                href="/feature-requests"
+                style={{ color: "#007bff", textDecoration: "none" }}
+              >
+                Feature Requests
+              </a>{" "}
+              page
+            </li>
+          </ul>
+        </div>
 
         <div style={{ marginBottom: "1.5rem" }}>
           <h3 style={{ color: "#007bff", marginBottom: "0.75rem" }}>

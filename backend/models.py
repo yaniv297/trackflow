@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -253,3 +253,55 @@ class RockBandDLC(Base):
     
     # Relationships
     linked_song = relationship("Song", foreign_keys=[linked_song_id])
+
+class FeatureRequest(Base):
+    __tablename__ = "feature_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    is_done = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    comments = relationship("FeatureRequestComment", back_populates="feature_request", cascade="all, delete-orphan")
+    votes = relationship("FeatureRequestVote", back_populates="feature_request", cascade="all, delete-orphan")
+
+class FeatureRequestComment(Base):
+    __tablename__ = "feature_request_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    feature_request_id = Column(Integer, ForeignKey("feature_requests.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    parent_comment_id = Column(Integer, ForeignKey("feature_request_comments.id"), nullable=True, index=True)
+    comment = Column(Text, nullable=False)
+    is_edited = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    feature_request = relationship("FeatureRequest", back_populates="comments")
+    user = relationship("User")
+    parent_comment = relationship("FeatureRequestComment", remote_side=[id], backref="replies")
+
+class FeatureRequestVote(Base):
+    __tablename__ = "feature_request_votes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    feature_request_id = Column(Integer, ForeignKey("feature_requests.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    vote_type = Column(String, nullable=False)  # "upvote" or "downvote"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('feature_request_id', 'user_id', name='unique_user_vote_per_request'),
+    )
+    
+    # Relationships
+    feature_request = relationship("FeatureRequest", back_populates="votes")
+    user = relationship("User")

@@ -661,24 +661,27 @@ function HelpPage() {
                 </ul>
 
                 <h4 style={{ color: "#333" }}>Song Collaboration</h4>
-                <ul style={listStyle}>
+                <p style={textStyle}>
+                  Song collaboration is for assigning specific workflow parts on a single
+                  song to a collaborator. It is only available in <strong>WIP mode</strong>.
+                </p>
+                <ol style={listStyle}>
+                  <li>Open the song on the WIP page.</li>
                   <li>
-                    <strong>Specific Songs:</strong> Share individual songs
-                    without sharing the entire pack
+                    Click the song’s <strong>actions gear</strong> and choose{" "}
+                    <strong>“Make Collab”</strong>.
                   </li>
+                  <li>Select a collaborator (existing user).</li>
                   <li>
-                    <strong>Edit Access:</strong> Collaborators can modify only
-                    the specific songs shared
+                    Choose the <strong>parts to assign</strong> (e.g., Guitar, Vocals, Keys).
                   </li>
-                  <li>
-                    <strong>Owner's Workflow:</strong> Collaborators use the
-                    workflow steps defined by the song owner
-                  </li>
-                  <li>
-                    <strong>Targeted Work:</strong> Perfect for specialists
-                    working on specific tracks
-                  </li>
-                </ul>
+                  <li>Save. The song now displays badges showing who owns which parts.</li>
+                </ol>
+                <p style={textStyle}>
+                  Owners retain control of the song and its workflow. Collaborators only see and
+                  work on the parts you assigned. Progress badges on the WIP card will reflect the
+                  collaborator’s assignments next to their username.
+                </p>
               </div>
             </section>
 

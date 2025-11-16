@@ -114,6 +114,18 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                         print(f"Found existing artist {artist_name} with ID {artist.id} after creation failure")
             else:
                 print(f"Found existing artist {artist_name} with ID {artist.id}")
+                # If artist exists but has no image, try to fetch it
+                if not artist.image_url and sp:
+                    try:
+                        search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
+                        items = (search.get("artists") or {}).get("items") or []
+                        if items and (items[0].get("images") or []):
+                            artist.image_url = items[0]["images"][0].get("url")
+                            db.commit()
+                            db.refresh(artist)
+                            print(f"Fetched image for existing artist {artist_name}")
+                    except Exception:
+                        pass
             
             # Only update artist if we're not preserving it
             if not preserve_artist_album and artist:
@@ -579,3 +591,98 @@ def import_playlist(
             break
 
     return {"imported_count": imported_count}
+
+
+def _fetch_artist_image_from_spotify(artist_name: str, sp: Optional[Spotify] = None) -> Optional[str]:
+    """Helper function to fetch artist image from Spotify"""
+    if not sp:
+        sp = _get_client()
+    if not sp:
+        return None
+    
+    try:
+        search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
+        items = (search.get("artists") or {}).get("items") or []
+        if items and (items[0].get("images") or []):
+            return items[0]["images"][0].get("url")
+    except Exception:
+        pass
+    
+    return None
+
+
+@router.post("/artists/{artist_id}/fetch-image")
+def fetch_artist_image(
+    artist_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Fetch artist image from Spotify for a specific artist (admin only)"""
+    artist = db.query(Artist).filter(Artist.id == artist_id).first()
+    if not artist:
+        raise HTTPException(status_code=404, detail="Artist not found")
+    
+    # Check if user has access to this artist (artist belongs to user)
+    if artist.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Not authorized to update this artist")
+    
+    sp = _get_client()
+    if not sp:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+    
+    try:
+        image_url = _fetch_artist_image_from_spotify(artist.name, sp)
+        if image_url:
+            artist.image_url = image_url
+            db.commit()
+            db.refresh(artist)
+            return {
+                "message": f"Artist image fetched successfully for {artist.name}",
+                "image_url": artist.image_url
+            }
+        else:
+            raise HTTPException(status_code=404, detail="No artist image found on Spotify")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch artist image: {str(e)}")
+
+
+@router.post("/artists/fetch-all-missing-images")
+def fetch_all_missing_artist_images(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Fetch artist images for all artists that don't have them (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    artists_without_images = db.query(Artist).filter(
+        (Artist.image_url.is_(None)) | (Artist.image_url == "")
+    ).all()
+    
+    if not artists_without_images:
+        return {"message": "All artists already have images", "updated_count": 0, "total_artists": 0}
+    
+    sp = _get_client()
+    if not sp:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+    
+    updated_count = 0
+    for artist in artists_without_images:
+        try:
+            image_url = _fetch_artist_image_from_spotify(artist.name, sp)
+            if image_url:
+                artist.image_url = image_url
+                updated_count += 1
+        except Exception as e:
+            print(f"Failed to fetch image for {artist.name}: {e}")
+            continue
+    
+    db.commit()
+    
+    return {
+        "message": f"Updated artist images for {updated_count} out of {len(artists_without_images)} artists",
+        "updated_count": updated_count,
+        "total_artists": len(artists_without_images)
+    }

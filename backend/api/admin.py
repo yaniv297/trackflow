@@ -7,15 +7,7 @@ from schemas import UserOut
 from typing import List
 from datetime import timedelta
 from .auth import create_access_token
-import sys
-import os
-
-# Add backend directory to path for user_activity import
-_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _backend_dir not in sys.path:
-    sys.path.insert(0, _backend_dir)
-
-from user_activity import get_online_user_count, get_online_user_ids
+from .user_activity import get_online_user_count, get_online_user_ids
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

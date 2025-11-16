@@ -10,14 +10,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 import time
-import sys
 
-# Add backend directory to path for user_activity import
-_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _backend_dir not in sys.path:
-    sys.path.insert(0, _backend_dir)
-
-from user_activity import record_activity
+from .user_activity import record_activity
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")

@@ -46,10 +46,10 @@ app.add_middleware(
         "http://localhost:3001",
         "https://trackflow-front.onrender.com",
         "https://frontend-production-4e01.up.railway.app",
-        "https://*.up.railway.app",  # Allow all Railway subdomains
-        "https://*.railway.app",     # Allow all Railway domains
         "https://trackflow-frontend.up.railway.app",
-        "https://trackflow-frontend.railway.app"
+        "https://trackflow-frontend.railway.app",
+        "https://www.trackflow.site",
+        "https://trackflow.site",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],

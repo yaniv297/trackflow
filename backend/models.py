@@ -82,7 +82,13 @@ class Song(Base):
     user = relationship("User", back_populates="songs")
     pack_obj = relationship("Pack", back_populates="songs")
     artist_obj = relationship("Artist", back_populates="songs")
-    authoring = relationship("Authoring", back_populates="song", uselist=False)
+    authoring = relationship(
+        "Authoring",
+        back_populates="song",
+        uselist=False,
+        cascade="",  # Do not auto-delete or update authoring (can be a DB view)
+        passive_deletes=True,
+    )
     collaborations = relationship("Collaboration", back_populates="song")
     # Song-level album series override (nullable)
     album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True, index=True)
@@ -193,7 +199,8 @@ class Authoring(Base):
     __tablename__ = "authoring"
     
     id = Column(Integer, primary_key=True, index=True)
-    song_id = Column(Integer, ForeignKey("songs.id"), unique=True)
+    # Keep FK for ORM navigation, but don't rely on DB to enforce cascades
+    song_id = Column(Integer, ForeignKey("songs.id"), unique=True, nullable=False)
     demucs = Column(Boolean, default=False)
     midi = Column(Boolean, default=False)
     tempo_map = Column(Boolean, default=False)

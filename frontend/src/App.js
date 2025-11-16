@@ -351,7 +351,7 @@ function AppContent() {
                         (e.target.style.background = "transparent")
                       }
                     >
-                      🐛 Report a Bug
+                      Report a Bug
                     </div>
                     <div
                       onClick={() => {

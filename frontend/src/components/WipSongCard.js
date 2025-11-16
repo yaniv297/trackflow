@@ -203,7 +203,7 @@ export default function WipSongCard({
   const loadSpotifyOptions = async () => {
     setLoadingSpotify(true);
     try {
-      const data = await apiGet(`/spotify/${song.id}/spotify-options`);
+      const data = await apiGet(`/spotify/${song.id}/spotify-options/`);
       setSpotifyOptions(data || []);
     } catch (err) {
       console.error("Spotify fetch failed", err);
@@ -222,7 +222,7 @@ export default function WipSongCard({
         track_id = trackId;
       } else {
         // Fallback to first option (for backward compatibility)
-        const options = await apiGet(`/spotify/${song.id}/spotify-options`);
+        const options = await apiGet(`/spotify/${song.id}/spotify-options/`);
         if (options.length === 0) {
           window.showNotification("Failed to fetch Spotify options.", "error");
           return;

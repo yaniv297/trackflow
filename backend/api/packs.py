@@ -190,7 +190,8 @@ def delete_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depe
         if song.album_series_id:
             album_series_ids.add(song.album_series_id)
     
-    # Delete all songs in the pack
+    # Delete all songs in the pack. We avoid touching the authoring table because
+    # on some installations it is a VIEW and not directly deletable.
     for song in songs:
         db.delete(song)
     

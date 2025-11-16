@@ -316,7 +316,7 @@ function NewPackForm() {
 
           try {
             const optionsRes = await fetch(
-              `${API_BASE_URL}/spotify/${song.id}/spotify-options`
+              `${API_BASE_URL}/spotify/${song.id}/spotify-options/`
             );
             if (!optionsRes.ok) {
               throw new Error(

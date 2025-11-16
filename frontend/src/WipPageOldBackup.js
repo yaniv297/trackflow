@@ -313,7 +313,7 @@ function WipPage() {
   const bulkEnhancePack = async (songs) => {
     for (const song of songs) {
       try {
-        const options = await apiGet(`/spotify/${song.id}/spotify-options`);
+        const options = await apiGet(`/spotify/${song.id}/spotify-options/`);
         const firstOption = options[0];
         if (!firstOption) continue;
 
@@ -555,7 +555,7 @@ function WipPage() {
       // Automatically enhance from Spotify (top match)
       let enhancedSong = newSong;
       try {
-        const options = await apiGet(`/spotify/${newSong.id}/spotify-options`);
+        const options = await apiGet(`/spotify/${newSong.id}/spotify-options/`);
         if (Array.isArray(options) && options.length > 0) {
           await apiPost(`/spotify/${newSong.id}/enhance`, {
             track_id: options[0].track_id,

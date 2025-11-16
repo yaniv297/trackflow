@@ -1,3 +1,20 @@
+# Environment files
+.env
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Node artifacts
+frontend/node_modules/
+frontend/build/
+
+# Local DBs and backups
+backend/songs.db
+backend/backups/
+
+# Virtual environments
+backend/venv/
 # Python
 __pycache__/
 *.py[cod]

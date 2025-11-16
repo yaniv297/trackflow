@@ -380,6 +380,22 @@ def enhance_song(
             
             raise HTTPException(status_code=404, detail="Failed to enhance song - track may not be available on Spotify")
         
+        # After enhancement, clean remaster/version tags from title and album for consistency
+        try:
+            from api.tools import clean_string
+            db.refresh(enhanced_song)
+            cleaned_title = clean_string(enhanced_song.title or "")
+            cleaned_album = clean_string(enhanced_song.album or "")
+            if cleaned_title != enhanced_song.title or cleaned_album != enhanced_song.album:
+                enhanced_song.title = cleaned_title
+                enhanced_song.album = cleaned_album
+                db.add(enhanced_song)
+                db.commit()
+                db.refresh(enhanced_song)
+        except Exception:
+            # Don't fail enhancement if cleanup has issues
+            db.rollback()
+        
         # Load the song with all necessary relationships for proper serialization
         song_with_user = db.query(Song).options(
             joinedload(Song.user),

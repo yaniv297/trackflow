@@ -161,54 +161,62 @@ const SongTable = ({
 
     if (validSongsInPack.length === 0) return null;
 
-    // Album series logic: use only song-level ids (source of truth)
-    const seriesIdsForPack = Array.from(
-      new Set(
-        validSongsInPack
-          .map((s) => s && s.album_series_id)
-          .filter((id) => id !== null && id !== undefined && id !== "")
-          .map((id) => (typeof id === "string" ? parseInt(id, 10) : id))
-          .filter((id) => Number.isInteger(id))
-      )
-    );
+    // Skip album series logic when grouping by artist
+    let sortedSeriesInfo = [];
+    let seriesIdsForPackSorted = [];
+    let albumsWithEnoughSongs = [];
+    let canMakeDoubleAlbumSeries = false;
 
-    const seriesInfo = seriesIdsForPack.map((seriesId) => {
-      const s =
-        validSongsInPack.find((song) => song.album_series_id === seriesId) ||
-        {};
-      const num =
-        typeof s.album_series_number === "string"
-          ? parseInt(s.album_series_number, 10)
-          : s.album_series_number;
-      return {
-        id: typeof seriesId === "string" ? parseInt(seriesId, 10) : seriesId,
-        number: Number.isFinite(num) ? num : null,
-        name: s.album_series_name,
-      };
-    });
+    if (groupBy !== "artist") {
+      // Album series logic: use only song-level ids (source of truth)
+      const seriesIdsForPack = Array.from(
+        new Set(
+          validSongsInPack
+            .map((s) => s && s.album_series_id)
+            .filter((id) => id !== null && id !== undefined && id !== "")
+            .map((id) => (typeof id === "string" ? parseInt(id, 10) : id))
+            .filter((id) => Number.isInteger(id))
+        )
+      );
 
-    const sortedSeriesInfo = [...seriesInfo].sort((a, b) => {
-      const an = Number.isFinite(a.number)
-        ? a.number
-        : Number.POSITIVE_INFINITY;
-      const bn = Number.isFinite(b.number)
-        ? b.number
-        : Number.POSITIVE_INFINITY;
-      if (an !== bn) return an - bn;
-      return String(a.name || "").localeCompare(String(b.name || ""));
-    });
+      const seriesInfo = seriesIdsForPack.map((seriesId) => {
+        const s =
+          validSongsInPack.find((song) => song.album_series_id === seriesId) ||
+          {};
+        const num =
+          typeof s.album_series_number === "string"
+            ? parseInt(s.album_series_number, 10)
+            : s.album_series_number;
+        return {
+          id: typeof seriesId === "string" ? parseInt(seriesId, 10) : seriesId,
+          number: Number.isFinite(num) ? num : null,
+          name: s.album_series_name,
+        };
+      });
 
-    const seriesIdsForPackSorted = sortedSeriesInfo.map((i) => i.id);
+      sortedSeriesInfo = [...seriesInfo].sort((a, b) => {
+        const an = Number.isFinite(a.number)
+          ? a.number
+          : Number.POSITIVE_INFINITY;
+        const bn = Number.isFinite(b.number)
+          ? b.number
+          : Number.POSITIVE_INFINITY;
+        if (an !== bn) return an - bn;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
 
-    // Compute album counts for action buttons
-    const albumsCountMap = validSongsInPack.reduce((acc, s) => {
-      if (s.album && !s.optional) acc[s.album] = (acc[s.album] || 0) + 1;
-      return acc;
-    }, {});
-    const albumsWithEnoughSongs = Object.entries(albumsCountMap).filter(
-      ([, c]) => c >= 4
-    );
-    const canMakeDoubleAlbumSeries = albumsWithEnoughSongs.length >= 2;
+      seriesIdsForPackSorted = sortedSeriesInfo.map((i) => i.id);
+
+      // Compute album counts for action buttons
+      const albumsCountMap = validSongsInPack.reduce((acc, s) => {
+        if (s.album && !s.optional) acc[s.album] = (acc[s.album] || 0) + 1;
+        return acc;
+      }, {});
+      albumsWithEnoughSongs = Object.entries(albumsCountMap).filter(
+        ([, c]) => c >= 4
+      );
+      canMakeDoubleAlbumSeries = albumsWithEnoughSongs.length >= 2;
+    }
 
     return (
       <React.Fragment key={packName}>
@@ -263,11 +271,21 @@ const SongTable = ({
           <tbody>
             {groupedKeys.map((groupKey) => {
               const group = groupedSongs[groupKey] || [];
-              if (groupBy === "pack") {
-                return renderPackGroup(groupKey, group);
+              
+              // When grouping by artist, group is nested: { album: [songs] }
+              // We need to flatten it into a single array
+              let songsArray = group;
+              if (groupBy === "artist" && typeof group === "object" && !Array.isArray(group)) {
+                // Flatten all albums into a single array
+                songsArray = Object.values(group).flat();
               }
-              // For other groupings, reuse pack rendering per group
-              return renderPackGroup(groupKey, group);
+              
+              // Ensure it's an array
+              if (!Array.isArray(songsArray)) {
+                songsArray = [];
+              }
+              
+              return renderPackGroup(groupKey, songsArray);
             })}
           </tbody>
         </table>

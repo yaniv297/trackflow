@@ -32,7 +32,7 @@ engine = create_engine(
 	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 5,
 	pool_timeout=10,
 	# Enable echo_pool to help debug connection issues (optional, can remove in production)
-	echo_pool=True
+	echo_pool=False
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

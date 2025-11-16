@@ -19,13 +19,14 @@ COPY . .
 RUN npm run build
 RUN npm install -g serve
 
-# Railway will provide PORT at runtime
-EXPOSE 3000
+# Railway will provide PORT at runtime (typically 80)
+# EXPOSE is just documentation - Railway handles port mapping
 
 # Add build info to force cache invalidation
 RUN echo "Build date: ${BUILD_DATE}" > /app/build-info.txt
 RUN echo "VCS ref: ${VCS_REF}" >> /app/build-info.txt
 RUN echo "This is the FRONTEND Dockerfile - REBUILD REQUIRED FOR HTTPS FIX" >> /app/build-info.txt
 
-# Use Railway's PORT environment variable, default to 3000 if not set
-CMD ["sh", "-c", "serve -s build -l ${PORT:-3000}"]
+# Use Railway's PORT environment variable (Railway sets this automatically)
+# Bind to 0.0.0.0 to accept connections from Railway's proxy
+CMD ["sh", "-c", "serve -s build -l 0.0.0.0:${PORT}"]

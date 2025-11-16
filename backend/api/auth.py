@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
@@ -8,9 +8,12 @@ from pydantic import BaseModel
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from functools import lru_cache
 import os
 import time
+import sys
+# Add parent directory to path for user_activity import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from user_activity import record_activity  # noqa: E402
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
@@ -95,6 +98,13 @@ def get_current_user(
             raise credentials_exception
         # Cache the user for future requests
         _cache_user(username, user)
+    
+    # Record user activity for online tracking
+    try:
+        record_activity(user.id)
+    except Exception:
+        # Don't fail the request if activity tracking fails
+        pass
     
     return user
 

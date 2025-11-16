@@ -24,6 +24,7 @@ import HelpPage from "./HelpPage";
 import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
+import { apiGet } from "./utils/api";
 import "./App.css";
 
 function AppContent() {
@@ -31,6 +32,9 @@ function AppContent() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedUsername, setImpersonatedUsername] = useState("");
+  const [onlineUserCount, setOnlineUserCount] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [showOnlineTooltip, setShowOnlineTooltip] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated, loading, updateAuth } = useAuth();
@@ -46,6 +50,34 @@ function AppContent() {
       setImpersonatedUsername("");
     }
   }, [user]);
+
+  // Fetch online user count for admins
+  useEffect(() => {
+    if (!isAuthenticated || !user?.is_admin) {
+      setOnlineUserCount(null);
+      setOnlineUsers([]);
+      return;
+    }
+
+    const fetchOnlineCount = async () => {
+      try {
+        const data = await apiGet("/admin/online-users");
+        setOnlineUserCount(data.online_count);
+        setOnlineUsers(data.online_users || []);
+      } catch (error) {
+        // Silently fail - don't show errors for this feature
+        console.error("Failed to fetch online user count:", error);
+      }
+    };
+
+    // Fetch immediately
+    fetchOnlineCount();
+
+    // Then poll every 30 seconds
+    const interval = setInterval(fetchOnlineCount, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user?.is_admin]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -208,9 +240,64 @@ function AppContent() {
           <h1>🎶 TrackFlow</h1>
           {isAuthenticated && !loading && (
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <span style={{ color: "#666", fontSize: "0.9rem" }}>
-                Welcome, {user?.username}!
-              </span>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                <span style={{ color: "#666", fontSize: "0.9rem" }}>
+                  Welcome, {user?.username}!
+                </span>
+                {user?.is_admin && onlineUserCount !== null && (
+                  <div
+                    style={{ position: "relative", display: "inline-block" }}
+                    onMouseEnter={() => setShowOnlineTooltip(true)}
+                    onMouseLeave={() => setShowOnlineTooltip(false)}
+                  >
+                    <span
+                      style={{
+                        color: "#888",
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        textDecorationStyle: "dotted",
+                      }}
+                    >
+                      {onlineUserCount} {onlineUserCount === 1 ? "user" : "users"} online
+                    </span>
+                    {showOnlineTooltip && onlineUsers.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          right: 0,
+                          marginTop: "0.25rem",
+                          background: "white",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                          padding: "0.5rem 0.75rem",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                          zIndex: 10000,
+                          minWidth: "150px",
+                          maxWidth: "250px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                            marginBottom: "0.25rem",
+                            color: "#333",
+                          }}
+                        >
+                          Online Users:
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#666" }}>
+                          {onlineUsers.map((username, idx) => (
+                            <div key={idx}>{username}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* User Dropdown */}
               <div

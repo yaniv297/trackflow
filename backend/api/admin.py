@@ -7,6 +7,11 @@ from schemas import UserOut
 from typing import List
 from datetime import timedelta
 from .auth import create_access_token
+import sys
+import os
+# Add parent directory to path for user_activity import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from user_activity import get_online_user_count, get_online_user_ids  # noqa: E402
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -102,4 +107,24 @@ def impersonate_user(
         "token_type": "bearer",
         "username": user.username,
         "impersonated": True
+    }
+
+@router.get("/online-users")
+def get_online_users_count(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get count and list of users currently online (admin only)"""
+    online_user_ids_list = get_online_user_ids()
+    
+    # Get usernames for online users
+    if online_user_ids_list:
+        users = db.query(User).filter(User.id.in_(online_user_ids_list)).all()
+        usernames = [user.username for user in users]
+    else:
+        usernames = []
+    
+    return {
+        "online_count": len(usernames),
+        "online_users": usernames
     }

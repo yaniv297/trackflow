@@ -186,6 +186,10 @@ const PackHeader = ({
 
             {/* Gear dropdown right next to pack name (no pencil) */}
             {(() => {
+              // No pack-level actions for songs without a pack_id (the "(no pack)" group)
+              const packId = validSongsInPack[0]?.pack_id;
+              if (!packId) return false;
+
               // Check if user owns any songs in this pack
               const userOwnedSongs = validSongsInPack.filter(
                 (song) => song.user_id === user?.id
@@ -197,7 +201,7 @@ const PackHeader = ({
                 user &&
                 validSongsInPack.some(
                   (song) =>
-                    song.pack_collaboration && 
+                    song.pack_collaboration &&
                     song.pack_collaboration.can_edit === true
                 );
 

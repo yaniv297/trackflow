@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import SmartDropdown from "./SmartDropdown";
 import { apiPost, apiGet } from "../utils/api";
 import DLCWarning from "./DLCWarning";
@@ -194,7 +195,12 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
 
   if (!isOpen) return null;
 
-  return (
+  // Render modal via portal so it's not nested inside table elements (tbody/tr)
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -500,7 +506,8 @@ Queen – Bohemian Rhapsody`}
           Spotify data and cleaned for remaster tags.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

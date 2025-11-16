@@ -1,13 +1,15 @@
 import os
 from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
-from models import Song, Artist, Collaboration
+from models import Song, Artist, Collaboration, SongStatus, Pack
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 from fastapi import APIRouter, Depends, HTTPException, Query
 from database import get_db
 from api.auth import get_current_active_user
 from pydantic import BaseModel
+from schemas import SongCreate
+from api.data_access import create_song_in_db
 
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
@@ -357,6 +359,12 @@ def get_spotify_options(
 class EnhanceRequest(BaseModel):
     track_id: str
 
+
+class PlaylistImportRequest(BaseModel):
+    playlist_url: str
+    status: str = "Future Plans"  # "Future Plans", "In Progress", "Released"
+    pack: Optional[str] = None
+
 @router.post("/{song_id}/enhance/")
 def enhance_song(
     song_id: int,
@@ -454,3 +462,120 @@ def enhance_song(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to enhance song: {str(e)}") 
+
+
+@router.post("/import-playlist")
+def import_playlist(
+    req: PlaylistImportRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user),
+):
+    """
+    Import all tracks from a Spotify playlist as songs for the current user.
+    - playlist_url: full Spotify playlist URL or ID
+    - status: Target status string ("Future Plans", "In Progress", "Released")
+    - pack: Optional pack name to group imported songs
+    """
+    sp = _get_client()
+    if sp is None:
+        raise HTTPException(
+            status_code=500, detail="Spotify credentials not configured"
+        )
+
+    # Map human-friendly status string to SongStatus enum
+    status_map = {
+        "Future Plans": SongStatus.future,
+        "In Progress": SongStatus.wip,
+        "Released": SongStatus.released,
+    }
+    target_status = status_map.get(req.status, SongStatus.future)
+
+    # Resolve or create pack up-front so all imported songs share the same pack_id
+    pack_id: Optional[int] = None
+    if req.pack and req.pack.strip():
+        pack_name = req.pack.strip()
+        existing_pack = (
+            db.query(Pack)
+            .filter(Pack.name.ilike(pack_name), Pack.user_id == current_user.id)
+            .first()
+        )
+        if existing_pack:
+            pack_id = existing_pack.id
+        else:
+            new_pack = Pack(name=pack_name, user_id=current_user.id)
+            db.add(new_pack)
+            db.commit()
+            db.refresh(new_pack)
+            pack_id = new_pack.id
+
+    imported_count = 0
+
+    try:
+        results = sp.playlist_tracks(req.playlist_url)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to read playlist from Spotify: {str(e)}",
+        )
+
+    while results:
+        for item in results.get("items", []):
+            track = item.get("track")
+            if not track:
+                continue
+
+            title = track.get("name")
+            artists = track.get("artists") or []
+            artist_name = artists[0].get("name") if artists else None
+            album = (track.get("album") or {}).get("name")
+
+            rd = (track.get("album") or {}).get("release_date")
+            year = None
+            if isinstance(rd, str) and len(rd) >= 4 and rd[:4].isdigit():
+                year = int(rd[:4])
+
+            album_images = (track.get("album") or {}).get("images") or []
+            cover = album_images[0].get("url") if album_images else None
+
+            if not title or not artist_name:
+                continue
+
+            song_kwargs = dict(
+                artist=artist_name,
+                title=title,
+                album=album,
+                status=target_status,
+                year=year,
+                album_cover=cover,
+            )
+            if pack_id:
+                song_kwargs["pack_id"] = pack_id
+            song_payload = SongCreate(**song_kwargs)
+
+            try:
+                create_song_in_db(
+                    db, song_payload, current_user, auto_enhance=True
+                )
+                imported_count += 1
+            except HTTPException as e:
+                # Skip duplicates; bubble up other errors
+                if not (
+                    e.status_code == 400
+                    and "already exists" in str(e.detail)
+                ):
+                    raise
+            except Exception:
+                # Log and continue on unexpected errors to keep importing others
+                import traceback
+
+                traceback.print_exc()
+
+        if results.get("next"):
+            try:
+                results = sp.next(results)
+            except Exception:
+                break
+        else:
+            break
+
+    return {"imported_count": imported_count}

@@ -386,6 +386,36 @@ const WipPackCard = ({
 
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
+          {/* Edit Pack Name (quick access) */}
+          <button
+            onClick={() => {
+              setPackSettingsMode("rename");
+              setShowPackSettings(true);
+            }}
+            style={{
+              background: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "50%",
+              width: "24px",
+              height: "24px",
+              fontSize: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            title="Edit Pack Name"
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = "#5a6268";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = "#6c757d";
+            }}
+          >
+            ✏️
+          </button>
+
           {/* Share Pack Button */}
           <button
             onClick={() => {

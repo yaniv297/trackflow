@@ -95,24 +95,38 @@ const SmartDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // When typing comma-separated values (e.g., collaborators), only filter by the last token
+  const currentQuery = (() => {
+    if (!value) return "";
+    const parts = value.split(",");
+    return parts[parts.length - 1].trim().toLowerCase();
+  })();
+
   const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(value.toLowerCase())
+    option.label.toLowerCase().includes(currentQuery)
   );
 
   const handleSelect = (selectedValue) => {
     if (type === "collaborations") {
-      // For collaborations, append to existing value with comma separation
-      const currentValues = value
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean);
-      if (!currentValues.includes(selectedValue)) {
-        const newValue =
-          currentValues.length > 0
-            ? `${currentValues.join(", ")}, ${selectedValue}`
-            : selectedValue;
-        onChange(newValue);
+      // Replace the substring after the last comma (or the whole value if no comma)
+      const lastCommaIndex = value.lastIndexOf(",");
+      let replaced;
+      if (lastCommaIndex === -1) {
+        replaced = selectedValue;
+      } else {
+        const head = value.slice(0, lastCommaIndex).trim().replace(/,\s*$/, "");
+        replaced = head ? `${head}, ${selectedValue}` : selectedValue;
       }
+
+      // De-duplicate while preserving order
+      const deduped = replaced
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .filter((v, i, arr) => arr.indexOf(v) === i)
+        .join(", ");
+
+      onChange(deduped);
     } else {
       onChange(selectedValue);
     }

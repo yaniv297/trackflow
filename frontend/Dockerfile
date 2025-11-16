@@ -6,6 +6,12 @@ WORKDIR /app
 ARG BUILD_DATE=unknown
 ARG VCS_REF=unknown
 
+# Accept React environment variables as build arguments
+ARG REACT_APP_API_URL
+
+# Set them as environment variables for the build process
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 COPY package*.json ./
 RUN npm install
 

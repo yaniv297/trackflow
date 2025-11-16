@@ -2,10 +2,12 @@ import os
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
 from database import engine
 from models import Base
+import asyncio
+from contextlib import asynccontextmanager
 from api import songs as songs
 from api import authoring as authoring
 from api import tools as tools
@@ -60,6 +62,17 @@ app.add_middleware(
 # Add GZip compression for better performance
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+# Add request timeout middleware to prevent hanging requests
+@app.middleware("http") 
+async def timeout_middleware(request: Request, call_next):
+    try:
+        # Use longer timeout for local development, shorter for production
+        timeout_seconds = 60.0 if os.getenv("DATABASE_URL", "").startswith("sqlite") else 30.0
+        return await asyncio.wait_for(call_next(request), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=504, content={"detail": "Request timeout"})
+
 # No need to mount static files for uploads
 
 # Create tables with error handling - don't block startup
@@ -112,7 +125,12 @@ if __name__ == "__main__":
         port=port,
         forwarded_allow_ips="*",  # Trust all forwarded IPs (Railway)
         proxy_headers=True,       # Handle proxy headers
-        server_header=False       # Don't expose server info
+        server_header=False,      # Don't expose server info
+        # Optimize for concurrent requests
+        workers=1,                # Single worker to avoid memory issues on Railway hobby
+        limit_concurrency=50,     # Limit concurrent requests
+        limit_max_requests=1000,  # Restart worker after 1000 requests
+        timeout_keep_alive=5,     # Close idle connections faster
     )
 
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from functools import lru_cache
 import os
 
 # Configuration

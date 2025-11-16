@@ -25,7 +25,7 @@ engine = create_engine(
 	SQLALCHEMY_DATABASE_URL, 
 	connect_args=connect_args,
 	pool_pre_ping=True,
-	pool_recycle=1800,
+	pool_recycle=600,
 	# Optimize pool size for SQLite (smaller pool to avoid locks)
 	# Increased pool size for PostgreSQL to handle concurrent async requests
 	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 50,

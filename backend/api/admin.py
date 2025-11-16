@@ -9,9 +9,13 @@ from datetime import timedelta
 from .auth import create_access_token
 import sys
 import os
-# Add parent directory to path for user_activity import
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from user_activity import get_online_user_count, get_online_user_ids  # noqa: E402
+
+# Add backend directory to path for user_activity import
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
+from user_activity import get_online_user_count, get_online_user_ids
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

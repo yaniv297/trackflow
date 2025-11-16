@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiGet } from "../utils/api";
 import { useWorkflowData } from "./useWorkflowData";
+import { useUserWorkflowFields } from "./useUserWorkflowFields";
 import {
   getCompletedFieldsCount,
   getSongCompletionPercentage,
@@ -13,9 +14,11 @@ export const useWipData = (user) => {
   const [collaborationsOnMyPacks, setCollaborationsOnMyPacks] = useState([]);
   const [collapsedPacks, setCollapsedPacks] = useState({});
   const [loading, setLoading] = useState(true);
+  const [userWorkflowFields, setUserWorkflowFields] = useState({});
 
   // Get dynamic workflow fields for the current user
   const { authoringFields } = useWorkflowData(user);
+  const { fetchUserWorkflowFields, getWorkflowFields } = useUserWorkflowFields();
 
   // Helper function to get list of collaborating users for a pack
   const getPackCollaborators = (packId, validSongsInPack) => {
@@ -161,15 +164,57 @@ export const useWipData = (user) => {
     }
   }, [user]);
 
+  // Fetch workflow fields for all unique song owners
+  useEffect(() => {
+    const uniqueUserIds = new Set();
+    songs.forEach((song) => {
+      if (song.user_id) {
+        uniqueUserIds.add(song.user_id);
+      }
+    });
+
+    // Update state with cached workflow fields immediately, then fetch any missing ones
+    const cachedFields = {};
+    uniqueUserIds.forEach((userId) => {
+      const cached = getWorkflowFields(userId);
+      if (cached) {
+        cachedFields[userId] = cached;
+      }
+    });
+    if (Object.keys(cachedFields).length > 0) {
+      setUserWorkflowFields((prev) => ({ ...prev, ...cachedFields }));
+    }
+
+    // Fetch workflow fields for each unique user (will use cache if available)
+    uniqueUserIds.forEach(async (userId) => {
+      const fields = await fetchUserWorkflowFields(userId);
+      if (fields) {
+        setUserWorkflowFields((prev) => ({
+          ...prev,
+          [userId]: fields,
+        }));
+      }
+    });
+  }, [songs, fetchUserWorkflowFields, getWorkflowFields]);
+
   // Group songs by pack with statistics
   const grouped = useMemo(() => {
+    // Helper to get workflow fields for a song's owner
+    const getSongOwnerWorkflowFields = (song) => {
+      if (!song.user_id) return authoringFields;
+      // Use cached workflow fields if available, otherwise fall back to current user's
+      return userWorkflowFields[song.user_id] || authoringFields;
+    };
+
     // Group ALL songs by pack (both owned and collaborator songs)
     const groups = songs.reduce((acc, song) => {
       const pack = song.pack_name || "(no pack)";
       if (!acc[pack]) acc[pack] = [];
+      const songOwnerFields = getSongOwnerWorkflowFields(song);
       acc[pack].push({
         ...song,
-        filledCount: getCompletedFieldsCount(song, authoringFields),
+        filledCount: getCompletedFieldsCount(song, songOwnerFields),
+        songOwnerFields, // Store for later use
       });
       return acc;
     }, {});
@@ -178,15 +223,18 @@ export const useWipData = (user) => {
       const coreSongs = songs.filter((s) => !s.optional);
       const optionalSongs = songs.filter((s) => s.optional);
 
-      // Calculate total parts based on workflow fields (consistent total for all songs)
-      const totalParts = coreSongs.length * authoringFields.length;
-
-      const filledParts = coreSongs.reduce(
-        (sum, song) => sum + song.filledCount,
-        0
-      );
+      // Calculate pack completion as average of each song's completion percentage
+      // Each song's completion is relative to its owner's workflow
+      let totalPercent = 0;
+      coreSongs.forEach((song) => {
+        const songOwnerFields = song.songOwnerFields || authoringFields;
+        const songPercent = getSongCompletionPercentage(song, songOwnerFields);
+        totalPercent += songPercent;
+      });
       const percent =
-        totalParts > 0 ? Math.round((filledParts / totalParts) * 100) : 0;
+        coreSongs.length > 0
+          ? Math.round(totalPercent / coreSongs.length)
+          : 0;
 
       // Categorize songs within the pack by ownership and completion
       const ownedSongs = coreSongs.filter((song) => song.user_id === user?.id);
@@ -198,18 +246,23 @@ export const useWipData = (user) => {
       );
 
       const completedSongs = ownedSongs.filter((song) => {
-        return isSongComplete(song, authoringFields);
+        const songOwnerFields = song.songOwnerFields || authoringFields;
+        return isSongComplete(song, songOwnerFields);
       });
 
       const inProgressSongs = ownedSongs.filter((song) => {
-        return !isSongComplete(song, authoringFields);
+        const songOwnerFields = song.songOwnerFields || authoringFields;
+        return !isSongComplete(song, songOwnerFields);
       });
 
       // Sort songs by completion percentage (descending - highest first)
+      // Use each song's owner workflow for accurate sorting
       const sortByCompletion = (songList) => {
         return songList.sort((a, b) => {
-          const aPercent = getSongCompletionPercentage(a, authoringFields);
-          const bPercent = getSongCompletionPercentage(b, authoringFields);
+          const aFields = a.songOwnerFields || authoringFields;
+          const bFields = b.songOwnerFields || authoringFields;
+          const aPercent = getSongCompletionPercentage(a, aFields);
+          const bPercent = getSongCompletionPercentage(b, bFields);
           return bPercent - aPercent; // Descending order
         });
       };
@@ -228,7 +281,7 @@ export const useWipData = (user) => {
     });
 
     return packStats.sort((a, b) => b.percent - a.percent);
-  }, [songs, authoringFields]);
+  }, [songs, authoringFields, userWorkflowFields]);
 
   const refreshCollaborations = async () => {
     if (user) {

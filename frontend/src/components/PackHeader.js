@@ -47,6 +47,8 @@ const PackHeader = ({
   const [showPackActions, setShowPackActions] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [newPackName, setNewPackName] = useState(packName);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+  const gearBtnRef = React.useRef(null);
 
   const submitRename = async () => {
     try {
@@ -201,11 +203,9 @@ const PackHeader = ({
 
               return isPackOwner || hasPackEditPermission;
             })() && (
-              <span
-                style={{ position: "relative", marginLeft: "0.4rem" }}
-                data-pack-actions-dropdown
-              >
+              <span style={{ marginLeft: "0.4rem" }} data-pack-actions-dropdown>
                 <button
+                  ref={gearBtnRef}
                   onClick={() => setShowPackActions((v) => !v)}
                   style={{
                     background: "#007bff",
@@ -223,25 +223,48 @@ const PackHeader = ({
                   title="Pack actions"
                   onMouseEnter={(e) => (e.target.style.background = "#0056b3")}
                   onMouseLeave={(e) => (e.target.style.background = "#007bff")}
+                  onClickCapture={() => {
+                    // Compute fixed position so the menu isn't clipped by table cells
+                    try {
+                      const rect = gearBtnRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        setDropdownPos({
+                          top: Math.round(rect.bottom + 6),
+                          right: Math.round(window.innerWidth - rect.right),
+                        });
+                      }
+                    } catch (_e) {}
+                  }}
                 >
                   ⚙️
                 </button>
 
                 {showPackActions && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      right: 0,
-                      background: "white",
-                      border: "1px solid #ddd",
-                      borderRadius: 6,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      zIndex: 1000,
-                      minWidth: 220,
-                      padding: "0.5rem 0",
-                    }}
-                  >
+                  <>
+                    {/* Backdrop to close on outside click */}
+                    <div
+                      onClick={() => setShowPackActions(false)}
+                      style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "transparent",
+                        zIndex: 1999,
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: dropdownPos.top,
+                        right: dropdownPos.right,
+                        background: "white",
+                        border: "1px solid #ddd",
+                        borderRadius: 6,
+                        boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
+                        zIndex: 2000,
+                        minWidth: 220,
+                        padding: "0.5rem 0",
+                      }}
+                    >
                     {/* Edit Pack Name */}
                     <button
                       onClick={() => {
@@ -433,7 +456,8 @@ const PackHeader = ({
                     >
                       🗑️ Delete Pack
                     </button>
-                  </div>
+                    </div>
+                  </>
                 )}
               </span>
             )}

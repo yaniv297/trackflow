@@ -28,5 +28,5 @@ RUN echo "VCS ref: ${VCS_REF}" >> /app/build-info.txt
 RUN echo "This is the FRONTEND Dockerfile - REBUILD REQUIRED FOR HTTPS FIX" >> /app/build-info.txt
 
 # Use Railway's PORT environment variable (Railway sets this automatically)
-# Bind to 0.0.0.0 to accept connections from Railway's proxy
-CMD ["sh", "-c", "serve -s build -l 0.0.0.0:${PORT}"]
+# serve -s enables SPA mode, -l expects format: tcp://host:port
+CMD ["sh", "-c", "serve -s build -l tcp://0.0.0.0:$PORT"]

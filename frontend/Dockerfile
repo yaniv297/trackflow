@@ -19,6 +19,7 @@ COPY . .
 RUN npm run build
 RUN npm install -g serve
 
+# Railway will provide PORT at runtime
 EXPOSE 3000
 
 # Add build info to force cache invalidation
@@ -26,4 +27,5 @@ RUN echo "Build date: ${BUILD_DATE}" > /app/build-info.txt
 RUN echo "VCS ref: ${VCS_REF}" >> /app/build-info.txt
 RUN echo "This is the FRONTEND Dockerfile - REBUILD REQUIRED FOR HTTPS FIX" >> /app/build-info.txt
 
-CMD ["sh", "-c", "serve -s build -l 3000"]
+# Use Railway's PORT environment variable, default to 3000 if not set
+CMD ["sh", "-c", "serve -s build -l ${PORT:-3000}"]

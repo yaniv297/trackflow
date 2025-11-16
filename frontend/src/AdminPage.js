@@ -7,6 +7,7 @@ function AdminPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [fetchingImages, setFetchingImages] = useState(false);
   const { updateAuth } = useAuth();
 
   useEffect(() => {
@@ -94,6 +95,33 @@ function AdminPage() {
     }
   };
 
+  const handleFetchAllArtistImages = async () => {
+    if (
+      !window.confirm(
+        "This will fetch artist images from Spotify for all artists that don't have them. This may take a while. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setFetchingImages(true);
+      const response = await apiPost("/spotify/artists/fetch-all-missing-images");
+      window.showNotification(
+        response.message || `Updated ${response.updated_count} artist images`,
+        "success"
+      );
+    } catch (err) {
+      console.error("Failed to fetch artist images:", err);
+      window.showNotification(
+        `Error: ${err.message || "Failed to fetch artist images"}`,
+        "error"
+      );
+    } finally {
+      setFetchingImages(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     const date = new Date(dateString);
@@ -122,6 +150,34 @@ function AdminPage() {
       <div className="admin-header">
         <h1>Admin Panel</h1>
         <p className="admin-subtitle">Manage users and system settings</p>
+      </div>
+
+      <div className="admin-tools-section" style={{ marginBottom: "2rem" }}>
+        <h2>Admin Tools</h2>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <button
+            onClick={handleFetchAllArtistImages}
+            disabled={fetchingImages}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: fetchingImages ? "#ccc" : "#9C27B0",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: fetchingImages ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+              fontWeight: "500",
+            }}
+          >
+            {fetchingImages
+              ? "⏳ Fetching Artist Images..."
+              : "🎨 Fetch All Missing Artist Images"}
+          </button>
+        </div>
+        <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
+          Fetches artist profile pictures from Spotify for all artists that don't
+          have images yet.
+        </p>
       </div>
 
       <div className="users-section">

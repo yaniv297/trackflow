@@ -8,6 +8,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fetchingImages, setFetchingImages] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const { updateAuth } = useAuth();
 
   useEffect(() => {
@@ -122,6 +123,58 @@ function AdminPage() {
     }
   };
 
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    // Handle date fields
+    if (sortConfig.key === 'created_at' || sortConfig.key === 'last_login_at') {
+      aValue = aValue ? new Date(aValue).getTime() : 0;
+      bValue = bValue ? new Date(bValue).getTime() : 0;
+    }
+
+    // Handle null/undefined values
+    if (aValue == null) aValue = '';
+    if (bValue == null) bValue = '';
+
+    // Handle boolean values
+    if (typeof aValue === 'boolean') {
+      aValue = aValue ? 1 : 0;
+      bValue = bValue ? 1 : 0;
+    }
+
+    // Handle string comparison
+    if (typeof aValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    if (aValue < bValue) {
+      return sortConfig.direction === 'asc' ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortConfig.direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return '↕️';
+    }
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     const date = new Date(dateString);
@@ -187,19 +240,59 @@ function AdminPage() {
           <table className="users-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Display Name</th>
-                <th>Admin</th>
-                <th>Active</th>
-                <th>Created</th>
-                <th>Last Login</th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('id')}
+                >
+                  ID {getSortIcon('id')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('username')}
+                >
+                  Username {getSortIcon('username')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('email')}
+                >
+                  Email {getSortIcon('email')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('display_name')}
+                >
+                  Display Name {getSortIcon('display_name')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('is_admin')}
+                >
+                  Admin {getSortIcon('is_admin')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('is_active')}
+                >
+                  Active {getSortIcon('is_active')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('created_at')}
+                >
+                  Created {getSortIcon('created_at')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('last_login_at')}
+                >
+                  Last Login {getSortIcon('last_login_at')}
+                </th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {sortedUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td className="username-cell">{user.username}</td>

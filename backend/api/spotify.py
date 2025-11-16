@@ -657,6 +657,7 @@ def fetch_all_missing_artist_images(
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
+    # Get all artists without images - no limit
     artists_without_images = db.query(Artist).filter(
         (Artist.image_url.is_(None)) | (Artist.image_url == "")
     ).all()
@@ -669,20 +670,37 @@ def fetch_all_missing_artist_images(
         raise HTTPException(status_code=500, detail="Spotify credentials not configured")
     
     updated_count = 0
-    for artist in artists_without_images:
+    total_count = len(artists_without_images)
+    
+    # Process in batches to avoid timeouts and rate limits
+    import time
+    commit_interval = 25  # Commit every 25 artists to avoid long transactions
+    
+    for i, artist in enumerate(artists_without_images):
         try:
             image_url = _fetch_artist_image_from_spotify(artist.name, sp)
             if image_url:
                 artist.image_url = image_url
                 updated_count += 1
+            
+            # Commit periodically to avoid long transactions
+            if (i + 1) % commit_interval == 0:
+                db.commit()
+                print(f"Progress: {i + 1}/{total_count} artists processed, {updated_count} images fetched")
+            
+            # Small delay to avoid rate limiting (Spotify allows ~100 requests per second)
+            time.sleep(0.1)
+            
         except Exception as e:
             print(f"Failed to fetch image for {artist.name}: {e}")
+            # Continue processing other artists
             continue
     
+    # Final commit for any remaining changes
     db.commit()
     
     return {
-        "message": f"Updated artist images for {updated_count} out of {len(artists_without_images)} artists",
+        "message": f"Updated artist images for {updated_count} out of {total_count} artists",
         "updated_count": updated_count,
-        "total_artists": len(artists_without_images)
+        "total_artists": total_count
     }

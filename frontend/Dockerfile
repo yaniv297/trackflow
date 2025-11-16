@@ -28,5 +28,5 @@ RUN echo "VCS ref: ${VCS_REF}" >> /app/build-info.txt
 RUN echo "This is the FRONTEND Dockerfile - REBUILD REQUIRED FOR HTTPS FIX" >> /app/build-info.txt
 
 # Use Railway's PORT environment variable (Railway sets this automatically)
-# serve should bind to 0.0.0.0 by default when given just a port  
-CMD ["sh", "-c", "serve -s build -l $PORT"]
+# serve needs explicit hostname binding - use --hostname flag
+CMD ["sh", "-c", "serve -s build --listen $PORT --hostname 0.0.0.0"]

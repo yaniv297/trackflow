@@ -26,9 +26,12 @@ engine = create_engine(
 	pool_pre_ping=True,
 	pool_recycle=300,
 	# Optimize pool size for SQLite (smaller pool to avoid locks)
-	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 5,
-	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
-	pool_timeout=30
+	# Increased pool size for PostgreSQL to handle concurrent async requests
+	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
+	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 20,
+	pool_timeout=30,
+	# Enable echo_pool to help debug connection issues (optional, can remove in production)
+	echo_pool=False
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -91,5 +94,10 @@ def get_db():
 	db = SessionLocal()
 	try:
 		yield db
+	except Exception as e:
+		# Rollback on any exception to ensure clean state
+		db.rollback()
+		raise
 	finally:
+		# Always close the session to return connection to pool
 		db.close()

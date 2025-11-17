@@ -701,12 +701,7 @@ const WipPackCard = ({
                   ></div>
                   <button
                     onClick={() => {
-                      const confirmDelete = window.confirm(
-                        `Are you sure you want to delete the pack "${packName}"?\n\nThis will:\n• Delete all ${allSongs.length} songs in the pack\n• Delete the pack itself\n• Delete any associated album series\n\nThis action cannot be undone.`
-                      );
-                      if (confirmDelete) {
-                        handleDeletePack();
-                      }
+                      handleDeletePack();
                       setShowPackDropdown(false);
                     }}
                     style={{

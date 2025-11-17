@@ -333,6 +333,18 @@ def delete_song(song_id: int, db: Session = Depends(get_db), current_user = Depe
     if not can_delete:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this song")
     
+    # Log activity before deletion (so we have song info)
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="delete_song",
+            description=f"{current_user.username} has deleted a song: {song.title} by {song.artist}",
+            metadata={"song_id": song.id, "title": song.title, "artist": song.artist, "status": song.status.value if hasattr(song.status, 'value') else str(song.status)}
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log delete_song activity: {log_err}")
+    
     success = delete_song_from_db(db, song_id)
     if not success:
         raise HTTPException(status_code=404, detail="Song not found")

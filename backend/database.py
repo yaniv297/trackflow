@@ -120,6 +120,47 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 	except Exception as e:
 		print(f"⚠️ Feature request comments column migration skipped or failed: {e}")
 
+	# Ensure activity_logs table exists
+	try:
+		with engine.begin() as conn:
+			# Check if table exists
+			table_exists = conn.exec_driver_sql(
+				"SELECT name FROM sqlite_master WHERE type='table' AND name='activity_logs'"
+			).fetchone()
+			
+			if table_exists:
+				# Table exists, check columns
+				cols = conn.exec_driver_sql("PRAGMA table_info(activity_logs)").fetchall()
+				col_names = {row[1] for row in cols}
+				
+				# If metadata column exists but metadata_json doesn't, rename it
+				if "metadata" in col_names and "metadata_json" not in col_names:
+					conn.exec_driver_sql("ALTER TABLE activity_logs RENAME COLUMN metadata TO metadata_json")
+					print("✅ Renamed metadata column to metadata_json in activity_logs table")
+			else:
+				# Create table if missing
+				conn.exec_driver_sql(
+					"""
+					CREATE TABLE IF NOT EXISTS activity_logs (
+						id INTEGER PRIMARY KEY,
+						user_id INTEGER NOT NULL,
+						activity_type VARCHAR NOT NULL,
+						description TEXT NOT NULL,
+						metadata_json TEXT,
+						created_at DATETIME,
+						FOREIGN KEY (user_id) REFERENCES users(id)
+					)
+					"""
+				)
+				# Indexes
+				conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_activity_user ON activity_logs(user_id)")
+				conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_activity_type ON activity_logs(activity_type)")
+				conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_logs(created_at)")
+				conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_activity_user_type ON activity_logs(user_id, activity_type)")
+				print("✅ Activity logs table created")
+	except Exception as e:
+		print(f"⚠️ Activity logs table migration skipped or failed: {e}")
+
 # Add connection pool monitoring for PostgreSQL
 if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 	@event.listens_for(engine, "connect")

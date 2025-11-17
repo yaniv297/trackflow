@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
-from models import User, Song, Artist
-from schemas import UserOut
-from typing import List
+from models import User, Song, Artist, ActivityLog
+from schemas import UserOut, ActivityLogOut
+from typing import List, Optional
 from datetime import timedelta
 from .auth import create_access_token, clear_user_cache
 from .user_activity import get_online_user_count, get_online_user_ids
+import json
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -199,3 +200,44 @@ def fix_song_artist_links(
         "missing_artist_names": list(missing_artists)[:25],
         "log": log_entries
     }
+
+@router.get("/activity-feed", response_model=List[ActivityLogOut])
+def get_activity_feed(
+    limit: Optional[int] = Query(50, ge=1, le=500),
+    offset: Optional[int] = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Get activity feed for admin (admin only) - only shows last 48 hours"""
+    from datetime import datetime, timedelta
+    
+    # Only show activities from the last 48 hours
+    cutoff_time = datetime.utcnow() - timedelta(hours=48)
+    
+    activities = db.query(ActivityLog).join(User).filter(
+        ActivityLog.created_at >= cutoff_time
+    ).order_by(
+        ActivityLog.created_at.desc()
+    ).offset(offset).limit(limit).all()
+    
+    result = []
+    for activity in activities:
+        # Parse metadata JSON if present
+        metadata = None
+        if activity.metadata_json:
+            try:
+                metadata = json.loads(activity.metadata_json)
+            except:
+                pass
+        
+        result.append(ActivityLogOut(
+            id=activity.id,
+            user_id=activity.user_id,
+            username=activity.user.username,
+            activity_type=activity.activity_type,
+            description=activity.description,
+            metadata=metadata,
+            created_at=activity.created_at
+        ))
+    
+    return result

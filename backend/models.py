@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -305,3 +305,21 @@ class FeatureRequestVote(Base):
     # Relationships
     feature_request = relationship("FeatureRequest", back_populates="votes")
     user = relationship("User")
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    activity_type = Column(String, nullable=False, index=True)  # e.g., "login", "create_song", "change_status", "import_spotify"
+    description = Column(Text, nullable=False)  # Human-readable description
+    metadata_json = Column(Text, nullable=True)  # JSON string for additional data
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    user = relationship("User")
+    
+    __table_args__ = (
+        Index('idx_activity_created', 'created_at'),
+        Index('idx_activity_user_type', 'user_id', 'activity_type'),
+    )

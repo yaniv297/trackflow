@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from models import SongStatus
 from typing import Optional, List
 from datetime import datetime
+import json
 
 class UserOut(BaseModel):
     id: int
@@ -222,3 +223,15 @@ class FeatureRequestVoteRequest(BaseModel):
 
 class FeatureRequestMarkDoneRequest(BaseModel):
     is_done: bool
+
+class ActivityLogOut(BaseModel):
+    id: int
+    user_id: int
+    username: str
+    activity_type: str
+    description: str
+    metadata: Optional[dict] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

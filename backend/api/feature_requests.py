@@ -67,6 +67,13 @@ def create_feature_request(
     except Exception as log_err:
         print(f"⚠️ Failed to log feature request creation: {log_err}")
     
+    # Check achievements
+    try:
+        from .achievements import check_feature_request_achievements
+        check_feature_request_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
+    
     # Return with vote counts and user info
     return _build_feature_request_response(feature_request, current_user.id, db)
 

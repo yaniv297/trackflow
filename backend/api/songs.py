@@ -7,6 +7,7 @@ from api.data_access import create_song_in_db, delete_song_from_db
 from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Artist
 from api.auth import get_current_active_user
 from api.activity_logger import log_activity
+from api.achievements import check_status_achievements, check_wip_completion_achievements, check_diversity_achievements
 from typing import Optional
 from typing import List
 from datetime import datetime
@@ -124,6 +125,15 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
         )
     except Exception as log_err:
         print(f"⚠️ Failed to log create_song activity: {log_err}")
+    
+    # Check achievements
+    try:
+        check_status_achievements(db, current_user.id)
+        if db_song.status == SongStatus.released:
+            check_wip_completion_achievements(db, current_user.id)
+            check_diversity_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     return SongOut(**song_dict)
 
@@ -541,6 +551,16 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
             )
         except Exception as log_err:
             print(f"⚠️ Failed to log change_status activity: {log_err}")
+        
+        # Check achievements on status change
+        try:
+            check_status_achievements(db, current_user.id)
+            if song.status == SongStatus.released and old_status == SongStatus.wip:
+                check_wip_completion_achievements(db, current_user.id)
+            if song.status == SongStatus.released:
+                check_diversity_achievements(db, current_user.id)
+        except Exception as ach_err:
+            print(f"⚠️ Failed to check achievements: {ach_err}")
     
     # Build result with proper collaboration formatting
     song_dict = song.__dict__.copy()

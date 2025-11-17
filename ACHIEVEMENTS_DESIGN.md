@@ -50,18 +50,37 @@ A gamification system to reward users for their engagement and contributions to 
 
 ### Milestone Achievements (Count-based)
 
-#### Songs
+#### Future Plans Songs (Planning/Vision)
 
-- **First Steps** 🎵 - Create your first song
-- **Getting Started** 🎶 - Create 5 songs
-- **Song Collector** 🎤 - Create 10 songs
-- **Music Enthusiast** 🎹 - Create 25 songs
-- **Song Master** 🎸 - Create 50 songs
-- **Music Legend** 🎺 - Create 100 songs
-- **Ultimate Collector** 🎻 - Create 250 songs
-- **Music Deity** 🎷 - Create 500 songs
+- **Dreamer** 💭 - Add your first song to Future Plans
+- **Visionary** 🔮 - Add 5 songs to Future Plans
+- **Long Term Planner** 📋 - Add 10 songs to Future Plans
+- **Strategic Thinker** 🗺️ - Add 25 songs to Future Plans
+- **Master Planner** 📊 - Add 50 songs to Future Plans
+- **Future Architect** 🏗️ - Add 100 songs to Future Plans
+- **Planning Legend** 📐 - Add 250 songs to Future Plans
 
-#### Released Songs
+#### WIP Songs (Work/Progress)
+
+- **Getting Started** 🎬 - Start your first WIP song
+- **Hard Worker** 💪 - Start 5 WIP songs
+- **Dedicated Creator** 🎨 - Start 10 WIP songs
+- **Busy Bee** 🐝 - Start 25 WIP songs
+- **Workhorse** 🐴 - Start 50 WIP songs
+- **Productivity Master** ⚡ - Start 100 WIP songs
+- **Work Legend** 🔨 - Start 250 WIP songs
+
+#### WIP Completions (Finishing Work)
+
+- **First Finish** 🎉 - Complete your first WIP (move to Released)
+- **Finisher** ✅ - Complete 5 WIP songs
+- **WIP Master** 🏁 - Complete 10 WIP songs
+- **Finishing Touch** ✨ - Complete 25 WIP songs
+- **Master Finisher** 🎊 - Complete 50 WIP songs
+- **Completion Legend** 🎆 - Complete 100 WIP songs
+- **Fireworks Master** 🎇 - Complete 250 WIP songs
+
+#### Released Songs (Celebration)
 
 - **First Release** ✨ - Release your first song
 - **Rising Star** ⭐ - Release 5 songs
@@ -140,14 +159,30 @@ A gamification system to reward users for their engagement and contributions to 
 - **Sought After** 🌟 - Be added as a collaborator on 10 songs
 - **Community Favorite** 💖 - Be added as a collaborator on 25 songs
 
-### Special Achievements
+### Diversity Achievements (Variety)
 
-- **Founder** 🏛️ - Be among the first 10 users (based on user ID)
-- **Beta Tester** 🧪 - Use the app during beta period
-- **Power User** ⚡ - Achieve 10 different achievements
-- **Achievement Hunter** 🎯 - Achieve 25 different achievements
-- **Completionist** 💯 - Unlock all achievements in a category
-- **TrackFlow Champion** 🏆 - Unlock 50 different achievements
+#### Artist Diversity
+
+- **Variety Seeker** 🎭 - Complete songs from 5 different artists
+- **Music Explorer** 🌍 - Complete songs from 10 different artists
+- **Artist Collector** 🎨 - Complete songs from 25 different artists
+- **Diversity Master** 🌈 - Complete songs from 50 different artists
+- **Universal Listener** 🎵 - Complete songs from 100 different artists
+
+#### Year Diversity
+
+- **Time Traveler** ⏰ - Complete songs from 5 different years
+- **Decade Explorer** 📅 - Complete songs from 10 different years
+- **Era Collector** 🕰️ - Complete songs from 25 different years
+- **Timeline Master** 📆 - Complete songs from 50 different years
+- **History Buff** 📚 - Complete songs from 100 different years
+
+#### Decade Diversity
+
+- **Decade Dabbler** 🎸 - Complete songs from 2 different decades
+- **Multi-Decade** 🎹 - Complete songs from 3 different decades
+- **Decade Master** 🎺 - Complete songs from 4 different decades
+- **Timeline Legend** 🎻 - Complete songs from 5 different decades
 
 ## Display Locations
 

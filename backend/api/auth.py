@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, date
 from pydantic import BaseModel
 from typing import Optional
 from jose import JWTError, jwt
@@ -376,7 +376,27 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Update last login timestamp
+    # Update last login timestamp and track login streak
+    from .achievements import get_or_create_user_stats
+    stats = get_or_create_user_stats(db, user.id)
+    
+    today = date.today()
+    last_login = stats.last_login_date.date() if stats.last_login_date else None
+    
+    if last_login:
+        days_diff = (today - last_login).days
+        if days_diff == 1:
+            # Consecutive day
+            stats.login_streak += 1
+        elif days_diff > 1:
+            # Streak broken
+            stats.login_streak = 1
+        # If days_diff == 0, same day login, don't change streak
+    else:
+        # First login
+        stats.login_streak = 1
+    
+    stats.last_login_date = datetime.utcnow()
     user.last_login_at = datetime.utcnow()
     db.commit()
     
@@ -391,6 +411,13 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
         )
     except Exception as log_err:
         print(f"⚠️ Failed to log login activity: {log_err}")
+    
+    # Check login streak achievements
+    try:
+        from .achievements import check_login_streak_achievements
+        check_login_streak_achievements(db, user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(

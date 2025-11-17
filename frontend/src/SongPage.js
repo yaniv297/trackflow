@@ -12,6 +12,7 @@ import Fireworks from "./components/Fireworks";
 import LoadingSpinner from "./components/LoadingSpinner";
 import useCollaborations from "./hooks/useCollaborations";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
+import { checkAndShowNewAchievements } from "./utils/achievements";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 
 function SongPage({ status }) {
@@ -318,6 +319,9 @@ function SongPage({ status }) {
           apiPatch(`/songs/${song.id}`, { status: "In Progress" })
         )
       );
+      
+      // Check achievements after status change
+      await checkAndShowNewAchievements();
 
       // Update album series status to "in_progress" if any songs belong to a series
       for (const [seriesId, seriesSongs] of Object.entries(seriesGroups)) {
@@ -365,6 +369,7 @@ function SongPage({ status }) {
 
     try {
       const updates = { [field]: value };
+      const oldSong = songs.find((s) => s.id === id);
       const response = await apiPatch(`/songs/${id}`, updates);
 
       setSongs((prevSongs) =>
@@ -387,6 +392,11 @@ function SongPage({ status }) {
         delete newState[`${id}_${field}`];
         return newState;
       });
+
+      // Check achievements if status changed
+      if (field === "status" && oldSong && oldSong.status !== value) {
+        await checkAndShowNewAchievements();
+      }
     } catch (error) {
       console.error("Failed to save edit:", error);
     }

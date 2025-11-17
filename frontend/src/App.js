@@ -25,7 +25,9 @@ import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
 import FeatureRequestPage from "./FeatureRequestPage";
+import AchievementsPage from "./AchievementsPage";
 import { apiGet } from "./utils/api";
+import { initializeAchievements } from "./utils/achievements";
 import "./App.css";
 
 const FEATURE_REQUEST_PROMO_END = new Date("2025-11-20T00:00:00Z").getTime();
@@ -41,6 +43,13 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated, loading, updateAuth } = useAuth();
+
+  // Initialize achievement tracking when user logs in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      initializeAchievements();
+    }
+  }, [isAuthenticated, user]);
 
   // Check if we're impersonating
   useEffect(() => {
@@ -652,6 +661,9 @@ function AppContent() {
             <NavLink to="/album-series" activeclassname="active">
               Album Series
             </NavLink>
+            <NavLink to="/achievements" activeclassname="active">
+              🏆 Achievements
+            </NavLink>
             <NavLink to="/stats" activeclassname="active">
               Stats
             </NavLink>
@@ -732,6 +744,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <AlbumSeriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/achievements"
+            element={
+              <ProtectedRoute>
+                <AchievementsPage />
               </ProtectedRoute>
             }
           />

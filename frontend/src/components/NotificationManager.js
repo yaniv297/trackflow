@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from "react";
 import Notification from "./Notification";
+import AchievementToast from "./AchievementToast";
 
 const NotificationManager = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
+  const [achievementToasts, setAchievementToasts] = useState([]);
 
   const showNotification = useCallback(
     (message, type = "info", duration = 4000) => {
@@ -12,17 +14,28 @@ const NotificationManager = ({ children }) => {
     []
   );
 
+  const showAchievementToast = useCallback((achievement) => {
+    const id = Date.now() + Math.random();
+    setAchievementToasts((prev) => [...prev, { id, achievement }]);
+  }, []);
+
   const removeNotification = useCallback((id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  // Make showNotification available globally
+  const removeAchievementToast = useCallback((id) => {
+    setAchievementToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Make functions available globally
   React.useEffect(() => {
     window.showNotification = showNotification;
+    window.showAchievementToast = showAchievementToast;
     return () => {
       delete window.showNotification;
+      delete window.showAchievementToast;
     };
-  }, [showNotification]);
+  }, [showNotification, showAchievementToast]);
 
   return (
     <>
@@ -35,6 +48,22 @@ const NotificationManager = ({ children }) => {
           duration={notification.duration}
           onClose={() => removeNotification(notification.id)}
         />
+      ))}
+      {achievementToasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          style={{
+            position: "fixed",
+            top: `${20 + index * 200}px`,
+            right: "20px",
+          }}
+        >
+          <AchievementToast
+            achievement={toast.achievement}
+            onClose={() => removeAchievementToast(toast.id)}
+            duration={6000}
+          />
+        </div>
       ))}
     </>
   );

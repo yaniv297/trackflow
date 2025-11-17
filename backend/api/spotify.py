@@ -603,6 +603,13 @@ def import_playlist(
     except Exception as log_err:
         print(f"⚠️ Failed to log import_spotify activity: {log_err}")
     
+    # Check achievements
+    try:
+        from .achievements import check_spotify_achievements
+        check_spotify_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
+    
     return {"imported_count": imported_count}
 
 

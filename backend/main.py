@@ -24,6 +24,7 @@ from api import workflows as workflows
 from api import bug_reports as bug_reports
 from api import admin as admin
 from api import feature_requests as feature_requests
+from api import achievements as achievements
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -91,6 +92,7 @@ app.include_router(workflows.router)
 app.include_router(bug_reports.router)
 app.include_router(admin.router)
 app.include_router(feature_requests.router)
+app.include_router(achievements.router)
 
 # Timeout middleware removed - was causing more problems than it solved
 

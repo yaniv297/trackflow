@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -324,3 +324,59 @@ class ActivityLog(Base):
         Index('idx_activity_created', 'created_at'),
         Index('idx_activity_user_type', 'user_id', 'activity_type'),
     )
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)  # e.g., "first_song", "hundred_songs"
+    name = Column(String, nullable=False)  # Display name
+    description = Column(Text, nullable=False)  # What the user needs to do
+    icon = Column(String, nullable=False)  # Emoji or icon identifier
+    category = Column(String, nullable=False, index=True)  # "milestone", "activity", "quality", "social", "special"
+    points = Column(Integer, nullable=False, default=10)  # Points awarded
+    rarity = Column(String, nullable=False, default="common", index=True)  # "common", "uncommon", "rare", "epic", "legendary"
+    target_value = Column(Integer, nullable=True)  # Target number for count-based achievements (e.g., 5, 10, 100)
+    metric_type = Column(String, nullable=True)  # What metric this tracks (e.g., "total_future", "total_released", "wip_completions")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user_achievements = relationship("UserAchievement", back_populates="achievement")
+
+class UserAchievement(Base):
+    __tablename__ = "user_achievements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=False, index=True)
+    earned_at = Column(DateTime, default=datetime.utcnow, index=True)
+    notified = Column(Boolean, default=False)  # Whether user has been notified (for Phase 2 notification system)
+    is_public = Column(Boolean, default=True)  # Whether to show in community feed (for Phase 2)
+    
+    # Relationships
+    user = relationship("User")
+    achievement = relationship("Achievement", back_populates="user_achievements")
+    
+    __table_args__ = (
+        UniqueConstraint('user_id', 'achievement_id', name='unique_user_achievement'),
+        Index('idx_user_achievement_earned', 'earned_at'),
+    )
+
+class UserStats(Base):
+    __tablename__ = "user_stats"
+    
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    total_songs = Column(Integer, default=0)
+    total_released = Column(Integer, default=0)
+    total_future = Column(Integer, default=0)
+    total_wip = Column(Integer, default=0)
+    total_packs = Column(Integer, default=0)
+    total_collaborations = Column(Integer, default=0)
+    total_spotify_imports = Column(Integer, default=0)
+    total_feature_requests = Column(Integer, default=0)
+    login_streak = Column(Integer, default=0)
+    last_login_date = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", uselist=False)

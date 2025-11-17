@@ -498,6 +498,13 @@ def create_album_series_from_pack(
         except Exception as e:
             print(f"Failed to fetch album art for {artist_name} - {album_name}: {e}")
 
+    # Check achievements for album series creation
+    try:
+        from api.achievements import check_album_series_achievements
+        check_album_series_achievements(db, pack.user_id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
+
     return album_series
 
 @router.put("/{series_id}/release")
@@ -528,6 +535,17 @@ def release_album_series(series_id: int, db: Session = Depends(get_db)):
         song.status = SongStatus.released
     
     db.commit()
+    
+    # Check achievements for album series completion
+    try:
+        from api.achievements import check_album_series_achievements
+        # Get pack owner
+        if series.pack_id:
+            pack = db.query(Pack).filter(Pack.id == series.pack_id).first()
+            if pack:
+                check_album_series_achievements(db, pack.user_id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     return {
         "message": f"Album series '{series.album_name}' by {series.artist_name} released as series #{next_series_number}",

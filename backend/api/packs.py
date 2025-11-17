@@ -4,6 +4,7 @@ from typing import List, Optional
 from database import get_db
 from models import Pack, User, Song, SongStatus, AlbumSeries
 from api.auth import get_current_active_user
+from api.achievements import check_pack_achievements
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/packs", tags=["Packs"])
@@ -44,6 +45,12 @@ def create_pack(pack: PackCreate, db: Session = Depends(get_db), current_user = 
     db.add(new_pack)
     db.commit()
     db.refresh(new_pack)
+    
+    # Check achievements
+    try:
+        check_pack_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     return PackResponse(
         id=new_pack.id,

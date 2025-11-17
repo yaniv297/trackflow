@@ -470,6 +470,7 @@ function FeatureRequestPage() {
                   onSaveEditComment={handleSaveEditComment}
                   onCancelEditComment={handleCancelEditComment}
                   onEditTextChange={handleEditTextChange}
+                  onEditCommentTextChange={handleEditCommentTextChange}
                   organizeComments={organizeComments}
                 />
               ))}

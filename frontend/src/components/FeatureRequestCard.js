@@ -30,6 +30,7 @@ function FeatureRequestCard({
   onSaveEditComment,
   onCancelEditComment,
   onEditTextChange,
+  onEditCommentTextChange,
   organizeComments,
 }) {
   return (
@@ -191,7 +192,7 @@ function FeatureRequestCard({
             onDeleteComment={onDeleteComment}
             onSaveEditComment={onSaveEditComment}
             onCancelEditComment={onCancelEditComment}
-            onEditTextChange={onEditTextChange}
+            onEditTextChange={onEditCommentTextChange}
             organizeComments={organizeComments}
           />
         </div>

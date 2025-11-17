@@ -95,8 +95,8 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                         except Exception as seq_error:
                             print(f"Sequence reset skipped: {seq_error}")
                     
-                    # Create the artist
-                    artist = Artist(name=artist_name, image_url=artist_img, user_id=song.user_id)
+                    # Create the artist (no user_id - artists are shared entities)
+                    artist = Artist(name=artist_name, image_url=artist_img, user_id=None)
                     db.add(artist)
                     db.flush()
                     print(f"Successfully created artist {artist_name} with ID {artist.id}")
@@ -660,9 +660,7 @@ def fetch_artist_image(
     if not artist:
         raise HTTPException(status_code=404, detail="Artist not found")
     
-    # Check if user has access to this artist (artist belongs to user)
-    if artist.user_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not authorized to update this artist")
+    # Artists are shared entities - any authenticated user can fetch images (admin-only endpoint anyway)
     
     sp = _get_client()
     if not sp:
@@ -708,8 +706,7 @@ def fetch_all_missing_artist_images(
     # Step 1: Find all unique artist names from songs table that don't have artist_id
     # and don't exist in artists table
     songs_with_missing_artists = db.query(
-        distinct(Song.artist).label('artist_name'),
-        func.min(Song.user_id).label('user_id')  # Use first user_id for the artist
+        distinct(Song.artist).label('artist_name')
     ).filter(
         Song.artist.isnot(None),
         Song.artist != "",
@@ -720,8 +717,8 @@ def fetch_all_missing_artist_images(
     if songs_with_missing_artists:
         log_entries.append(f"📋 Found {len(songs_with_missing_artists)} artists in songs table without artist entries")
         
-        # Create missing artist entries
-        for artist_name, user_id in songs_with_missing_artists:
+        # Create missing artist entries (artists are shared, no user_id needed)
+        for (artist_name,) in songs_with_missing_artists:
             # Check if artist already exists (case-insensitive)
             existing = db.query(Artist).filter(
                 func.lower(Artist.name) == func.lower(artist_name)
@@ -740,7 +737,7 @@ def fetch_all_missing_artist_images(
                         except Exception:
                             pass
                     
-                    new_artist = Artist(name=artist_name, image_url=None, user_id=user_id)
+                    new_artist = Artist(name=artist_name, image_url=None, user_id=None)
                     db.add(new_artist)
                     created_count += 1
                     

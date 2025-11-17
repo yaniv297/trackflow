@@ -123,7 +123,7 @@ class Artist(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     image_url = Column(String, nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Nullable - artists are shared entities
     
     # Relationships
     songs = relationship("Song", back_populates="artist_obj")

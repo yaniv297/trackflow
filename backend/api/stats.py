@@ -55,21 +55,20 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
     ).limit(50).all()
 
     # Get all unique artists for batch lookup - filter by user access
-    artist_names = [row.artist for row in top_artists_data]
-    artist_images = dict(
-        db.query(Artist.name, Artist.image_url)
-          .filter(
-              Artist.name.in_(artist_names),
-              Artist.user_id == current_user.id
-          )
-          .all()
-    )
+    artist_names = [row.artist for row in top_artists_data if row.artist]
+    artist_name_lowers = {name.lower() for name in artist_names}
+    artist_images = {
+        name.lower(): image_url
+        for name, image_url in db.query(Artist.name, Artist.image_url)
+            .filter(func.lower(Artist.name).in_(artist_name_lowers))
+            .all()
+    }
 
     top_artists = [
         {
             "artist": row.artist, 
             "count": row.count, 
-            "artist_image_url": artist_images.get(row.artist)
+            "artist_image_url": artist_images.get(row.artist.lower()) if row.artist else None
         }
         for row in top_artists_data
     ]
@@ -137,12 +136,14 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         pack_ranked_artists.c.pack.in_(pack_counts.keys())
     ).all()
 
-    pack_artist_names = [row.artist for row in top_pack_artists]
-    pack_artist_images = dict(
-        db.query(Artist.name, Artist.image_url)
-          .filter(Artist.name.in_(pack_artist_names))
-          .all()
-    )
+    pack_artist_names = [row.artist for row in top_pack_artists if row.artist]
+    pack_artist_name_lowers = {name.lower() for name in pack_artist_names}
+    pack_artist_images = {
+        name.lower(): image_url
+        for name, image_url in db.query(Artist.name, Artist.image_url)
+            .filter(func.lower(Artist.name).in_(pack_artist_name_lowers))
+            .all()
+    }
 
     top_packs = []
     for pack, count in pack_counts.items():
@@ -151,7 +152,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
             "pack": pack,
             "count": count,
             "artist": pack_artist,
-            "artist_image_url": pack_artist_images.get(pack_artist) if pack_artist else None
+            "artist_image_url": pack_artist_images.get(pack_artist.lower()) if pack_artist else None
         })
 
     # Get total counts
@@ -287,16 +288,15 @@ def get_year_details(year: int, db: Session = Depends(get_db), current_user = De
         func.count().desc()
     ).limit(5).all()
     
-    # Batch lookup artist images
-    artist_names = [row.artist for row in top_artists_data]
-    artist_images = dict(
-        db.query(Artist.name, Artist.image_url)
-          .filter(
-              Artist.name.in_(artist_names),
-              Artist.user_id == current_user.id
-          )
+    # Batch lookup artist images (case-insensitive, artists are shared)
+    artist_names = [row.artist for row in top_artists_data if row.artist]
+    artist_name_lowers = {name.lower() for name in artist_names}
+    artist_images_lower = dict(
+        db.query(func.lower(Artist.name), Artist.image_url)
+          .filter(func.lower(Artist.name).in_(artist_name_lowers))
           .all()
     )
+    artist_images = {name: artist_images_lower.get(name.lower()) for name in artist_names}
     
     top_artists = [
         {

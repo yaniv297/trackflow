@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
@@ -9,11 +9,23 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
+import time
+
+from .user_activity import record_activity
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+
+# Simple user cache with TTL
+_user_cache = {}
+CACHE_TTL = 300  # 5 minutes
+
+def clear_user_cache():
+    """Clear the entire user cache - useful for impersonation"""
+    global _user_cache
+    _user_cache.clear()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -47,6 +59,20 @@ def verify_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
+def _get_cached_user(username: str) -> Optional[User]:
+    """Get user from cache if not expired"""
+    if username in _user_cache:
+        user, timestamp = _user_cache[username]
+        if time.time() - timestamp < CACHE_TTL:
+            return user
+        else:
+            del _user_cache[username]
+    return None
+
+def _cache_user(username: str, user: User):
+    """Cache user with timestamp"""
+    _user_cache[username] = (user, time.time())
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -66,9 +92,22 @@ def get_current_user(
     if username is None:
         raise credentials_exception
     
-    user = db.query(User).filter(User.username == username).first()
+    # Try cache first
+    user = _get_cached_user(username)
     if user is None:
-        raise credentials_exception
+        # Cache miss - query database
+        user = db.query(User).filter(User.username == username).first()
+        if user is None:
+            raise credentials_exception
+        # Cache the user for future requests
+        _cache_user(username, user)
+    
+    # Record user activity for online tracking
+    try:
+        record_activity(user.id)
+    except Exception:
+        # Don't fail the request if activity tracking fails
+        pass
     
     return user
 

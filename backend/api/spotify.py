@@ -95,8 +95,8 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                         except Exception as seq_error:
                             print(f"Sequence reset skipped: {seq_error}")
                     
-                    # Create the artist
-                    artist = Artist(name=artist_name, image_url=artist_img, user_id=song.user_id)
+                    # Create the artist (no user_id - artists are shared entities)
+                    artist = Artist(name=artist_name, image_url=artist_img, user_id=None)
                     db.add(artist)
                     db.flush()
                     print(f"Successfully created artist {artist_name} with ID {artist.id}")
@@ -114,6 +114,18 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                         print(f"Found existing artist {artist_name} with ID {artist.id} after creation failure")
             else:
                 print(f"Found existing artist {artist_name} with ID {artist.id}")
+                # If artist exists but has no image, try to fetch it
+                if not artist.image_url and sp:
+                    try:
+                        search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
+                        items = (search.get("artists") or {}).get("items") or []
+                        if items and (items[0].get("images") or []):
+                            artist.image_url = items[0]["images"][0].get("url")
+                            db.commit()
+                            db.refresh(artist)
+                            print(f"Fetched image for existing artist {artist_name}")
+                    except Exception:
+                        pass
             
             # Only update artist if we're not preserving it
             if not preserve_artist_album and artist:
@@ -579,3 +591,228 @@ def import_playlist(
             break
 
     return {"imported_count": imported_count}
+
+
+def _generate_artist_search_queries(artist_name: str) -> List[str]:
+    """Generate multiple search queries for a given artist name to improve match rate"""
+    import re
+    
+    queries = []
+    cleaned = (artist_name or "").strip()
+    if not cleaned:
+        return queries
+    
+    def add_query(q: str):
+        if q and q not in queries:
+            queries.append(q)
+    
+    # Original name
+    add_query(f'artist:"{cleaned}"')
+    add_query(cleaned)
+    
+    # Remove content within parentheses (e.g., "Artist (Official)")
+    no_paren = re.sub(r"\s*\(.*?\)\s*", " ", cleaned).strip()
+    add_query(f'artist:"{no_paren}"')
+    
+    # Remove featuring/ft/feat/& sections
+    no_feat = re.split(r"\bfeat\.|\bft\.|&|,|\bfeaturing\b", no_paren, maxsplit=1)[0].strip()
+    add_query(f'artist:"{no_feat}"')
+    add_query(no_feat)
+    
+    # Replace multiple spaces with single space
+    normalized = re.sub(r"\s+", " ", no_feat)
+    add_query(f'artist:"{normalized}"')
+    
+    return [q for q in queries if q]
+
+
+def _fetch_artist_image_from_spotify(artist_name: str, sp: Optional[Spotify] = None) -> Optional[str]:
+    """Helper function to fetch artist image from Spotify with multiple search strategies"""
+    if not sp:
+        sp = _get_client()
+    if not sp:
+        return None
+    
+    queries = _generate_artist_search_queries(artist_name)
+    for query in queries:
+        try:
+            search = sp.search(q=query, type="artist", limit=3)
+            items = (search.get("artists") or {}).get("items") or []
+            for artist in items:
+                images = artist.get("images") or []
+                if images:
+                    return images[0].get("url")
+        except Exception as e:
+            print(f"Spotify search failed for query '{query}': {e}")
+            continue
+    
+    return None
+
+
+@router.post("/artists/{artist_id}/fetch-image")
+def fetch_artist_image(
+    artist_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Fetch artist image from Spotify for a specific artist (admin only)"""
+    artist = db.query(Artist).filter(Artist.id == artist_id).first()
+    if not artist:
+        raise HTTPException(status_code=404, detail="Artist not found")
+    
+    # Artists are shared entities - any authenticated user can fetch images (admin-only endpoint anyway)
+    
+    sp = _get_client()
+    if not sp:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+    
+    try:
+        image_url = _fetch_artist_image_from_spotify(artist.name, sp)
+        if image_url:
+            artist.image_url = image_url
+            db.commit()
+            db.refresh(artist)
+            return {
+                "message": f"Artist image fetched successfully for {artist.name}",
+                "image_url": artist.image_url
+            }
+        else:
+            raise HTTPException(status_code=404, detail="No artist image found on Spotify")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch artist image: {str(e)}")
+
+
+@router.post("/artists/fetch-all-missing-images")
+def fetch_all_missing_artist_images(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Fetch artist images for all artists that don't have them (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    from sqlalchemy import func, distinct
+    from sqlalchemy import text
+    
+    sp = _get_client()
+    if not sp:
+        raise HTTPException(status_code=500, detail="Spotify credentials not configured")
+    
+    log_entries = []
+    max_log_entries = 200
+    
+    # Step 1: Find all unique artist names from songs table that don't have artist_id
+    # and don't exist in artists table
+    songs_with_missing_artists = db.query(
+        distinct(Song.artist).label('artist_name')
+    ).filter(
+        Song.artist.isnot(None),
+        Song.artist != "",
+        Song.artist_id.is_(None)
+    ).group_by(Song.artist).all()
+    
+    created_count = 0
+    if songs_with_missing_artists:
+        log_entries.append(f"📋 Found {len(songs_with_missing_artists)} artists in songs table without artist entries")
+        
+        # Create missing artist entries (artists are shared, no user_id needed)
+        for (artist_name,) in songs_with_missing_artists:
+            # Check if artist already exists (case-insensitive)
+            existing = db.query(Artist).filter(
+                func.lower(Artist.name) == func.lower(artist_name)
+            ).first()
+            
+            if not existing:
+                try:
+                    # Fix PostgreSQL sequence if needed
+                    db_url = str(db.bind.url)
+                    if 'postgresql' in db_url.lower():
+                        try:
+                            db.execute(text("""
+                                SELECT setval('artists_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM artists), false)
+                            """))
+                            db.commit()
+                        except Exception:
+                            pass
+                    
+                    new_artist = Artist(name=artist_name, image_url=None, user_id=None)
+                    db.add(new_artist)
+                    created_count += 1
+                    
+                    if len(log_entries) < max_log_entries:
+                        log_entries.append(f"➕ Created artist entry: {artist_name}")
+                except Exception as e:
+                    if len(log_entries) < max_log_entries:
+                        log_entries.append(f"❌ Failed to create artist {artist_name}: {e}")
+                    continue
+        
+        if created_count > 0:
+            db.commit()
+            log_entries.append(f"✅ Created {created_count} missing artist entries")
+    
+    # Step 2: Get all artists without images (including newly created ones)
+    artists_without_images = db.query(Artist).filter(
+        (Artist.image_url.is_(None)) | (Artist.image_url == "")
+    ).all()
+    
+    if not artists_without_images:
+        return {
+            "message": "All artists already have images",
+            "updated_count": 0,
+            "total_artists": 0,
+            "created_count": created_count,
+            "log": log_entries
+        }
+    
+    updated_count = 0
+    total_count = len(artists_without_images)
+    failed_artists = []
+    
+    log_entries.append(f"🖼️ Starting to fetch images for {total_count} artists...")
+    
+    # Process in batches to avoid timeouts and rate limits
+    import time
+    commit_interval = 25  # Commit every 25 artists to avoid long transactions
+    
+    for i, artist in enumerate(artists_without_images):
+        try:
+            image_url = _fetch_artist_image_from_spotify(artist.name, sp)
+            if image_url:
+                artist.image_url = image_url
+                updated_count += 1
+                entry = f"✅ {artist.name} – image fetched"
+            else:
+                failed_artists.append(artist.name)
+                entry = f"⚠️ {artist.name} – no image found"
+            if len(log_entries) < max_log_entries:
+                log_entries.append(entry)
+            
+            # Commit periodically to avoid long transactions
+            if (i + 1) % commit_interval == 0:
+                db.commit()
+                print(f"Progress: {i + 1}/{total_count} artists processed, {updated_count} images fetched")
+            
+            # Small delay to avoid rate limiting (Spotify allows ~100 requests per second)
+            time.sleep(0.1)
+            
+        except Exception as e:
+            print(f"Failed to fetch image for {artist.name}: {e}")
+            # Continue processing other artists
+            if len(log_entries) < max_log_entries:
+                log_entries.append(f"❌ {artist.name} – error: {e}")
+            continue
+    
+    # Final commit for any remaining changes
+    db.commit()
+    
+    return {
+        "message": f"Created {created_count} missing artists. Updated artist images for {updated_count} out of {total_count} artists",
+        "updated_count": updated_count,
+        "total_artists": total_count,
+        "created_count": created_count,
+        "failed_artists": failed_artists[:25],  # include sample of artists that failed
+        "failed_count": len(failed_artists),
+        "log": log_entries
+    }

@@ -1,9 +1,10 @@
 # backend/database.py
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from models import Base
 import os
+import logging
 
 SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./songs.db")
 
@@ -17,18 +18,21 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 	connect_args["uri"] = True
 elif SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
 	# Optimize for PostgreSQL/Supabase
-	connect_args["connect_timeout"] = 10
+	connect_args["connect_timeout"] = 5
 	connect_args["application_name"] = "trackflow"
 
 engine = create_engine(
 	SQLALCHEMY_DATABASE_URL, 
 	connect_args=connect_args,
 	pool_pre_ping=True,
-	pool_recycle=300,
+	pool_recycle=600,
 	# Optimize pool size for SQLite (smaller pool to avoid locks)
-	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 5,
-	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 10,
-	pool_timeout=30
+	# Increased pool size for PostgreSQL to handle concurrent async requests
+	pool_size=5 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 3,
+	max_overflow=10 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 5,
+	pool_timeout=10,
+	# Enable echo_pool to help debug connection issues (optional, can remove in production)
+	echo_pool=False
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -116,10 +120,29 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 	except Exception as e:
 		print(f"⚠️ Feature request comments column migration skipped or failed: {e}")
 
+# Add connection pool monitoring for PostgreSQL
+if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
+	@event.listens_for(engine, "connect")
+	def connect(dbapi_connection, connection_record):
+		logging.info(f"New connection created. Pool status: {engine.pool.status()}")
+
+	@event.listens_for(engine, "checkout")
+	def checkout(dbapi_connection, connection_record, connection_proxy):
+		logging.info(f"Connection checked out. Pool status: {engine.pool.status()}")
+
+	@event.listens_for(engine, "checkin")
+	def checkin(dbapi_connection, connection_record):
+		logging.info(f"Connection returned. Pool status: {engine.pool.status()}")
+
 # Dependency for FastAPI
 def get_db():
 	db = SessionLocal()
 	try:
 		yield db
+	except Exception as e:
+		# Rollback on any exception to ensure clean state
+		db.rollback()
+		raise
 	finally:
+		# Always close the session to return connection to pool
 		db.close()

@@ -7,6 +7,11 @@ function AdminPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [fetchingImages, setFetchingImages] = useState(false);
+  const [fetchLogs, setFetchLogs] = useState([]);
+  const [fixingSongLinks, setFixingSongLinks] = useState(false);
+  const [songLinkLogs, setSongLinkLogs] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'last_login_at', direction: 'desc' });
   const { updateAuth } = useAuth();
 
   useEffect(() => {
@@ -94,6 +99,124 @@ function AdminPage() {
     }
   };
 
+  const handleFetchAllArtistImages = async () => {
+    if (
+      !window.confirm(
+        "This will fetch artist images from Spotify for all artists that don't have them. This may take a while. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setFetchingImages(true);
+      setFetchLogs(["Starting artist image fetch..."]);
+      const response = await apiPost("/spotify/artists/fetch-all-missing-images");
+      setFetchLogs(response.log || []);
+      window.showNotification(
+        response.message || `Updated ${response.updated_count} artist images`,
+        "success"
+      );
+    } catch (err) {
+      console.error("Failed to fetch artist images:", err);
+      window.showNotification(
+        `Error: ${err.message || "Failed to fetch artist images"}`,
+        "error"
+      );
+    } finally {
+      setFetchingImages(false);
+    }
+  };
+
+  const handleFixSongArtistLinks = async () => {
+    if (
+      !window.confirm(
+        "This will link songs without artist_id to existing artists by name. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setFixingSongLinks(true);
+      setSongLinkLogs(["Starting song↔artist link fix..."]);
+      const response = await apiPost("/admin/fix-song-artist-links");
+      const logs = [
+        response.message || `Linked ${response.linked || 0} songs`,
+        `Checked ${response.checked || 0} songs total.`,
+      ];
+      if (response.missing_artist_names && response.missing_artist_names.length > 0) {
+        logs.push(
+          `Still missing ${response.missing_artist_names.length} artists (showing up to 25):`,
+          ...response.missing_artist_names.map((name) => ` - ${name}`)
+        );
+      }
+      const combinedLogs = response.log ? [...response.log, "---", ...logs] : logs;
+      setSongLinkLogs(combinedLogs);
+      window.showNotification(response.message || "Song/artist links updated", "success");
+    } catch (err) {
+      console.error("Failed to fix song artist links:", err);
+      window.showNotification(
+        `Error: ${err.message || "Failed to fix song artist links"}`,
+        "error"
+      );
+    } finally {
+      setFixingSongLinks(false);
+    }
+  };
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    // Handle date fields
+    if (sortConfig.key === 'created_at' || sortConfig.key === 'last_login_at') {
+      aValue = aValue ? new Date(aValue).getTime() : 0;
+      bValue = bValue ? new Date(bValue).getTime() : 0;
+    }
+
+    // Handle null/undefined values
+    if (aValue == null) aValue = '';
+    if (bValue == null) bValue = '';
+
+    // Handle boolean values
+    if (typeof aValue === 'boolean') {
+      aValue = aValue ? 1 : 0;
+      bValue = bValue ? 1 : 0;
+    }
+
+    // Handle string comparison
+    if (typeof aValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    if (aValue < bValue) {
+      return sortConfig.direction === 'asc' ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortConfig.direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return '↕️';
+    }
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
     const date = new Date(dateString);
@@ -124,6 +247,92 @@ function AdminPage() {
         <p className="admin-subtitle">Manage users and system settings</p>
       </div>
 
+      <div className="admin-tools-section" style={{ marginBottom: "2rem" }}>
+        <h2>Admin Tools</h2>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <button
+            onClick={handleFetchAllArtistImages}
+            disabled={fetchingImages}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: fetchingImages ? "#ccc" : "#9C27B0",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: fetchingImages ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+              fontWeight: "500",
+            }}
+          >
+            {fetchingImages
+              ? "⏳ Fetching Artist Images..."
+              : "🎨 Fetch All Missing Artist Images"}
+          </button>
+          <button
+            onClick={handleFixSongArtistLinks}
+            disabled={fixingSongLinks}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: fixingSongLinks ? "#ccc" : "#0d6efd",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: fixingSongLinks ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+              fontWeight: "500",
+            }}
+          >
+            {fixingSongLinks
+              ? "⏳ Linking Songs..."
+              : "🪢 Link Songs to Artists"}
+          </button>
+        </div>
+        <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
+          Fetches artist profile pictures from Spotify for all artists that don't
+          have images yet.
+        </p>
+        {fetchLogs.length > 0 && (
+          <div
+            style={{
+              marginTop: "1rem",
+              maxHeight: "200px",
+              overflowY: "auto",
+              border: "1px solid #eee",
+              borderRadius: "6px",
+              padding: "0.75rem",
+              background: "#fafafa",
+              fontFamily: "monospace",
+              fontSize: "0.85rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {fetchLogs.map((entry, idx) => (
+              <div key={idx}>{entry}</div>
+            ))}
+          </div>
+        )}
+        {songLinkLogs.length > 0 && (
+          <div
+            style={{
+              marginTop: "1rem",
+              maxHeight: "200px",
+              overflowY: "auto",
+              border: "1px solid #eee",
+              borderRadius: "6px",
+              padding: "0.75rem",
+              background: "#f3f8ff",
+              fontFamily: "monospace",
+              fontSize: "0.85rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {songLinkLogs.map((entry, idx) => (
+              <div key={`song-link-${idx}`}>{entry}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="users-section">
         <h2>User Management ({users.length} users)</h2>
 
@@ -131,24 +340,57 @@ function AdminPage() {
           <table className="users-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Display Name</th>
-                <th>Admin</th>
-                <th>Active</th>
-                <th>Created</th>
-                <th>Last Login</th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('id')}
+                >
+                  ID {getSortIcon('id')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('username')}
+                >
+                  Username {getSortIcon('username')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('email')}
+                >
+                  Email {getSortIcon('email')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('is_admin')}
+                >
+                  Admin {getSortIcon('is_admin')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('created_at')}
+                >
+                  Created {getSortIcon('created_at')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('last_login_at')}
+                >
+                  Last Login {getSortIcon('last_login_at')}
+                </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('song_count')}
+                >
+                  Songs {getSortIcon('song_count')}
+                </th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {sortedUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td className="username-cell">{user.username}</td>
                   <td>{user.email}</td>
-                  <td>{user.display_name || "-"}</td>
                   <td>
                     <span
                       className={`badge ${
@@ -158,18 +400,12 @@ function AdminPage() {
                       {user.is_admin ? "Admin" : "User"}
                     </span>
                   </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        user.is_active ? "badge-active" : "badge-inactive"
-                      }`}
-                    >
-                      {user.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
                   <td className="date-cell">{formatDate(user.created_at)}</td>
                   <td className="date-cell">
                     {formatDate(user.last_login_at)}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    {user.song_count || 0}
                   </td>
                   <td className="actions-cell">
                     <button

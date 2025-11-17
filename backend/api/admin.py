@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
-from models import User
+from models import User, Song, Artist
 from schemas import UserOut
 from typing import List
 from datetime import timedelta
-from .auth import create_access_token
+from .auth import create_access_token, clear_user_cache
+from .user_activity import get_online_user_count, get_online_user_ids
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -25,8 +26,36 @@ def list_all_users(
     current_user: User = Depends(require_admin)
 ):
     """Get all users (admin only)"""
-    users = db.query(User).order_by(User.created_at.desc()).all()
-    return users
+    from sqlalchemy import func
+    from models import Song
+    
+    # Get users with song counts
+    users_with_counts = db.query(
+        User,
+        func.count(Song.id).label('song_count')
+    ).outerjoin(
+        Song, User.id == Song.user_id
+    ).group_by(User.id).all()
+    
+    # Convert to UserOut format
+    result = []
+    for user, song_count in users_with_counts:
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "created_at": user.created_at,
+            "last_login_at": user.last_login_at,
+            "display_name": user.display_name,
+            "preferred_contact_method": user.preferred_contact_method,
+            "discord_username": user.discord_username,
+            "song_count": song_count or 0
+        }
+        result.append(UserOut(**user_dict))
+    
+    return result
 
 @router.patch("/users/{user_id}/toggle-admin")
 def toggle_admin_status(
@@ -90,6 +119,9 @@ def impersonate_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Clear user cache to prevent confusion between admin and impersonated user
+    clear_user_cache()
+    
     # Create access token for the target user using the same function as login
     access_token_expires = timedelta(minutes=1440)  # 24 hours, same as login
     access_token = create_access_token(
@@ -102,4 +134,68 @@ def impersonate_user(
         "token_type": "bearer",
         "username": user.username,
         "impersonated": True
+    }
+
+@router.get("/online-users")
+def get_online_users_count(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get count and list of users currently online (admin only)"""
+    online_user_ids_list = get_online_user_ids()
+    
+    # Get usernames for online users
+    if online_user_ids_list:
+        users = db.query(User).filter(User.id.in_(online_user_ids_list)).all()
+        usernames = [user.username for user in users]
+    else:
+        usernames = []
+    
+    return {
+        "online_count": len(usernames),
+        "online_users": usernames
+    }
+
+@router.post("/fix-song-artist-links")
+def fix_song_artist_links(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Link songs with null artist_id to existing artists by name"""
+    from sqlalchemy import func
+    log_entries = []
+    songs_to_fix = db.query(Song).filter(
+        Song.artist_id.is_(None),
+        Song.artist.isnot(None),
+        Song.artist != ""
+    ).all()
+
+    if not songs_to_fix:
+        return {"message": "No songs with missing artist links found", "linked": 0, "checked": 0}
+
+    linked = 0
+    missing_artists = set()
+
+    for song in songs_to_fix:
+        artist = db.query(Artist).filter(
+            func.lower(Artist.name) == func.lower(song.artist)
+        ).first()
+        if artist:
+            song.artist_id = artist.id
+            linked += 1
+            if len(log_entries) < 200:
+                log_entries.append(f"✅ Linked song '{song.title}' to artist {artist.name}")
+        else:
+            missing_artists.add(song.artist)
+            if len(log_entries) < 200:
+                log_entries.append(f"⚠️ Artist '{song.artist}' not found for song '{song.title}'")
+
+    db.commit()
+
+    return {
+        "message": f"Linked {linked} songs to artists. {len(missing_artists)} artists still missing.",
+        "linked": linked,
+        "checked": len(songs_to_fix),
+        "missing_artist_names": list(missing_artists)[:25],
+        "log": log_entries
     }

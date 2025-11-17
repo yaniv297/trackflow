@@ -35,6 +35,7 @@ class User(Base):
     display_name = Column(String, nullable=True)  # Optional display name (different from username)
     preferred_contact_method = Column(String, nullable=True)  # "email" or "discord"
     discord_username = Column(String, nullable=True)  # Discord username for contact
+    auto_spotify_fetch_enabled = Column(Boolean, default=True)  # Enable automatic Spotify metadata fetching
     
     # Relationships
     songs = relationship("Song", back_populates="user")

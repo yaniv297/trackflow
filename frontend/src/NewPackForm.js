@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "./config";
 import SmartDropdown from "./components/SmartDropdown";
-import { apiPost } from "./utils/api";
+import { apiPost, apiGet } from "./utils/api";
 import MultipleDLCCheck from "./components/MultipleDLCCheck";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
 
@@ -298,51 +298,67 @@ function NewPackForm() {
           }
         }
 
-        // Enhancement phase
-        setProgress({
-          phase: "Enhancing from Spotify",
-          current: 0,
-          total: createdSongs.length,
-        });
-        window.showNotification("Enhancing songs from Spotify...", "info");
+        // Enhancement phase - check user settings first
+        let shouldAutoEnhance = true;
+        try {
+          const userSettings = await apiGet("/user-settings/me");
+          // Explicitly check for true/1, default to true if undefined/null
+          shouldAutoEnhance = userSettings.auto_spotify_fetch_enabled === true || 
+                              userSettings.auto_spotify_fetch_enabled === 1 ||
+                              userSettings.auto_spotify_fetch_enabled === undefined ||
+                              userSettings.auto_spotify_fetch_enabled === null;
+          console.log("Auto-enhance setting:", userSettings.auto_spotify_fetch_enabled, "-> shouldAutoEnhance:", shouldAutoEnhance);
+        } catch (err) {
+          console.warn("Failed to fetch user settings, defaulting to auto-enhance:", err);
+          // Default to true if we can't fetch settings
+        }
 
-        for (let i = 0; i < createdSongs.length; i++) {
-          const song = createdSongs[i];
+        if (shouldAutoEnhance) {
           setProgress({
             phase: "Enhancing from Spotify",
-            current: i + 1,
+            current: 0,
             total: createdSongs.length,
           });
+          window.showNotification("Enhancing songs from Spotify...", "info");
 
-          try {
-            const optionsRes = await fetch(
-              `${API_BASE_URL}/spotify/${song.id}/spotify-options/`
-            );
-            if (!optionsRes.ok) {
-              throw new Error(
-                `Failed to fetch Spotify options for song ${song.id}: ${optionsRes.status}`
-              );
-            }
-            const options = await optionsRes.json();
+          for (let i = 0; i < createdSongs.length; i++) {
+            const song = createdSongs[i];
+            setProgress({
+              phase: "Enhancing from Spotify",
+              current: i + 1,
+              total: createdSongs.length,
+            });
 
-            if (options.length > 0) {
-              const enhanceRes = await fetch(
-                `${API_BASE_URL}/spotify/${song.id}/enhance/`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ track_id: options[0].track_id }),
-                }
+            try {
+              const optionsRes = await fetch(
+                `${API_BASE_URL}/spotify/${song.id}/spotify-options/`
               );
-              if (!enhanceRes.ok) {
+              if (!optionsRes.ok) {
                 throw new Error(
-                  `Failed to enhance song ${song.id}: ${enhanceRes.status}`
+                  `Failed to fetch Spotify options for song ${song.id}: ${optionsRes.status}`
                 );
               }
+              const options = await optionsRes.json();
+
+              if (options.length > 0) {
+                const enhanceRes = await fetch(
+                  `${API_BASE_URL}/spotify/${song.id}/enhance/`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ track_id: options[0].track_id }),
+                  }
+                );
+                if (!enhanceRes.ok) {
+                  throw new Error(
+                    `Failed to enhance song ${song.id}: ${enhanceRes.status}`
+                  );
+                }
+              }
+            } catch (err) {
+              console.warn(`Failed to enhance song ${song.id}`, err);
+              // Don't fail the entire process for enhancement errors
             }
-          } catch (err) {
-            console.warn(`Failed to enhance song ${song.id}`, err);
-            // Don't fail the entire process for enhancement errors
           }
         }
 
@@ -365,9 +381,11 @@ function NewPackForm() {
           // Don't fail the entire process for cleanup errors
         }
 
+        // Build success message based on what actually happened
+        const enhancementText = shouldAutoEnhance ? "enhanced & " : "";
         const successMessage = meta.isAlbumSeries
-          ? `${createdSongs.length} song(s) added to album series "${meta.albumSeriesAlbum}", enhanced & cleaned.`
-          : `${createdSongs.length} song(s) added to "${effectivePack}", enhanced & cleaned.`;
+          ? `${createdSongs.length} song(s) added to album series "${meta.albumSeriesAlbum}", ${enhancementText}cleaned.`
+          : `${createdSongs.length} song(s) added to "${effectivePack}", ${enhancementText}cleaned.`;
 
         window.showNotification(successMessage, "success");
         navigate(

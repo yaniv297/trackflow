@@ -93,8 +93,19 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
         db.commit()
         db.refresh(db_authoring)
     
-    # Auto-enhance song with Spotify data (only if auto_enhance is True)
-    if auto_enhance:
+    # Auto-enhance song with Spotify data (only if auto_enhance is True and user has it enabled)
+    # Reload user from database to get fresh setting value (user might be from cache)
+    db_user = db.query(User).filter(User.id == user.id).first()
+    user_auto_enhance_enabled = True
+    if db_user:
+        user_auto_enhance_enabled = getattr(db_user, 'auto_spotify_fetch_enabled', True)
+        # Handle None or 0/1 from database
+        if user_auto_enhance_enabled is None:
+            user_auto_enhance_enabled = True
+        else:
+            user_auto_enhance_enabled = bool(user_auto_enhance_enabled)
+    
+    if auto_enhance and user_auto_enhance_enabled:
         try:
             from api.spotify import auto_enhance_song
             if auto_enhance_song(db_song.id, db, preserve_artist_album=False):
@@ -119,7 +130,10 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
         except Exception as e:
             print(f"Failed to auto-enhance song {db_song.id}: {e}")
     else:
-        print(f"Auto-enhancement skipped for song {db_song.id}")
+        if not auto_enhance:
+            print(f"Auto-enhancement skipped for song {db_song.id} (auto_enhance parameter is False)")
+        elif not user_auto_enhance_enabled:
+            print(f"Auto-enhancement skipped for song {db_song.id} (user has disabled automatic Spotify fetching)")
         
     return db_song
 

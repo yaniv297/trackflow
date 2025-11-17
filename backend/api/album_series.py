@@ -984,27 +984,40 @@ def add_missing_tracks(series_id: int, req: AddMissingRequest, db: Session = Dep
         new_ids.append(s.id)
     db.commit()
 
-    # Enhance each new song with Spotify data and clean remaster tags
-    try:
-        from api.spotify import auto_enhance_song
-        from api.tools import clean_string as _clean
-        for sid in new_ids:
-            try:
-                auto_enhance_song(sid, db, preserve_artist_album=True)
-                song = db.query(Song).get(sid)
-                if song:
-                    cleaned_title = _clean(song.title)
-                    cleaned_album = _clean(song.album or "")
-                    if cleaned_title != song.title or cleaned_album != song.album:
-                        song.title = cleaned_title
-                        song.album = cleaned_album
-                        db.add(song)
-                db.commit()
-            except Exception:
-                db.rollback()
-                continue
-    except Exception:
-        pass
+    # Enhance each new song with Spotify data and clean remaster tags (only if user has it enabled)
+    # Reload user from database to get fresh setting value (current_user might be from cache)
+    from models import User
+    db_user = db.query(User).filter(User.id == current_user.id).first()
+    user_auto_enhance_enabled = True
+    if db_user:
+        user_auto_enhance_enabled = getattr(db_user, 'auto_spotify_fetch_enabled', True)
+        # Handle None or 0/1 from database
+        if user_auto_enhance_enabled is None:
+            user_auto_enhance_enabled = True
+        else:
+            user_auto_enhance_enabled = bool(user_auto_enhance_enabled)
+    
+    if user_auto_enhance_enabled:
+        try:
+            from api.spotify import auto_enhance_song
+            from api.tools import clean_string as _clean
+            for sid in new_ids:
+                try:
+                    auto_enhance_song(sid, db, preserve_artist_album=True)
+                    song = db.query(Song).get(sid)
+                    if song:
+                        cleaned_title = _clean(song.title)
+                        cleaned_album = _clean(song.album or "")
+                        if cleaned_title != song.title or cleaned_album != song.album:
+                            song.title = cleaned_title
+                            song.album = cleaned_album
+                            db.add(song)
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    continue
+        except Exception:
+            pass
 
     # Optional: run cleaner on new songs (legacy polyfill)
     try:

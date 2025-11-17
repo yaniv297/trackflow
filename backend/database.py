@@ -26,9 +26,9 @@ engine = create_engine(
 	connect_args=connect_args,
 	pool_pre_ping=True,
 	pool_recycle=600,
-	# Emergency: Reduce connections to prevent timeouts under heavy load
-	pool_size=1 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 2,
-	max_overflow=0 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 3,
+	# Balanced settings for development and production
+	pool_size=5 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 8,
+	max_overflow=10 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 12,
 	pool_timeout=10,
 	# Enable echo_pool to help debug connection issues (optional, can remove in production)
 	echo_pool=False
@@ -159,6 +159,17 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
 				print("✅ Activity logs table created")
 	except Exception as e:
 		print(f"⚠️ Activity logs table migration skipped or failed: {e}")
+
+	# Ensure users table has auto_spotify_fetch_enabled column
+	try:
+		with engine.begin() as conn:
+			cols = conn.exec_driver_sql("PRAGMA table_info(users)").fetchall()
+			col_names = {row[1] for row in cols}
+			if cols and "auto_spotify_fetch_enabled" not in col_names:
+				conn.exec_driver_sql("ALTER TABLE users ADD COLUMN auto_spotify_fetch_enabled BOOLEAN DEFAULT 1")
+				print("✅ Added auto_spotify_fetch_enabled column to users table")
+	except Exception as e:
+		print(f"⚠️ Users auto_spotify_fetch_enabled column migration skipped or failed: {e}")
 
 # Temporarily disabled connection monitoring to reduce overhead
 # if not SQLALCHEMY_DATABASE_URL.startswith("sqlite"):

@@ -288,6 +288,12 @@ function AdminPage() {
                 >
                   Last Login {getSortIcon('last_login_at')}
                 </th>
+                <th 
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  onClick={() => handleSort('song_count')}
+                >
+                  Songs {getSortIcon('song_count')}
+                </th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -319,6 +325,9 @@ function AdminPage() {
                   <td className="date-cell">{formatDate(user.created_at)}</td>
                   <td className="date-cell">
                     {formatDate(user.last_login_at)}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    {user.song_count || 0}
                   </td>
                   <td className="actions-cell">
                     <button

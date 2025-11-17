@@ -26,8 +26,36 @@ def list_all_users(
     current_user: User = Depends(require_admin)
 ):
     """Get all users (admin only)"""
-    users = db.query(User).order_by(User.created_at.desc()).all()
-    return users
+    from sqlalchemy import func
+    from models import Song
+    
+    # Get users with song counts
+    users_with_counts = db.query(
+        User,
+        func.count(Song.id).label('song_count')
+    ).outerjoin(
+        Song, User.id == Song.user_id
+    ).group_by(User.id).all()
+    
+    # Convert to UserOut format
+    result = []
+    for user, song_count in users_with_counts:
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "created_at": user.created_at,
+            "last_login_at": user.last_login_at,
+            "display_name": user.display_name,
+            "preferred_contact_method": user.preferred_contact_method,
+            "discord_username": user.discord_username,
+            "song_count": song_count or 0
+        }
+        result.append(UserOut(**user_dict))
+    
+    return result
 
 @router.patch("/users/{user_id}/toggle-admin")
 def toggle_admin_status(

@@ -14,6 +14,7 @@ class UserOut(BaseModel):
     display_name: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
+    song_count: Optional[int] = 0  # Total number of songs across all statuses
     
     class Config:
         from_attributes = True

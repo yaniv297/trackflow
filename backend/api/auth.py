@@ -18,10 +18,6 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
-# Simple user cache with TTL
-_user_cache = {}
-CACHE_TTL = 300  # 5 minutes
-
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -54,20 +50,6 @@ def verify_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
-def _get_cached_user(username: str) -> Optional[User]:
-    """Get user from cache if not expired"""
-    if username in _user_cache:
-        user_data, timestamp = _user_cache[username]
-        if time.time() - timestamp < CACHE_TTL:
-            return user_data
-        else:
-            del _user_cache[username]
-    return None
-
-def _cache_user(username: str, user: User):
-    """Cache user data with timestamp"""
-    _user_cache[username] = (user, time.time())
-
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -87,15 +69,9 @@ def get_current_user(
     if username is None:
         raise credentials_exception
     
-    # Try cache first
-    user = _get_cached_user(username)
+    user = db.query(User).filter(User.username == username).first()
     if user is None:
-        # Cache miss - query database
-        user = db.query(User).filter(User.username == username).first()
-        if user is None:
-            raise credentials_exception
-        # Cache the user for future requests
-        _cache_user(username, user)
+        raise credentials_exception
     
     # Record user activity for online tracking
     try:

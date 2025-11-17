@@ -260,21 +260,9 @@ function AdminPage() {
                 </th>
                 <th 
                   style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('display_name')}
-                >
-                  Display Name {getSortIcon('display_name')}
-                </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
                   onClick={() => handleSort('is_admin')}
                 >
                   Admin {getSortIcon('is_admin')}
-                </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('is_active')}
-                >
-                  Active {getSortIcon('is_active')}
                 </th>
                 <th 
                   style={{ cursor: 'pointer', userSelect: 'none' }}
@@ -303,7 +291,6 @@ function AdminPage() {
                   <td>{user.id}</td>
                   <td className="username-cell">{user.username}</td>
                   <td>{user.email}</td>
-                  <td>{user.display_name || "-"}</td>
                   <td>
                     <span
                       className={`badge ${
@@ -311,15 +298,6 @@ function AdminPage() {
                       }`}
                     >
                       {user.is_admin ? "Admin" : "User"}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        user.is_active ? "badge-active" : "badge-inactive"
-                      }`}
-                    >
-                      {user.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="date-cell">{formatDate(user.created_at)}</td>

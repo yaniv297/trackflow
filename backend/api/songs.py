@@ -192,12 +192,14 @@ def get_filtered_songs(
 
     if query:
         pattern = f"%{query}%"
-        # Search in song fields and also in collaborations
+        # Search in song fields, pack name, and also in collaborations
         q = q.filter(
             or_(
                 Song.title.ilike(pattern),
                 Song.artist.ilike(pattern),
                 Song.album.ilike(pattern),
+                # Search in pack name
+                Song.pack_obj.has(Pack.name.ilike(pattern)),
                 # Search in collaborations using EXISTS subquery
                 Song.id.in_(
                     db.query(Collaboration.song_id)

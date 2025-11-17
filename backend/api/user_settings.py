@@ -13,6 +13,7 @@ class UserSettingsUpdate(BaseModel):
     email: Optional[str] = None
     preferred_contact_method: Optional[str] = None  # "email" or "discord"
     discord_username: Optional[str] = None
+    auto_spotify_fetch_enabled: Optional[bool] = None
 
 class UserSettingsResponse(BaseModel):
     id: int
@@ -20,6 +21,7 @@ class UserSettingsResponse(BaseModel):
     email: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
+    auto_spotify_fetch_enabled: Optional[bool] = None
     created_at: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
@@ -37,14 +39,27 @@ def get_user_settings(
 ):
     """Get current user's settings"""
     
+    # Reload user from current session to get fresh data
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     # Convert datetime to string for created_at
+    # Handle auto_spotify_fetch_enabled: if attribute exists, use its value (even if False), otherwise default to True
+    auto_fetch_enabled = True
+    if hasattr(user, 'auto_spotify_fetch_enabled'):
+        auto_fetch_enabled = user.auto_spotify_fetch_enabled if user.auto_spotify_fetch_enabled is not None else True
+    else:
+        auto_fetch_enabled = True
+    
     user_dict = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "preferred_contact_method": current_user.preferred_contact_method,
-        "discord_username": current_user.discord_username,
-        "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "preferred_contact_method": user.preferred_contact_method,
+        "discord_username": user.discord_username,
+        "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
+        "created_at": user.created_at.isoformat() if user.created_at else None
     }
     return user_dict
 
@@ -56,8 +71,14 @@ def update_user_settings(
 ):
     """Update current user's settings"""
     
+    # Reload user from current session to ensure it's attached
+    # This is necessary because current_user might come from cache
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     # Check if email is being changed and if it's already taken
-    if settings.email and settings.email != current_user.email:
+    if settings.email and settings.email != user.email:
         # Basic email validation
         import re
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -73,7 +94,7 @@ def update_user_settings(
                 status_code=400,
                 detail="Email already registered"
             )
-        current_user.email = settings.email
+        user.email = settings.email
     
     # Update other fields
     if settings.preferred_contact_method is not None:
@@ -84,7 +105,7 @@ def update_user_settings(
             )
         
         # Validate that required fields are provided based on contact method
-        if settings.preferred_contact_method == "email" and not current_user.email:
+        if settings.preferred_contact_method == "email" and not user.email:
             raise HTTPException(
                 status_code=400,
                 detail="Email address is required when email is the preferred contact method"
@@ -95,23 +116,34 @@ def update_user_settings(
                 detail="Discord username is required when Discord is the preferred contact method"
             )
         
-        current_user.preferred_contact_method = settings.preferred_contact_method
+        user.preferred_contact_method = settings.preferred_contact_method
     
     if settings.discord_username is not None:
-        current_user.discord_username = settings.discord_username
+        user.discord_username = settings.discord_username
+    
+    if settings.auto_spotify_fetch_enabled is not None:
+        user.auto_spotify_fetch_enabled = settings.auto_spotify_fetch_enabled
     
     try:
         db.commit()
-        db.refresh(current_user)
+        db.refresh(user)
         
         # Convert datetime to string for created_at
+        # Ensure auto_spotify_fetch_enabled is always a boolean
+        auto_fetch_enabled = True
+        if hasattr(user, 'auto_spotify_fetch_enabled'):
+            auto_fetch_enabled = user.auto_spotify_fetch_enabled if user.auto_spotify_fetch_enabled is not None else True
+        else:
+            auto_fetch_enabled = True
+        
         user_dict = {
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "preferred_contact_method": current_user.preferred_contact_method,
-            "discord_username": current_user.discord_username,
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "preferred_contact_method": user.preferred_contact_method,
+            "discord_username": user.discord_username,
+            "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
+            "created_at": user.created_at.isoformat() if user.created_at else None
         }
         return user_dict
     except Exception as e:
@@ -144,6 +176,7 @@ def get_user_profile(
         "email": user.email,
         "preferred_contact_method": user.preferred_contact_method,
         "discord_username": user.discord_username,
+        "auto_spotify_fetch_enabled": user.auto_spotify_fetch_enabled if hasattr(user, 'auto_spotify_fetch_enabled') else True,
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
     return user_dict 

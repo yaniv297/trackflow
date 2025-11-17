@@ -3,8 +3,35 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import RockBandDLC
 from typing import List, Optional
+import time
+import hashlib
 
 router = APIRouter(prefix="/rockband-dlc", tags=["Rock Band DLC"])
+
+# Aggressive caching for DLC checks since data never changes
+_dlc_cache = {}
+DLC_CACHE_TTL = 3600  # 1 hour - data is static
+
+def _get_cache_key(title: str, artist: str) -> str:
+    """Generate cache key for title/artist combination"""
+    combined = f"{title.lower().strip()}|{artist.lower().strip()}"
+    return hashlib.md5(combined.encode()).hexdigest()
+
+def _get_cached_dlc_check(title: str, artist: str):
+    """Get DLC check result from cache if not expired"""
+    cache_key = _get_cache_key(title, artist)
+    if cache_key in _dlc_cache:
+        result, timestamp = _dlc_cache[cache_key]
+        if time.time() - timestamp < DLC_CACHE_TTL:
+            return result
+        else:
+            del _dlc_cache[cache_key]
+    return None
+
+def _cache_dlc_check(title: str, artist: str, result):
+    """Cache DLC check result"""
+    cache_key = _get_cache_key(title, artist)
+    _dlc_cache[cache_key] = (result, time.time())
 
 @router.get("/check")
 def check_dlc_status(
@@ -18,6 +45,11 @@ def check_dlc_status(
     title_clean = title.strip()
     artist_clean = artist.strip()
     
+    # Try cache first
+    cached_result = _get_cached_dlc_check(title_clean, artist_clean)
+    if cached_result is not None:
+        return cached_result
+    
     # Search for exact matches first (case insensitive)
     exact_match = db.query(RockBandDLC).filter(
         RockBandDLC.title.ilike(title_clean),
@@ -25,7 +57,7 @@ def check_dlc_status(
     ).first()
     
     if exact_match:
-        return {
+        result = {
             "is_dlc": True,
             "origin": exact_match.origin,
             "match_type": "exact",
@@ -36,6 +68,8 @@ def check_dlc_status(
                 "origin": exact_match.origin
             }
         }
+        _cache_dlc_check(title_clean, artist_clean, result)
+        return result
     
     # Search for partial matches (case insensitive)
     partial_matches = db.query(RockBandDLC).filter(
@@ -44,7 +78,7 @@ def check_dlc_status(
     ).limit(5).all()
     
     if partial_matches:
-        return {
+        result = {
             "is_dlc": True,
             "origin": partial_matches[0].origin,
             "match_type": "partial",
@@ -64,13 +98,17 @@ def check_dlc_status(
                 for match in partial_matches
             ]
         }
+        _cache_dlc_check(title_clean, artist_clean, result)
+        return result
     
-    return {
+    result = {
         "is_dlc": False,
         "origin": None,
         "match_type": None,
         "dlc_entry": None
     }
+    _cache_dlc_check(title_clean, artist_clean, result)
+    return result
 
 @router.get("/search")
 def search_dlc(

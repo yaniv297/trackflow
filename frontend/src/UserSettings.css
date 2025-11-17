@@ -40,6 +40,38 @@
   overflow: hidden;
 }
 
+.settings-tabs {
+  display: flex;
+  border-bottom: 2px solid #f0f0f0;
+  background: #f8f9fa;
+}
+
+.settings-tab {
+  flex: 1;
+  padding: 1rem 2rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+
+.settings-tab:hover {
+  color: #007bff;
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+.settings-tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background-color: white;
+  font-weight: 600;
+}
+
 .settings-section {
   padding: 30px;
 }
@@ -202,6 +234,11 @@
     font-size: 2rem;
   }
 
+  .settings-tab {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
   .btn {
     width: 100%;
     margin-bottom: 10px;
@@ -219,5 +256,10 @@
 
   .user-settings-header h1 {
     font-size: 1.8rem;
+  }
+
+  .settings-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
   }
 }

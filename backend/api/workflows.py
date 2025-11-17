@@ -20,11 +20,35 @@ from workflow_schemas import (
     SongProgressOut, SongProgressUpdate, BulkProgressUpdate,
     WorkflowSummary
 )
+import time
 
 # TODO: Import the new workflow models once they're integrated into models.py
 # from models import WorkflowTemplate, WorkflowTemplateStep, UserWorkflow, UserWorkflowStep, SongProgress, Song, User
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
+
+# Simple workflow cache with TTL
+_workflow_cache = {}
+WORKFLOW_CACHE_TTL = 600  # 10 minutes - workflows don't change often
+
+def clear_workflow_cache():
+    """Clear the workflow cache - call when workflows are updated"""
+    global _workflow_cache
+    _workflow_cache.clear()
+
+def _get_cached_workflow(user_id: int):
+    """Get workflow from cache if not expired"""
+    if user_id in _workflow_cache:
+        workflow, timestamp = _workflow_cache[user_id]
+        if time.time() - timestamp < WORKFLOW_CACHE_TTL:
+            return workflow
+        else:
+            del _workflow_cache[user_id]
+    return None
+
+def _cache_workflow(user_id: int, workflow):
+    """Cache workflow with timestamp"""
+    _workflow_cache[user_id] = (workflow, time.time())
 
 
 # ========================================
@@ -37,6 +61,11 @@ async def get_my_workflow(
     current_user = Depends(get_current_active_user)
 ):
     """Get the current user's workflow configuration (SQLite-compatible)."""
+    # Try cache first
+    cached_workflow = _get_cached_workflow(current_user.id)
+    if cached_workflow is not None:
+        return cached_workflow
+    
     # Ensure a workflow exists for this user
     result = db.execute(text("SELECT id, user_id, name, description, template_id, created_at, updated_at FROM user_workflows WHERE user_id = :uid"), {"uid": current_user.id}).fetchone()
     if not result:
@@ -60,7 +89,7 @@ async def get_my_workflow(
         FROM user_workflow_steps WHERE workflow_id = :wid ORDER BY order_index
     """), {"wid": workflow_id}).fetchall()
 
-    return {
+    workflow_data = {
         "id": result[0],
         "user_id": result[1],
         "name": result[2],
@@ -79,6 +108,10 @@ async def get_my_workflow(
             for s in steps
         ],
     }
+    
+    # Cache the result
+    _cache_workflow(current_user.id, workflow_data)
+    return workflow_data
 
 @router.get("/my-workflow/summary", response_model=WorkflowSummary)
 async def get_my_workflow_summary(
@@ -193,6 +226,10 @@ async def update_my_workflow(
 
     db.commit()
     
+    # Clear cache for this user since workflow was updated
+    if current_user.id in _workflow_cache:
+        del _workflow_cache[current_user.id]
+    
     updated_sections = []
     if workflow_update.name is not None or getattr(workflow_update, 'description', None) is not None:
         updated_sections.append("meta")
@@ -240,6 +277,10 @@ async def reset_to_default(
     """), {"wid": wid, "tid": tmpl[0]})
     db.execute(text("UPDATE user_workflows SET template_id = :tid, updated_at = CURRENT_TIMESTAMP WHERE id = :wid"), {"tid": tmpl[0], "wid": wid})
     db.commit()
+    
+    # Clear cache for this user since workflow was reset
+    if current_user.id in _workflow_cache:
+        del _workflow_cache[current_user.id]
     
     try:
         log_activity(

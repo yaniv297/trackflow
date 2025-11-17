@@ -160,43 +160,45 @@ export default function SongRow({
         </td>
 
         {/* Artist */}
-        <td style={{ padding: "8px" }}>
-          {editing[`${song.id}_artist`] ? (
-            <input
-              type="text"
-              value={editValues[`${song.id}_artist`] ?? song.artist}
-              onChange={(e) =>
-                setEditValues((prev) => ({
-                  ...prev,
-                  [`${song.id}_artist`]: e.target.value,
-                }))
-              }
-              onBlur={() => saveEdit(song.id, "artist")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveEdit(song.id, "artist");
-              }}
-              style={{
-                width: "100%",
-                padding: "4px 8px",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-              }}
-              autoFocus
-            />
-          ) : (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={() =>
-                setEditing((prev) => ({
-                  ...prev,
-                  [`${song.id}_artist`]: true,
-                }))
-              }
-            >
-              {song.artist}
-            </div>
-          )}
-        </td>
+        {groupBy !== "artist" && (
+          <td style={{ padding: "8px" }}>
+            {editing[`${song.id}_artist`] ? (
+              <input
+                type="text"
+                value={editValues[`${song.id}_artist`] ?? song.artist}
+                onChange={(e) =>
+                  setEditValues((prev) => ({
+                    ...prev,
+                    [`${song.id}_artist`]: e.target.value,
+                  }))
+                }
+                onBlur={() => saveEdit(song.id, "artist")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEdit(song.id, "artist");
+                }}
+                style={{
+                  width: "100%",
+                  padding: "4px 8px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                }}
+                autoFocus
+              />
+            ) : (
+              <div
+                style={{ cursor: "pointer" }}
+                onClick={() =>
+                  setEditing((prev) => ({
+                    ...prev,
+                    [`${song.id}_artist`]: true,
+                  }))
+                }
+              >
+                {song.artist}
+              </div>
+            )}
+          </td>
+        )}
 
         {/* Album */}
         <td style={{ padding: "8px" }}>

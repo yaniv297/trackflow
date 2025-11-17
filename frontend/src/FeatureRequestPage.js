@@ -321,6 +321,35 @@ function FeatureRequestPage() {
     setCommentText((prev) => ({ ...prev, [requestId]: value }));
   };
 
+  const handleDeleteRequest = async (requestId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this feature request? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await apiDelete(`/feature-requests/${requestId}`);
+      setFeatureRequests((prev) => prev.filter((fr) => fr.id !== requestId));
+      setExpandedRequest((prev) => (prev === requestId ? null : prev));
+      setExpandedCompleted((prev) => {
+        if (!prev[requestId]) return prev;
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
+      window.showNotification("Feature request deleted!", "success");
+    } catch (error) {
+      console.error("Failed to delete feature request:", error);
+      window.showNotification(
+        "Failed to delete feature request. Please try again.",
+        "error"
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div
@@ -471,6 +500,7 @@ function FeatureRequestPage() {
                   onCancelEditComment={handleCancelEditComment}
                   onEditTextChange={handleEditTextChange}
                   onEditCommentTextChange={handleEditCommentTextChange}
+                  onDeleteRequest={handleDeleteRequest}
                   organizeComments={organizeComments}
                 />
               ))}
@@ -580,6 +610,8 @@ function FeatureRequestPage() {
                           onSaveEditComment={handleSaveEditComment}
                           onCancelEditComment={handleCancelEditComment}
                           onEditTextChange={handleEditTextChange}
+                          onEditCommentTextChange={handleEditCommentTextChange}
+                          onDeleteRequest={handleDeleteRequest}
                           organizeComments={organizeComments}
                         />
                       )}

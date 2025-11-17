@@ -255,6 +255,32 @@ def update_feature_request(
     return _build_feature_request_response(feature_request, current_user.id, db)
 
 
+@router.delete("/{feature_request_id}")
+def delete_feature_request(
+    feature_request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete a feature request (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    feature_request = db.query(FeatureRequest).filter(
+        FeatureRequest.id == feature_request_id
+    ).first()
+
+    if not feature_request:
+        raise HTTPException(status_code=404, detail="Feature request not found")
+
+    db.delete(feature_request)
+    db.commit()
+
+    return {"message": "Feature request deleted successfully"}
+
+
 @router.patch("/{feature_request_id}/comments/{comment_id}", response_model=FeatureRequestCommentOut)
 def update_comment(
     feature_request_id: int,

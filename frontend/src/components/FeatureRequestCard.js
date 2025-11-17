@@ -31,6 +31,7 @@ function FeatureRequestCard({
   onCancelEditComment,
   onEditTextChange,
   onEditCommentTextChange,
+  onDeleteRequest,
   organizeComments,
 }) {
   return (
@@ -156,6 +157,24 @@ function FeatureRequestCard({
                   title={request.is_done ? "Mark as not done" : "Mark as done"}
                 >
                   {request.is_done ? "✓ Done" : "Mark Done"}
+                </button>
+              )}
+              {user?.is_admin && (
+                <button
+                  onClick={() => onDeleteRequest(request.id)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "#dc3545",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                  }}
+                  title="Delete feature request"
+                >
+                  🗑 Delete
                 </button>
               )}
             </div>

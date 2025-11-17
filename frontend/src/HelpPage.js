@@ -230,7 +230,8 @@ function HelpPage() {
                   planned songs
                   <br />
                   • Select songs you want to work on
-                  <br />• Open the pack’s <strong>actions dropdown (gear)</strong> and click
+                  <br />• Open the pack’s{" "}
+                  <strong>actions dropdown (gear)</strong> and click
                   <strong> "Start Work"</strong> to move them to WIP
                   <br />• Your songs will now appear on the{" "}
                   <strong>WIP page</strong> with progress tracking
@@ -361,7 +362,8 @@ function HelpPage() {
                   authors
                 </li>
                 <li>
-                  <strong>Album Series:</strong> Convert packs to album series if they center on a specific album
+                  <strong>Album Series:</strong> Convert packs to album series
+                  if they center on a specific album
                 </li>
               </ul>
 
@@ -601,8 +603,8 @@ function HelpPage() {
                     optional when you add them to a pack. They still show up on
                     your WIP board, but they <em>do not</em> count toward the
                     pack's completion percentage until you make them required
-                    again - perfect for “maybe” songs or bonus content you're not
-                    ready to commit to yet.
+                    again - perfect for “maybe” songs or bonus content you're
+                    not ready to commit to yet.
                   </li>
                 </ul>
 
@@ -670,8 +672,9 @@ function HelpPage() {
 
                 <h4 style={{ color: "#333" }}>Song Collaboration</h4>
                 <p style={textStyle}>
-                  Song collaboration is for assigning specific workflow parts on a single
-                  song to a collaborator. It is only available in <strong>WIP mode</strong>.
+                  Song collaboration is for assigning specific workflow parts on
+                  a single song to a collaborator. It is only available in{" "}
+                  <strong>WIP mode</strong>.
                 </p>
                 <ol style={listStyle}>
                   <li>Open the song on the WIP page.</li>
@@ -681,13 +684,18 @@ function HelpPage() {
                   </li>
                   <li>Select a collaborator (existing user).</li>
                   <li>
-                    Choose the <strong>parts to assign</strong> (e.g., Guitar, Vocals, Keys).
+                    Choose the <strong>parts to assign</strong> (e.g., Guitar,
+                    Vocals, Keys).
                   </li>
-                  <li>Save. The song now displays badges showing who owns which parts.</li>
+                  <li>
+                    Save. The song now displays badges showing who owns which
+                    parts.
+                  </li>
                 </ol>
                 <p style={textStyle}>
-                  Owners retain control of the song and its workflow. Collaborators only see and
-                  work on the parts you assigned. Progress badges on the WIP card will reflect the
+                  Owners retain control of the song and its workflow.
+                  Collaborators only see and work on the parts you assigned.
+                  Progress badges on the WIP card will reflect the
                   collaborator’s assignments next to their username.
                 </p>
               </div>
@@ -1021,9 +1029,11 @@ function HelpPage() {
             <section style={sectionStyle}>
               <h3 style={subHeadingStyle}>What Is The Album Series?</h3>
               <p style={textStyle}>
-                The Album Series is a <strong>collaborative community project</strong> where members contribute album-centric 
-                packs. Only album series releases get official series numbers and appear on the public Album Series page for 
-                everyone to see.
+                The Album Series is a{" "}
+                <strong>collaborative community project</strong> where members
+                contribute album-centric packs. Only album series releases get
+                official series numbers and appear on the public Album Series
+                page for everyone to see.
               </p>
 
               <div
@@ -1035,11 +1045,27 @@ function HelpPage() {
               >
                 <h4 style={{ color: "#333", marginTop: 0 }}>How It Works</h4>
                 <ul style={listStyle}>
-                  <li><strong>Community Project:</strong> One shared Album Series that all users contribute to</li>
-                  <li><strong>Album-Centric Packs:</strong> Each entry focuses on songs from a specific album</li>
-                  <li><strong>Private Development:</strong> Album series remain private while you work on them</li>
-                  <li><strong>Public Release:</strong> When you release an album series, it gets a series number and becomes visible to everyone</li>
-                  <li><strong>Any Album Qualifies:</strong> No themes or restrictions - any album can be added</li>
+                  <li>
+                    <strong>Community Project:</strong> One shared Album Series
+                    that all users contribute to
+                  </li>
+                  <li>
+                    <strong>Album-Centric Packs:</strong> Each entry focuses on
+                    songs from a specific album
+                  </li>
+                  <li>
+                    <strong>Private Development:</strong> Album series remain
+                    private while you work on them
+                  </li>
+                  <li>
+                    <strong>Public Release:</strong> When you release an album
+                    series, it gets a series number and becomes visible to
+                    everyone
+                  </li>
+                  <li>
+                    <strong>Any Album Qualifies:</strong> No themes or
+                    restrictions - any album can be added
+                  </li>
                 </ul>
               </div>
             </section>
@@ -1133,27 +1159,60 @@ function HelpPage() {
                   Smart Album Management
                 </h4>
                 <p style={textStyle}>
-                  The Album Series Editor fetches the complete album tracklist and provides intelligent track management 
-                  with visual indicators for each song:
+                  The Album Series Editor fetches the complete album tracklist
+                  and provides intelligent track management with visual
+                  indicators for each song:
                 </p>
-                
+
                 <h4 style={{ color: "#333" }}>Track Status Indicators</h4>
                 <ul style={listStyle}>
-                  <li><strong>✅ In Pack:</strong> Song is already in your pack</li>
-                  <li><strong>🎵 Official DLC:</strong> Automatically detected as existing Rock Band DLC</li>
-                  <li><strong>⚠️ Preexisting:</strong> Marked as already done by community</li>
-                  <li><strong>❌ Missing:</strong> Not in pack yet, can be added with one click</li>
-                  <li><strong>🚫 Irrelevant:</strong> Marked as not relevant (interludes, skits, demos, bonus tracks etc.)</li>
+                  <li>
+                    <strong>✅ In Pack:</strong> Song is already in your pack
+                  </li>
+                  <li>
+                    <strong>🎵 Official DLC:</strong> Automatically detected as
+                    existing Rock Band DLC
+                  </li>
+                  <li>
+                    <strong>⚠️ Preexisting:</strong> Marked as already done by
+                    community
+                  </li>
+                  <li>
+                    <strong>❌ Missing:</strong> Not in pack yet, can be added
+                    with one click
+                  </li>
+                  <li>
+                    <strong>🚫 Irrelevant:</strong> Marked as not relevant
+                    (interludes, skits, demos, bonus tracks etc.)
+                  </li>
                 </ul>
 
                 <h4 style={{ color: "#333" }}>Key Features</h4>
                 <ul style={listStyle}>
-                  <li><strong>One-Click Addition:</strong> Add missing tracks instantly</li>
-                  <li><strong>Automatic DLC Detection:</strong> Prevents duplicate work on official songs</li>
-                  <li><strong>Mark as Irrelevant:</strong> Flag tracks that shouldn't be customs (interludes, spoken word)</li>
-                  <li><strong>Mark as Preexisting:</strong> Note tracks already done as customs by others</li>
-                  <li><strong>Coverage Tracking:</strong> Shows completion percentage</li>
-                  <li><strong>Link Existing Songs:</strong> Connect differently-named songs in your pack</li>
+                  <li>
+                    <strong>One-Click Addition:</strong> Add missing tracks
+                    instantly
+                  </li>
+                  <li>
+                    <strong>Automatic DLC Detection:</strong> Prevents duplicate
+                    work on official songs
+                  </li>
+                  <li>
+                    <strong>Mark as Irrelevant:</strong> Flag tracks that
+                    shouldn't be customs (interludes, spoken word)
+                  </li>
+                  <li>
+                    <strong>Mark as Preexisting:</strong> Note tracks already
+                    done as customs by others
+                  </li>
+                  <li>
+                    <strong>Coverage Tracking:</strong> Shows completion
+                    percentage
+                  </li>
+                  <li>
+                    <strong>Link Existing Songs:</strong> Connect
+                    differently-named songs in your pack
+                  </li>
                 </ul>
 
                 <h4 style={{ color: "#333" }}>Benefits</h4>

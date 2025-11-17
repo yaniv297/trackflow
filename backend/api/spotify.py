@@ -695,23 +695,85 @@ def fetch_all_missing_artist_images(
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    # Get all artists without images - no limit
-    artists_without_images = db.query(Artist).filter(
-        (Artist.image_url.is_(None)) | (Artist.image_url == "")
-    ).all()
-    
-    if not artists_without_images:
-        return {"message": "All artists already have images", "updated_count": 0, "total_artists": 0}
+    from sqlalchemy import func, distinct
+    from sqlalchemy import text
     
     sp = _get_client()
     if not sp:
         raise HTTPException(status_code=500, detail="Spotify credentials not configured")
     
+    log_entries = []
+    max_log_entries = 200
+    
+    # Step 1: Find all unique artist names from songs table that don't have artist_id
+    # and don't exist in artists table
+    songs_with_missing_artists = db.query(
+        distinct(Song.artist).label('artist_name'),
+        func.min(Song.user_id).label('user_id')  # Use first user_id for the artist
+    ).filter(
+        Song.artist.isnot(None),
+        Song.artist != "",
+        Song.artist_id.is_(None)
+    ).group_by(Song.artist).all()
+    
+    created_count = 0
+    if songs_with_missing_artists:
+        log_entries.append(f"📋 Found {len(songs_with_missing_artists)} artists in songs table without artist entries")
+        
+        # Create missing artist entries
+        for artist_name, user_id in songs_with_missing_artists:
+            # Check if artist already exists (case-insensitive)
+            existing = db.query(Artist).filter(
+                func.lower(Artist.name) == func.lower(artist_name)
+            ).first()
+            
+            if not existing:
+                try:
+                    # Fix PostgreSQL sequence if needed
+                    db_url = str(db.bind.url)
+                    if 'postgresql' in db_url.lower():
+                        try:
+                            db.execute(text("""
+                                SELECT setval('artists_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM artists), false)
+                            """))
+                            db.commit()
+                        except Exception:
+                            pass
+                    
+                    new_artist = Artist(name=artist_name, image_url=None, user_id=user_id)
+                    db.add(new_artist)
+                    created_count += 1
+                    
+                    if len(log_entries) < max_log_entries:
+                        log_entries.append(f"➕ Created artist entry: {artist_name}")
+                except Exception as e:
+                    if len(log_entries) < max_log_entries:
+                        log_entries.append(f"❌ Failed to create artist {artist_name}: {e}")
+                    continue
+        
+        if created_count > 0:
+            db.commit()
+            log_entries.append(f"✅ Created {created_count} missing artist entries")
+    
+    # Step 2: Get all artists without images (including newly created ones)
+    artists_without_images = db.query(Artist).filter(
+        (Artist.image_url.is_(None)) | (Artist.image_url == "")
+    ).all()
+    
+    if not artists_without_images:
+        return {
+            "message": "All artists already have images",
+            "updated_count": 0,
+            "total_artists": 0,
+            "created_count": created_count,
+            "log": log_entries
+        }
+    
     updated_count = 0
     total_count = len(artists_without_images)
     failed_artists = []
-    log_entries = []
-    max_log_entries = 200
+    
+    log_entries.append(f"🖼️ Starting to fetch images for {total_count} artists...")
     
     # Process in batches to avoid timeouts and rate limits
     import time
@@ -749,9 +811,10 @@ def fetch_all_missing_artist_images(
     db.commit()
     
     return {
-        "message": f"Updated artist images for {updated_count} out of {total_count} artists",
+        "message": f"Created {created_count} missing artists. Updated artist images for {updated_count} out of {total_count} artists",
         "updated_count": updated_count,
         "total_artists": total_count,
+        "created_count": created_count,
         "failed_artists": failed_artists[:25],  # include sample of artists that failed
         "failed_count": len(failed_artists),
         "log": log_entries

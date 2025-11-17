@@ -596,6 +596,14 @@ function HelpPage() {
                     <strong>Quick Actions:</strong> Edit, delete, enhance, or
                     collaborate on songs
                   </li>
+                  <li>
+                    <strong>Optional Songs:</strong> Flag uncertain tracks as
+                    optional when you add them to a pack. They still show up on
+                    your WIP board, but they <em>do not</em> count toward the
+                    pack's completion percentage until you make them required
+                    again - perfect for “maybe” songs or bonus content you're not
+                    ready to commit to yet.
+                  </li>
                 </ul>
 
                 <h4 style={{ color: "#333" }}>Workflow Tips</h4>

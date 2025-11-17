@@ -11,7 +11,14 @@ function AdminPage() {
   const [fetchLogs, setFetchLogs] = useState([]);
   const [fixingSongLinks, setFixingSongLinks] = useState(false);
   const [songLinkLogs, setSongLinkLogs] = useState([]);
-  const [sortConfig, setSortConfig] = useState({ key: 'last_login_at', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({
+    key: "last_login_at",
+    direction: "desc",
+  });
+  const [showTools, setShowTools] = useState(false);
+  const [showUsers, setShowUsers] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
 
   useEffect(() => {
@@ -173,6 +180,10 @@ function AdminPage() {
     setSortConfig({ key, direction });
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [users.length]);
+
   const sortedUsers = [...users].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
@@ -212,9 +223,21 @@ function AdminPage() {
 
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) {
-      return '↕️';
+      return "↕️";
     }
-    return sortConfig.direction === 'asc' ? '↑' : '↓';
+    return sortConfig.direction === "asc" ? "↑" : "↓";
+  };
+
+  const totalPages = Math.ceil(sortedUsers.length / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedUsers = sortedUsers.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE
+  );
+
+  const goToPage = (page) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
   };
 
   const formatDate = (dateString) => {
@@ -248,8 +271,41 @@ function AdminPage() {
       </div>
 
       <div className="admin-tools-section" style={{ marginBottom: "2rem" }}>
-        <h2>Admin Tools</h2>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        <button
+          onClick={() => setShowTools((prev) => !prev)}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            border: "1px solid #e4e7ec",
+            background: "#f9fafc",
+            padding: "0.65rem 0.9rem",
+            borderRadius: "10px",
+            marginBottom: "0.75rem",
+            cursor: "pointer",
+            color: "#1f2933",
+            fontSize: "1.2rem",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "1.1rem",
+              color: "#5a6a85",
+              width: "1.2rem",
+              display: "inline-block",
+            }}
+          >
+            {showTools ? "▾" : "▸"}
+          </span>
+          <span>Admin Tools</span>
+        </button>
+        {showTools && (
+          <>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <button
             onClick={handleFetchAllArtistImages}
             disabled={fetchingImages}
@@ -331,12 +387,48 @@ function AdminPage() {
             ))}
           </div>
         )}
+          </>
+        )}
       </div>
 
       <div className="users-section">
-        <h2>User Management ({users.length} users)</h2>
+        <button
+          onClick={() => setShowUsers((prev) => !prev)}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            border: "1px solid #e4e7ec",
+            background: "#f9fafc",
+            padding: "0.65rem 0.9rem",
+            borderRadius: "10px",
+            marginBottom: "0.75rem",
+            cursor: "pointer",
+            color: "#1f2933",
+            fontSize: "1.2rem",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "1.1rem",
+              color: "#5a6a85",
+              width: "1.2rem",
+              display: "inline-block",
+            }}
+          >
+            {showUsers ? "▾" : "▸"}
+          </span>
+          <span>
+            User Management ({users.length} {users.length === 1 ? "user" : "users"})
+          </span>
+        </button>
 
-        <div className="users-table-container">
+        {showUsers && (
+          <div className="users-table-container">
           <table className="users-table">
             <thead>
               <tr>
@@ -386,7 +478,7 @@ function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {sortedUsers.map((user) => (
+              {paginatedUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td className="username-cell">{user.username}</td>
@@ -436,7 +528,48 @@ function AdminPage() {
               ))}
             </tbody>
           </table>
-        </div>
+            <div
+              style={{
+                marginTop: "1rem",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+              }}
+            >
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  background: currentPage === 1 ? "#f0f0f0" : "white",
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                }}
+              >
+                ← Prev
+              </button>
+              <span style={{ fontSize: "0.9rem", color: "#555" }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  background: currentPage === totalPages ? "#f0f0f0" : "white",
+                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                }}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

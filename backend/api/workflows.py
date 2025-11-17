@@ -14,6 +14,7 @@ from sqlalchemy import text
 from typing import List
 from database import get_db
 from api.auth import get_current_active_user
+from api.activity_logger import log_activity
 from workflow_schemas import (
     UserWorkflowOut, UserWorkflowUpdate,
     SongProgressOut, SongProgressUpdate, BulkProgressUpdate,
@@ -192,6 +193,26 @@ async def update_my_workflow(
 
     db.commit()
     
+    updated_sections = []
+    if workflow_update.name is not None or getattr(workflow_update, 'description', None) is not None:
+        updated_sections.append("meta")
+    if workflow_update.steps is not None:
+        updated_sections.append("steps")
+    
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="update_workflow",
+            description=f"{current_user.username} updated their workflow",
+            metadata={
+                "updated_sections": updated_sections or ["none"],
+                "workflow_id": wid
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log workflow update: {log_err}")
+    
     # Return updated workflow
     return await get_my_workflow(db, current_user)
 
@@ -219,7 +240,21 @@ async def reset_to_default(
     """), {"wid": wid, "tid": tmpl[0]})
     db.execute(text("UPDATE user_workflows SET template_id = :tid, updated_at = CURRENT_TIMESTAMP WHERE id = :wid"), {"tid": tmpl[0], "wid": wid})
     db.commit()
-
+    
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="reset_workflow",
+            description=f"{current_user.username} reset their workflow to default",
+            metadata={
+                "workflow_id": wid,
+                "template_id": tmpl[0]
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log workflow reset: {log_err}")
+    
     return await get_my_workflow(db, current_user)
 
 # ========================================

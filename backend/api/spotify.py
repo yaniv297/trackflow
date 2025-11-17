@@ -590,6 +590,19 @@ def import_playlist(
         else:
             break
 
+    # Log import activity
+    from .activity_logger import log_activity
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="import_spotify",
+            description=f"{current_user.username} has imported {imported_count} song(s) from Spotify",
+            metadata={"imported_count": imported_count, "playlist_url": req.playlist_url, "status": req.status, "pack": req.pack}
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log import_spotify activity: {log_err}")
+    
     return {"imported_count": imported_count}
 
 

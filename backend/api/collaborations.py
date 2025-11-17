@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Collaboration, CollaborationType, User, Pack, Song
 from api.auth import get_current_active_user
+from api.activity_logger import log_activity
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -88,6 +89,21 @@ def add_pack_collaborator(
     
     db.commit()
     print(f"Committed {len(collaborations)} new collaborations for user {request.user_id} on pack {pack_id}")
+    
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="add_pack_collaborator",
+            description=f"{current_user.username} added {target_user.username} to pack {pack_id}",
+            metadata={
+                "pack_id": pack_id,
+                "target_user_id": request.user_id,
+                "permissions": request.permissions
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log pack collaboration addition: {log_err}")
     
     # Return all collaborations for this user on this pack
     result = db.query(Collaboration).filter(
@@ -204,6 +220,20 @@ def add_song_collaborator(
     db.add(collab)
     db.commit()
     db.refresh(collab)
+    
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="add_song_collaborator",
+            description=f"{current_user.username} added {target_user.username} to song {song_id}",
+            metadata={
+                "song_id": song_id,
+                "target_user_id": request.user_id
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log song collaboration addition: {log_err}")
     
     return CollaborationResponse(
         id=collab.id,

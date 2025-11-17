@@ -6,6 +6,7 @@ from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
 from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Artist
 from api.auth import get_current_active_user
+from api.activity_logger import log_activity
 from typing import Optional
 from typing import List
 from datetime import datetime
@@ -111,6 +112,18 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
         song_dict["pack_name"] = db_song.pack_obj.name
         song_dict["pack_owner_id"] = db_song.pack_obj.user_id
         song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
+    
+    # Log activity
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="create_song",
+            description=f"{current_user.username} has created a new song: {db_song.title} by {db_song.artist}",
+            metadata={"song_id": db_song.id, "title": db_song.title, "artist": db_song.artist, "status": db_song.status.value if hasattr(db_song.status, 'value') else str(db_song.status)}
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log create_song activity: {log_err}")
     
     return SongOut(**song_dict)
 
@@ -488,16 +501,57 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
         
         del updates["pack"]
 
+    # Track if status changed for activity logging
+    old_status = song.status
+    status_changed = False
+    
     # Update other fields
     for key, value in updates.items():
         if hasattr(song, key):
+            if key == "status":
+                status_changed = True
             setattr(song, key, value)
 
     db.commit()
     db.refresh(song)
     
+    # Log status change activity
+    if status_changed and old_status != song.status:
+        try:
+            log_activity(
+                db=db,
+                user_id=current_user.id,
+                activity_type="change_status",
+                description=f"{current_user.username} has moved {song.title} by {song.artist} from {old_status.value if hasattr(old_status, 'value') else str(old_status)} to {song.status.value if hasattr(song.status, 'value') else str(song.status)}",
+                metadata={"song_id": song.id, "title": song.title, "artist": song.artist, "old_status": old_status.value if hasattr(old_status, 'value') else str(old_status), "new_status": song.status.value if hasattr(song.status, 'value') else str(song.status)}
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log change_status activity: {log_err}")
+    
     # Build result with proper collaboration formatting
     song_dict = song.__dict__.copy()
+    
+    # Remove SQLAlchemy internal state
+    song_dict.pop("_sa_instance_state", None)
+    
+    # Ensure all required fields are present
+    if "id" not in song_dict:
+        song_dict["id"] = song.id
+    if "title" not in song_dict:
+        song_dict["title"] = song.title
+    if "artist" not in song_dict:
+        song_dict["artist"] = song.artist
+    if "album" not in song_dict:
+        song_dict["album"] = song.album
+    if "status" not in song_dict:
+        song_dict["status"] = song.status
+    if "year" not in song_dict:
+        song_dict["year"] = song.year
+    if "album_cover" not in song_dict:
+        song_dict["album_cover"] = song.album_cover
+    if "user_id" not in song_dict:
+        song_dict["user_id"] = song.user_id
+    
     song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
     
     # Set author from user relationship
@@ -760,6 +814,21 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
             db.add(db_collab)
     
     db.commit()
+    
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="update_song_collaborations",
+            description=f"{current_user.username} updated collaborators on song {song_id}",
+            metadata={
+                "song_id": song_id,
+                "collaborator_usernames": [c.get("author") for c in collaborations if isinstance(c, dict)]
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log song collaboration update: {log_err}")
+    
     return {"message": f"Updated collaborations for song {song_id}"}
 
 @router.get("/all-artists")

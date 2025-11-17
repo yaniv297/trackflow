@@ -14,6 +14,7 @@ from sqlalchemy import func, case
 from typing import List
 from database import get_db
 from api.auth import get_current_active_user
+from api.activity_logger import log_activity
 from models import (
     FeatureRequest, FeatureRequestComment, FeatureRequestVote,
     User
@@ -51,6 +52,20 @@ def create_feature_request(
     )
     db.add(auto_vote)
     db.commit()
+    
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="create_feature_request",
+            description=f"{current_user.username} requested '{feature_request.title}'",
+            metadata={
+                "feature_request_id": feature_request.id,
+                "title": feature_request.title
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log feature request creation: {log_err}")
     
     # Return with vote counts and user info
     return _build_feature_request_response(feature_request, current_user.id, db)

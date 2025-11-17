@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiGet, apiPatch, apiDelete, apiPost } from "./utils/api";
 import { useAuth } from "./contexts/AuthContext";
+import ActivityFeed from "./components/ActivityFeed";
 import "./AdminPage.css";
 
 function AdminPage() {
@@ -17,6 +18,7 @@ function AdminPage() {
   });
   const [showTools, setShowTools] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
+  const [showActivityFeed, setShowActivityFeed] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
@@ -270,25 +272,24 @@ function AdminPage() {
         <p className="admin-subtitle">Manage users and system settings</p>
       </div>
 
-      <div className="admin-tools-section" style={{ marginBottom: "2rem" }}>
+      <div className="admin-tools-section" style={{ marginBottom: "1.5rem" }}>
         <button
           onClick={() => setShowTools((prev) => !prev)}
           style={{
             width: "100%",
             textAlign: "left",
-            border: "1px solid #e4e7ec",
-            background: "#f9fafc",
-            padding: "0.65rem 0.9rem",
-            borderRadius: "10px",
-            marginBottom: "0.75rem",
+            border: "none",
+            background: "transparent",
+            padding: "0.75rem 0",
+            marginBottom: "0.25rem",
             cursor: "pointer",
-            color: "#1f2933",
-            fontSize: "1.2rem",
+            color: "#172035",
+            fontSize: "1.1rem",
             fontWeight: 600,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
+            borderBottom: "1px solid #e5e9f0",
           }}
         >
           <span
@@ -304,7 +305,7 @@ function AdminPage() {
           <span>Admin Tools</span>
         </button>
         {showTools && (
-          <>
+          <div style={{ padding: "0.5rem 0 1rem" }}>
             <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <button
             onClick={handleFetchAllArtistImages}
@@ -387,29 +388,28 @@ function AdminPage() {
             ))}
           </div>
         )}
-          </>
+          </div>
         )}
       </div>
 
-      <div className="users-section">
+      <div className="users-section" style={{ marginBottom: "1.5rem" }}>
         <button
           onClick={() => setShowUsers((prev) => !prev)}
           style={{
             width: "100%",
             textAlign: "left",
-            border: "1px solid #e4e7ec",
-            background: "#f9fafc",
-            padding: "0.65rem 0.9rem",
-            borderRadius: "10px",
-            marginBottom: "0.75rem",
+            border: "none",
+            background: "transparent",
+            padding: "0.75rem 0",
+            marginBottom: "0.25rem",
             cursor: "pointer",
-            color: "#1f2933",
-            fontSize: "1.2rem",
+            color: "#172035",
+            fontSize: "1.1rem",
             fontWeight: 600,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
+            borderBottom: "1px solid #e5e9f0",
           }}
         >
           <span
@@ -568,6 +568,46 @@ function AdminPage() {
                 Next →
               </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="admin-tools-section">
+        <button
+          onClick={() => setShowActivityFeed((prev) => !prev)}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            border: "none",
+            background: "transparent",
+            padding: "0.75rem 0",
+            marginBottom: "0.25rem",
+            cursor: "pointer",
+            color: "#172035",
+            fontSize: "1.1rem",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            borderBottom: "1px solid #e5e9f0",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "1.1rem",
+              color: "#5a6a85",
+              width: "1.2rem",
+              display: "inline-block",
+            }}
+          >
+            {showActivityFeed ? "▾" : "▸"}
+          </span>
+          <span>Activity Feed</span>
+        </button>
+
+        {showActivityFeed && (
+          <div style={{ padding: "0.5rem 0 1rem" }}>
+            <ActivityFeed />
           </div>
         )}
       </div>

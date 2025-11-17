@@ -380,6 +380,18 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     user.last_login_at = datetime.utcnow()
     db.commit()
     
+    # Log login activity
+    from .activity_logger import log_activity
+    try:
+        log_activity(
+            db=db,
+            user_id=user.id,
+            activity_type="login",
+            description=f"{user.username} has logged in"
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log login activity: {log_err}")
+    
     access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires

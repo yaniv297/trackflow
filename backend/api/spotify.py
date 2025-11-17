@@ -593,20 +593,58 @@ def import_playlist(
     return {"imported_count": imported_count}
 
 
+def _generate_artist_search_queries(artist_name: str) -> List[str]:
+    """Generate multiple search queries for a given artist name to improve match rate"""
+    import re
+    
+    queries = []
+    cleaned = (artist_name or "").strip()
+    if not cleaned:
+        return queries
+    
+    def add_query(q: str):
+        if q and q not in queries:
+            queries.append(q)
+    
+    # Original name
+    add_query(f'artist:"{cleaned}"')
+    add_query(cleaned)
+    
+    # Remove content within parentheses (e.g., "Artist (Official)")
+    no_paren = re.sub(r"\s*\(.*?\)\s*", " ", cleaned).strip()
+    add_query(f'artist:"{no_paren}"')
+    
+    # Remove featuring/ft/feat/& sections
+    no_feat = re.split(r"\bfeat\.|\bft\.|&|,|\bfeaturing\b", no_paren, maxsplit=1)[0].strip()
+    add_query(f'artist:"{no_feat}"')
+    add_query(no_feat)
+    
+    # Replace multiple spaces with single space
+    normalized = re.sub(r"\s+", " ", no_feat)
+    add_query(f'artist:"{normalized}"')
+    
+    return [q for q in queries if q]
+
+
 def _fetch_artist_image_from_spotify(artist_name: str, sp: Optional[Spotify] = None) -> Optional[str]:
-    """Helper function to fetch artist image from Spotify"""
+    """Helper function to fetch artist image from Spotify with multiple search strategies"""
     if not sp:
         sp = _get_client()
     if not sp:
         return None
     
-    try:
-        search = sp.search(q=f"artist:{artist_name}", type="artist", limit=1)
-        items = (search.get("artists") or {}).get("items") or []
-        if items and (items[0].get("images") or []):
-            return items[0]["images"][0].get("url")
-    except Exception:
-        pass
+    queries = _generate_artist_search_queries(artist_name)
+    for query in queries:
+        try:
+            search = sp.search(q=query, type="artist", limit=3)
+            items = (search.get("artists") or {}).get("items") or []
+            for artist in items:
+                images = artist.get("images") or []
+                if images:
+                    return images[0].get("url")
+        except Exception as e:
+            print(f"Spotify search failed for query '{query}': {e}")
+            continue
     
     return None
 
@@ -671,6 +709,9 @@ def fetch_all_missing_artist_images(
     
     updated_count = 0
     total_count = len(artists_without_images)
+    failed_artists = []
+    log_entries = []
+    max_log_entries = 200
     
     # Process in batches to avoid timeouts and rate limits
     import time
@@ -682,6 +723,12 @@ def fetch_all_missing_artist_images(
             if image_url:
                 artist.image_url = image_url
                 updated_count += 1
+                entry = f"✅ {artist.name} – image fetched"
+            else:
+                failed_artists.append(artist.name)
+                entry = f"⚠️ {artist.name} – no image found"
+            if len(log_entries) < max_log_entries:
+                log_entries.append(entry)
             
             # Commit periodically to avoid long transactions
             if (i + 1) % commit_interval == 0:
@@ -694,6 +741,8 @@ def fetch_all_missing_artist_images(
         except Exception as e:
             print(f"Failed to fetch image for {artist.name}: {e}")
             # Continue processing other artists
+            if len(log_entries) < max_log_entries:
+                log_entries.append(f"❌ {artist.name} – error: {e}")
             continue
     
     # Final commit for any remaining changes
@@ -702,5 +751,8 @@ def fetch_all_missing_artist_images(
     return {
         "message": f"Updated artist images for {updated_count} out of {total_count} artists",
         "updated_count": updated_count,
-        "total_artists": total_count
+        "total_artists": total_count,
+        "failed_artists": failed_artists[:25],  # include sample of artists that failed
+        "failed_count": len(failed_artists),
+        "log": log_entries
     }

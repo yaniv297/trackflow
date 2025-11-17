@@ -8,7 +8,8 @@ function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [fetchingImages, setFetchingImages] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [fetchLogs, setFetchLogs] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'last_login_at', direction: 'desc' });
   const { updateAuth } = useAuth();
 
   useEffect(() => {
@@ -107,7 +108,9 @@ function AdminPage() {
 
     try {
       setFetchingImages(true);
+      setFetchLogs(["Starting artist image fetch..."]);
       const response = await apiPost("/spotify/artists/fetch-all-missing-images");
+      setFetchLogs(response.log || []);
       window.showNotification(
         response.message || `Updated ${response.updated_count} artist images`,
         "success"
@@ -231,6 +234,26 @@ function AdminPage() {
           Fetches artist profile pictures from Spotify for all artists that don't
           have images yet.
         </p>
+        {fetchLogs.length > 0 && (
+          <div
+            style={{
+              marginTop: "1rem",
+              maxHeight: "200px",
+              overflowY: "auto",
+              border: "1px solid #eee",
+              borderRadius: "6px",
+              padding: "0.75rem",
+              background: "#fafafa",
+              fontFamily: "monospace",
+              fontSize: "0.85rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {fetchLogs.map((entry, idx) => (
+              <div key={idx}>{entry}</div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="users-section">

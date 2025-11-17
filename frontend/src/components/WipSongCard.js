@@ -24,6 +24,7 @@ export default function WipSongCard({
   onSongUpdate,
   showPackName = false,
   authoringFields: authoringFieldsProp,
+  onReleaseSong, // New prop for releasing individual songs
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -831,6 +832,36 @@ export default function WipSongCard({
                     padding: "0.5rem 0",
                   }}
                 >
+                  {/* Release Song button - only for completed packless songs - PUT FIRST */}
+                  {isFinished && !song.pack_name && onReleaseSong && (
+                    <button
+                      onClick={() => {
+                        onReleaseSong(song.id);
+                        setShowActionsDropdown(false);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        width: "100%",
+                        padding: "0.5rem 1rem",
+                        textAlign: "left",
+                        color: "#28a745",
+                        fontSize: "0.9rem",
+                        fontWeight: "bold",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = "#f0f9f0";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      🚀 Release Song
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setShowCollaborationModal(true);

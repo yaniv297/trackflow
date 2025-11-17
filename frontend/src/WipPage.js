@@ -647,6 +647,26 @@ function WipPage() {
     });
   };
 
+  const releaseSong = async (songId) => {
+    try {
+      // Update song status to Released
+      await apiPatch(`/songs/${songId}`, { status: "Released" });
+      
+      // Remove song from WIP view optimistically
+      setSongs((prev) => prev.filter(song => song.id !== songId));
+      
+      // Get song info for notification
+      const song = songs.find(s => s.id === songId);
+      const songTitle = song ? `"${song.title}"` : "Song";
+      
+      window.showNotification(`${songTitle} released successfully!`, "success");
+      setFireworksTrigger((prev) => prev + 1);
+    } catch (error) {
+      console.error("Failed to release song:", error);
+      window.showNotification("Failed to release song", "error");
+    }
+  };
+
   const addSongToPack = async (packId, songData) => {
     try {
       if (!songData.title || !songData.artist) {
@@ -1074,6 +1094,7 @@ function WipPage() {
               onToggleOptional={toggleOptional}
               onDeleteSong={handleDeleteSong}
               onReleasePack={releasePack}
+              onReleaseSong={releaseSong}
               onHandleCreateAlbumSeries={handleCreateAlbumSeries}
               onHandleMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
               onSetSelectedSongs={setSelectedSongs}

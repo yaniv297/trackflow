@@ -364,7 +364,15 @@ function SongPage({ status }) {
     if (value === undefined) return;
 
     try {
-      const updates = { [field]: value };
+      let updates = { [field]: value };
+
+      // Special handling for pack field - backend expects pack name, not pack_id
+      // The backend will handle pack creation if it doesn't exist
+      if (field === "pack") {
+        // For pack field, send pack_name instead of pack
+        updates = { pack_name: value };
+      }
+
       const response = await apiPatch(`/songs/${id}`, updates);
 
       setSongs((prevSongs) =>
@@ -387,8 +395,18 @@ function SongPage({ status }) {
         delete newState[`${id}_${field}`];
         return newState;
       });
+
+      // Clear cache and refresh to get updated pack information
+      if (field === "pack") {
+        setSongsCache({});
+        fetchSongs();
+      }
     } catch (error) {
       console.error("Failed to save edit:", error);
+      window.showNotification(
+        error.message || "Failed to save changes",
+        "error"
+      );
     }
   };
 

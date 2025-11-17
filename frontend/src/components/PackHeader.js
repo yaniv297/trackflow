@@ -184,6 +184,35 @@ const PackHeader = ({
               );
             })()}
 
+            {/* For packless songs: Show Start Work button when songs are selected and status is Future Plans */}
+            {packName === "(no pack)" && 
+             status === "Future Plans" && 
+             validSongsInPack.some(song => selectedSongs.includes(song.id)) && (
+              <button
+                onClick={() => {
+                  const selectedPacklessIds = validSongsInPack
+                    .filter(song => selectedSongs.includes(song.id))
+                    .map(song => song.id);
+                  onStartWork(selectedPacklessIds);
+                }}
+                style={{
+                  background: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "0.4rem 0.8rem",
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  marginLeft: "0.5rem",
+                  fontWeight: "500",
+                }}
+                onMouseEnter={(e) => (e.target.style.background = "#218838")}
+                onMouseLeave={(e) => (e.target.style.background = "#28a745")}
+              >
+                🔨 Start Work
+              </button>
+            )}
+
             {/* Gear dropdown right next to pack name (no pencil) */}
             {(() => {
               // No pack-level actions for songs without a pack_id (the "(no pack)" group)

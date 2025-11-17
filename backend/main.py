@@ -90,19 +90,7 @@ app.include_router(workflows.router)
 app.include_router(bug_reports.router)
 app.include_router(admin.router)
 
-# Add timeout middleware last to avoid interfering with CORS preflight
-@app.middleware("http") 
-async def timeout_middleware(request: Request, call_next):
-    try:
-        # Skip timeout for OPTIONS requests (CORS preflight)
-        if request.method == "OPTIONS":
-            return await call_next(request)
-        # Use longer timeout for local development, shorter for production  
-        timeout_seconds = 60.0 if os.getenv("DATABASE_URL", "").startswith("sqlite") else 30.0
-        return await asyncio.wait_for(call_next(request), timeout=timeout_seconds)
-    except asyncio.TimeoutError:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=504, content={"detail": "Request timeout"})
+# Timeout middleware removed - was causing more problems than it solved
 
 @app.on_event("startup")
 async def startup_event():

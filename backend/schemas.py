@@ -165,3 +165,60 @@ class CreateAlbumSeriesRequest(BaseModel):
     description: Optional[str] = None
     # Optional explicit songs to assign to this series
     song_ids: Optional[list[int]] = None
+
+class FeatureRequestCommentOut(BaseModel):
+    id: int
+    feature_request_id: int
+    user_id: int
+    username: str
+    is_admin: bool = False
+    parent_comment_id: Optional[int] = None
+    parent_comment_username: Optional[str] = None
+    parent_comment_text: Optional[str] = None
+    comment: str
+    is_edited: bool = False
+    is_deleted: bool = False
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class FeatureRequestCommentCreate(BaseModel):
+    comment: str
+    parent_comment_id: Optional[int] = None
+
+class FeatureRequestCommentUpdate(BaseModel):
+    comment: str
+
+class FeatureRequestUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+class FeatureRequestOut(BaseModel):
+    id: int
+    title: str
+    description: str
+    user_id: int
+    username: str
+    is_done: bool = False
+    created_at: datetime
+    updated_at: datetime
+    upvotes: int = 0
+    downvotes: int = 0
+    user_vote: Optional[str] = None  # "upvote", "downvote", or None
+    comments: List[FeatureRequestCommentOut] = []
+    comment_count: int = 0
+    
+    class Config:
+        from_attributes = True
+
+class FeatureRequestCreate(BaseModel):
+    title: str
+    description: str
+
+class FeatureRequestVoteRequest(BaseModel):
+    vote_type: str  # "upvote" or "downvote"
+
+class FeatureRequestMarkDoneRequest(BaseModel):
+    is_done: bool

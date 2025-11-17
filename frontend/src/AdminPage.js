@@ -9,6 +9,8 @@ function AdminPage() {
   const [error, setError] = useState(null);
   const [fetchingImages, setFetchingImages] = useState(false);
   const [fetchLogs, setFetchLogs] = useState([]);
+  const [fixingSongLinks, setFixingSongLinks] = useState(false);
+  const [songLinkLogs, setSongLinkLogs] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'last_login_at', direction: 'desc' });
   const { updateAuth } = useAuth();
 
@@ -126,6 +128,43 @@ function AdminPage() {
     }
   };
 
+  const handleFixSongArtistLinks = async () => {
+    if (
+      !window.confirm(
+        "This will link songs without artist_id to existing artists by name. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setFixingSongLinks(true);
+      setSongLinkLogs(["Starting song↔artist link fix..."]);
+      const response = await apiPost("/admin/fix-song-artist-links");
+      const logs = [
+        response.message || `Linked ${response.linked || 0} songs`,
+        `Checked ${response.checked || 0} songs total.`,
+      ];
+      if (response.missing_artist_names && response.missing_artist_names.length > 0) {
+        logs.push(
+          `Still missing ${response.missing_artist_names.length} artists (showing up to 25):`,
+          ...response.missing_artist_names.map((name) => ` - ${name}`)
+        );
+      }
+      const combinedLogs = response.log ? [...response.log, "---", ...logs] : logs;
+      setSongLinkLogs(combinedLogs);
+      window.showNotification(response.message || "Song/artist links updated", "success");
+    } catch (err) {
+      console.error("Failed to fix song artist links:", err);
+      window.showNotification(
+        `Error: ${err.message || "Failed to fix song artist links"}`,
+        "error"
+      );
+    } finally {
+      setFixingSongLinks(false);
+    }
+  };
+
   const handleSort = (key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -229,6 +268,24 @@ function AdminPage() {
               ? "⏳ Fetching Artist Images..."
               : "🎨 Fetch All Missing Artist Images"}
           </button>
+          <button
+            onClick={handleFixSongArtistLinks}
+            disabled={fixingSongLinks}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: fixingSongLinks ? "#ccc" : "#0d6efd",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: fixingSongLinks ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+              fontWeight: "500",
+            }}
+          >
+            {fixingSongLinks
+              ? "⏳ Linking Songs..."
+              : "🪢 Link Songs to Artists"}
+          </button>
         </div>
         <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
           Fetches artist profile pictures from Spotify for all artists that don't
@@ -251,6 +308,26 @@ function AdminPage() {
           >
             {fetchLogs.map((entry, idx) => (
               <div key={idx}>{entry}</div>
+            ))}
+          </div>
+        )}
+        {songLinkLogs.length > 0 && (
+          <div
+            style={{
+              marginTop: "1rem",
+              maxHeight: "200px",
+              overflowY: "auto",
+              border: "1px solid #eee",
+              borderRadius: "6px",
+              padding: "0.75rem",
+              background: "#f3f8ff",
+              fontFamily: "monospace",
+              fontSize: "0.85rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {songLinkLogs.map((entry, idx) => (
+              <div key={`song-link-${idx}`}>{entry}</div>
             ))}
           </div>
         )}

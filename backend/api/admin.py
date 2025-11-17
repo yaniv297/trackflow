@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import get_current_user
-from models import User
+from models import User, Song, Artist
 from schemas import UserOut
 from typing import List
 from datetime import timedelta
@@ -154,4 +154,48 @@ def get_online_users_count(
     return {
         "online_count": len(usernames),
         "online_users": usernames
+    }
+
+@router.post("/fix-song-artist-links")
+def fix_song_artist_links(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Link songs with null artist_id to existing artists by name"""
+    from sqlalchemy import func
+    log_entries = []
+    songs_to_fix = db.query(Song).filter(
+        Song.artist_id.is_(None),
+        Song.artist.isnot(None),
+        Song.artist != ""
+    ).all()
+
+    if not songs_to_fix:
+        return {"message": "No songs with missing artist links found", "linked": 0, "checked": 0}
+
+    linked = 0
+    missing_artists = set()
+
+    for song in songs_to_fix:
+        artist = db.query(Artist).filter(
+            func.lower(Artist.name) == func.lower(song.artist)
+        ).first()
+        if artist:
+            song.artist_id = artist.id
+            linked += 1
+            if len(log_entries) < 200:
+                log_entries.append(f"✅ Linked song '{song.title}' to artist {artist.name}")
+        else:
+            missing_artists.add(song.artist)
+            if len(log_entries) < 200:
+                log_entries.append(f"⚠️ Artist '{song.artist}' not found for song '{song.title}'")
+
+    db.commit()
+
+    return {
+        "message": f"Linked {linked} songs to artists. {len(missing_artists)} artists still missing.",
+        "linked": linked,
+        "checked": len(songs_to_fix),
+        "missing_artist_names": list(missing_artists)[:25],
+        "log": log_entries
     }

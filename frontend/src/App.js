@@ -28,6 +28,8 @@ import FeatureRequestPage from "./FeatureRequestPage";
 import { apiGet } from "./utils/api";
 import "./App.css";
 
+const FEATURE_REQUEST_PROMO_END = new Date("2025-11-20T00:00:00Z").getTime();
+
 function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -170,6 +172,31 @@ function AppContent() {
     };
   }, [navigate]);
 
+  // One-time popup to announce Feature Requests
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const now = Date.now();
+    if (now > FEATURE_REQUEST_PROMO_END) {
+      return;
+    }
+    const key = `tf_feature_request_popup_shown_${user.id || user.username}`;
+    if (!localStorage.getItem(key)) {
+      if (
+        typeof window !== "undefined" &&
+        typeof window.showNotification === "function"
+      ) {
+        window.showNotification(
+          <span>
+            Have an idea for TrackFlow? Head to{" "}
+            <strong>Feature Requests</strong> in the settings menu and share it!
+          </span>,
+          "info"
+        );
+      }
+      localStorage.setItem(key, "true");
+    }
+  }, [isAuthenticated, user]);
+
   const handleDropdownClick = (path) => {
     setShowNewDropdown(false);
     navigate(path);
@@ -241,7 +268,13 @@ function AppContent() {
           <h1>🎶 TrackFlow</h1>
           {isAuthenticated && !loading && (
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                }}
+              >
                 <span style={{ color: "#666", fontSize: "0.9rem" }}>
                   Welcome, {user?.username}!
                 </span>
@@ -260,7 +293,8 @@ function AppContent() {
                         textDecorationStyle: "dotted",
                       }}
                     >
-                      {onlineUserCount} {onlineUserCount === 1 ? "user" : "users"} online
+                      {onlineUserCount}{" "}
+                      {onlineUserCount === 1 ? "user" : "users"} online
                     </span>
                     {showOnlineTooltip && onlineUsers.length > 0 && (
                       <div

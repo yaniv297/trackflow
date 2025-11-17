@@ -6,7 +6,7 @@ from models import User
 from schemas import UserOut
 from typing import List
 from datetime import timedelta
-from .auth import create_access_token
+from .auth import create_access_token, clear_user_cache
 from .user_activity import get_online_user_count, get_online_user_ids
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -118,6 +118,9 @@ def impersonate_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Clear user cache to prevent confusion between admin and impersonated user
+    clear_user_cache()
     
     # Create access token for the target user using the same function as login
     access_token_expires = timedelta(minutes=1440)  # 24 hours, same as login

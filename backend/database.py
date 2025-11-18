@@ -33,7 +33,7 @@ engine = create_engine(
 	# Enable echo_pool to help debug connection issues (optional, can remove in production)
 	echo_pool=False
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 
 # Safe migrations - don't block server startup
 def run_migrations():

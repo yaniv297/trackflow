@@ -292,6 +292,15 @@ def get_filtered_songs(
                     song_dict["album_series_number"] = series.series_number
                     song_dict["album_series_name"] = series.album_name
         
+        # Handle case where song has album_series_id but no pack (or pack data wasn't set above)
+        # This ensures album_series_name is always set when album_series_id exists
+        if preferred_series_id and "album_series_name" not in song_dict:
+            series = series_by_id.get(preferred_series_id)
+            if series:
+                song_dict["album_series_id"] = preferred_series_id
+                song_dict["album_series_number"] = series.series_number
+                song_dict["album_series_name"] = series.album_name
+        
         # Determine if song is editable using pre-fetched collaboration data
         is_owner = song.user_id == current_user.id
         has_song_collaboration = song.id in user_song_collab_ids

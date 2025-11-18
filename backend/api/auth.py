@@ -59,69 +59,29 @@ def verify_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
-def _get_cached_user(username: str, db: Session) -> Optional[User]:
-    """Get user from cache if not expired, ensuring it's bound to current session"""
+def _get_cached_user_data(username: str) -> Optional[dict]:
+    """Get user data from cache if not expired"""
     if username in _user_cache:
         user_data, timestamp = _user_cache[username]
         if time.time() - timestamp < CACHE_TTL:
-            # Re-attach user to current session by merging
-            return db.merge(user_data)
+            return user_data
         else:
             del _user_cache[username]
     return None
 
-def _cache_user(username: str, user: User):
-    """Cache user data (detached from session) with timestamp"""
-    # Expunge the user from session to make it detached for safe caching
-    db_session = user._sa_instance_state.session
-    if db_session:
-        db_session.expunge(user)
-    _user_cache[username] = (user, time.time())
+def _cache_user_data(username: str, user: User):
+    """Cache user data as dictionary with timestamp"""
+    user_data = {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'is_active': user.is_active,
+        'is_admin': user.is_admin,
+        'created_at': user.created_at.isoformat()
+    }
+    _user_cache[username] = (user_data, time.time())
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    token = credentials.credentials
-    payload = verify_token(token)
-    if payload is None:
-        raise credentials_exception
-    
-    username: str = payload.get("sub")
-    if username is None:
-        raise credentials_exception
-    
-    # Try cache first
-    user = _get_cached_user(username, db)
-    if user is None:
-        # Cache miss - query database
-        user = db.query(User).filter(User.username == username).first()
-        if user is None:
-            raise credentials_exception
-        # Cache the user for future requests (this will detach it from session)
-        _cache_user(username, user)
-        # Re-query to get a fresh session-bound instance
-        user = db.query(User).filter(User.username == username).first()
-    
-    # Record user activity for online tracking
-    try:
-        record_activity(user.id)
-    except Exception:
-        # Don't fail the request if activity tracking fails
-        pass
-    
-    return user
-
-def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
-    if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
+# Will be defined after UserResponse class
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
     user = db.query(User).filter(User.username == username).first()
@@ -130,6 +90,8 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     if not verify_password(password, user.hashed_password):
         return None
     return user
+
+# Functions will be defined after UserResponse class
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -157,6 +119,68 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    token = credentials.credentials
+    payload = verify_token(token)
+    if payload is None:
+        raise credentials_exception
+    
+    username: str = payload.get("sub")
+    if username is None:
+        raise credentials_exception
+    
+    # Try cache first
+    cached_user_data = _get_cached_user_data(username)
+    if cached_user_data:
+        # Return user from cache data
+        user = UserResponse(**cached_user_data)
+        # Record user activity for online tracking
+        try:
+            record_activity(user.id)
+        except Exception:
+            # Don't fail the request if activity tracking fails
+            pass
+        return user
+    
+    # Cache miss - query database
+    db_user = db.query(User).filter(User.username == username).first()
+    if db_user is None:
+        raise credentials_exception
+    
+    # Cache the user data
+    _cache_user_data(username, db_user)
+    
+    # Record user activity for online tracking
+    try:
+        record_activity(db_user.id)
+    except Exception:
+        # Don't fail the request if activity tracking fails
+        pass
+    
+    # Return Pydantic model
+    return UserResponse(
+        id=db_user.id,
+        username=db_user.username,
+        email=db_user.email,
+        is_active=db_user.is_active,
+        is_admin=db_user.is_admin,
+        created_at=db_user.created_at.isoformat()
+    )
+
+def get_current_active_user(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
 
 @router.get("/unclaimed-users")
 def get_unclaimed_users(db: Session = Depends(get_db)):
@@ -417,18 +441,11 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     }
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(current_user: User = Depends(get_current_active_user)):
-    return UserResponse(
-        id=current_user.id,
-        username=current_user.username,
-        email=current_user.email,
-        is_active=current_user.is_active,
-        is_admin=current_user.is_admin,
-        created_at=current_user.created_at.isoformat()
-    )
+def get_current_user_info(current_user: UserResponse = Depends(get_current_active_user)):
+    return current_user
 
 @router.get("/users/")
-def get_users(current_user: User = Depends(get_current_active_user), db: Session = Depends(get_db)):
+def get_users(current_user: UserResponse = Depends(get_current_active_user), db: Session = Depends(get_db)):
     """Get all users for collaboration dropdown"""
     users = db.query(User).filter(User.is_active == True).all()
     return [
@@ -441,7 +458,7 @@ def get_users(current_user: User = Depends(get_current_active_user), db: Session
     ]
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(current_user: User = Depends(get_current_active_user)):
+def refresh_token(current_user: UserResponse = Depends(get_current_active_user)):
     access_token_expires = timedelta(minutes=1440)  # 24 hours
     access_token = create_access_token(
         data={"sub": current_user.username}, expires_delta=access_token_expires

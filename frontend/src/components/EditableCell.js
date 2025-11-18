@@ -41,7 +41,7 @@ export default function EditableCell({
   };
 
   return (
-    <td 
+    <div 
       className="editable-cell" 
       onClick={() => isEditable && setEditing({ [key]: true })}
       style={{
@@ -95,6 +95,6 @@ export default function EditableCell({
       ) : (
         displayValue
       )}
-    </td>
+    </div>
   );
 }

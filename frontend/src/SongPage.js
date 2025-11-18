@@ -366,11 +366,11 @@ function SongPage({ status }) {
     try {
       let updates = { [field]: value };
 
-      // Special handling for pack field - backend expects pack name, not pack_id
+      // Special handling for pack field - backend expects "pack" field, not "pack_name"
       // The backend will handle pack creation if it doesn't exist
       if (field === "pack") {
-        // For pack field, send pack_name instead of pack
-        updates = { pack_name: value };
+        // Keep the field name as "pack" (confirmed by MovePackModal.js)
+        updates = { pack: value };
       }
 
       const response = await apiPatch(`/songs/${id}`, updates);

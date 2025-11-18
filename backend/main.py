@@ -2,6 +2,18 @@ import os
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
+import psutil
+import threading
+import time
+
+def mem_watchdog():
+    while True:
+        used = psutil.virtual_memory().percent
+        print(f"MEMORY USAGE: {used}%")
+        time.sleep(5)
+
+threading.Thread(target=mem_watchdog, daemon=True).start()
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
 from database import engine

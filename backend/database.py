@@ -25,7 +25,7 @@ engine = create_engine(
 	SQLALCHEMY_DATABASE_URL, 
 	connect_args=connect_args,
 	pool_pre_ping=True,
-	pool_recycle=600,
+	pool_recycle=300,  # More aggressive connection recycling for Railway
 	# Balanced settings for development and production
 	pool_size=5 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 8,
 	max_overflow=10 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 12,

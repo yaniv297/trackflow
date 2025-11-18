@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { apiPost } from "./utils/api";
+import { checkAndShowNewAchievements } from "./utils/achievements";
 
 function BugReportPage() {
   const { user } = useAuth();
@@ -32,6 +33,9 @@ function BugReportPage() {
         "success"
       );
       setSubmitted(true);
+
+      // Check for new achievements
+      await checkAndShowNewAchievements();
 
       // Reset form after 2 seconds
       setTimeout(() => {

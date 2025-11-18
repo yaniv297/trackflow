@@ -369,3 +369,305 @@ th.sortable::after {
   border-color: #4f8cff;
   box-shadow: 0 0 0 2px #cce3ff;
 }
+
+/* Mobile Responsive Styles */
+/* Large tablets and small laptops */
+@media (max-width: 992px) {
+  .song-table th,
+  .song-table td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Tablets */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .nav {
+    gap: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .nav a {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    min-width: 80px;
+    text-align: center;
+  }
+
+  .song-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .song-table {
+    min-width: 600px;
+  }
+
+  .song-table th,
+  .song-table td {
+    padding: 0.4rem 0.3rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .song-table th {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.3rem;
+  }
+
+  /* Hide last 2 columns on tablets - keep core functionality visible */
+  .song-table th:nth-child(n+7),
+  .song-table td:nth-child(n+7) {
+    display: none;
+  }
+
+  .status {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .bulk-actions {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .stats-container {
+    padding: 1rem;
+  }
+
+  .stats-card {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .song-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .song-card-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .progress-bar-container {
+    min-width: 120px;
+  }
+
+  .group-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .group-toggle span {
+    flex: 1;
+    text-align: center;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Large phones */
+@media (max-width: 640px) {
+  .app-container {
+    padding: 0.875rem;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  .nav {
+    gap: 0.375rem;
+    padding: 0.45rem;
+  }
+
+  .nav a {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
+    min-width: 75px;
+  }
+
+  .song-table {
+    min-width: 500px;
+  }
+
+  .song-table th,
+  .song-table td {
+    padding: 0.35rem 0.25rem;
+    font-size: 0.8rem;
+    max-width: 100px;
+  }
+
+  /* Hide more columns on large phones - keep 5 most important */
+  .song-table th:nth-child(n+6),
+  .song-table td:nth-child(n+6) {
+    display: none;
+  }
+
+  .status {
+    font-size: 0.7rem;
+    padding: 0.175rem 0.4rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .app-container {
+    padding: 0.75rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    letter-spacing: 0.5px;
+  }
+
+  .nav {
+    gap: 0.25rem;
+    padding: 0.4rem;
+  }
+
+  .nav a {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    min-width: 70px;
+  }
+
+  .song-table {
+    min-width: 400px;
+  }
+
+  .song-table th,
+  .song-table td {
+    padding: 0.3rem 0.2rem;
+    font-size: 0.75rem;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .song-table th {
+    font-size: 0.65rem;
+    padding: 0.3rem 0.2rem;
+  }
+
+  /* Hide fewer columns on small screens - show more important info */
+  .song-table th:nth-child(n+5),
+  .song-table td:nth-child(n+5) {
+    display: none;
+  }
+
+  /* Make title column wider on small screens */
+  .song-table th:nth-child(1),
+  .song-table td:nth-child(1) {
+    max-width: 120px;
+    min-width: 90px;
+  }
+
+  /* Make checkbox column much smaller */
+  .song-table th:first-child,
+  .song-table td:first-child {
+    width: 30px;
+    max-width: 30px;
+    padding: 0.2rem 0.1rem;
+  }
+
+  /* Make status compact */
+  .status {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.3rem;
+    white-space: nowrap;
+  }
+
+  .bulk-actions {
+    padding: 8px;
+    flex-wrap: wrap;
+  }
+
+  .bulk-actions > * {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.5rem;
+  }
+
+  .stats-card {
+    padding: 0.5rem;
+  }
+
+  .song-card {
+    padding: 0.5rem;
+  }
+
+  .progress-bar-container {
+    min-width: 80px;
+  }
+
+  .group-toggle span {
+    padding: 0.25rem 0.3rem;
+    font-size: 0.7rem;
+  }
+
+  /* Smaller checkboxes on mobile */
+  .pretty-checkbox {
+    width: 0.8em;
+    height: 0.8em;
+  }
+
+  /* Fix WIP view instrument buttons wrapping */
+  .song-card {
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+  }
+
+  .song-card-right {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    max-width: 100%;
+  }
+
+  /* Make instrument status buttons wrap properly */
+  .song-card-right > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    max-width: 100%;
+  }
+
+  .song-card-right button,
+  .song-card-right .status {
+    margin: 0.1rem;
+    padding: 0.15rem 0.3rem;
+    font-size: 0.6rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: calc(50% - 0.2rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Better mobile table background */
+  .song-table {
+    background: #f8f9fa;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .song-table th {
+    background-color: #e9ecef;
+  }
+}

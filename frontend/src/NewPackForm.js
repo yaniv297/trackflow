@@ -5,6 +5,7 @@ import SmartDropdown from "./components/SmartDropdown";
 import { apiPost, apiGet } from "./utils/api";
 import MultipleDLCCheck from "./components/MultipleDLCCheck";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
+import { checkAndShowNewAchievements } from "./utils/achievements";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (name) => {
@@ -388,6 +389,10 @@ function NewPackForm() {
           : `${createdSongs.length} song(s) added to "${effectivePack}", ${enhancementText}cleaned.`;
 
         window.showNotification(successMessage, "success");
+        
+        // Check for new achievements
+        await checkAndShowNewAchievements();
+        
         navigate(
           `/${
             meta.status === "In Progress"

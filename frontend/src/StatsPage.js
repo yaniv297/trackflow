@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { apiGet } from "./utils/api";
-import AchievementBadge from "./components/AchievementBadge";
 
 // Reusable card component
 const StatCard = ({ title, value, icon, color = "#3498db" }) => (
@@ -162,37 +161,9 @@ export default function StatsPage() {
   const [hoveredYear, setHoveredYear] = useState(null);
   const [yearDetails, setYearDetails] = useState({});
   const [loadingYear, setLoadingYear] = useState(null);
-  const [achievements, setAchievements] = useState([]);
-  const [allAchievements, setAllAchievements] = useState([]);
-  const [loadingAchievements, setLoadingAchievements] = useState(true);
 
   useEffect(() => {
     apiGet("/stats/").then((data) => setStats(data));
-    
-    // Fetch achievements
-    Promise.all([
-      apiGet("/achievements/me"),
-      apiGet("/achievements/"),
-    ])
-      .then(([userAchievements, allAchievementsList]) => {
-        const earnedCodes = new Set(
-          userAchievements.map((ua) => ua.achievement.code)
-        );
-        
-        // Map all achievements with earned status
-        const achievementsWithStatus = allAchievementsList.map((ach) => ({
-          ...ach,
-          earned: earnedCodes.has(ach.code),
-        }));
-        
-        setAchievements(userAchievements);
-        setAllAchievements(achievementsWithStatus);
-        setLoadingAchievements(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load achievements:", err);
-        setLoadingAchievements(false);
-      });
   }, []);
 
   if (!stats) return <p style={{ padding: "2rem" }}>Loading stats...</p>;
@@ -222,96 +193,10 @@ export default function StatsPage() {
     setHoveredYear(null);
   };
 
-  // Calculate total points
-  const totalPoints = achievements.reduce(
-    (sum, ua) => sum + (ua.achievement?.points || 0),
-    0
-  );
-
-  // Get recently earned achievements (last 5)
-  const recentAchievements = achievements
-    .sort((a, b) => new Date(b.earned_at) - new Date(a.earned_at))
-    .slice(0, 5);
 
   return (
     <div style={{ padding: "2rem" }}>
       <h2>📊 TrackFlow Stats</h2>
-
-      {/* ACHIEVEMENTS SECTION */}
-      {!loadingAchievements && (
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: "12px",
-            padding: "1.5rem",
-            border: "1px solid #eee",
-            marginBottom: "2rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            <h3>🏆 Achievements</h3>
-            <div style={{ fontSize: "1.2rem", fontWeight: "bold", color: "#3498db" }}>
-              {achievements.length} / {allAchievements.length} • {totalPoints} points
-            </div>
-          </div>
-
-          {recentAchievements.length > 0 && (
-            <div style={{ marginBottom: "1.5rem" }}>
-              <h4 style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#666" }}>
-                Recently Earned
-              </h4>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "1rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                {recentAchievements.map((ua) => (
-                  <AchievementBadge
-                    key={ua.achievement.id}
-                    achievement={ua.achievement}
-                    earned={true}
-                    size="medium"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <h4 style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#666" }}>
-              All Achievements
-            </h4>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))",
-                gap: "1rem",
-                maxHeight: "400px",
-                overflowY: "auto",
-                padding: "0.5rem",
-              }}
-            >
-              {allAchievements.map((ach) => (
-                <AchievementBadge
-                  key={ach.id}
-                  achievement={ach}
-                  earned={ach.earned}
-                  size="medium"
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* OVERVIEW CARDS */}
       <div

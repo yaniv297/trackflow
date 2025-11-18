@@ -3,6 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./utils/api";
 import FeatureRequestCard from "./components/FeatureRequestCard";
 import FeatureRequestForm from "./components/FeatureRequestForm";
+import { checkAndShowNewAchievements } from "./utils/achievements";
 
 function FeatureRequestPage() {
   const { user } = useAuth();
@@ -66,6 +67,9 @@ function FeatureRequestPage() {
       setNewDescription("");
       setShowCreateForm(false);
       loadFeatureRequests();
+      
+      // Check for new achievements
+      await checkAndShowNewAchievements();
     } catch (error) {
       console.error("Failed to create feature request:", error);
       window.showNotification(

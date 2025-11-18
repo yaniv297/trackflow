@@ -66,6 +66,17 @@ export async function checkAndShowNewAchievements() {
           currentAchievements.map((ua) => ua.achievement.code)
         );
       }
+
+      // Trigger achievement update events for UI components
+      if (result.newly_awarded.length > 0) {
+        window.dispatchEvent(new CustomEvent('achievements-updated'));
+        window.dispatchEvent(new CustomEvent('achievement-earned', {
+          detail: { 
+            count: result.newly_awarded.length,
+            achievements: result.newly_awarded.map(code => achievementMap.get(code)).filter(Boolean)
+          }
+        }));
+      }
     }
   } catch (error) {
     console.error("Failed to check achievements:", error);

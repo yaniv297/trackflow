@@ -55,7 +55,7 @@ export const useUserWorkflowFields = () => {
     return globalWorkflowCache[userId];
   }, []);
 
-  const clearCache = useCallback(() => {
+  const clearCache = useCallback(() => { 
     Object.keys(globalWorkflowCache).forEach(
       (key) => delete globalWorkflowCache[key]
     );

@@ -11,6 +11,7 @@ import {
   getFieldCompletion,
   getSongProgressData,
 } from "../utils/progressUtils";
+import { exportYargIni } from "../utils/yargUtils";
 import UserProfilePopup from "./UserProfilePopup";
 
 export default function WipSongCard({
@@ -24,6 +25,7 @@ export default function WipSongCard({
   onSongUpdate,
   showPackName = false,
   authoringFields: authoringFieldsProp,
+  onReleaseSong, // New prop for releasing individual songs
 }) {
   const [expandedInternal, setExpandedInternal] = useState(
     defaultExpanded !== undefined ? defaultExpanded : false
@@ -831,6 +833,36 @@ export default function WipSongCard({
                     padding: "0.5rem 0",
                   }}
                 >
+                  {/* Release Song button - only for completed packless songs - PUT FIRST */}
+                  {isFinished && !song.pack_name && onReleaseSong && (
+                    <button
+                      onClick={() => {
+                        onReleaseSong(song.id);
+                        setShowActionsDropdown(false);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "block",
+                        width: "100%",
+                        padding: "0.5rem 1rem",
+                        textAlign: "left",
+                        color: "#28a745",
+                        fontSize: "0.9rem",
+                        fontWeight: "bold",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = "#f0f9f0";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      🚀 Release Song
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setShowCollaborationModal(true);
@@ -964,6 +996,33 @@ export default function WipSongCard({
                     }}
                   >
                     Change Album Art
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportYargIni(song, currentUser, wipCollaborations);
+                      setShowActionsDropdown(false);
+                      window.showNotification("YARG song.ini file downloaded", "success");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "block",
+                      width: "100%",
+                      padding: "0.5rem 1rem",
+                      textAlign: "left",
+                      color: "#5a8fcf",
+                      fontSize: "0.9rem",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    Export YARG .ini
                   </button>
 
                   <div

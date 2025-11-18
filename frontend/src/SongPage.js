@@ -368,8 +368,15 @@ function SongPage({ status }) {
     if (value === undefined) return;
 
     try {
-      const updates = { [field]: value };
+      let updates = { [field]: value };
       const oldSong = songs.find((s) => s.id === id);
+
+      // Special handling for pack field - backend expects "pack" field, not "pack_name"
+      // The backend will handle pack creation if it doesn't exist
+      if (field === "pack") {
+        // Keep the field name as "pack" (confirmed by MovePackModal.js)
+        updates = { pack: value };
+      }
       const response = await apiPatch(`/songs/${id}`, updates);
 
       setSongs((prevSongs) =>
@@ -397,8 +404,18 @@ function SongPage({ status }) {
       if (field === "status" && oldSong && oldSong.status !== value) {
         await checkAndShowNewAchievements();
       }
+      
+      // Clear cache and refresh to get updated pack information
+      if (field === "pack") {
+        setSongsCache({});
+        fetchSongs();
+      }
     } catch (error) {
       console.error("Failed to save edit:", error);
+      window.showNotification(
+        error.message || "Failed to save changes",
+        "error"
+      );
     }
   };
 

@@ -44,21 +44,34 @@ const AutoComplete = ({
     }
 
     try {
-      const endpoint =
-        type === "artist"
-          ? "artists"
-          : type === "album"
-          ? "albums"
-          : "collaborators";
+      let url;
+      if (type === "pack") {
+        // Pack autocomplete uses a different base path
+        url = `${API_BASE_URL}/packs/autocomplete?query=${encodeURIComponent(query)}`;
+      } else {
+        // Other types use the songs autocomplete endpoint
+        const endpoint =
+          type === "artist"
+            ? "artists"
+            : type === "album"
+            ? "albums"
+            : "collaborators";
+        
+        url = `${API_BASE_URL}/songs/autocomplete/${endpoint}/?query=${encodeURIComponent(query)}`;
+      }
 
-      const response = await fetch(
-        `${API_BASE_URL}/songs/autocomplete/${endpoint}/?query=${encodeURIComponent(
-          query
-        )}`
-      );
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setSuggestions(data);
+        
+        // Handle different response formats
+        if (type === "pack") {
+          // Pack autocomplete returns array of objects with 'name' property
+          setSuggestions(data.map(pack => pack.name));
+        } else {
+          // Other autocomplete endpoints return array of strings
+          setSuggestions(data);
+        }
       }
     } catch (error) {
       console.error("Error fetching suggestions:", error);

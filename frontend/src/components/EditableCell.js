@@ -16,8 +16,8 @@ export default function EditableCell({
   const isEditing = editing[key];
   const displayValue = editValues[key] ?? value;
 
-  // Determine if this field should use autocomplete
-  const shouldUseAutocomplete = ["artist", "album", "pack"].includes(field);
+  // Disable autocomplete temporarily due to 403 errors on autocomplete endpoints
+  const shouldUseAutocomplete = false; // ["artist", "album", "pack"].includes(field);
   const autocompleteType = field; // Use the field name directly for autocomplete type
 
   // Special handling for album_cover field
@@ -41,7 +41,7 @@ export default function EditableCell({
   };
 
   return (
-    <td 
+    <div 
       className="editable-cell" 
       onClick={() => isEditable && setEditing({ [key]: true })}
       style={{
@@ -95,6 +95,6 @@ export default function EditableCell({
       ) : (
         displayValue
       )}
-    </td>
+    </div>
   );
 }

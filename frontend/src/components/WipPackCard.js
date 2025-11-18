@@ -37,6 +37,7 @@ const WipPackCard = ({
   onToggleOptional,
   onDeleteSong,
   onReleasePack,
+  onReleaseSong, // New prop for releasing individual songs
   onHandleCreateAlbumSeries,
   onHandleMakeDoubleAlbumSeries,
   onSetSelectedSongs,
@@ -840,7 +841,8 @@ const WipPackCard = ({
               flexWrap: "wrap",
             }}
           >
-            {percent === 100 && (
+            {/* Only show Release Pack button for actual packs (not "(no pack)") */}
+            {percent === 100 && packName !== "(no pack)" && (
               <button
                 onClick={() => onReleasePack(packName)}
                 style={{
@@ -856,6 +858,19 @@ const WipPackCard = ({
               >
                 🚀 Release Pack
               </button>
+            )}
+            {/* For packless songs, show a note about individual release buttons */}
+            {packName === "(no pack)" && (
+              <div
+                style={{
+                  color: "#6c757d",
+                  fontSize: "0.9rem",
+                  fontStyle: "italic",
+                  padding: "0.5rem",
+                }}
+              >
+                💡 Use individual "Release Song" buttons below for completed songs
+              </div>
             )}
           </div>
 
@@ -904,6 +919,7 @@ const WipPackCard = ({
                             setSelectedSongs={onSetSelectedSongs}
                             defaultExpanded={false} // Keep completed songs collapsed
                             onSongUpdate={onSongUpdate}
+                            onReleaseSong={onReleaseSong}
                           />
                         );
                       })}
@@ -946,6 +962,7 @@ const WipPackCard = ({
                               !isSongComplete(song, authoringFields)
                             } // Finished songs collapsed, unfinished expanded
                             onSongUpdate={onSongUpdate}
+                            onReleaseSong={onReleaseSong}
                           />
                         );
                       })}
@@ -991,6 +1008,7 @@ const WipPackCard = ({
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isSongComplete(song, authoringFields)} // Finished songs collapsed, unfinished expanded
                       onSongUpdate={onSongUpdate}
+                      onReleaseSong={onReleaseSong}
                     />
                   );
                 })}
@@ -1031,6 +1049,7 @@ const WipPackCard = ({
                       setSelectedSongs={onSetSelectedSongs}
                       defaultExpanded={!isSongComplete(song, authoringFields)} // Finished songs collapsed, unfinished expanded
                       onSongUpdate={onSongUpdate}
+                      onReleaseSong={onReleaseSong}
                     />
                   );
                 })}
@@ -1077,6 +1096,7 @@ const WipPackCard = ({
                       defaultExpanded={!isSongComplete(song, songOwnerFields)} // Finished songs collapsed, unfinished expanded
                       readOnly={true} // Songs by collaborators are read-only
                       onSongUpdate={onSongUpdate}
+                      onReleaseSong={onReleaseSong}
                     />
                   );
                 })}
@@ -1126,6 +1146,7 @@ const WipPackCard = ({
                       defaultExpanded={!isSongComplete(song, songOwnerFields)} // Finished songs collapsed, unfinished expanded
                       readOnly={true} // Songs by collaborators are read-only
                       onSongUpdate={onSongUpdate}
+                      onReleaseSong={onReleaseSong}
                     />
                   );
                 })}

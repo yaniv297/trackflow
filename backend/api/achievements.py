@@ -265,16 +265,20 @@ def _get_completed_songs_optimized(db: Session, user_id: int) -> int:
     if not required_steps:
         return 0
     
+    # Create IN clause for SQLite compatibility
+    steps_placeholders = ','.join(f':step{i}' for i in range(len(required_steps)))
+    step_params = {f'step{i}': step for i, step in enumerate(required_steps)}
+    
     # Get all user songs and their completion data in bulk
     songs_with_progress = db.execute(
-        text("""
+        text(f"""
             SELECT s.id, COUNT(CASE WHEN sp.is_completed = 1 THEN 1 END) as completed_count
             FROM songs s
-            LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN :steps
+            LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN ({steps_placeholders})
             WHERE s.user_id = :uid
             GROUP BY s.id
         """),
-        {"uid": user_id, "steps": tuple(required_steps)}
+        {"uid": user_id, **step_params}
     ).fetchall()
     
     # Count songs that have all required steps completed
@@ -292,19 +296,23 @@ def _get_completed_packs_optimized(db: Session, user_id: int) -> int:
     if not required_steps:
         return 0
     
+    # Create IN clause for SQLite compatibility
+    steps_placeholders = ','.join(f':step{i}' for i in range(len(required_steps)))
+    step_params = {f'step{i}': step for i, step in enumerate(required_steps)}
+    
     # Get all packs and songs completion data in bulk
     pack_completion_data = db.execute(
-        text("""
+        text(f"""
             SELECT p.id as pack_id, s.id as song_id, s.user_id,
                    COUNT(CASE WHEN sp.is_completed = 1 THEN 1 END) as completed_count,
                    COUNT(s.id) as total_songs_in_pack
             FROM packs p
             LEFT JOIN songs s ON s.pack_id = p.id
-            LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN :steps
+            LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN ({steps_placeholders})
             WHERE p.user_id = :uid
             GROUP BY p.id, s.id, s.user_id
         """),
-        {"uid": user_id, "steps": tuple(required_steps)}
+        {"uid": user_id, **step_params}
     ).fetchall()
     
     # Group by pack and check completion

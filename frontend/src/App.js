@@ -40,6 +40,7 @@ function AppContent() {
   const [onlineUserCount, setOnlineUserCount] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showOnlineTooltip, setShowOnlineTooltip] = useState(false);
+  const [achievementPoints, setAchievementPoints] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated, loading, updateAuth } = useAuth();
@@ -48,7 +49,39 @@ function AppContent() {
   useEffect(() => {
     if (isAuthenticated && user) {
       initializeAchievements();
+      fetchAchievementPoints();
     }
+  }, [isAuthenticated, user]);
+
+  // Fetch user's achievement points
+  const fetchAchievementPoints = async () => {
+    try {
+      const achievements = await apiGet("/achievements/me");
+      const totalPoints = achievements.reduce(
+        (sum, ua) => sum + (ua.achievement?.points || 0),
+        0
+      );
+      setAchievementPoints(totalPoints);
+    } catch (error) {
+      console.error("Failed to fetch achievement points:", error);
+    }
+  };
+
+  // Update points when achievements are earned
+  useEffect(() => {
+    const handleAchievementUpdate = () => {
+      if (isAuthenticated && user) {
+        fetchAchievementPoints();
+      }
+    };
+
+    window.addEventListener('achievement-earned', handleAchievementUpdate);
+    window.addEventListener('achievements-updated', handleAchievementUpdate);
+    
+    return () => {
+      window.removeEventListener('achievement-earned', handleAchievementUpdate);
+      window.removeEventListener('achievements-updated', handleAchievementUpdate);
+    };
   }, [isAuthenticated, user]);
 
   // Check if we're impersonating
@@ -282,11 +315,38 @@ function AppContent() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "flex-end",
+                  gap: "0.25rem"
                 }}
               >
-                <span style={{ color: "#666", fontSize: "0.9rem" }}>
-                  Welcome, {user?.username}!
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span style={{ color: "#666", fontSize: "0.9rem" }}>
+                    Welcome, {user?.username}!
+                  </span>
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "0.25rem",
+                    padding: "0.25rem 0.5rem",
+                    background: "#f8f9fa",
+                    borderRadius: "4px",
+                    border: "1px solid #e9ecef"
+                  }}>
+                    <span style={{ fontSize: "0.8rem" }}>🏆</span>
+                    <span style={{ 
+                      fontWeight: "bold", 
+                      color: "#007bff", 
+                      fontSize: "0.9rem" 
+                    }}>
+                      {achievementPoints.toLocaleString()}
+                    </span>
+                    <span style={{ 
+                      color: "#6c757d", 
+                      fontSize: "0.75rem" 
+                    }}>
+                      pts
+                    </span>
+                  </div>
+                </div>
                 {user?.is_admin && onlineUserCount !== null && (
                   <div
                     style={{ position: "relative", display: "inline-block" }}

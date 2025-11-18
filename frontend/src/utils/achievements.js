@@ -29,10 +29,20 @@ export async function checkAndShowNewAchievements() {
   }
 
   try {
-    // Trigger achievement check on backend
+    // First, get the current achievements to compare
+    const currentAchievements = await apiGet("/achievements/me");
+    const currentCodes = new Set(currentAchievements.map(ua => ua.achievement.code));
+    
+    // Find newly earned achievements by comparing with last known state
+    const newlyEarnedCodes = [...currentCodes].filter(code => !lastKnownAchievements.has(code));
+    
+    // Also trigger backend achievement check to ensure everything is up to date
     const result = await apiPost("/achievements/check", {});
     
-    if (result && result.newly_awarded && result.newly_awarded.length > 0) {
+    // Combine both newly earned and backend-reported achievements
+    const allNewlyAwarded = [...new Set([...newlyEarnedCodes, ...(result?.newly_awarded || [])])];
+    
+    if (allNewlyAwarded.length > 0) {
       // Fetch achievement details for newly awarded
       const allAchievements = await apiGet("/achievements/");
       if (!allAchievements || !Array.isArray(allAchievements)) {
@@ -45,7 +55,7 @@ export async function checkAndShowNewAchievements() {
       );
 
       // Show toasts for newly earned achievements
-      result.newly_awarded.forEach((code) => {
+      allNewlyAwarded.forEach((code) => {
         const achievement = achievementMap.get(code);
         if (achievement) {
           // Try multiple notification methods with fallbacks
@@ -59,24 +69,17 @@ export async function checkAndShowNewAchievements() {
         }
       });
 
-      // Update last known achievements
-      const currentAchievements = await apiGet("/achievements/me");
-      if (currentAchievements && Array.isArray(currentAchievements)) {
-        lastKnownAchievements = new Set(
-          currentAchievements.map((ua) => ua.achievement.code)
-        );
-      }
+      // Update last known achievements to the current state
+      lastKnownAchievements = new Set(currentCodes);
 
       // Trigger achievement update events for UI components
-      if (result.newly_awarded.length > 0) {
-        window.dispatchEvent(new CustomEvent('achievements-updated'));
-        window.dispatchEvent(new CustomEvent('achievement-earned', {
-          detail: { 
-            count: result.newly_awarded.length,
-            achievements: result.newly_awarded.map(code => achievementMap.get(code)).filter(Boolean)
-          }
-        }));
-      }
+      window.dispatchEvent(new CustomEvent('achievements-updated'));
+      window.dispatchEvent(new CustomEvent('achievement-earned', {
+        detail: { 
+          count: allNewlyAwarded.length,
+          achievements: allNewlyAwarded.map(code => achievementMap.get(code)).filter(Boolean)
+        }
+      }));
     }
   } catch (error) {
     console.error("Failed to check achievements:", error);

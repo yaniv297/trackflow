@@ -36,7 +36,7 @@ export default function AchievementToast({ achievement, onClose, duration = 5000
         background: "white",
         borderRadius: "12px",
         boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-        zIndex: 10001,
+        zIndex: 99999,
         minWidth: "320px",
         maxWidth: "400px",
         border: `3px solid ${rarityColor}`,

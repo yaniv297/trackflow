@@ -567,28 +567,25 @@ th.sortable::after {
     padding: 0.3rem 0.2rem;
   }
 
-  /* Hide even more columns on small screens - keep only essential ones */
-  .song-table th:nth-child(n+4),
-  .song-table td:nth-child(n+4) {
+  /* Hide fewer columns on small screens - show more important info */
+  .song-table th:nth-child(n+5),
+  .song-table td:nth-child(n+5) {
     display: none;
-  }
-
-  /* Show only: Title, Status, Progress (first 3 columns) */
-  .song-table th:nth-child(1),
-  .song-table td:nth-child(1),
-  .song-table th:nth-child(2),
-  .song-table td:nth-child(2),
-  .song-table th:nth-child(3),
-  .song-table td:nth-child(3) {
-    display: table-cell;
-    max-width: none;
   }
 
   /* Make title column wider on small screens */
   .song-table th:nth-child(1),
   .song-table td:nth-child(1) {
-    max-width: 150px;
-    min-width: 100px;
+    max-width: 120px;
+    min-width: 90px;
+  }
+
+  /* Make checkbox column much smaller */
+  .song-table th:first-child,
+  .song-table td:first-child {
+    width: 30px;
+    max-width: 30px;
+    padding: 0.2rem 0.1rem;
   }
 
   /* Make status compact */
@@ -623,5 +620,54 @@ th.sortable::after {
   .group-toggle span {
     padding: 0.25rem 0.3rem;
     font-size: 0.7rem;
+  }
+
+  /* Smaller checkboxes on mobile */
+  .pretty-checkbox {
+    width: 0.8em;
+    height: 0.8em;
+  }
+
+  /* Fix WIP view instrument buttons wrapping */
+  .song-card {
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+  }
+
+  .song-card-right {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    max-width: 100%;
+  }
+
+  /* Make instrument status buttons wrap properly */
+  .song-card-right > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    max-width: 100%;
+  }
+
+  .song-card-right button,
+  .song-card-right .status {
+    margin: 0.1rem;
+    padding: 0.15rem 0.3rem;
+    font-size: 0.6rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    max-width: calc(50% - 0.2rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Better mobile table background */
+  .song-table {
+    background: #f8f9fa;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .song-table th {
+    background-color: #e9ecef;
   }
 }

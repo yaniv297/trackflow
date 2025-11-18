@@ -59,18 +59,23 @@ def verify_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
-def _get_cached_user(username: str) -> Optional[User]:
-    """Get user from cache if not expired"""
+def _get_cached_user(username: str, db: Session) -> Optional[User]:
+    """Get user from cache if not expired, ensuring it's bound to current session"""
     if username in _user_cache:
-        user, timestamp = _user_cache[username]
+        user_data, timestamp = _user_cache[username]
         if time.time() - timestamp < CACHE_TTL:
-            return user
+            # Re-attach user to current session by merging
+            return db.merge(user_data)
         else:
             del _user_cache[username]
     return None
 
 def _cache_user(username: str, user: User):
-    """Cache user with timestamp"""
+    """Cache user data (detached from session) with timestamp"""
+    # Expunge the user from session to make it detached for safe caching
+    db_session = user._sa_instance_state.session
+    if db_session:
+        db_session.expunge(user)
     _user_cache[username] = (user, time.time())
 
 def get_current_user(
@@ -93,14 +98,16 @@ def get_current_user(
         raise credentials_exception
     
     # Try cache first
-    user = _get_cached_user(username)
+    user = _get_cached_user(username, db)
     if user is None:
         # Cache miss - query database
         user = db.query(User).filter(User.username == username).first()
         if user is None:
             raise credentials_exception
-        # Cache the user for future requests
+        # Cache the user for future requests (this will detach it from session)
         _cache_user(username, user)
+        # Re-query to get a fresh session-bound instance
+        user = db.query(User).filter(User.username == username).first()
     
     # Record user activity for online tracking
     try:

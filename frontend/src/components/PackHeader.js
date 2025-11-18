@@ -390,12 +390,14 @@ const PackHeader = ({
                       const canCreate =
                         !hasAlbumSeries &&
                         albumsWithEnoughSongs &&
-                        albumsWithEnoughSongs.length >= 1;
+                        albumsWithEnoughSongs.length >= 1 &&
+                        (status === "Work in Progress" || status === "Future Plans");
                       const canSplitDouble =
                         hasAlbumSeries &&
                         !isAlreadyDouble &&
                         albumsWithEnoughSongs &&
-                        albumsWithEnoughSongs.length >= 2;
+                        albumsWithEnoughSongs.length >= 2 &&
+                        (status === "Work in Progress" || status === "Future Plans");
                       return (
                         <>
                           {/* Edit album series is always available when we have any series */}

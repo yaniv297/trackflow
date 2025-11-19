@@ -203,6 +203,8 @@ class FeatureRequestOut(BaseModel):
     user_id: int
     username: str
     is_done: bool = False
+    is_rejected: bool = False
+    rejection_reason: Optional[str] = None  # Admin explanation for rejection
     created_at: datetime
     updated_at: datetime
     upvotes: int = 0
@@ -223,6 +225,10 @@ class FeatureRequestVoteRequest(BaseModel):
 
 class FeatureRequestMarkDoneRequest(BaseModel):
     is_done: bool
+
+class FeatureRequestMarkRejectedRequest(BaseModel):
+    is_rejected: bool
+    rejection_reason: Optional[str] = None  # Admin explanation for rejection
 
 class ActivityLogOut(BaseModel):
     id: int

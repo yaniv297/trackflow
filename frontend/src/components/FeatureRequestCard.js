@@ -17,6 +17,7 @@ function FeatureRequestCard({
   onCancelEditRequest,
   onStartEditRequest,
   onMarkDone,
+  onMarkRejected,
   commentText,
   onCommentTextChange,
   replyingTo,
@@ -34,6 +35,9 @@ function FeatureRequestCard({
   onDeleteRequest,
   organizeComments,
 }) {
+  const isInactive = request.is_done || request.is_rejected;
+  const statusPrefix = request.is_rejected ? "🚫 " : request.is_done ? "✅ " : "";
+
   return (
     <div
       style={{
@@ -93,14 +97,18 @@ function FeatureRequestCard({
                     style={{
                       marginTop: 0,
                       marginBottom: "0.5rem",
-                      color: request.is_done ? "#6c757d" : "#333",
+                      color: request.is_rejected
+                        ? "#b42318"
+                        : request.is_done
+                        ? "#6c757d"
+                        : "#333",
                       cursor: "pointer",
-                      textDecoration: request.is_done ? "line-through" : "none",
-                      opacity: request.is_done ? 0.7 : 1,
+                      textDecoration: isInactive ? "line-through" : "none",
+                      opacity: isInactive ? 0.75 : 1,
                     }}
                     onClick={() => onToggleExpand(request.id)}
                   >
-                    {request.is_done && "✅ "}
+                    {statusPrefix}
                     {request.title}
                   </h3>
                   <p
@@ -113,6 +121,18 @@ function FeatureRequestCard({
                     by {request.username} •{" "}
                     {new Date(request.created_at).toLocaleDateString()}
                   </p>
+                  {request.is_rejected && (
+                    <div
+                      style={{
+                        color: "#b42318",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        marginBottom: "0.5rem",
+                      }}
+                    >
+                      🚫 Not planned / rejected
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -161,6 +181,28 @@ function FeatureRequestCard({
               )}
               {user?.is_admin && (
                 <button
+                  onClick={() => onMarkRejected(request.id, request.is_rejected)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: request.is_rejected ? "#6c757d" : "#b42318",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                  }}
+                  title={
+                    request.is_rejected
+                      ? "Reopen feature request"
+                      : "Mark as not planned"
+                  }
+                >
+                  {request.is_rejected ? "↺ Reopen" : "Reject"}
+                </button>
+              )}
+              {(user?.is_admin || request.user_id === user?.id) && (
+                <button
                   onClick={() => onDeleteRequest(request.id)}
                   style={{
                     padding: "0.5rem 1rem",
@@ -180,16 +222,49 @@ function FeatureRequestCard({
             </div>
           </div>
           {!editingRequest[request.id] && (
-            <p
-              style={{
-                color: "#333",
-                lineHeight: "1.6",
-                whiteSpace: "pre-wrap",
-                marginBottom: "1rem",
-              }}
-            >
-              {request.description}
-            </p>
+            <>
+              <p
+                style={{
+                  color: "#333",
+                  lineHeight: "1.6",
+                  whiteSpace: "pre-wrap",
+                  marginBottom: "1rem",
+                }}
+              >
+                {request.description}
+              </p>
+              {request.is_rejected && request.rejection_reason && (
+                <div
+                  style={{
+                    background: "#fff5f5",
+                    border: "1px solid #fecaca",
+                    borderRadius: "6px",
+                    padding: "1rem",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#991b1b",
+                      fontWeight: "600",
+                      marginBottom: "0.5rem",
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    🚫 Rejection Reason:
+                  </div>
+                  <div
+                    style={{
+                      color: "#7f1d1d",
+                      lineHeight: "1.5",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {request.rejection_reason}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Comments Section */}

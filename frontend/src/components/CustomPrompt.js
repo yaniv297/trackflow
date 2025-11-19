@@ -10,6 +10,7 @@ const CustomPrompt = ({
   defaultValue = "",
   confirmText = "Confirm",
   cancelText = "Cancel",
+  allowEmpty = false, // If true, allows empty input
 }) => {
   const [inputValue, setInputValue] = useState(defaultValue);
 
@@ -20,8 +21,8 @@ const CustomPrompt = ({
   }, [isOpen, defaultValue]);
 
   const handleConfirm = () => {
-    if (inputValue.trim()) {
-      onConfirm(inputValue.trim());
+    if (allowEmpty || inputValue.trim()) {
+      onConfirm(inputValue.trim() || "");
       onClose();
     }
   };
@@ -39,7 +40,7 @@ const CustomPrompt = ({
     };
 
     const handleEnter = (e) => {
-      if (e.key === "Enter" && inputValue.trim()) {
+      if (e.key === "Enter" && (allowEmpty || inputValue.trim())) {
         handleConfirm();
       }
     };
@@ -60,46 +61,160 @@ const CustomPrompt = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black bg-opacity-50"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 border-2 border-blue-200">
+      <div
+        style={{
+          position: "relative",
+          backgroundColor: "white",
+          borderRadius: "8px",
+          boxShadow:
+            "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+          maxWidth: "400px",
+          width: "100%",
+          margin: "0 16px",
+          border: "2px solid #dbeafe",
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center p-6 border-b border-gray-200">
-          <span className="text-2xl mr-3">📝</span>
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "24px",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <span style={{ fontSize: "24px", marginRight: "12px" }}>📝</span>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              color: "#111827",
+              margin: 0,
+            }}
+          >
+            {title}
+          </h3>
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-700 leading-relaxed mb-4">{message}</p>
+        <div style={{ padding: "24px" }}>
+          <p
+            style={{
+              color: "#374151",
+              lineHeight: "1.6",
+              margin: "0 0 16px 0",
+            }}
+          >
+            {message}
+          </p>
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={placeholder}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             autoFocus
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              fontSize: "14px",
+              outline: "none",
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#3b82f6";
+              e.target.style.boxShadow = "0 0 0 2px rgba(59, 130, 246, 0.1)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#d1d5db";
+              e.target.style.boxShadow = "none";
+            }}
           />
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "12px",
+            padding: "24px",
+            borderTop: "1px solid #e5e7eb",
+          }}
+        >
           <button
             onClick={handleCancel}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200 font-medium"
+            style={{
+              padding: "8px 16px",
+              color: "#374151",
+              backgroundColor: "#f3f4f6",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "500",
+              transition: "background-color 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = "#e5e7eb";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = "#f3f4f6";
+            }}
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!inputValue.trim()}
-            className="px-4 py-2 text-white bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors duration-200 font-medium"
+            disabled={!allowEmpty && !inputValue.trim()}
+            style={{
+              padding: "8px 16px",
+              color: "white",
+              backgroundColor:
+                !allowEmpty && !inputValue.trim() ? "#d1d5db" : "#3b82f6",
+              border: "none",
+              borderRadius: "6px",
+              cursor:
+                !allowEmpty && !inputValue.trim() ? "not-allowed" : "pointer",
+              fontWeight: "500",
+              transition: "background-color 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              if (!(!allowEmpty && !inputValue.trim())) {
+                e.target.style.backgroundColor = "#2563eb";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!(!allowEmpty && !inputValue.trim())) {
+                e.target.style.backgroundColor = "#3b82f6";
+              }
+            }}
           >
             {confirmText}
           </button>

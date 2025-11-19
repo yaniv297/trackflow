@@ -1,25 +1,15 @@
 import os
-from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
-
-import psutil
 import threading
 import time
 
-def mem_watchdog():
-    while True:
-        used = psutil.virtual_memory().percent
-        print(f"MEMORY USAGE: {used}%")
-        time.sleep(5)
+import psutil
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from sqlalchemy import text
 
-threading.Thread(target=mem_watchdog, daemon=True).start()
-
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.staticfiles import StaticFiles
-from database import engine
-from models import Base
-import asyncio
-from contextlib import asynccontextmanager
 from api import songs as songs
 from api import authoring as authoring
 from api import tools as tools
@@ -36,10 +26,20 @@ from api import workflows as workflows
 from api import bug_reports as bug_reports
 from api import admin as admin
 from api import feature_requests as feature_requests
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import os
+from database import engine, SQLALCHEMY_DATABASE_URL
+from models import Base
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+
+def mem_watchdog():
+    while True:
+        used = psutil.virtual_memory().percent
+        print(f"MEMORY USAGE: {used}%")
+        time.sleep(5)
+
+
+threading.Thread(target=mem_watchdog, daemon=True).start()
 
 app = FastAPI(
     title="TrackFlow API",

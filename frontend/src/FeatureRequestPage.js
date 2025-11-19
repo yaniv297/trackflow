@@ -3,6 +3,8 @@ import { useAuth } from "./contexts/AuthContext";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./utils/api";
 import FeatureRequestCard from "./components/FeatureRequestCard";
 import FeatureRequestForm from "./components/FeatureRequestForm";
+import CustomAlert from "./components/CustomAlert";
+import CustomPrompt from "./components/CustomPrompt";
 
 function FeatureRequestPage() {
   const { user } = useAuth();
@@ -17,12 +19,26 @@ function FeatureRequestPage() {
   const [submittingComment, setSubmittingComment] = useState({});
   const [replyingTo, setReplyingTo] = useState({});
   const [expandedCompleted, setExpandedCompleted] = useState({});
+  const [expandedRejected, setExpandedRejected] = useState({});
   const [sortBy, setSortBy] = useState("upvotes");
   const [editingComment, setEditingComment] = useState({});
   const [editingRequest, setEditingRequest] = useState({});
   const [editCommentText, setEditCommentText] = useState({});
   const [editRequestTitle, setEditRequestTitle] = useState({});
   const [editRequestDescription, setEditRequestDescription] = useState({});
+  const [deleteRequestAlert, setDeleteRequestAlert] = useState({
+    isOpen: false,
+    requestId: null,
+  });
+  const [deleteCommentAlert, setDeleteCommentAlert] = useState({
+    isOpen: false,
+    requestId: null,
+    commentId: null,
+  });
+  const [rejectPrompt, setRejectPrompt] = useState({
+    isOpen: false,
+    requestId: null,
+  });
 
   useEffect(() => {
     loadFeatureRequests();
@@ -175,6 +191,65 @@ function FeatureRequestPage() {
     }
   };
 
+  const handleMarkRejected = async (requestId, currentStatus) => {
+    if (!currentStatus) {
+      // Rejecting - show prompt for reason
+      setRejectPrompt({ isOpen: true, requestId });
+    } else {
+      // Un-rejecting
+      try {
+        const updated = await apiPatch(
+          `/feature-requests/${requestId}/mark-rejected`,
+          {
+            is_rejected: false,
+            rejection_reason: null,
+          }
+        );
+
+        setFeatureRequests((prev) =>
+          prev.map((fr) => (fr.id === requestId ? updated : fr))
+        );
+
+        window.showNotification("Feature request reopened.", "success");
+      } catch (error) {
+        console.error("Failed to update feature status:", error);
+        window.showNotification(
+          "Failed to update feature status. Please try again.",
+          "error"
+        );
+      }
+    }
+  };
+
+  const confirmReject = async (reason) => {
+    const { requestId } = rejectPrompt;
+    if (!requestId) return;
+
+    try {
+      const updated = await apiPatch(
+        `/feature-requests/${requestId}/mark-rejected`,
+        {
+          is_rejected: true,
+          rejection_reason: reason || null,
+        }
+      );
+
+      setFeatureRequests((prev) =>
+        prev.map((fr) => (fr.id === requestId ? updated : fr))
+      );
+
+      window.showNotification("Feature marked as not planned.", "success");
+      setRejectPrompt({ isOpen: false, requestId: null });
+    } catch (error) {
+      console.error("Failed to update feature status:", error);
+      window.showNotification(
+        "Failed to update feature status. Please try again.",
+        "error"
+      );
+      setRejectPrompt({ isOpen: false, requestId: null });
+    }
+  };
+
   const handleEditRequest = async (requestId) => {
     const title = editRequestTitle[requestId]?.trim();
     const description = editRequestDescription[requestId]?.trim();
@@ -237,9 +312,12 @@ function FeatureRequestPage() {
   };
 
   const handleDeleteComment = async (requestId, commentId) => {
-    if (!window.confirm("Are you sure you want to delete this comment?")) {
-      return;
-    }
+    setDeleteCommentAlert({ isOpen: true, requestId, commentId });
+  };
+
+  const confirmDeleteComment = async () => {
+    const { requestId, commentId } = deleteCommentAlert;
+    if (!requestId || !commentId) return;
 
     try {
       await apiDelete(`/feature-requests/${requestId}/comments/${commentId}`);
@@ -247,12 +325,22 @@ function FeatureRequestPage() {
       loadFeatureRequests();
 
       window.showNotification("Comment deleted!", "success");
+      setDeleteCommentAlert({
+        isOpen: false,
+        requestId: null,
+        commentId: null,
+      });
     } catch (error) {
       console.error("Failed to delete comment:", error);
       window.showNotification(
         "Failed to delete comment. Please try again.",
         "error"
       );
+      setDeleteCommentAlert({
+        isOpen: false,
+        requestId: null,
+        commentId: null,
+      });
     }
   };
 
@@ -322,13 +410,12 @@ function FeatureRequestPage() {
   };
 
   const handleDeleteRequest = async (requestId) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this feature request? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
+    setDeleteRequestAlert({ isOpen: true, requestId });
+  };
+
+  const confirmDeleteRequest = async () => {
+    const { requestId } = deleteRequestAlert;
+    if (!requestId) return;
 
     try {
       await apiDelete(`/feature-requests/${requestId}`);
@@ -340,13 +427,21 @@ function FeatureRequestPage() {
         delete next[requestId];
         return next;
       });
+      setExpandedRejected((prev) => {
+        if (!prev[requestId]) return prev;
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
       window.showNotification("Feature request deleted!", "success");
+      setDeleteRequestAlert({ isOpen: false, requestId: null });
     } catch (error) {
       console.error("Failed to delete feature request:", error);
       window.showNotification(
         "Failed to delete feature request. Please try again.",
         "error"
       );
+      setDeleteRequestAlert({ isOpen: false, requestId: null });
     }
   };
 
@@ -365,8 +460,13 @@ function FeatureRequestPage() {
     );
   }
 
-  const activeRequests = featureRequests.filter((r) => !r.is_done);
-  const completedRequests = featureRequests.filter((r) => r.is_done);
+  const activeRequests = featureRequests.filter(
+    (r) => !r.is_done && !r.is_rejected
+  );
+  const completedRequests = featureRequests.filter(
+    (r) => r.is_done && !r.is_rejected
+  );
+  const rejectedRequests = featureRequests.filter((r) => r.is_rejected);
 
   return (
     <div style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
@@ -486,6 +586,7 @@ function FeatureRequestPage() {
                   onCancelEditRequest={handleCancelEditRequest}
                   onStartEditRequest={handleStartEditRequest}
                   onMarkDone={handleMarkDone}
+                  onMarkRejected={handleMarkRejected}
                   commentText={commentText}
                   onCommentTextChange={handleCommentTextChange}
                   replyingTo={replyingTo}
@@ -597,6 +698,123 @@ function FeatureRequestPage() {
                           onCancelEditRequest={handleCancelEditRequest}
                           onStartEditRequest={handleStartEditRequest}
                           onMarkDone={handleMarkDone}
+                          onMarkRejected={handleMarkRejected}
+                          commentText={commentText}
+                          onCommentTextChange={handleCommentTextChange}
+                          replyingTo={replyingTo}
+                          onReply={handleReply}
+                          onAddComment={handleAddComment}
+                          submittingComment={submittingComment}
+                          editingComment={editingComment}
+                          editCommentText={editCommentText}
+                          onEditComment={handleEditCommentClick}
+                          onDeleteComment={handleDeleteComment}
+                          onSaveEditComment={handleSaveEditComment}
+                          onCancelEditComment={handleCancelEditComment}
+                          onEditTextChange={handleEditTextChange}
+                          onEditCommentTextChange={handleEditCommentTextChange}
+                          onDeleteRequest={handleDeleteRequest}
+                          organizeComments={organizeComments}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Rejected Feature Requests */}
+          {rejectedRequests.length > 0 && (
+            <div style={{ marginTop: "3rem" }}>
+              <h2 style={{ marginBottom: "1rem", color: "#b42318" }}>
+                🚫 Not Planned
+              </h2>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {rejectedRequests.map((request) => {
+                  const isExpanded = expandedRejected[request.id];
+                  return (
+                    <div
+                      key={request.id}
+                      style={{
+                        background: "white",
+                        borderRadius: "8px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        padding: isExpanded ? "1.5rem" : "1rem",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {!isExpanded ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            cursor: "pointer",
+                          }}
+                          onClick={() =>
+                            setExpandedRejected((prev) => ({
+                              ...prev,
+                              [request.id]: true,
+                            }))
+                          }
+                        >
+                          <div style={{ flex: 1 }}>
+                            <h3
+                              style={{
+                                margin: 0,
+                                color: "#b42318",
+                                fontSize: "1rem",
+                                fontWeight: "500",
+                              }}
+                            >
+                              🚫 {request.title}
+                            </h3>
+                            <p
+                              style={{
+                                color: "#999",
+                                fontSize: "0.85rem",
+                                margin: "0.25rem 0 0 0",
+                              }}
+                            >
+                              by {request.username} •{" "}
+                              {new Date(
+                                request.created_at
+                              ).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div
+                            style={{
+                              color: "#b42318",
+                              fontSize: "0.9rem",
+                              marginLeft: "1rem",
+                            }}
+                          >
+                            ▼ Click to expand
+                          </div>
+                        </div>
+                      ) : (
+                        <FeatureRequestCard
+                          request={request}
+                          user={user}
+                          expandedRequest={expandedRequest}
+                          onToggleExpand={handleToggleExpand}
+                          onVote={handleVote}
+                          getNetVotes={getNetVotes}
+                          editingRequest={editingRequest}
+                          editRequestTitle={editRequestTitle}
+                          editRequestDescription={editRequestDescription}
+                          onEditRequest={handleEditRequest}
+                          onCancelEditRequest={handleCancelEditRequest}
+                          onStartEditRequest={handleStartEditRequest}
+                          onMarkDone={handleMarkDone}
+                          onMarkRejected={handleMarkRejected}
                           commentText={commentText}
                           onCommentTextChange={handleCommentTextChange}
                           replyingTo={replyingTo}
@@ -623,6 +841,52 @@ function FeatureRequestPage() {
           )}
         </>
       )}
+
+      {/* Custom Alert for deleting feature requests */}
+      <CustomAlert
+        isOpen={deleteRequestAlert.isOpen}
+        onClose={() =>
+          setDeleteRequestAlert({ isOpen: false, requestId: null })
+        }
+        onConfirm={confirmDeleteRequest}
+        title="Delete Feature Request"
+        message="Are you sure you want to delete this feature request? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      {/* Custom Alert for deleting comments */}
+      <CustomAlert
+        isOpen={deleteCommentAlert.isOpen}
+        onClose={() =>
+          setDeleteCommentAlert({
+            isOpen: false,
+            requestId: null,
+            commentId: null,
+          })
+        }
+        onConfirm={confirmDeleteComment}
+        title="Delete Comment"
+        message="Are you sure you want to delete this comment?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      {/* Custom Prompt for rejection reason */}
+      <CustomPrompt
+        isOpen={rejectPrompt.isOpen}
+        onClose={() => setRejectPrompt({ isOpen: false, requestId: null })}
+        onConfirm={confirmReject}
+        title="Reject Feature Request"
+        message="Please provide a reason for rejecting this feature request (optional):"
+        placeholder="Enter rejection reason (optional)..."
+        defaultValue=""
+        confirmText="Reject"
+        cancelText="Cancel"
+        allowEmpty={true}
+      />
     </div>
   );
 }

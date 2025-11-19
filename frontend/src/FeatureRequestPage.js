@@ -684,38 +684,89 @@ function FeatureRequestPage() {
                           </div>
                         </div>
                       ) : (
-                        <FeatureRequestCard
-                          request={request}
-                          user={user}
-                          expandedRequest={expandedRequest}
-                          onToggleExpand={handleToggleExpand}
-                          onVote={handleVote}
-                          getNetVotes={getNetVotes}
-                          editingRequest={editingRequest}
-                          editRequestTitle={editRequestTitle}
-                          editRequestDescription={editRequestDescription}
-                          onEditRequest={handleEditRequest}
-                          onCancelEditRequest={handleCancelEditRequest}
-                          onStartEditRequest={handleStartEditRequest}
-                          onMarkDone={handleMarkDone}
-                          onMarkRejected={handleMarkRejected}
-                          commentText={commentText}
-                          onCommentTextChange={handleCommentTextChange}
-                          replyingTo={replyingTo}
-                          onReply={handleReply}
-                          onAddComment={handleAddComment}
-                          submittingComment={submittingComment}
-                          editingComment={editingComment}
-                          editCommentText={editCommentText}
-                          onEditComment={handleEditCommentClick}
-                          onDeleteComment={handleDeleteComment}
-                          onSaveEditComment={handleSaveEditComment}
-                          onCancelEditComment={handleCancelEditComment}
-                          onEditTextChange={handleEditTextChange}
-                          onEditCommentTextChange={handleEditCommentTextChange}
-                          onDeleteRequest={handleDeleteRequest}
-                          organizeComments={organizeComments}
-                        />
+                        <>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: "1rem",
+                              paddingBottom: "0.75rem",
+                              borderBottom: "1px solid #e5e7eb",
+                            }}
+                          >
+                            <h3
+                              style={{
+                                margin: 0,
+                                color: "#6c757d",
+                                fontSize: "1rem",
+                                fontWeight: "500",
+                              }}
+                            >
+                              ✅ {request.title}
+                            </h3>
+                            <button
+                              onClick={() =>
+                                setExpandedCompleted((prev) => ({
+                                  ...prev,
+                                  [request.id]: false,
+                                }))
+                              }
+                              style={{
+                                padding: "0.25rem 0.75rem",
+                                background: "#f3f4f6",
+                                color: "#374151",
+                                border: "1px solid #d1d5db",
+                                borderRadius: "4px",
+                                fontSize: "0.85rem",
+                                cursor: "pointer",
+                                fontWeight: "500",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.background = "#e5e7eb";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.background = "#f3f4f6";
+                              }}
+                            >
+                              ▲ Collapse
+                            </button>
+                          </div>
+                          <FeatureRequestCard
+                            request={request}
+                            user={user}
+                            expandedRequest={expandedRequest}
+                            onToggleExpand={handleToggleExpand}
+                            onVote={handleVote}
+                            getNetVotes={getNetVotes}
+                            editingRequest={editingRequest}
+                            editRequestTitle={editRequestTitle}
+                            editRequestDescription={editRequestDescription}
+                            onEditRequest={handleEditRequest}
+                            onCancelEditRequest={handleCancelEditRequest}
+                            onStartEditRequest={handleStartEditRequest}
+                            onMarkDone={handleMarkDone}
+                            onMarkRejected={handleMarkRejected}
+                            commentText={commentText}
+                            onCommentTextChange={handleCommentTextChange}
+                            replyingTo={replyingTo}
+                            onReply={handleReply}
+                            onAddComment={handleAddComment}
+                            submittingComment={submittingComment}
+                            editingComment={editingComment}
+                            editCommentText={editCommentText}
+                            onEditComment={handleEditCommentClick}
+                            onDeleteComment={handleDeleteComment}
+                            onSaveEditComment={handleSaveEditComment}
+                            onCancelEditComment={handleCancelEditComment}
+                            onEditTextChange={handleEditTextChange}
+                            onEditCommentTextChange={
+                              handleEditCommentTextChange
+                            }
+                            onDeleteRequest={handleDeleteRequest}
+                            organizeComments={organizeComments}
+                          />
+                        </>
                       )}
                     </div>
                   );
@@ -800,38 +851,89 @@ function FeatureRequestPage() {
                           </div>
                         </div>
                       ) : (
-                        <FeatureRequestCard
-                          request={request}
-                          user={user}
-                          expandedRequest={expandedRequest}
-                          onToggleExpand={handleToggleExpand}
-                          onVote={handleVote}
-                          getNetVotes={getNetVotes}
-                          editingRequest={editingRequest}
-                          editRequestTitle={editRequestTitle}
-                          editRequestDescription={editRequestDescription}
-                          onEditRequest={handleEditRequest}
-                          onCancelEditRequest={handleCancelEditRequest}
-                          onStartEditRequest={handleStartEditRequest}
-                          onMarkDone={handleMarkDone}
-                          onMarkRejected={handleMarkRejected}
-                          commentText={commentText}
-                          onCommentTextChange={handleCommentTextChange}
-                          replyingTo={replyingTo}
-                          onReply={handleReply}
-                          onAddComment={handleAddComment}
-                          submittingComment={submittingComment}
-                          editingComment={editingComment}
-                          editCommentText={editCommentText}
-                          onEditComment={handleEditCommentClick}
-                          onDeleteComment={handleDeleteComment}
-                          onSaveEditComment={handleSaveEditComment}
-                          onCancelEditComment={handleCancelEditComment}
-                          onEditTextChange={handleEditTextChange}
-                          onEditCommentTextChange={handleEditCommentTextChange}
-                          onDeleteRequest={handleDeleteRequest}
-                          organizeComments={organizeComments}
-                        />
+                        <>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: "1rem",
+                              paddingBottom: "0.75rem",
+                              borderBottom: "1px solid #e5e7eb",
+                            }}
+                          >
+                            <h3
+                              style={{
+                                margin: 0,
+                                color: "#b42318",
+                                fontSize: "1rem",
+                                fontWeight: "500",
+                              }}
+                            >
+                              🚫 {request.title}
+                            </h3>
+                            <button
+                              onClick={() =>
+                                setExpandedRejected((prev) => ({
+                                  ...prev,
+                                  [request.id]: false,
+                                }))
+                              }
+                              style={{
+                                padding: "0.25rem 0.75rem",
+                                background: "#f3f4f6",
+                                color: "#374151",
+                                border: "1px solid #d1d5db",
+                                borderRadius: "4px",
+                                fontSize: "0.85rem",
+                                cursor: "pointer",
+                                fontWeight: "500",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.background = "#e5e7eb";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.background = "#f3f4f6";
+                              }}
+                            >
+                              ▲ Collapse
+                            </button>
+                          </div>
+                          <FeatureRequestCard
+                            request={request}
+                            user={user}
+                            expandedRequest={expandedRequest}
+                            onToggleExpand={handleToggleExpand}
+                            onVote={handleVote}
+                            getNetVotes={getNetVotes}
+                            editingRequest={editingRequest}
+                            editRequestTitle={editRequestTitle}
+                            editRequestDescription={editRequestDescription}
+                            onEditRequest={handleEditRequest}
+                            onCancelEditRequest={handleCancelEditRequest}
+                            onStartEditRequest={handleStartEditRequest}
+                            onMarkDone={handleMarkDone}
+                            onMarkRejected={handleMarkRejected}
+                            commentText={commentText}
+                            onCommentTextChange={handleCommentTextChange}
+                            replyingTo={replyingTo}
+                            onReply={handleReply}
+                            onAddComment={handleAddComment}
+                            submittingComment={submittingComment}
+                            editingComment={editingComment}
+                            editCommentText={editCommentText}
+                            onEditComment={handleEditCommentClick}
+                            onDeleteComment={handleDeleteComment}
+                            onSaveEditComment={handleSaveEditComment}
+                            onCancelEditComment={handleCancelEditComment}
+                            onEditTextChange={handleEditTextChange}
+                            onEditCommentTextChange={
+                              handleEditCommentTextChange
+                            }
+                            onDeleteRequest={handleDeleteRequest}
+                            organizeComments={organizeComments}
+                          />
+                        </>
                       )}
                     </div>
                   );

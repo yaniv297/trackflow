@@ -143,7 +143,7 @@ function FeatureRequestCard({
                 marginLeft: "1rem",
               }}
             >
-              {!editingRequest[request.id] && request.user_id === user?.id && (
+              {!editingRequest[request.id] && request.user_id === user?.id && !request.is_done && !request.is_rejected && (
                 <button
                   onClick={() => onStartEditRequest(request.id)}
                   style={{
@@ -161,30 +161,56 @@ function FeatureRequestCard({
                   ✏️ Edit
                 </button>
               )}
-              {user?.is_admin && (
-                <button
-                  onClick={() => onMarkDone(request.id, request.is_done)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: request.is_done ? "#6c757d" : "#28a745",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    fontSize: "0.85rem",
-                    cursor: "pointer",
-                    fontWeight: "600",
-                  }}
-                  title={request.is_done ? "Mark as not done" : "Mark as done"}
-                >
-                  {request.is_done ? "✓ Done" : "Mark Done"}
-                </button>
+              {/* Show "Mark Done" and "Reject" only for active (not done, not rejected) requests */}
+              {user?.is_admin && !request.is_done && !request.is_rejected && (
+                <>
+                  <button
+                    onClick={() => onMarkDone(request.id, request.is_done)}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#28a745",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                    title="Mark as done"
+                  >
+                    Mark Done
+                  </button>
+                  <button
+                    onClick={() => onMarkRejected(request.id, request.is_rejected)}
+                    style={{
+                      padding: "0.5rem 1rem",
+                      background: "#b42318",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      fontWeight: "600",
+                    }}
+                    title="Mark as not planned"
+                  >
+                    Reject
+                  </button>
+                </>
               )}
-              {user?.is_admin && (
+              {/* Show "Reopen" for completed or rejected requests */}
+              {user?.is_admin && (request.is_done || request.is_rejected) && (
                 <button
-                  onClick={() => onMarkRejected(request.id, request.is_rejected)}
+                  onClick={() => {
+                    if (request.is_done) {
+                      onMarkDone(request.id, true);
+                    } else {
+                      onMarkRejected(request.id, true);
+                    }
+                  }}
                   style={{
                     padding: "0.5rem 1rem",
-                    background: request.is_rejected ? "#6c757d" : "#b42318",
+                    background: "#3b82f6",
                     color: "white",
                     border: "none",
                     borderRadius: "4px",
@@ -192,13 +218,9 @@ function FeatureRequestCard({
                     cursor: "pointer",
                     fontWeight: "600",
                   }}
-                  title={
-                    request.is_rejected
-                      ? "Reopen feature request"
-                      : "Mark as not planned"
-                  }
+                  title="Reopen feature request"
                 >
-                  {request.is_rejected ? "↺ Reopen" : "Reject"}
+                  ↺ Reopen
                 </button>
               )}
               {(user?.is_admin || request.user_id === user?.id) && (

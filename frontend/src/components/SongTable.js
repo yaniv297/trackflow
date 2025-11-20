@@ -41,6 +41,8 @@ const SongTable = ({
   onDeletePack,
   onShowAlbumSeriesModal,
   onMakeDoubleAlbumSeries,
+  onUpdatePackPriority,
+  packs,
 }) => {
   const [localSortStates, setLocalSortStates] = useState({});
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -161,6 +163,11 @@ const SongTable = ({
 
     if (validSongsInPack.length === 0) return null;
 
+    // Get pack priority from song data
+    const packPriority = packName === "(no pack)" 
+      ? null 
+      : validSongsInPack[0]?.pack_priority || null;
+
     // Skip album series logic when grouping by artist
     let sortedSeriesInfo = [];
     let seriesIdsForPackSorted = [];
@@ -254,6 +261,8 @@ const SongTable = ({
           onSongAdded={onSongAdded}
           onPackNameUpdate={onPackNameUpdate}
           onDeletePack={onDeletePack}
+          onUpdatePackPriority={onUpdatePackPriority}
+          packPriority={packPriority}
         />
         {!collapsedGroups[packName] &&
           renderRowsForGroup(packName, validSongsInPack)}

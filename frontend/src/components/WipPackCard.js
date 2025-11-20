@@ -2,6 +2,7 @@ import React from "react";
 import SmartDropdown from "./SmartDropdown";
 import WipSongCard from "./WipSongCard";
 import DLCWarning from "./DLCWarning";
+import PackPriorityBadge from "./PackPriorityBadge";
 import { useUserWorkflowFields } from "../hooks/useUserWorkflowFields";
 import {
   getSongCompletionPercentage,
@@ -11,6 +12,7 @@ import {
 const WipPackCard = ({
   packName,
   percent,
+  priority,
   coreSongs,
   allSongs,
   completedSongs,
@@ -49,6 +51,7 @@ const WipPackCard = ({
   onCreateAlbumSeries,
   onShowAlbumSeriesModal,
   onDeletePack,
+  onUpdatePackPriority,
   // Collaboration data
   userCollaborations,
 }) => {
@@ -347,6 +350,13 @@ const WipPackCard = ({
           </div>
         )}
 
+        {/* Priority Badge - always visible and clickable */}
+        <PackPriorityBadge
+          priority={priority}
+          packName={packName}
+          onUpdatePriority={onUpdatePackPriority}
+        />
+
         {/* Progress bar and percent */}
         <div
           style={{
@@ -563,6 +573,7 @@ const WipPackCard = ({
                   >
                     ✏️ Change Pack Name
                   </button>
+
 
                   <button
                     onClick={() => {
@@ -1305,6 +1316,7 @@ const WipPackCard = ({
                 )}
               </div>
             )}
+
 
             {packSettingsMode === "rename" && (
               <div>

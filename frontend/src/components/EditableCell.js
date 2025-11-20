@@ -48,6 +48,10 @@ export default function EditableCell({
         cursor: isEditable ? "pointer" : "default",
         opacity: isEditable ? 1 : 0.6,
         backgroundColor: isEditable ? "transparent" : "#f8f9fa",
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
       }}
     >
       {isEditing ? (
@@ -93,7 +97,22 @@ export default function EditableCell({
           />
         )
       ) : (
-        displayValue
+        <>
+          {isAlbumCover && displayValue ? (
+            <img
+              src={displayValue}
+              alt="cover"
+              style={{
+                width: "50px",
+                height: "50px",
+                objectFit: "cover",
+                flex: 1,
+              }}
+            />
+          ) : (
+            <span style={{ flex: 1 }}>{displayValue}</span>
+          )}
+        </>
       )}
     </div>
   );

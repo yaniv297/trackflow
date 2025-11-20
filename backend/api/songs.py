@@ -110,7 +110,9 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     
     # Attach pack data if it exists
     if db_song.pack_obj:
+        song_dict["pack_id"] = db_song.pack_obj.id
         song_dict["pack_name"] = db_song.pack_obj.name
+        song_dict["pack_priority"] = db_song.pack_obj.priority
         song_dict["pack_owner_id"] = db_song.pack_obj.user_id
         song_dict["pack_owner_username"] = db_song.pack_obj.user.username if db_song.pack_obj.user else None
     
@@ -282,6 +284,7 @@ def get_filtered_songs(
             pack = pack_map[song.pack_id]
             song_dict["pack_id"] = int(pack.id)
             song_dict["pack_name"] = pack.name
+            song_dict["pack_priority"] = pack.priority
             song_dict["pack_owner_id"] = int(pack.user_id)
             song_dict["pack_owner_username"] = pack.user.username
             song_dict["album_series_id"] = preferred_series_id
@@ -293,6 +296,7 @@ def get_filtered_songs(
         elif song.pack_obj:
             song_dict["pack_id"] = int(song.pack_obj.id)
             song_dict["pack_name"] = song.pack_obj.name
+            song_dict["pack_priority"] = song.pack_obj.priority
             song_dict["pack_owner_id"] = int(song.pack_obj.user_id)
             song_dict["pack_owner_username"] = song.pack_obj.user.username
             song_dict["album_series_id"] = preferred_series_id
@@ -424,6 +428,7 @@ def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), c
         if song.pack_obj:
             song_dict["pack_id"] = song.pack_obj.id
             song_dict["pack_name"] = song.pack_obj.name
+            song_dict["pack_priority"] = song.pack_obj.priority
         
         # Attach album series data if it exists
         if song.album_series_id:
@@ -628,6 +633,7 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
     if song.pack_obj:
         song_dict["pack_id"] = song.pack_obj.id
         song_dict["pack_name"] = song.pack_obj.name
+        song_dict["pack_priority"] = song.pack_obj.priority
         song_dict["pack_owner_id"] = song.pack_obj.user_id
         # Get pack owner username
         pack_owner = db.query(User).filter(User.id == song.pack_obj.user_id).first()

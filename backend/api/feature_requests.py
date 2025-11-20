@@ -22,7 +22,7 @@ from models import (
 from schemas import (
     FeatureRequestOut, FeatureRequestCreate, FeatureRequestUpdate,
     FeatureRequestCommentOut, FeatureRequestCommentCreate, FeatureRequestCommentUpdate,
-    FeatureRequestVoteRequest, FeatureRequestMarkDoneRequest
+    FeatureRequestVoteRequest, FeatureRequestMarkDoneRequest, FeatureRequestMarkRejectedRequest
 )
 
 router = APIRouter(prefix="/feature-requests", tags=["Feature Requests"])
@@ -283,19 +283,19 @@ def delete_feature_request(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Delete a feature request (admin only)"""
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-
+    """Delete a feature request (owner or admin)"""
     feature_request = db.query(FeatureRequest).filter(
         FeatureRequest.id == feature_request_id
     ).first()
 
     if not feature_request:
         raise HTTPException(status_code=404, detail="Feature request not found")
+
+    if feature_request.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the feature request owner or an admin can delete it"
+        )
 
     db.delete(feature_request)
     db.commit()
@@ -417,6 +417,41 @@ def mark_feature_done(
         raise HTTPException(status_code=404, detail="Feature request not found")
     
     feature_request.is_done = request.is_done
+    if request.is_done:
+        feature_request.is_rejected = False
+    db.commit()
+    db.refresh(feature_request)
+    
+    return _build_feature_request_response(feature_request, current_user.id, db)
+
+
+@router.patch("/{feature_request_id}/mark-rejected", response_model=FeatureRequestOut)
+def mark_feature_rejected(
+    feature_request_id: int,
+    request: FeatureRequestMarkRejectedRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Mark a feature request as rejected/not planned (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    feature_request = db.query(FeatureRequest).filter(
+        FeatureRequest.id == feature_request_id
+    ).first()
+    
+    if not feature_request:
+        raise HTTPException(status_code=404, detail="Feature request not found")
+    
+    feature_request.is_rejected = request.is_rejected
+    if request.is_rejected:
+        feature_request.is_done = False
+        feature_request.rejection_reason = request.rejection_reason
+    else:
+        feature_request.rejection_reason = None  # Clear reason when un-rejecting
     db.commit()
     db.refresh(feature_request)
     
@@ -492,6 +527,8 @@ def _build_feature_request_response(feature_request: FeatureRequest, current_use
         user_id=feature_request.user_id,
         username=creator.username if creator else "Unknown",
         is_done=feature_request.is_done,
+        is_rejected=feature_request.is_rejected,
+        rejection_reason=feature_request.rejection_reason,
         created_at=feature_request.created_at,
         updated_at=feature_request.updated_at,
         upvotes=upvotes,

@@ -20,6 +20,7 @@ function SongPage({ status }) {
 
   // Core state
   const [songs, setSongs] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ function SongPage({ status }) {
   const [sortDirection, setSortDirection] = useState("asc");
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [groupBy, setGroupBy] = useState("pack");
+  const [packSortBy, setPackSortBy] = useState("priority"); // Default to priority for Future Plans
 
   // Modal state
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -82,6 +84,9 @@ function SongPage({ status }) {
   const [songsCache, setSongsCache] = useState({});
 
   // Define fetchSongs before using it in useEffect
+  // Note: We don't need to fetch packs separately anymore since pack priority 
+  // comes from song data (pack_priority field) which is more reliable
+
   const fetchSongs = useCallback(async () => {
     try {
       setLoading(true);
@@ -224,15 +229,51 @@ function SongPage({ status }) {
         });
       });
 
-      // Sort pack names alphabetically, with "(no pack)" at the end
+      // Sort pack names by priority first, then alphabetically, with "(no pack)" at the end
       const sortedGrouped = {};
+      
+      // Helper function to get pack priority
+      const getPackPriority = (packName) => {
+        if (packName === "(no pack)") return null; // No priority for no pack
+        
+        // First try to find from packs array
+        const packData = packs.find(p => p.name === packName);
+        if (packData && packData.priority !== null) {
+          return packData.priority;
+        }
+        
+        // Fallback: get priority from songs in this pack (they have pack_priority field)
+        const songsInPack = grouped[packName] || [];
+        const songWithPriority = songsInPack.find(song => song.pack_priority !== null && song.pack_priority !== undefined);
+        return songWithPriority ? songWithPriority.pack_priority : null;
+      };
+      
       Object.keys(grouped)
         .sort((a, b) => {
           // Put "(no pack)" at the end
           if (a === "(no pack)") return 1;
           if (b === "(no pack)") return -1;
-          // Sort other packs alphabetically
-          return a.localeCompare(b);
+          
+          if (packSortBy === "alphabetical") {
+            // Alphabetical sorting (case insensitive)
+            return a.toLowerCase().localeCompare(b.toLowerCase());
+          } else if (packSortBy === "priority") {
+            // Priority sorting (highest first), then alphabetically
+            const aPriority = getPackPriority(a) ?? 0;
+            const bPriority = getPackPriority(b) ?? 0;
+            if (aPriority !== bPriority) {
+              return bPriority - aPriority; // Higher priority first
+            }
+            return a.toLowerCase().localeCompare(b.toLowerCase()); // Then alphabetically
+          } else {
+            // For Future Plans, we don't have completion data, so default to priority sorting
+            const aPriority = getPackPriority(a) ?? 0;
+            const bPriority = getPackPriority(b) ?? 0;
+            if (aPriority !== bPriority) {
+              return bPriority - aPriority; // Higher priority first
+            }
+            return a.toLowerCase().localeCompare(b.toLowerCase());
+          }
         })
         .forEach((packName) => {
           sortedGrouped[packName] = grouped[packName];
@@ -240,7 +281,7 @@ function SongPage({ status }) {
 
       return sortedGrouped;
     }
-  }, [sortedSongs, search, groupBy]);
+  }, [sortedSongs, search, groupBy, packs, packSortBy]);
 
   // Event handlers
   const handleSort = (key) => {
@@ -523,6 +564,53 @@ function SongPage({ status }) {
     });
   };
 
+  const updatePackPriority = async (packName, priority) => {
+    if (!packName) return;
+    
+    // Find pack ID from songs
+    const packSongs = songs.filter(song => song.pack_name === packName);
+    const packId = packSongs[0]?.pack_id;
+    
+    if (!packId) {
+      window.showNotification("Could not find pack ID", "error");
+      return;
+    }
+
+    try {
+      await apiPatch(`/packs/${packId}`, { priority });
+      
+      // Update local packs state immediately (no page refresh!)
+      setPacks(prevPacks => 
+        prevPacks.map(pack => 
+          pack.id === packId 
+            ? { ...pack, priority }
+            : pack
+        )
+      );
+      
+      // ALSO update the pack_priority field on all songs in this pack
+      // This is what the UI actually displays!
+      setSongs(prevSongs =>
+        prevSongs.map(song =>
+          song.pack_id === packId
+            ? { ...song, pack_priority: priority }
+            : song
+        )
+      );
+      
+      const priorityText = priority ? 
+        `Priority ${priority} (${['💤 Someday', '📋 Low', '📝 Medium', '⚡ High', '🔥 Urgent'][priority - 1]})` : 
+        "No priority";
+      
+      window.showNotification(`Pack priority updated to: ${priorityText}`, "success");
+      
+    } catch (error) {
+      console.error("Failed to update pack priority:", error);
+      window.showNotification("Failed to update pack priority", "error");
+      throw error;
+    }
+  };
+
   const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
     console.log(
       "Opening album series modal for pack:",
@@ -732,6 +820,8 @@ function SongPage({ status }) {
         setGroupBy={setGroupBy}
         allCollapsed={allCollapsed}
         toggleAllGroups={toggleAllGroups}
+        packSortBy={packSortBy}
+        setPackSortBy={setPackSortBy}
       />
 
       {/* Loading Spinner */}
@@ -779,6 +869,8 @@ function SongPage({ status }) {
           onDeletePack={handleDeletePack}
           onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
           onMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
+          onUpdatePackPriority={updatePackPriority}
+          packs={packs}
         />
       )}
 

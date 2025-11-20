@@ -1,13 +1,11 @@
 import os
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from sqlalchemy import text
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.staticfiles import StaticFiles
-from database import engine
-from models import Base
-import asyncio
-from contextlib import asynccontextmanager
 from api import songs as songs
 from api import authoring as authoring
 from api import tools as tools
@@ -25,10 +23,12 @@ from api import bug_reports as bug_reports
 from api import admin as admin
 from api import feature_requests as feature_requests
 from api import achievements as achievements
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import os
+from database import engine, SQLALCHEMY_DATABASE_URL
+from models import Base
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+
 
 app = FastAPI(
     title="TrackFlow API",

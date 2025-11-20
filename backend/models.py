@@ -49,6 +49,7 @@ class Pack(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    priority = Column(Integer, nullable=True)  # 1-5 scale, 5 is highest priority, null if not set
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     # Relationships
@@ -263,6 +264,8 @@ class FeatureRequest(Base):
     description = Column(Text, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     is_done = Column(Boolean, default=False, index=True)
+    is_rejected = Column(Boolean, default=False, index=True)
+    rejection_reason = Column(Text, nullable=True)  # Admin explanation for rejection
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

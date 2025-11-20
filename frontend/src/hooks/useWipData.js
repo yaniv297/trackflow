@@ -10,11 +10,13 @@ import {
 
 export const useWipData = (user) => {
   const [songs, setSongs] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [userCollaborations, setUserCollaborations] = useState([]);
   const [collaborationsOnMyPacks, setCollaborationsOnMyPacks] = useState([]);
   const [collapsedPacks, setCollapsedPacks] = useState({});
   const [loading, setLoading] = useState(true);
   const [userWorkflowFields, setUserWorkflowFields] = useState({});
+  const [packSortBy, setPackSortBy] = useState("completion"); // Default to completion for WIP
 
   // Get dynamic workflow fields for the current user
   const { authoringFields } = useWorkflowData(user);
@@ -90,6 +92,9 @@ export const useWipData = (user) => {
 
     return collaborators.size > 0 ? Array.from(collaborators) : null;
   };
+
+  // Note: We don't need to load packs separately since pack priority 
+  // comes from song data (pack_priority field) which is more reliable
 
   // Load songs
   useEffect(() => {
@@ -206,6 +211,14 @@ export const useWipData = (user) => {
       return userWorkflowFields[song.user_id] || authoringFields;
     };
 
+    // Helper to get pack priority from song data
+    const getPackPriority = (packName, songsInPack) => {
+      if (packName === "(no pack)") return null; // No priority for songs without pack
+      // Get priority from the first song in the pack (all songs in a pack have the same pack_priority)
+      const firstSong = songsInPack[0];
+      return firstSong?.pack_priority || null;
+    };
+
     // Group ALL songs by pack (both owned and collaborator songs)
     const groups = songs.reduce((acc, song) => {
       const pack = song.pack_name || "(no pack)";
@@ -270,6 +283,7 @@ export const useWipData = (user) => {
       return {
         pack,
         percent,
+        priority: getPackPriority(pack, songs),
         coreSongs: sortByCompletion(coreSongs),
         allSongs: sortByCompletion(songs),
         completedSongs: sortByCompletion(completedSongs),
@@ -280,8 +294,29 @@ export const useWipData = (user) => {
       };
     });
 
-    return packStats.sort((a, b) => b.percent - a.percent);
-  }, [songs, authoringFields, userWorkflowFields]);
+    // Sort by user's choice: alphabetical, priority, or completion
+    return packStats.sort((a, b) => {
+      if (packSortBy === "alphabetical") {
+        // Alphabetical sorting (case insensitive)
+        return a.pack.toLowerCase().localeCompare(b.pack.toLowerCase());
+      } else if (packSortBy === "priority") {
+        // Priority sorting (highest first), then by alphabetical
+        const aPriority = a.priority ?? 0; // null becomes 0
+        const bPriority = b.priority ?? 0; // null becomes 0
+        
+        if (aPriority !== bPriority) {
+          return bPriority - aPriority; // Higher priority first
+        }
+        return a.pack.toLowerCase().localeCompare(b.pack.toLowerCase()); // Then alphabetically
+      } else { // completion
+        // Completion sorting (highest first), then by alphabetical
+        if (a.percent !== b.percent) {
+          return b.percent - a.percent; // Higher completion first
+        }
+        return a.pack.toLowerCase().localeCompare(b.pack.toLowerCase()); // Then alphabetically
+      }
+    });
+  }, [songs, packs, authoringFields, userWorkflowFields, packSortBy]);
 
   const refreshCollaborations = async () => {
     if (user) {
@@ -301,13 +336,34 @@ export const useWipData = (user) => {
   const refreshSongs = async () => {
     try {
       setLoading(true);
-      const data = await apiGet("/songs/?status=In%20Progress");
-      setSongs(data);
+      const songsData = await apiGet("/songs/?status=In%20Progress");
+      setSongs(songsData);
     } catch (error) {
       console.error("Failed to refresh songs:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const updatePackPriorityLocal = (packId, priority) => {
+    // Update local pack data immediately without triggering loading state
+    setPacks(prevPacks => 
+      prevPacks.map(pack => 
+        pack.id === packId 
+          ? { ...pack, priority }
+          : pack
+      )
+    );
+    
+    // ALSO update the pack_priority field on all songs in this pack
+    // This is what the UI actually displays!
+    setSongs(prevSongs =>
+      prevSongs.map(song =>
+        song.pack_id === packId
+          ? { ...song, pack_priority: priority }
+          : song
+      )
+    );
   };
 
   return {
@@ -322,6 +378,9 @@ export const useWipData = (user) => {
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
+    updatePackPriorityLocal,
     loading,
+    packSortBy,
+    setPackSortBy,
   };
 };

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AddSongToPack from "./AddSongToPack";
+import PackPriorityBadge from "./PackPriorityBadge";
 
 const dropdownItemStyle = {
   background: "none",
@@ -42,6 +43,8 @@ const PackHeader = ({
   onSongAdded,
   onPackNameUpdate,
   onDeletePack,
+  onUpdatePackPriority,
+  packPriority,
 }) => {
   const [showAddSongModal, setShowAddSongModal] = useState(false);
   const [showPackActions, setShowPackActions] = useState(false);
@@ -63,6 +66,7 @@ const PackHeader = ({
       setRenameModalOpen(false);
     }
   };
+
 
   return (
     <>
@@ -139,7 +143,7 @@ const PackHeader = ({
               if (Array.isArray(seriesInfo) && seriesInfo.length > 0) {
                 return (
                   <span
-                    style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}
+                    style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}
                   >
                     {seriesInfo.map((info) => {
                       const num = info?.number ?? "";
@@ -174,12 +178,36 @@ const PackHeader = ({
                         </a>
                       );
                     })}
+                    
+                    {/* Priority Badge for Album Series - Always visible and clickable */}
+                    {packName !== "(no pack)" && validSongsInPack[0]?.pack_id && (
+                      <PackPriorityBadge
+                        priority={packPriority}
+                        packName={validSongsInPack[0]?.pack_name}
+                        onUpdatePriority={onUpdatePackPriority}
+                      />
+                    )}
                   </span>
                 );
               }
               return (
-                <span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
-                  {packName} ({validSongsInPack.length})
+                <span style={{ 
+                  fontSize: "1.2rem", 
+                  fontWeight: "bold",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}>
+                  <span>{packName} ({validSongsInPack.length})</span>
+                  
+                  {/* Priority Badge - Always visible and clickable */}
+                  {packName !== "(no pack)" && validSongsInPack[0]?.pack_id && (
+                    <PackPriorityBadge
+                      priority={packPriority}
+                      packName={validSongsInPack[0]?.pack_name}
+                      onUpdatePriority={onUpdatePackPriority}
+                    />
+                  )}
                 </span>
               );
             })()}
@@ -309,6 +337,7 @@ const PackHeader = ({
                     >
                       ✏️ Edit Pack Name
                     </button>
+
 
                     {/* Start Work */}
                     {status === "Future Plans" && (
@@ -586,6 +615,7 @@ const PackHeader = ({
           </div>
         </div>
       )}
+
     </>
   );
 };

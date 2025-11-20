@@ -25,5 +25,5 @@ EXPOSE 8000
 
 RUN echo "This is the BACKEND Dockerfile"
 
-# ✅ Call main.py directly to let it parse PORT
-CMD ["python", "main.py"]
+# ✅ Use gunicorn with multiple workers for production stability
+CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 3 --bind 0.0.0.0:${PORT:-8000} --timeout 60"]

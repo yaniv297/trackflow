@@ -7,19 +7,19 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import LoginForm from "./components/LoginForm";
-import RegistrationWizard from "./components/RegistrationWizard";
+import ProtectedRoute from "./components/ui/ProtectedRoute";
+import LoginForm from "./components/forms/LoginForm";
+import RegistrationWizard from "./components/shared/RegistrationWizard";
 import SongPage from "./SongPage";
 import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
 import NewPackForm from "./NewPackForm";
 import StatsPage from "./StatsPage";
 import AlbumSeriesPage from "./AlbumSeriesPage";
-import NotificationManager from "./components/NotificationManager";
+import NotificationManager from "./components/notifications/NotificationManager";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
-import WorkflowSettings from "./components/WorkflowSettings";
+import WorkflowSettings from "./components/features/workflows/WorkflowSettings";
 import HelpPage from "./HelpPage";
 import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
@@ -164,19 +164,12 @@ function AppContent() {
 
   // Global event listeners for album series modals
   useEffect(() => {
-    // console.log("Setting up global event listeners in App.js");
 
     const createHandler = (e) => {
-      console.log(
-        "Received open-create-album-series event in App.js",
-        e.detail
-      );
-      console.log("Current pathname:", window.location.pathname);
       const { artistName, albumName, status, skipNavigation } = e.detail || {};
 
       // Check if we should skip navigation (when called from NewPackForm)
       if (skipNavigation) {
-        console.log("Skipping navigation, opening modal immediately");
         const modalEvent = new CustomEvent("open-create-album-series-modal", {
           detail: { artistName, albumName, status },
         });
@@ -186,7 +179,6 @@ function AppContent() {
 
       // Only navigate to WIP page if we're not already there
       if (window.location.pathname !== "/wip") {
-        console.log("Navigating to WIP page");
         navigate("/wip");
         // Use setTimeout to ensure navigation completes before opening modal
         setTimeout(() => {
@@ -196,7 +188,6 @@ function AppContent() {
           window.dispatchEvent(modalEvent);
         }, 100);
       } else {
-        console.log("Already on WIP page, opening modal immediately");
         // If already on WIP page, open modal immediately
         const modalEvent = new CustomEvent("open-create-album-series-modal", {
           detail: { artistName, albumName, status },
@@ -206,11 +197,9 @@ function AppContent() {
     };
 
     window.addEventListener("open-create-album-series", createHandler);
-    // console.log("Global event listener registered in App.js");
 
     return () => {
       window.removeEventListener("open-create-album-series", createHandler);
-      // console.log("Global event listener removed from App.js");
     };
   }, [navigate]);
 

@@ -64,7 +64,7 @@ export async function checkAndShowNewAchievements() {
           } else if (window.showNotification) {
             window.showNotification(`🏆 Achievement Unlocked: ${achievement.name}`, "success");
           } else {
-            console.log(`🏆 Achievement Unlocked: ${achievement.name} - ${achievement.description}`);
+            // Achievement logged to console for debugging
           }
         }
       });

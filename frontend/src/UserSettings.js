@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { apiGet, apiPut } from "./utils/api";
-import AchievementBadge from "./components/AchievementBadge";
+import AchievementBadge from "./components/features/achievements/AchievementBadge";
 import "./UserSettings.css";
 
 function UserSettings() {
@@ -122,7 +122,6 @@ function UserSettings() {
           ? formData.auto_spotify_fetch_enabled 
           : true
       };
-      console.log("Sending settings update:", payload);
       const response = await apiPut("/user-settings/me", payload);
 
       // Update the user context with new data

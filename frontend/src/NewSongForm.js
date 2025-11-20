@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost, apiGet } from "./utils/api";
 import { checkAndShowNewAchievements } from "./utils/achievements";
-import SmartDropdown from "./components/SmartDropdown";
-import DLCWarning from "./components/DLCWarning";
+import SmartDropdown from "./components/ui/SmartDropdown";
+import DLCWarning from "./components/features/dlc/DLCWarning";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (str) =>

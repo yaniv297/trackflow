@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API_BASE_URL from "./config";
-import SmartDropdown from "./components/SmartDropdown";
+import SmartDropdown from "./components/ui/SmartDropdown";
 import { apiPost, apiGet } from "./utils/api";
-import MultipleDLCCheck from "./components/MultipleDLCCheck";
-import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
+import MultipleDLCCheck from "./components/features/dlc/MultipleDLCCheck";
+import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
 import { checkAndShowNewAchievements } from "./utils/achievements";
 
 // Utility function to capitalize artist and album names
@@ -124,10 +124,6 @@ function NewPackForm() {
   // Event listener for opening the album series modal
   useEffect(() => {
     const createHandler = (e) => {
-      console.log(
-        "Received open-create-album-series-modal event in NewPackForm",
-        e.detail
-      );
       const { artistName, albumName, status } = e.detail || {};
 
       setEditSeriesModal({
@@ -311,7 +307,6 @@ function NewPackForm() {
                               userSettings.auto_spotify_fetch_enabled === 1 ||
                               userSettings.auto_spotify_fetch_enabled === undefined ||
                               userSettings.auto_spotify_fetch_enabled === null;
-          console.log("Auto-enhance setting:", userSettings.auto_spotify_fetch_enabled, "-> shouldAutoEnhance:", shouldAutoEnhance);
         } catch (err) {
           console.warn("Failed to fetch user settings, defaulting to auto-enhance:", err);
           // Default to true if we can't fetch settings
@@ -940,14 +935,6 @@ function NewPackForm() {
               type="button"
               onClick={() => {
                 // Open the editor directly without creating anything
-                // console.log("Button clicked!");
-                // console.log("Form data:", {
-                //   artistName: meta.albumSeriesArtist,
-                //   albumName: meta.albumSeriesAlbum,
-                //   status: meta.status,
-                //   isAlbumSeries: meta.isAlbumSeries,
-                //   creationMode: creationMode,
-                // });
 
                 if (!meta.albumSeriesArtist || !meta.albumSeriesAlbum) {
                   window.showNotification(
@@ -965,7 +952,6 @@ function NewPackForm() {
                     skipNavigation: true, // Add flag to skip navigation
                   },
                 });
-                // console.log("Dispatching event:", event);
                 window.dispatchEvent(event);
               }}
               style={{

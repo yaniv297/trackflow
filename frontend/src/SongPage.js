@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "./contexts/AuthContext";
-import SongTable from "./components/SongTable";
-import PageHeader from "./components/PageHeader";
-import BulkEditModal from "./components/BulkEditModal";
-import CustomAlert from "./components/CustomAlert";
-import CustomPrompt from "./components/CustomPrompt";
-import AlbumSeriesModal from "./components/AlbumSeriesModal";
-import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
-import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
-import Fireworks from "./components/Fireworks";
-import LoadingSpinner from "./components/LoadingSpinner";
+import SongTable from "./components/tables/SongTable";
+import PageHeader from "./components/navigation/PageHeader";
+import BulkEditModal from "./components/modals/BulkEditModal";
+import CustomAlert from "./components/ui/CustomAlert";
+import CustomPrompt from "./components/ui/CustomPrompt";
+import AlbumSeriesModal from "./components/modals/AlbumSeriesModal";
+import DoubleAlbumSeriesModal from "./components/modals/DoubleAlbumSeriesModal";
+import UnifiedCollaborationModal from "./components/modals/UnifiedCollaborationModal";
+import Fireworks from "./components/ui/Fireworks";
+import LoadingSpinner from "./components/ui/LoadingSpinner";
 import useCollaborations from "./hooks/useCollaborations";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 import { checkAndShowNewAchievements } from "./utils/achievements";
-import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
+import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
 
 function SongPage({ status }) {
   const { user } = useAuth();
@@ -105,11 +105,6 @@ function SongPage({ status }) {
       }
 
       const response = await apiGet(`/songs/?${params.toString()}`);
-      console.log(
-        "fetchSongs: Fetched fresh data from server:",
-        response.length,
-        "songs"
-      );
       setSongs(response);
 
       // Cache the result (only for non-search requests)
@@ -612,11 +607,6 @@ function SongPage({ status }) {
   };
 
   const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
-    console.log(
-      "Opening album series modal for pack:",
-      packName,
-      albumsWithEnoughSongs
-    );
 
     // Find the songs in this pack
     const packSongs = songs.filter((song) => song.pack_name === packName);
@@ -902,9 +892,6 @@ function SongPage({ status }) {
           onClose={() => setShowBulkModal(false)}
           selectedSongs={selectedSongs}
           onComplete={() => {
-            console.log(
-              "BulkEditModal onComplete called - refreshing songs..."
-            );
             setShowBulkModal(false);
             setSelectedSongs([]);
             // Clear cache to force fresh data fetch

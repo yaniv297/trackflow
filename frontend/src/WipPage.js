@@ -2,22 +2,22 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
 import { useWorkflowData } from "./hooks/useWorkflowData";
-import WipPageHeader from "./components/WipPageHeader";
-import WipPackCard from "./components/WipPackCard";
-import CompletionGroupCard from "./components/CompletionGroupCard";
-import Fireworks from "./components/Fireworks";
-import CustomAlert from "./components/CustomAlert";
-import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
-import WorkflowErrorBoundary from "./components/WorkflowErrorBoundary";
-import WorkflowLoadingSpinner from "./components/WorkflowLoadingSpinner";
+import WipPageHeader from "./components/navigation/WipPageHeader";
+import WipPackCard from "./components/pages/WipPackCard";
+import CompletionGroupCard from "./components/pages/CompletionGroupCard";
+import Fireworks from "./components/ui/Fireworks";
+import CustomAlert from "./components/ui/CustomAlert";
+import UnifiedCollaborationModal from "./components/modals/UnifiedCollaborationModal";
+import WorkflowErrorBoundary from "./components/features/workflows/WorkflowErrorBoundary";
+import WorkflowLoadingSpinner from "./components/features/workflows/WorkflowLoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 import {
   getSongCompletionPercentage,
   isSongComplete,
 } from "./utils/progressUtils";
-import AlbumSeriesModal from "./components/AlbumSeriesModal";
-import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
-import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
+import AlbumSeriesModal from "./components/modals/AlbumSeriesModal";
+import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
+import DoubleAlbumSeriesModal from "./components/modals/DoubleAlbumSeriesModal";
 
 // Utility function to capitalize artist and album names (keeping for compatibility)
 // eslint-disable-next-line no-unused-vars
@@ -133,7 +133,6 @@ const capitalizeName = (name) => {
 };
 
 function WipPage() {
-  // console.log("WipPage component rendered");
   const { user } = useAuth();
   const {
     songs,
@@ -319,10 +318,8 @@ function WipPage() {
   }, []);
 
   useEffect(() => {
-    // console.log("Setting up event listeners in WipPage");
 
     const handler = (e) => {
-      // console.log("Received open-edit-album-series event", e.detail);
       const { packId, series } = e.detail || {};
       setEditSeriesModal({
         open: true,
@@ -333,16 +330,7 @@ function WipPage() {
     };
 
     const createHandler = (e) => {
-      // console.log(
-      //   "Received open-create-album-series-modal event in WipPage",
-      //   e.detail
-      // );
       const { artistName, albumName, status } = e.detail || {};
-      // console.log("Setting modal state with:", {
-      //   artistName,
-      //   albumName,
-      //   status,
-      // });
       setEditSeriesModal({
         open: true,
         packId: null,
@@ -355,7 +343,6 @@ function WipPage() {
 
     window.addEventListener("open-edit-album-series", handler);
     window.addEventListener("open-create-album-series-modal", createHandler);
-    // console.log("Event listeners registered in WipPage");
 
     return () => {
       window.removeEventListener("open-edit-album-series", handler);
@@ -363,7 +350,6 @@ function WipPage() {
         "open-create-album-series-modal",
         createHandler
       );
-      // console.log("Event listeners removed from WipPage");
     };
   }, []);
 

@@ -83,19 +83,8 @@ function SongPage({ status }) {
   const [songsCache, setSongsCache] = useState({});
 
   // Define fetchSongs before using it in useEffect
-  // Fetch packs
-  useEffect(() => {
-    if (user) {
-      apiGet("/packs/")
-        .then((data) => {
-          setPacks(data || []);
-        })
-        .catch((error) => {
-          console.error("Failed to load packs:", error);
-          setPacks([]);
-        });
-    }
-  }, [user]);
+  // Note: We don't need to fetch packs separately anymore since pack priority 
+  // comes from song data (pack_priority field) which is more reliable
 
   const fetchSongs = useCallback(async () => {
     try {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiPatch } from "../utils/api";
+import { checkAndShowNewAchievements } from "../utils/achievements";
 
 /**
  * Custom hook for managing song editing state and operations
@@ -35,6 +36,9 @@ export const useSongEditing = (song, onSongUpdate) => {
       if (onSongUpdate) {
         onSongUpdate(song.id, { ...song, [field]: updated[field] || value });
       }
+      
+      // Check for achievements after successful update
+      await checkAndShowNewAchievements();
     } catch (error) {
       console.error("Update failed:", error);
       window.showNotification("Update failed", "error");

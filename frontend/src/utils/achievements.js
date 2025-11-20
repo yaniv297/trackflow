@@ -25,22 +25,31 @@ export async function initializeAchievements() {
 export async function checkAndShowNewAchievements() {
   if (!isInitialized) {
     await initializeAchievements();
-    return;
+    // After initialization, don't return - continue to check for any new achievements
+    // that might have been earned since the last session
   }
 
   try {
-    // First, get the current achievements to compare
+    // Store the previous state before any changes
+    const previousCodes = new Set(lastKnownAchievements);
+    
+    // Trigger backend achievement check first to ensure everything is calculated
+    const result = await apiPost("/achievements/check", {});
+    
+    // Get current achievements after backend processing
     const currentAchievements = await apiGet("/achievements/me");
     const currentCodes = new Set(currentAchievements.map(ua => ua.achievement.code));
     
-    // Find newly earned achievements by comparing with last known state
-    const newlyEarnedCodes = [...currentCodes].filter(code => !lastKnownAchievements.has(code));
+    // Find truly new achievements by comparing with previous known state
+    // Only show achievements that were earned in this session, not old ones
+    const newlyEarnedCodes = [...currentCodes].filter(code => !previousCodes.has(code));
     
-    // Also trigger backend achievement check to ensure everything is up to date
-    const result = await apiPost("/achievements/check", {});
+    // Only use backend reported achievements that are also in our newly earned list
+    // This prevents showing old achievements that backend might return
+    const backendNewAchievements = (result?.newly_awarded || []).filter(code => newlyEarnedCodes.includes(code));
     
-    // Combine both newly earned and backend-reported achievements
-    const allNewlyAwarded = [...new Set([...newlyEarnedCodes, ...(result?.newly_awarded || [])])];
+    // Final list - prioritize our comparison but include any additional backend ones
+    const allNewlyAwarded = [...new Set([...newlyEarnedCodes, ...backendNewAchievements])];
     
     if (allNewlyAwarded.length > 0) {
       // Fetch achievement details for newly awarded
@@ -80,6 +89,10 @@ export async function checkAndShowNewAchievements() {
           achievements: allNewlyAwarded.map(code => achievementMap.get(code)).filter(Boolean)
         }
       }));
+    } else {
+      // Even if no new achievements, update our tracking to current state
+      // This prevents showing old achievements on subsequent calls
+      lastKnownAchievements = new Set(currentCodes);
     }
   } catch (error) {
     console.error("Failed to check achievements:", error);
@@ -93,5 +106,13 @@ export async function checkAndShowNewAchievements() {
 export async function refreshAchievements() {
   await initializeAchievements();
   await checkAndShowNewAchievements();
+}
+
+/**
+ * Reset achievement tracking (useful for development/testing)
+ */
+export function resetAchievementTracking() {
+  lastKnownAchievements = new Set();
+  isInitialized = false;
 }
 

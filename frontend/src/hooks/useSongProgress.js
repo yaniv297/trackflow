@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, apiPut } from "../utils/api";
 import { getFieldCompletion } from "../utils/progressUtils";
+import { checkAndShowNewAchievements } from "../utils/achievements";
 
 /**
  * Custom hook for managing song progress state and operations
@@ -43,6 +44,8 @@ export const useSongProgress = (song, fields, onAuthoringUpdate) => {
     if (onAuthoringUpdate) {
       try {
         await onAuthoringUpdate(song.id, field, nextVal);
+        // Check for achievements after successful authoring field update
+        await checkAndShowNewAchievements();
       } catch (error) {
         // Revert on failure
         setProgress((prev) => ({ ...prev, [field]: currentVal }));
@@ -76,6 +79,9 @@ export const useSongProgress = (song, fields, onAuthoringUpdate) => {
       }
 
       window.showNotification("All parts marked as complete!", "success");
+      
+      // Check for achievements after marking all parts complete
+      await checkAndShowNewAchievements();
     } catch (err) {
       console.error("Failed to mark all complete", err);
       window.showNotification("Failed to mark all parts complete", "error");

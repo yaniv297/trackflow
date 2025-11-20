@@ -56,6 +56,7 @@ const NotificationManager = ({ children }) => {
             position: "fixed",
             top: `${20 + index * 200}px`,
             right: "20px",
+            zIndex: 100000,
           }}
         >
           <AchievementToast

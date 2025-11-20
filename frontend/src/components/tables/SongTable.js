@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import SongRow from "./SongRow";
 import PackHeader from "../navigation/PackHeader";
 import BulkActions from "../shared/BulkActions";
@@ -164,9 +165,10 @@ const SongTable = ({
     if (validSongsInPack.length === 0) return null;
 
     // Get pack priority from song data
-    const packPriority = packName === "(no pack)" 
-      ? null 
-      : validSongsInPack[0]?.pack_priority || null;
+    const packPriority =
+      packName === "(no pack)"
+        ? null
+        : validSongsInPack[0]?.pack_priority || null;
 
     // Skip album series logic when grouping by artist
     let sortedSeriesInfo = [];
@@ -272,6 +274,142 @@ const SongTable = ({
 
   // Group songs by pack (or artist/album) and render
   const groupedKeys = Object.keys(groupedSongs || {});
+  const hasSongs = songs && songs.length > 0;
+
+  // Empty state component
+  const renderEmptyState = () => {
+    let titleText = "No songs yet";
+    let messageText = "Add your first song to get started!";
+
+    if (status === "Future Plans") {
+      titleText = "No future plans yet";
+      messageText = "Add your first song to start planning!";
+    } else if (status === "In Progress") {
+      titleText = "No songs in progress";
+      messageText = "Start working on a song to see it here!";
+    } else if (status === "Released") {
+      titleText = "No released songs yet";
+      messageText = "Complete and release your first song!";
+    }
+
+    return (
+      <div
+        style={{
+          textAlign: "center",
+          padding: "4rem 2rem",
+          color: "#666",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "3rem",
+            marginBottom: "1rem",
+            opacity: 0.5,
+          }}
+        >
+          🎵
+        </div>
+        <h2
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: 600,
+            marginBottom: "0.5rem",
+            color: "#333",
+          }}
+        >
+          {titleText}
+        </h2>
+        <p
+          style={{
+            fontSize: "1rem",
+            marginBottom: "2rem",
+            color: "#666",
+          }}
+        >
+          {messageText}
+        </p>
+        <div
+          style={{
+            display: "flex",
+            gap: "1rem",
+            justifyContent: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <Link
+            to="/new"
+            style={{
+              display: "inline-block",
+              padding: "0.75rem 1.5rem",
+              background: "#007bff",
+              color: "#fff",
+              textDecoration: "none",
+              borderRadius: "6px",
+              fontWeight: 500,
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={(e) => (e.target.style.background = "#0056b3")}
+            onMouseLeave={(e) => (e.target.style.background = "#007bff")}
+          >
+            ➕ Add Song
+          </Link>
+          <Link
+            to="/pack"
+            style={{
+              display: "inline-block",
+              padding: "0.75rem 1.5rem",
+              background: "#28a745",
+              color: "#fff",
+              textDecoration: "none",
+              borderRadius: "6px",
+              fontWeight: 500,
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={(e) => (e.target.style.background = "#218838")}
+            onMouseLeave={(e) => (e.target.style.background = "#28a745")}
+          >
+            📦 Create Pack
+          </Link>
+          <Link
+            to="/import-spotify"
+            style={{
+              display: "inline-block",
+              padding: "0.75rem 1.5rem",
+              background: "#6f42c1",
+              color: "#fff",
+              textDecoration: "none",
+              borderRadius: "6px",
+              fontWeight: 500,
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={(e) => (e.target.style.background = "#5a32a3")}
+            onMouseLeave={(e) => (e.target.style.background = "#6f42c1")}
+          >
+            🎧 Import from Spotify
+          </Link>
+        </div>
+      </div>
+    );
+  };
+
+  // Show empty state if no songs
+  if (!hasSongs) {
+    return (
+      <>
+        {renderEmptyState()}
+        {/* Bulk Actions Modal Placeholder */}
+        {showBulkModal && (
+          <BulkActions
+            onClose={() => setShowBulkModal(false)}
+            onApply={(action) => {
+              // This is a placeholder. Integrate selection logic if needed.
+              setShowBulkModal(false);
+            }}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -280,20 +418,24 @@ const SongTable = ({
           <tbody>
             {groupedKeys.map((groupKey) => {
               const group = groupedSongs[groupKey] || [];
-              
+
               // When grouping by artist, group is nested: { album: [songs] }
               // We need to flatten it into a single array
               let songsArray = group;
-              if (groupBy === "artist" && typeof group === "object" && !Array.isArray(group)) {
+              if (
+                groupBy === "artist" &&
+                typeof group === "object" &&
+                !Array.isArray(group)
+              ) {
                 // Flatten all albums into a single array
                 songsArray = Object.values(group).flat();
               }
-              
+
               // Ensure it's an array
               if (!Array.isArray(songsArray)) {
                 songsArray = [];
               }
-              
+
               return renderPackGroup(groupKey, songsArray);
             })}
           </tbody>

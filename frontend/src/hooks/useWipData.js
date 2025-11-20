@@ -93,19 +93,8 @@ export const useWipData = (user) => {
     return collaborators.size > 0 ? Array.from(collaborators) : null;
   };
 
-  // Load packs
-  useEffect(() => {
-    if (user) {
-      apiGet("/packs/")
-        .then((data) => {
-          setPacks(data || []);
-        })
-        .catch((error) => {
-          console.error("Failed to load packs:", error);
-          setPacks([]);
-        });
-    }
-  }, [user]);
+  // Note: We don't need to load packs separately since pack priority 
+  // comes from song data (pack_priority field) which is more reliable
 
   // Load songs
   useEffect(() => {
@@ -347,13 +336,8 @@ export const useWipData = (user) => {
   const refreshSongs = async () => {
     try {
       setLoading(true);
-      // Refresh both songs and packs data
-      const [songsData, packsData] = await Promise.all([
-        apiGet("/songs/?status=In%20Progress"),
-        apiGet("/packs/")
-      ]);
+      const songsData = await apiGet("/songs/?status=In%20Progress");
       setSongs(songsData);
-      setPacks(packsData || []);
     } catch (error) {
       console.error("Failed to refresh songs:", error);
     } finally {

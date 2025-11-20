@@ -62,9 +62,9 @@ const WipPageHeader = ({
                   backgroundSize: "8px",
                 }}
               >
-                <option value="alphabetical">A-Z</option>
-                <option value="priority">Priority</option>
-                <option value="completion">Completion</option>
+                <option value="completion">Sort: Completion</option>
+                <option value="alphabetical">Sort: A-Z</option>
+                <option value="priority">Sort: Priority</option>
               </select>
             </div>
           )}

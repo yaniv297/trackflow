@@ -7,7 +7,7 @@ from api.data_access import create_song_in_db, delete_song_from_db
 from models import Song, SongStatus, AlbumSeries, User, Pack, Collaboration, CollaborationType, Artist
 from api.auth import get_current_active_user
 from api.activity_logger import log_activity
-from api.achievements import check_status_achievements, check_wip_completion_achievements, check_diversity_achievements
+from api.achievements import check_status_achievements, check_wip_completion_achievements, check_diversity_achievements, check_collaboration_achievements, check_social_achievements
 from typing import Optional
 from typing import List
 from datetime import datetime
@@ -500,6 +500,7 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
             collab_names = []
         
         # Add collaborations to database
+        new_collaborator_ids = []
         for author in collab_names:
             if author and author != current_user.username:  # Don't add self as collaborator
                 # Find user by username
@@ -511,6 +512,7 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
                         collaboration_type=CollaborationType.SONG_EDIT
                     )
                     db.add(db_collab)
+                    new_collaborator_ids.append(collaborator_user.id)
         
         # Remove collaborations from updates dict to avoid setting it as an attribute
         del updates["collaborations"]
@@ -575,6 +577,17 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
                 check_diversity_achievements(db, current_user.id)
         except Exception as ach_err:
             print(f"⚠️ Failed to check achievements: {ach_err}")
+    
+    # Check collaboration achievements if collaborations were added during update
+    try:
+        if 'new_collaborator_ids' in locals() and new_collaborator_ids:
+            # Check achievements for song owner (adding collaborators)
+            check_collaboration_achievements(db, current_user.id)
+            # Check achievements for each new collaborator (being added as collaborator) 
+            for collaborator_id in new_collaborator_ids:
+                check_social_achievements(db, collaborator_id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check collaboration achievements: {ach_err}")
     
     # Build result with proper collaboration formatting
     song_dict = song.__dict__.copy()
@@ -788,6 +801,23 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
     
     db.commit()
     
+    # Check achievements for all users affected by the pack release
+    try:
+        affected_users = set()
+        for song in completed_songs:
+            affected_users.add(song.user_id)
+        
+        # Check achievements for each affected user
+        for user_id in affected_users:
+            try:
+                check_status_achievements(db, user_id)
+                check_wip_completion_achievements(db, user_id)  
+                check_diversity_achievements(db, user_id)
+            except Exception as ach_err:
+                print(f"⚠️ Failed to check achievements for user {user_id}: {ach_err}")
+    except Exception as e:
+        print(f"⚠️ Failed to process achievements after pack release: {e}")
+    
     # Prepare response message
     completed_count = len(completed_songs)
     optional_count = len(optional_songs)
@@ -851,6 +881,7 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
     
     # Add new collaborations
     collaborations = data.get("collaborations", [])
+    new_collaborator_ids = []
     for collab_data in collaborations:
         # Find user by username
         collaborator_user = db.query(User).filter(User.username == collab_data["author"]).first()
@@ -861,8 +892,19 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
                 collaboration_type=CollaborationType.SONG_EDIT
             )
             db.add(db_collab)
+            new_collaborator_ids.append(collaborator_user.id)
     
     db.commit()
+    
+    # Check achievements for all affected users
+    try:
+        # Check achievements for song owner (adding collaborators)
+        check_collaboration_achievements(db, current_user.id)
+        # Check achievements for each new collaborator (being added as collaborator)
+        for collaborator_id in new_collaborator_ids:
+            check_social_achievements(db, collaborator_id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     try:
         log_activity(

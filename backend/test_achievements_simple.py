@@ -24,8 +24,16 @@ def test_achievement_integration():
     try:
         # Test 1: Database connectivity and basic setup
         print("\n1. Testing database connectivity...")
-        user_count = db.query(User).count()
-        print(f"   ✅ Database connected. Users: {user_count}")
+        try:
+            user_count = db.query(User).count()
+            print(f"   ✅ Database connected. Users: {user_count}")
+        except Exception as e:
+            print(f"   ⚠️ Database connection issue: {e}")
+            # Try to initialize database if needed
+            from models import Base
+            Base.metadata.create_all(bind=engine)
+            user_count = db.query(User).count()
+            print(f"   ✅ Database initialized and connected. Users: {user_count}")
         
         # Test 2: Create test user
         print("\n2. Creating test user...")

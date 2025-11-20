@@ -49,6 +49,7 @@ class Pack(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    priority = Column(Integer, nullable=True)  # 1-5 scale, 5 is highest priority, null if not set
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     # Relationships

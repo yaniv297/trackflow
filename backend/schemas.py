@@ -42,6 +42,7 @@ class SongCreate(BaseModel):
     pack_name: Optional[str] = None
     pack: Optional[str] = None  # For new pack creation
     status: SongStatus
+    priority: Optional[int] = None  # Priority for pack creation
     year: Optional[int] = None
     album_cover: Optional[str] = None
     notes: Optional[str] = None
@@ -79,6 +80,7 @@ class SongOut(BaseModel):
     status: SongStatus
     pack_id: Optional[int] = None
     pack_name: Optional[str] = None
+    pack_priority: Optional[int] = None
     pack_owner_id: Optional[int] = None
     pack_owner_username: Optional[str] = None
     year: Optional[int]

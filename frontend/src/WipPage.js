@@ -145,7 +145,10 @@ function WipPage() {
     getPackCollaborators,
     refreshCollaborations,
     refreshSongs,
+    updatePackPriorityLocal,
     loading,
+    packSortBy,
+    setPackSortBy,
   } = useWipData(user);
 
   // Get dynamic workflow fields for the current user
@@ -573,6 +576,37 @@ function WipPage() {
       },
       type: "danger",
     });
+  };
+
+  const updatePackPriority = async (packName, priority) => {
+    if (!packName) return;
+    
+    const packSongs = songs.filter(song => song.pack_name === packName);
+    const packId = packSongs[0]?.pack_id;
+    
+    if (!packId) {
+      window.showNotification("Could not find pack ID", "error");
+      return;
+    }
+
+    try {
+      await apiPatch(`/packs/${packId}`, { priority });
+      
+      // Update local pack data immediately without loading state
+      // The grouped data will automatically re-sort based on updated pack priority
+      updatePackPriorityLocal(packId, priority);
+      
+      const priorityText = priority ? 
+        `Priority ${priority} (${['💤 Someday', '📋 Low', '📝 Medium', '⚡ High', '🔥 Urgent'][priority - 1]})` : 
+        "No priority";
+      
+      window.showNotification(`Pack priority updated to: ${priorityText}`, "success");
+      
+    } catch (error) {
+      console.error("Failed to update pack priority:", error);
+      window.showNotification("Failed to update pack priority", "error");
+      throw error;
+    }
   };
 
   const releasePack = (pack) => {
@@ -1050,6 +1084,8 @@ function WipPage() {
           onViewModeChange={setViewMode}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          packSortBy={packSortBy}
+          setPackSortBy={setPackSortBy}
         />
 
         {/* Loading Spinner */}
@@ -1065,6 +1101,7 @@ function WipPage() {
               key={packData.pack}
               packName={packData.pack}
               percent={packData.percent}
+              priority={packData.priority}
               coreSongs={packData.coreSongs}
               allSongs={packData.allSongs}
               completedSongs={packData.completedSongs}
@@ -1105,6 +1142,7 @@ function WipPage() {
               onCreateAlbumSeries={handleCreateAlbumSeriesFromPack}
               onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
               onDeletePack={handleDeletePack}
+              onUpdatePackPriority={updatePackPriority}
               userCollaborations={userCollaborations}
             />
           ))}

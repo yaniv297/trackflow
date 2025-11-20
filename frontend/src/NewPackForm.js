@@ -99,6 +99,7 @@ function NewPackForm() {
     pack: "",
     artist: "",
     status: "Future Plans",
+    priority: null, // No default priority
     isAlbumSeries: false,
     albumSeriesArtist: "",
     albumSeriesAlbum: "",
@@ -206,6 +207,7 @@ function NewPackForm() {
         artist: capitalizeName(effectiveArtist),
         pack_name: effectivePack,
         status: meta.status,
+        priority: meta.priority,
       }));
     } else {
       // Mixed mode: "Artist - Title" format
@@ -220,6 +222,7 @@ function NewPackForm() {
             artist: capitalizeName(artist || "Unknown Artist"),
             pack_name: effectivePack,
             status: meta.status,
+            priority: meta.priority,
           };
         });
     }
@@ -705,11 +708,11 @@ function NewPackForm() {
             )}
           </div>
 
-          {/* Status stays the same */}
+          {/* Status and Priority */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: mode === "artist" ? "1fr 1fr" : "1fr",
+              gridTemplateColumns: mode === "artist" ? "1fr 1fr" : "1fr 1fr",
               gap: "1rem",
             }}
           >
@@ -749,6 +752,48 @@ function NewPackForm() {
                 <option value="Future Plans">Future Plans</option>
                 <option value="In Progress">In Progress</option>
                 <option value="Released">Released</option>
+              </select>
+            </div>
+            
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontWeight: "500",
+                  color: "#555",
+                  fontSize: "0.95rem",
+                }}
+              >
+                Priority
+              </label>
+              <select
+                value={meta.priority || ""}
+                onChange={(e) => setMeta({ ...meta, priority: e.target.value ? parseInt(e.target.value) : null })}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem 1rem",
+                  border: "2px solid #e1e5e9",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  transition: "border-color 0.2s, box-shadow 0.2s",
+                  boxSizing: "border-box",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "#007bff";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "#e1e5e9";
+                  e.target.style.boxShadow = "none";
+                }}
+              >
+                <option value="">📝 No Priority</option>
+                <option value="5">🔥 Urgent (5)</option>
+                <option value="4">⚡ High (4)</option>
+                <option value="3">📝 Medium (3)</option>
+                <option value="2">📋 Low (2)</option>
+                <option value="1">💤 Someday (1)</option>
               </select>
             </div>
           </div>

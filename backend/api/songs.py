@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, text
 from database import get_db
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
@@ -663,6 +663,10 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
 
 @router.post("/release-pack")
 def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Safety check: Don't allow releasing "Optional Songs" packs to prevent infinite loops
+    if "Optional Songs" in pack_name:
+        raise HTTPException(status_code=400, detail="Cannot release Optional Songs packs - these should remain in Future Plans")
+    
     # Find the pack by name (first check if user owns it)
     pack = db.query(Pack).filter(Pack.name == pack_name, Pack.user_id == current_user.id).first()
     
@@ -685,28 +689,17 @@ def release_pack(pack_name: str, db: Session = Depends(get_db), current_user = D
     # Get ALL songs in this pack (regardless of who owns them)
     songs = db.query(Song).filter(Song.pack_id == pack.id).all()
     
-    # Define authoring fields that need to be complete
-    authoring_fields = [
-        "demucs", "tempo_map", "fake_ending", "drums", "bass", "guitar",
-        "vocals", "harmonies", "pro_keys", "keys", "animations",
-        "drum_fills", "overdrive", "compile"
-    ]
-    
-    # Separate songs into completed and optional (incomplete)
+    # Separate songs based on optional flag - that's it!
     completed_songs = []
     optional_songs = []
     
     for song in songs:
-        # Check if song is 100% complete
-        if song.authoring:
-            all_complete = all(getattr(song.authoring, field, False) for field in authoring_fields)
-            if all_complete:
-                completed_songs.append(song)
-            else:
-                optional_songs.append(song)
-        else:
-            # No authoring data means incomplete
+        if getattr(song, 'optional', False):
+            # Song is marked as optional -> goes to Future Plans
             optional_songs.append(song)
+        else:
+            # Song is not optional -> goes to Released
+            completed_songs.append(song)
     
     # Move completed songs to "Released" status
     for song in completed_songs:

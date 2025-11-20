@@ -86,165 +86,80 @@ export default function SongRow({
 
         {/* Album Cover */}
         <td style={{ padding: "8px" }}>
-          {editing[`${song.id}_album_cover`] ? (
-            <EditableCell
-              value={song.album_cover || ""}
-              songId={song.id}
-              field="album_cover"
-              editing={editing}
-              editValues={editValues}
-              setEditing={setEditing}
-              setEditValues={setEditValues}
-              saveEdit={saveEdit}
-            />
-          ) : (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={() =>
-                song.is_editable &&
-                setEditing({ [`${song.id}_album_cover`]: true })
-              }
-            >
-              {song.album_cover && (
-                <img
-                  src={song.album_cover}
-                  alt="cover"
-                  style={{
-                    width: "50px",
-                    height: "50px",
-                    objectFit: "cover",
-                  }}
-                />
-              )}
-            </div>
-          )}
+          <EditableCell
+            value={song.album_cover || ""}
+            songId={song.id}
+            field="album_cover"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
         </td>
 
         {/* Title */}
         <td style={{ padding: "8px" }}>
-          {editing[`${song.id}_title`] ? (
-            <input
-              type="text"
-              value={editValues[`${song.id}_title`] ?? song.title}
-              onChange={(e) =>
-                setEditValues((prev) => ({
-                  ...prev,
-                  [`${song.id}_title`]: e.target.value,
-                }))
-              }
-              onBlur={() => saveEdit(song.id, "title")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveEdit(song.id, "title");
-              }}
-              style={{
-                width: "100%",
-                padding: "4px 8px",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-              }}
-              autoFocus
-            />
-          ) : (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={() =>
-                setEditing((prev) => ({
-                  ...prev,
-                  [`${song.id}_title`]: true,
-                }))
-              }
-            >
-              {song.title}
-            </div>
-          )}
+          <EditableCell
+            value={song.title}
+            songId={song.id}
+            field="title"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
         </td>
 
         {/* Artist */}
         {groupBy !== "artist" && (
           <td style={{ padding: "8px" }}>
-            {editing[`${song.id}_artist`] ? (
-              <input
-                type="text"
-                value={editValues[`${song.id}_artist`] ?? song.artist}
-                onChange={(e) =>
-                  setEditValues((prev) => ({
-                    ...prev,
-                    [`${song.id}_artist`]: e.target.value,
-                  }))
-                }
-                onBlur={() => saveEdit(song.id, "artist")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveEdit(song.id, "artist");
-                }}
-                style={{
-                  width: "100%",
-                  padding: "4px 8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
-                autoFocus
-              />
-            ) : (
-              <div
-                style={{ cursor: "pointer" }}
-                onClick={() =>
-                  setEditing((prev) => ({
-                    ...prev,
-                    [`${song.id}_artist`]: true,
-                  }))
-                }
-              >
-                {song.artist}
-              </div>
-            )}
-          </td>
-        )}
-
-        {/* Album */}
-        <td style={{ padding: "8px" }}>
-          {editing[`${song.id}_album`] ? (
             <EditableCell
-              value={song.album}
+              value={song.artist}
               songId={song.id}
-              field="album"
+              field="artist"
               editing={editing}
               editValues={editValues}
               setEditing={setEditing}
               setEditValues={setEditValues}
               saveEdit={saveEdit}
+              isEditable={song.is_editable}
             />
-          ) : (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={() => setEditing({ [`${song.id}_album`]: true })}
-            >
-              {song.album}
-            </div>
-          )}
+          </td>
+        )}
+
+        {/* Album */}
+        <td style={{ padding: "8px" }}>
+          <EditableCell
+            value={song.album}
+            songId={song.id}
+            field="album"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
         </td>
 
         {/* Pack */}
         {groupBy !== "pack" && (
           <td style={{ padding: "8px" }}>
-            {editing[`${song.id}_pack`] ? (
-              <EditableCell
-                value={song.pack_name || ""}
-                songId={song.id}
-                field="pack"
-                editing={editing}
-                editValues={editValues}
-                setEditing={setEditing}
-                setEditValues={setEditValues}
-                saveEdit={saveEdit}
-              />
-            ) : (
-              <div
-                style={{ cursor: "pointer" }}
-                onClick={() => setEditing({ [`${song.id}_pack`]: true })}
-              >
-                {song.pack_name || ""}
-              </div>
-            )}
+            <EditableCell
+              value={song.pack_name || ""}
+              songId={song.id}
+              field="pack"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+              isEditable={song.is_editable}
+            />
           </td>
         )}
 
@@ -270,25 +185,17 @@ export default function SongRow({
 
         {/* Year */}
         <td style={{ padding: "8px" }}>
-          {editing[`${song.id}_year`] ? (
-            <EditableCell
-              value={song.year || ""}
-              songId={song.id}
-              field="year"
-              editing={editing}
-              editValues={editValues}
-              setEditing={setEditing}
-              setEditValues={setEditValues}
-              saveEdit={saveEdit}
-            />
-          ) : (
-            <div
-              style={{ cursor: "pointer" }}
-              onClick={() => setEditing({ [`${song.id}_year`]: true })}
-            >
-              {song.year || ""}
-            </div>
-          )}
+          <EditableCell
+            value={song.year || ""}
+            songId={song.id}
+            field="year"
+            editing={editing}
+            editValues={editValues}
+            setEditing={setEditing}
+            setEditValues={setEditValues}
+            saveEdit={saveEdit}
+            isEditable={song.is_editable}
+          />
         </td>
 
         {/* Collaborations */}

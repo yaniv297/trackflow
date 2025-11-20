@@ -8,6 +8,8 @@ const PageHeader = ({
   setGroupBy,
   allCollapsed,
   toggleAllGroups,
+  packSortBy,
+  setPackSortBy,
 }) => {
   return (
     <div>
@@ -23,21 +25,56 @@ const PageHeader = ({
           flexWrap: "wrap",
         }}
       >
-        {/* Search Input */}
-        <input
-          type="text"
-          placeholder="Search title, artist, album, or collaborators..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            padding: "0.5rem 0.75rem",
-            fontSize: "1rem",
-            border: "1px solid #ccc",
-            borderRadius: "999px",
-            minWidth: "260px",
-            flex: "1 1 auto",
-          }}
-        />
+        {/* Search Input and Sort Dropdown Container */}
+        <div style={{ display: "flex", gap: "0.75rem", flex: "1 1 auto", alignItems: "center" }}>
+          {/* Search Input */}
+          <input
+            type="text"
+            placeholder="Search title, artist, album, or collaborators..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              padding: "0.5rem 0.75rem",
+              fontSize: "1rem",
+              border: "1px solid #ccc",
+              borderRadius: "999px",
+              minWidth: "200px",
+              flex: "1 1 auto",
+            }}
+          />
+          
+          {/* Sort Dropdown - only show when grouping by pack */}
+          {groupBy === "pack" && packSortBy && setPackSortBy && (
+            <div style={{ position: "relative" }}>
+              <select
+                value={packSortBy}
+                onChange={(e) => setPackSortBy(e.target.value)}
+                style={{
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  MozAppearance: "none",
+                  padding: "0.5rem 2rem 0.5rem 1rem",
+                  fontSize: "1rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "999px",
+                  backgroundColor: "white",
+                  cursor: "pointer",
+                  minWidth: "140px",
+                  flexShrink: 0,
+                  fontWeight: "500",
+                  color: "#333",
+                  outline: "none",
+                  background: "white url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\" viewBox=\"0 0 8 8\"><polygon points=\"0,0 8,0 4,8\" fill=\"%23666\"/></svg>') no-repeat right 12px center",
+                  backgroundSize: "8px",
+                }}
+              >
+                <option value="alphabetical">A-Z</option>
+                <option value="priority">Priority</option>
+                {status === "In Progress" && <option value="completion">Completion</option>}
+              </select>
+            </div>
+          )}
+        </div>
 
         {/* Toggle Switch */}
         <div

@@ -30,7 +30,8 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
             else:
                 # Create new pack
                 print(f"Creating new pack: {pack_name}")
-                new_pack = Pack(name=pack_name, user_id=user.id)
+                priority = song_data.get('priority')  # Get priority from song data or None
+                new_pack = Pack(name=pack_name, user_id=user.id, priority=priority)
                 db.add(new_pack)
                 db.commit()
                 db.refresh(new_pack)
@@ -54,6 +55,8 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
     # Clean up song_data to remove fields that don't exist in the Song model
     valid_fields = ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'user_id']
     cleaned_song_data = {k: v for k, v in song_data.items() if k in valid_fields}
+    # Remove priority field as it's only used for pack creation, not song creation
+    cleaned_song_data.pop('priority', None)
     
     print(f"Cleaned song data: {cleaned_song_data}")
     

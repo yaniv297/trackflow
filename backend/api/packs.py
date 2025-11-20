@@ -10,9 +10,11 @@ router = APIRouter(prefix="/packs", tags=["Packs"])
 
 class PackCreate(BaseModel):
     name: str
+    priority: Optional[int] = None  # No default - null unless specified
 
 class PackUpdate(BaseModel):
     name: Optional[str] = None
+    priority: Optional[int] = None
 
 class PackStatusUpdate(BaseModel):
     status: str
@@ -21,6 +23,7 @@ class PackResponse(BaseModel):
     id: int
     name: str
     user_id: int
+    priority: Optional[int] = None  # Can be null
     created_at: str
     updated_at: str
 
@@ -36,9 +39,15 @@ def create_pack(pack: PackCreate, db: Session = Depends(get_db), current_user = 
     if existing_pack:
         raise HTTPException(status_code=400, detail="Pack with this name already exists")
     
+    # Validate priority value (1-5)
+    priority = pack.priority
+    if priority is not None and (priority < 1 or priority > 5):
+        raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
+    
     new_pack = Pack(
         name=pack.name,
-        user_id=current_user.id
+        user_id=current_user.id,
+        priority=priority
     )
     
     db.add(new_pack)
@@ -49,6 +58,7 @@ def create_pack(pack: PackCreate, db: Session = Depends(get_db), current_user = 
         id=new_pack.id,
         name=new_pack.name,
         user_id=new_pack.user_id,
+        priority=new_pack.priority,
         created_at=new_pack.created_at.isoformat(),
         updated_at=new_pack.updated_at.isoformat()
     )
@@ -62,6 +72,7 @@ def get_packs(db: Session = Depends(get_db), current_user = Depends(get_current_
             id=pack.id,
             name=pack.name,
             user_id=pack.user_id,
+            priority=pack.priority,
             created_at=pack.created_at.isoformat(),
             updated_at=pack.updated_at.isoformat()
         )
@@ -92,6 +103,7 @@ def get_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depends
         id=pack.id,
         name=pack.name,
         user_id=pack.user_id,
+        priority=pack.priority,
         created_at=pack.created_at.isoformat(),
         updated_at=pack.updated_at.isoformat()
     )
@@ -121,6 +133,13 @@ def update_pack(pack_id: int, pack_update: PackUpdate, db: Session = Depends(get
         
         pack.name = pack_update.name
     
+    # Update pack priority if provided
+    if pack_update.priority is not None:
+        # Validate priority value (1-5)
+        if pack_update.priority < 1 or pack_update.priority > 5:
+            raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
+        pack.priority = pack_update.priority
+    
     db.commit()
     db.refresh(pack)
     
@@ -128,6 +147,7 @@ def update_pack(pack_id: int, pack_update: PackUpdate, db: Session = Depends(get
         id=pack.id,
         name=pack.name,
         user_id=pack.user_id,
+        priority=pack.priority,
         created_at=pack.created_at.isoformat(),
         updated_at=pack.updated_at.isoformat()
     )

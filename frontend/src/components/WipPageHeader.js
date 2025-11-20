@@ -8,6 +8,8 @@ const WipPageHeader = ({
   onViewModeChange,
   searchQuery,
   onSearchChange,
+  packSortBy,
+  setPackSortBy,
 }) => {
   return (
     <>
@@ -32,9 +34,40 @@ const WipPageHeader = ({
               padding: "0.5rem 0.75rem",
               border: "1px solid #ccc",
               borderRadius: "6px",
-              minWidth: 260,
+              minWidth: 200,
             }}
           />
+          
+          {/* Sort Dropdown - only show when in pack view mode */}
+          {viewMode === "pack" && packSortBy && setPackSortBy && (
+            <div style={{ position: "relative" }}>
+              <select
+                value={packSortBy}
+                onChange={(e) => setPackSortBy(e.target.value)}
+                style={{
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  MozAppearance: "none",
+                  padding: "0.5rem 2rem 0.5rem 1rem",
+                  fontSize: "1rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  backgroundColor: "white",
+                  cursor: "pointer",
+                  minWidth: "140px",
+                  fontWeight: "500",
+                  color: "#333",
+                  outline: "none",
+                  background: "white url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\" viewBox=\"0 0 8 8\"><polygon points=\"0,0 8,0 4,8\" fill=\"%23666\"/></svg>') no-repeat right 12px center",
+                  backgroundSize: "8px",
+                }}
+              >
+                <option value="alphabetical">A-Z</option>
+                <option value="priority">Priority</option>
+                <option value="completion">Completion</option>
+              </select>
+            </div>
+          )}
 
           <button
             onClick={() => onViewModeChange("pack")}

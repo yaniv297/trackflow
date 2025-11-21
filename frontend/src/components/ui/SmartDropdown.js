@@ -27,7 +27,9 @@ const SmartDropdown = ({
       switch (type) {
         case "artist":
           const artistsResponse = await apiGet("/songs/all-artists");
-          data = artistsResponse.data || artistsResponse;
+          const artistsData = artistsResponse.data || artistsResponse;
+          const artistsList = artistsData.artists || artistsData || [];
+          data = artistsList.map((artist) => ({ value: artist, label: artist }));
           break;
 
         case "album":
@@ -68,7 +70,8 @@ const SmartDropdown = ({
           data = [];
       }
 
-      setOptions(data);
+      // Ensure data is always an array
+      setOptions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error(`Failed to fetch ${type} options:`, error);
       setOptions([]);
@@ -78,7 +81,7 @@ const SmartDropdown = ({
   };
 
   useEffect(() => {
-    if (isOpen && options.length === 0) {
+    if (isOpen && (!options || options.length === 0)) {
       fetchOptions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,8 +105,8 @@ const SmartDropdown = ({
     return parts[parts.length - 1].trim().toLowerCase();
   })();
 
-  const filteredOptions = options.filter((option) =>
-    option.label.toLowerCase().includes(currentQuery)
+  const filteredOptions = (options || []).filter((option) =>
+    option && option.label && option.label.toLowerCase().includes(currentQuery)
   );
 
   const handleSelect = (selectedValue) => {
@@ -228,7 +231,7 @@ const SmartDropdown = ({
           ) : (
             <>
               {/* Existing options */}
-              {filteredOptions.map((option, index) => (
+              {(filteredOptions || []).map((option, index) => (
                 <div
                   key={index}
                   onClick={() => handleSelect(option.value)}
@@ -251,8 +254,8 @@ const SmartDropdown = ({
 
               {/* Add new option */}
               {value.trim() &&
-                !filteredOptions.some(
-                  (opt) => opt.value.toLowerCase() === value.toLowerCase()
+                !(filteredOptions || []).some(
+                  (opt) => opt && opt.value && opt.value.toLowerCase() === value.toLowerCase()
                 ) && (
                   <div
                     onClick={handleAddNew}
@@ -275,7 +278,7 @@ const SmartDropdown = ({
                   </div>
                 )}
 
-              {filteredOptions.length === 0 && !value.trim() && (
+              {(!filteredOptions || filteredOptions.length === 0) && !value.trim() && (
                 <div
                   style={{
                     padding: "1rem",

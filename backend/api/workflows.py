@@ -201,26 +201,32 @@ async def update_my_workflow(
             prior_count = len(prior_names)
             
             for step in added:
-                # Songs with all prior steps complete → mark new step complete
-                db.execute(text("""
-                    INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                    SELECT s.id, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-                    FROM songs s
-                    WHERE s.user_id = :uid AND s.status = 'In Progress'
-                    AND (SELECT COUNT(*) FROM song_progress sp WHERE sp.song_id = s.id AND sp.is_completed = TRUE) >= :prior_count
-                    ON CONFLICT(song_id, step_name) DO UPDATE SET
-                        is_completed = TRUE,
-                        completed_at = CURRENT_TIMESTAMP,
-                        updated_at = CURRENT_TIMESTAMP
-                """), {"uid": current_user.id, "step": step, "prior_count": prior_count})
+                # Only mark steps complete if there were actually prior steps to complete
+                # Fix: Don't auto-complete when prior_count is 0 (new workflows)
+                if prior_count > 0:
+                    # Songs with all prior steps complete → mark new step complete
+                    db.execute(text("""
+                        INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
+                        SELECT s.id, :step, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                        FROM songs s
+                        WHERE s.user_id = :uid AND s.status = 'In Progress'
+                        AND (SELECT COUNT(*) FROM song_progress sp WHERE sp.song_id = s.id AND sp.is_completed = TRUE) >= :prior_count
+                        ON CONFLICT(song_id, step_name) DO UPDATE SET
+                            is_completed = TRUE,
+                            completed_at = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP
+                    """), {"uid": current_user.id, "step": step, "prior_count": prior_count})
                 
-                # All other WIP songs → mark new step incomplete
+                # All new steps default to incomplete (or remain incomplete if prior_count = 0)
                 db.execute(text("""
                     INSERT INTO song_progress (song_id, step_name, is_completed, created_at, updated_at)
                     SELECT s.id, :step, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                     FROM songs s
                     WHERE s.user_id = :uid AND s.status = 'In Progress'
-                    AND (SELECT COUNT(*) FROM song_progress sp WHERE sp.song_id = s.id AND sp.is_completed = TRUE) < :prior_count
+                    AND (
+                        :prior_count = 0 OR 
+                        (SELECT COUNT(*) FROM song_progress sp WHERE sp.song_id = s.id AND sp.is_completed = TRUE) < :prior_count
+                    )
                     ON CONFLICT(song_id, step_name) DO NOTHING
                 """), {"uid": current_user.id, "step": step, "prior_count": prior_count})
 

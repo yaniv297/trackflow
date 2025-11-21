@@ -17,6 +17,7 @@ import NewPackForm from "./NewPackForm";
 import StatsPage from "./StatsPage";
 import AlbumSeriesPage from "./AlbumSeriesPage";
 import NotificationManager from "./components/notifications/NotificationManager";
+import NotificationIcon from "./components/notifications/NotificationIcon";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
 import WorkflowSettings from "./components/features/workflows/WorkflowSettings";
@@ -391,6 +392,9 @@ function AppContent() {
                   </div>
                 )}
               </div>
+
+              {/* Notification Icon */}
+              <NotificationIcon />
 
               {/* User Dropdown */}
               <div

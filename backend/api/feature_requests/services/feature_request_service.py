@@ -13,6 +13,7 @@ from ..validators.feature_request_validators import (
     FeatureRequestVoteRequest, FeatureRequestMarkDoneRequest, FeatureRequestMarkRejectedRequest,
     DeleteResponse
 )
+from api.notifications.services.notification_service import NotificationService
 
 
 class FeatureRequestService:
@@ -130,6 +131,43 @@ class FeatureRequestService:
             db, feature_request_id, current_user.id, comment.comment, comment.parent_comment_id
         )
         
+        # Create notification if this is a reply to someone else's comment
+        if comment.parent_comment_id:
+            try:
+                parent_comment = self.repository.get_comment_by_id(
+                    db, comment.parent_comment_id, feature_request_id
+                )
+                if parent_comment and parent_comment.user_id != current_user.id:
+                    # Don't notify if user is replying to their own comment
+                    notification_service = NotificationService(db)
+                    notification_service.create_comment_reply_notification(
+                        user_id=parent_comment.user_id,
+                        feature_request_id=feature_request_id,
+                        comment_id=new_comment.id,
+                        commenter_name=current_user.username,
+                        feature_request_title=feature_request.title
+                    )
+                    print(f"📢 Created reply notification for user {parent_comment.user_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to create comment reply notification: {e}")
+                # Don't fail the comment creation if notification fails
+        
+        # Also notify feature request author of new top-level comments (but not their own)
+        elif feature_request.user_id != current_user.id:
+            try:
+                notification_service = NotificationService(db)
+                notification_service.create_comment_reply_notification(
+                    user_id=feature_request.user_id,
+                    feature_request_id=feature_request_id,
+                    comment_id=new_comment.id,
+                    commenter_name=current_user.username,
+                    feature_request_title=feature_request.title
+                )
+                print(f"📢 Created new comment notification for feature request author {feature_request.user_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to create new comment notification: {e}")
+                # Don't fail the comment creation if notification fails
+        
         # Return with username and parent comment info
         return FeatureRequestCommentOut(
             id=new_comment.id,
@@ -242,7 +280,25 @@ class FeatureRequestService:
         if not feature_request:
             raise Exception("Feature request not found")
         
+        # Store original state for comparison
+        was_done = feature_request.is_done
+        
         updated_feature_request = self.repository.mark_feature_done(db, feature_request, request.is_done)
+        
+        # Create notification if status changed to done
+        if not was_done and request.is_done and feature_request.user_id != current_user.id:
+            try:
+                notification_service = NotificationService(db)
+                notification_service.create_feature_request_update_notification(
+                    user_id=feature_request.user_id,
+                    feature_request_id=feature_request_id,
+                    feature_request_title=feature_request.title,
+                    update_type="completed"
+                )
+                print(f"📢 Created completion notification for feature request author {feature_request.user_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to create completion notification: {e}")
+        
         return self._build_feature_request_response(updated_feature_request, current_user.id, db)
 
     def mark_feature_rejected(self, db: Session, feature_request_id: int, 
@@ -255,9 +311,27 @@ class FeatureRequestService:
         if not feature_request:
             raise Exception("Feature request not found")
         
+        # Store original state for comparison
+        was_rejected = feature_request.is_rejected
+        
         updated_feature_request = self.repository.mark_feature_rejected(
             db, feature_request, request.is_rejected, request.rejection_reason
         )
+        
+        # Create notification if status changed to rejected
+        if not was_rejected and request.is_rejected and feature_request.user_id != current_user.id:
+            try:
+                notification_service = NotificationService(db)
+                notification_service.create_feature_request_update_notification(
+                    user_id=feature_request.user_id,
+                    feature_request_id=feature_request_id,
+                    feature_request_title=feature_request.title,
+                    update_type="rejected"
+                )
+                print(f"📢 Created rejection notification for feature request author {feature_request.user_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to create rejection notification: {e}")
+        
         return self._build_feature_request_response(updated_feature_request, current_user.id, db)
 
     # Private helper methods

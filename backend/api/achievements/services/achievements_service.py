@@ -12,6 +12,7 @@ from ..validators.achievements_validators import (
     UserStatsResponse, AchievementProgressResponse, AchievementProgressItem,
     AchievementCheckResponse
 )
+from api.notifications.services.notification_service import NotificationService
 
 
 class AchievementsService:
@@ -184,6 +185,25 @@ class AchievementsService:
             # Award achievement
             user_achievement = self.repository.create_user_achievement(db, user_id, achievement.id)
             print(f"🏆 Awarded achievement '{achievement.name}' to user {user_id}")
+            
+            # Ensure achievement is committed before creating notification
+            db.commit()
+            
+            # Create notification for the new achievement
+            try:
+                notification_service = NotificationService(db)
+                notification_out = notification_service.create_achievement_notification(
+                    user_id=user_id,
+                    achievement_id=achievement.id,
+                    achievement_name=achievement.name
+                )
+                print(f"📢 Created notification for achievement '{achievement.name}' for user {user_id} (notification_id: {notification_out.id})")
+            except Exception as e:
+                print(f"⚠️ Failed to create notification for achievement '{achievement.name}': {e}")
+                import traceback
+                traceback.print_exc()
+                # Don't fail the achievement award if notification creation fails
+            
             return user_achievement
             
         except Exception as e:

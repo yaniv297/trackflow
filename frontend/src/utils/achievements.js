@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from "./api";
+import { dispatchAchievementEarnedEvent, dispatchNewNotificationEvent } from "./notificationEvents";
 
 let lastKnownAchievements = new Set();
 let isInitialized = false;
@@ -75,6 +76,10 @@ export async function checkAndShowNewAchievements() {
           } else {
             // Achievement logged to console for debugging
           }
+          
+          // Dispatch achievement earned event for real-time notifications
+          console.log('🏆 Dispatching achievement earned event for:', achievement.name);
+          dispatchAchievementEarnedEvent(achievement);
         }
       });
 
@@ -89,6 +94,12 @@ export async function checkAndShowNewAchievements() {
           achievements: allNewlyAwarded.map(code => achievementMap.get(code)).filter(Boolean)
         }
       }));
+      
+      // Trigger new notification event for notification icon
+      if (allNewlyAwarded.length > 0) {
+        console.log('📢 Dispatching new notification event for achievements');
+        dispatchNewNotificationEvent();
+      }
     } else {
       // Even if no new achievements, update our tracking to current state
       // This prevents showing old achievements on subsequent calls

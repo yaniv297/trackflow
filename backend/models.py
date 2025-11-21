@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -383,3 +383,37 @@ class UserStats(Base):
     
     # Relationships
     user = relationship("User", uselist=False)
+
+class NotificationType(str, enum.Enum):
+    ACHIEVEMENT_EARNED = "achievement_earned"
+    COMMENT_REPLY = "comment_reply"
+    FEATURE_REQUEST_UPDATE = "feature_request_update"
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    type = Column(String, nullable=False, index=True)  # NotificationType enum value
+    title = Column(String, nullable=False)  # Short notification title
+    message = Column(Text, nullable=False)  # Notification content
+    is_read = Column(Boolean, default=False, index=True)
+    
+    # Context data for linking to relevant content
+    related_achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=True, index=True)
+    related_feature_request_id = Column(Integer, ForeignKey("feature_requests.id"), nullable=True, index=True)
+    related_comment_id = Column(Integer, ForeignKey("feature_request_comments.id"), nullable=True, index=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    read_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    user = relationship("User")
+    related_achievement = relationship("Achievement", foreign_keys=[related_achievement_id])
+    related_feature_request = relationship("FeatureRequest", foreign_keys=[related_feature_request_id])
+    related_comment = relationship("FeatureRequestComment", foreign_keys=[related_comment_id])
+    
+    __table_args__ = (
+        Index('idx_notification_user_read', 'user_id', 'is_read'),
+        Index('idx_notification_user_created', 'user_id', 'created_at'),
+    )

@@ -23,6 +23,7 @@ from api import bug_reports as bug_reports
 from api import admin as admin
 from api.feature_requests import router as feature_requests_router
 from api.achievements import router as achievements_router
+from api.notifications import router as notifications_router
 from database import engine, SQLALCHEMY_DATABASE_URL
 from models import Base
 
@@ -93,6 +94,7 @@ app.include_router(bug_reports.router)
 app.include_router(admin.router)
 app.include_router(feature_requests_router)
 app.include_router(achievements_router)
+app.include_router(notifications_router, prefix="/notifications")
 
 # Timeout middleware removed - was causing more problems than it solved
 

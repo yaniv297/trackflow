@@ -10,6 +10,8 @@ const NotificationIcon = () => {
   const [loading, setLoading] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
 
   // Fetch notification count
   const fetchNotificationCount = async () => {
@@ -118,6 +120,17 @@ const NotificationIcon = () => {
     setShowDropdown(!showDropdown);
   };
 
+  // Calculate dropdown position when it opens
+  useEffect(() => {
+    if (showDropdown && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({ 
+        top: rect.bottom + 8, 
+        right: window.innerWidth - rect.right 
+      });
+    }
+  }, [showDropdown]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -180,24 +193,35 @@ const NotificationIcon = () => {
   return (
     <div className="notification-icon-container" ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
       <button
+        ref={buttonRef}
         onClick={toggleDropdown}
         className="notification-icon-button"
         style={{
-          background: 'transparent',
-          border: 'none',
+          background: showDropdown ? 'rgba(255,255,255,0.2)' : 'transparent',
+          border: showDropdown ? '1px solid rgba(255,255,255,0.3)' : '1px solid transparent',
+          borderRadius: '6px',
           cursor: 'pointer',
           position: 'relative',
-          padding: '0.5rem',
-          borderRadius: '50%',
-          transition: 'background-color 0.2s',
+          padding: '0.4rem 0.8rem',
+          transition: 'all 0.2s',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
         }}
-        onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+        onMouseEnter={(e) => {
+          if (!showDropdown) {
+            e.target.style.backgroundColor = 'rgba(255,255,255,0.1)';
+            e.target.style.borderColor = 'rgba(255,255,255,0.2)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!showDropdown) {
+            e.target.style.backgroundColor = 'transparent';
+            e.target.style.borderColor = 'transparent';
+          }
+        }}
       >
-        <span style={{ fontSize: '1.2rem' }}>🔔</span>
+        <span style={{ fontSize: '1.1rem', color: 'white' }}>🔔</span>
         {unreadCount > 0 && (
           <span
             className="notification-badge"
@@ -233,6 +257,7 @@ const NotificationIcon = () => {
           onMarkAllAsRead={markAllAsRead}
           onDelete={deleteNotification}
           onClose={() => setShowDropdown(false)}
+          position={dropdownPos}
         />
       )}
     </div>

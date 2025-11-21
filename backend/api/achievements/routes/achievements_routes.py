@@ -11,7 +11,7 @@ from api.auth import get_current_active_user
 from ..services.achievements_service import AchievementsService
 from ..validators.achievements_validators import (
     AchievementResponse, UserAchievementResponse, AchievementProgressSummary,
-    AchievementCheckResponse
+    AchievementCheckResponse, LeaderboardResponse
 )
 
 
@@ -66,3 +66,17 @@ def check_achievements(
     except Exception as e:
         print(f"❌ Error checking achievements: {e}")
         raise HTTPException(status_code=500, detail="Failed to check achievements")
+
+
+@router.get("/leaderboard", response_model=LeaderboardResponse)
+def get_leaderboard(
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get achievement points leaderboard."""
+    try:
+        return achievements_service.get_leaderboard(db, current_user.id, limit)
+    except Exception as e:
+        print(f"❌ Error getting leaderboard: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get leaderboard")

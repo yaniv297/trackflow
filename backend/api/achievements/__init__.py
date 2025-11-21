@@ -65,6 +65,10 @@ def check_bug_report_achievements(db, user_id):
     """Legacy function for backward compatibility."""
     return service.check_bug_report_achievements(db, user_id)
 
+def check_login_streak_achievements(db, user_id):
+    """Legacy function for backward compatibility."""
+    return service.check_login_streak_achievements(db, user_id)
+
 def get_or_create_user_stats(db, user_id):
     """Legacy function for backward compatibility."""
     return service.get_or_create_user_stats(db, user_id)
@@ -78,5 +82,6 @@ __all__ = [
     "check_spotify_achievements", "check_feature_request_achievements",
     "check_wip_completion_achievements", "check_diversity_achievements",
     "check_quality_achievements", "check_album_series_achievements", 
-    "check_bug_report_achievements", "get_or_create_user_stats"
+    "check_bug_report_achievements", "check_login_streak_achievements", 
+    "get_or_create_user_stats"
 ]

@@ -55,3 +55,17 @@ class AchievementProgressSummary(BaseModel):
 class AchievementCheckResponse(BaseModel):
     newly_awarded: List[str]
     count: int
+
+
+class LeaderboardEntry(BaseModel):
+    user_id: int
+    username: str
+    total_points: int
+    total_achievements: int
+    rank: int
+
+
+class LeaderboardResponse(BaseModel):
+    leaderboard: List[LeaderboardEntry]
+    current_user_rank: Optional[int] = None
+    total_users: int

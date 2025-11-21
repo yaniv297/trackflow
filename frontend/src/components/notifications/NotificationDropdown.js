@@ -9,7 +9,8 @@ const NotificationDropdown = ({
   onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
-  onClose
+  onClose,
+  position = { top: 0, right: 0 }
 }) => {
   const navigate = useNavigate();
 
@@ -64,17 +65,16 @@ const NotificationDropdown = ({
     <div
       className="notification-dropdown"
       style={{
-        position: 'absolute',
-        top: '100%',
-        right: '0',
+        position: 'fixed',
+        top: `${position.top}px`,
+        right: `${position.right}px`,
         width: '380px',
         maxWidth: '90vw',
         background: 'white',
         border: '1px solid #ddd',
         borderRadius: '8px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        zIndex: 1000,
-        marginTop: '0.5rem',
+        zIndex: 10001,
         maxHeight: '500px',
         overflow: 'hidden',
         display: 'flex',

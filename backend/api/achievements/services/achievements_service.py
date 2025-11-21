@@ -10,7 +10,7 @@ from ..repositories.achievements_repository import AchievementsRepository
 from ..validators.achievements_validators import (
     AchievementResponse, UserAchievementResponse, AchievementProgressSummary,
     UserStatsResponse, AchievementProgressResponse, AchievementProgressItem,
-    AchievementCheckResponse
+    AchievementCheckResponse, LeaderboardResponse, LeaderboardEntry
 )
 from api.notifications.services.notification_service import NotificationService
 
@@ -432,3 +432,63 @@ class AchievementsService:
         except Exception as e:
             print(f"❌ Error in _get_achievement_progress_data: {e}")
             return {}
+
+    def get_leaderboard(self, db: Session, current_user_id: int, limit: int = 50) -> LeaderboardResponse:
+        """Get leaderboard with user rankings by total achievement points."""
+        try:
+            # Get all users with their total points and achievement counts
+            leaderboard_data = []
+            
+            # This query gets all users, their total points, and achievement count
+            from sqlalchemy import func
+            from models import User, UserAchievement, Achievement
+            
+            # Get all users with their achievement data
+            users_query = db.query(
+                User.id,
+                User.username,
+                func.coalesce(func.sum(Achievement.points), 0).label('total_points'),
+                func.count(UserAchievement.id).label('total_achievements')
+            ).outerjoin(
+                UserAchievement, User.id == UserAchievement.user_id
+            ).outerjoin(
+                Achievement, UserAchievement.achievement_id == Achievement.id
+            ).group_by(User.id, User.username).all()
+            
+            # Convert to list and sort by points (descending), then by username (ascending)
+            sorted_users = sorted(users_query, key=lambda x: (-x.total_points, x.username))
+            
+            # Create leaderboard entries with ranks
+            current_user_rank = None
+            for i, user_data in enumerate(sorted_users[:limit], 1):
+                entry = LeaderboardEntry(
+                    user_id=user_data.id,
+                    username=user_data.username,
+                    total_points=user_data.total_points,
+                    total_achievements=user_data.total_achievements,
+                    rank=i
+                )
+                leaderboard_data.append(entry)
+                
+                # Track current user's rank
+                if user_data.id == current_user_id:
+                    current_user_rank = i
+            
+            # If current user is not in top results, find their rank
+            if current_user_rank is None:
+                for i, user_data in enumerate(sorted_users, 1):
+                    if user_data.id == current_user_id:
+                        current_user_rank = i
+                        break
+            
+            total_users = len(sorted_users)
+            
+            return LeaderboardResponse(
+                leaderboard=leaderboard_data,
+                current_user_rank=current_user_rank,
+                total_users=total_users
+            )
+            
+        except Exception as e:
+            print(f"❌ Error getting leaderboard: {e}")
+            raise Exception("Failed to get leaderboard")

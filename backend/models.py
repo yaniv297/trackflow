@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -52,6 +52,7 @@ class Pack(Base):
     priority = Column(Integer, nullable=True)  # 1-5 scale, 5 is highest priority, null if not set
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    released_at = Column(DateTime, nullable=True)  # When pack was released
     # Relationships
     user = relationship("User", back_populates="packs")
     songs = relationship("Song", back_populates="pack_obj")
@@ -72,6 +73,7 @@ class Song(Base):
     pack_id = Column(Integer, ForeignKey("packs.id"), index=True)
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     created_at = Column(DateTime, default=datetime.utcnow)
+    released_at = Column(DateTime, nullable=True)  # When song was released
     
     # Composite indexes for common query patterns
     __table_args__ = (
@@ -392,6 +394,13 @@ class NotificationType(str, enum.Enum):
     WELCOME = "welcome"
     GENERAL = "general"
 
+class PostType(str, enum.Enum):
+    PACK_RELEASE = "pack_release"      # Automatic pack release
+    SONG_RELEASE = "song_release"      # Individual song release  
+    FEATURE_UPDATE = "feature_update"  # New app features
+    COMMUNITY_NEWS = "community_news"  # General community updates
+    CURATED = "curated"               # Custom admin posts
+
 class Notification(Base):
     __tablename__ = "notifications"
     
@@ -419,4 +428,45 @@ class Notification(Base):
     __table_args__ = (
         Index('idx_notification_user_read', 'user_id', 'is_read'),
         Index('idx_notification_user_created', 'user_id', 'created_at'),
+    )
+
+class ReleasePost(Base):
+    """Admin-managed release posts for the home page"""
+    __tablename__ = "release_posts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    post_type = Column(String, nullable=False, index=True)  # PostType enum value
+    title = Column(String, nullable=False)  # "Fleetwood Mac - Rumours Album Series"
+    subtitle = Column(String, nullable=True)  # "4 classic songs now available"
+    description = Column(Text, nullable=True)  # Rich text description
+    
+    # Visual content
+    cover_image_url = Column(String, nullable=True)  # Custom cover or pack cover
+    banner_image_url = Column(String, nullable=True)  # Optional banner
+    
+    # Post metadata
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    is_published = Column(Boolean, default=False, index=True)
+    is_featured = Column(Boolean, default=False, index=True)  # Featured posts shown first
+    published_at = Column(DateTime, nullable=True, index=True)
+    
+    # Linked content
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True, index=True)  # For pack releases
+    linked_song_ids = Column(Text, nullable=True)  # JSON array of song IDs
+    
+    # SEO/social
+    slug = Column(String, unique=True, nullable=True, index=True)  # URL slug
+    tags = Column(Text, nullable=True)  # JSON array of tags
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    author = relationship("User", foreign_keys=[author_id])
+    pack = relationship("Pack", foreign_keys=[pack_id])
+    
+    __table_args__ = (
+        Index('idx_release_post_published', 'is_published', 'published_at'),
+        Index('idx_release_post_featured', 'is_featured', 'published_at'),
+        Index('idx_release_post_type', 'post_type', 'published_at'),
     )

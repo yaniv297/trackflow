@@ -95,10 +95,27 @@ class SongService:
             self._handle_pack_name_change(song, updates["pack"], current_user)
             del updates["pack"]
         
+        # Check if status is changing to Released
+        old_status = song.status
+        
         # Apply regular updates
         for key, value in updates.items():
             if hasattr(song, key):
                 setattr(song, key, value)
+        
+        # Set released_at timestamp when status changes to Released
+        if "status" in updates:
+            new_status = updates["status"]
+            # Handle both string and enum values
+            if (isinstance(new_status, str) and new_status == "Released") or new_status == SongStatus.released:
+                if old_status != "Released" and old_status != SongStatus.released:
+                    song.released_at = datetime.utcnow()
+                    print(f"🚀 Set released_at for song {song.id} '{song.title}' - status change from {old_status} to {new_status}")
+            # Clear released_at if moving away from Released
+            elif song.released_at is not None:
+                if old_status == "Released" or old_status == SongStatus.released:
+                    song.released_at = None
+                    print(f"🔄 Cleared released_at for song {song.id} '{song.title}' - status change from {old_status} to {new_status}")
         
         self.db.commit()
         

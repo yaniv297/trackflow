@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from models import SongStatus
+from models import SongStatus, PostType
 from typing import Optional, List
 from datetime import datetime
 import json
@@ -96,6 +96,7 @@ class SongOut(BaseModel):
     album_series_name: Optional[str] = None
     is_editable: Optional[bool] = None
     pack_collaboration: Optional[dict] = None
+    released_at: Optional[datetime] = None  # When song was released
     
 
     class Config:
@@ -278,3 +279,57 @@ class NotificationUpdate(BaseModel):
 class NotificationCountOut(BaseModel):
     unread_count: int
     total_count: int
+
+class ReleasePostCreate(BaseModel):
+    post_type: PostType
+    title: str
+    subtitle: Optional[str] = None
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    banner_image_url: Optional[str] = None
+    is_published: bool = False
+    is_featured: bool = False
+    published_at: Optional[datetime] = None
+    pack_id: Optional[int] = None
+    linked_song_ids: Optional[List[int]] = None
+    slug: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class ReleasePostUpdate(BaseModel):
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    banner_image_url: Optional[str] = None
+    is_published: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    published_at: Optional[datetime] = None
+    pack_id: Optional[int] = None
+    linked_song_ids: Optional[List[int]] = None
+    slug: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+class ReleasePostOut(BaseModel):
+    id: int
+    post_type: PostType
+    title: str
+    subtitle: Optional[str] = None
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    banner_image_url: Optional[str] = None
+    author_id: int
+    author_username: str
+    is_published: bool
+    is_featured: bool
+    published_at: Optional[datetime] = None
+    pack_id: Optional[int] = None
+    pack_name: Optional[str] = None
+    linked_song_ids: Optional[List[int]] = None
+    linked_songs: Optional[List[SongOut]] = None
+    slug: Optional[str] = None
+    tags: Optional[List[str]] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True

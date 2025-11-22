@@ -5,6 +5,7 @@ Achievements repository - handles data access for achievement operations.
 from typing import List, Optional, Set, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text, distinct
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 from models import (
@@ -39,38 +40,73 @@ class AchievementsRepository:
             UserAchievement.achievement_id == achievement_id
         ).first()
     
-    def create_user_achievement(self, db: Session, user_id: int, achievement_id: int) -> UserAchievement:
-        """Award achievement to user."""
-        user_achievement = UserAchievement(
-            user_id=user_id,
-            achievement_id=achievement_id,
-            earned_at=datetime.utcnow()
-        )
-        db.add(user_achievement)
-        db.commit()
-        db.refresh(user_achievement)
-        return user_achievement
+    def create_user_achievement(self, db: Session, user_id: int, achievement_id: int, commit: bool = True) -> Optional[UserAchievement]:
+        """Award achievement to user. Returns None if achievement already exists (race condition).
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            achievement_id: Achievement ID
+            commit: If True, commit the transaction. If False, caller is responsible for committing.
+        
+        Returns:
+            UserAchievement if created successfully, None if already exists (IntegrityError)
+        """
+        try:
+            user_achievement = UserAchievement(
+                user_id=user_id,
+                achievement_id=achievement_id,
+                earned_at=datetime.utcnow()
+            )
+            db.add(user_achievement)
+            if commit:
+                db.commit()
+                db.refresh(user_achievement)
+            else:
+                # Flush to get the ID, but don't commit
+                db.flush()
+            return user_achievement
+        except IntegrityError:
+            # Achievement already exists (race condition - another request awarded it)
+            db.rollback()
+            # Return None to indicate it already exists
+            return None
     
     def get_user_stats(self, db: Session, user_id: int) -> Optional[UserStats]:
         """Get user stats record."""
         return db.query(UserStats).filter(UserStats.user_id == user_id).first()
     
-    def create_user_stats(self, db: Session, user_id: int) -> UserStats:
-        """Create new user stats record."""
+    def create_user_stats(self, db: Session, user_id: int, commit: bool = True) -> UserStats:
+        """Create new user stats record.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            commit: If True, commit the transaction. If False, caller is responsible for committing.
+        """
         stats = UserStats(user_id=user_id)
         db.add(stats)
-        db.commit()
-        db.refresh(stats)
+        if commit:
+            db.commit()
+            db.refresh(stats)
         return stats
     
-    def update_user_stats(self, db: Session, stats: UserStats, **kwargs) -> UserStats:
-        """Update user stats with new values."""
+    def update_user_stats(self, db: Session, stats: UserStats, commit: bool = True, **kwargs) -> UserStats:
+        """Update user stats with new values.
+        
+        Args:
+            db: Database session
+            stats: UserStats object to update
+            commit: If True, commit the transaction. If False, caller is responsible for committing.
+            **kwargs: Stats fields to update
+        """
         for key, value in kwargs.items():
             if hasattr(stats, key):
                 setattr(stats, key, max(0, value))  # Ensure non-negative values
         
         stats.updated_at = datetime.utcnow()
-        db.commit()
+        if commit:
+            db.commit()
         return stats
     
     def count_songs_by_status(self, db: Session, user_id: int, status: SongStatus) -> int:
@@ -315,20 +351,30 @@ class AchievementsRepository:
         
         return completed_packs
     
-    def update_user_total_points(self, db: Session, user_id: int, points_to_add: int) -> None:
-        """Update user's cached total points by adding the given points."""
+    def update_user_total_points(self, db: Session, user_id: int, points_to_add: int, commit: bool = True) -> None:
+        """Update user's cached total points by adding the given points.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            points_to_add: Points to add to current total
+            commit: If True, commit the transaction. If False, caller is responsible for committing.
+        """
         try:
             stats = self.get_user_stats(db, user_id)
             if not stats:
-                stats = self.create_user_stats(db, user_id)
+                stats = self.create_user_stats(db, user_id, commit=False)
             
             stats.total_points = (stats.total_points or 0) + points_to_add
             stats.updated_at = datetime.utcnow()
-            db.commit()
+            if commit:
+                db.commit()
             
         except Exception as e:
             print(f"❌ Error updating total points for user {user_id}: {e}")
-            db.rollback()
+            if commit:
+                db.rollback()
+            raise
     
     def recalculate_user_total_points(self, db: Session, user_id: int) -> int:
         """Recalculate and update user's total points from scratch."""

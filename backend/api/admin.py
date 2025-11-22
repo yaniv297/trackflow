@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from auth import get_current_user
-from models import User, Song, Artist, ActivityLog
-from schemas import UserOut, ActivityLogOut
+from models import User, Song, Artist, ActivityLog, ReleasePost, Pack, PostType
+from schemas import UserOut, ActivityLogOut, ReleasePostCreate, ReleasePostUpdate, ReleasePostOut, SongOut
 from typing import List, Optional
-from datetime import timedelta
+from datetime import timedelta, datetime
 from .auth import create_access_token, clear_user_cache
 from .user_activity import get_online_user_count, get_online_user_ids
 from pydantic import BaseModel
@@ -296,3 +296,275 @@ def broadcast_notification(
         result["errors"] = errors[:10]  # Limit to first 10 errors
     
     return result
+
+
+# ==================== RELEASE POST MANAGEMENT ====================
+
+@router.get("/release-posts", response_model=List[ReleasePostOut])
+def list_release_posts(
+    published_only: Optional[bool] = Query(False),
+    limit: Optional[int] = Query(20, le=100),
+    offset: Optional[int] = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """List all release posts (admin only)"""
+    query = db.query(ReleasePost).options(
+        joinedload(ReleasePost.author),
+        joinedload(ReleasePost.pack)
+    )
+    
+    if published_only:
+        query = query.filter(ReleasePost.is_published == True)
+    
+    posts = query.order_by(
+        ReleasePost.is_featured.desc(),
+        ReleasePost.published_at.desc().nullslast(),
+        ReleasePost.created_at.desc()
+    ).offset(offset).limit(limit).all()
+    
+    result = []
+    for post in posts:
+        # Parse linked song IDs and fetch songs
+        linked_songs = []
+        if post.linked_song_ids:
+            try:
+                song_ids = json.loads(post.linked_song_ids)
+                if song_ids:
+                    songs = db.query(Song).filter(Song.id.in_(song_ids)).all()
+                    linked_songs = [format_song_for_release_post(song) for song in songs]
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        # Parse tags
+        tags = []
+        if post.tags:
+            try:
+                tags = json.loads(post.tags)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        result.append(ReleasePostOut(
+            id=post.id,
+            post_type=post.post_type,
+            title=post.title,
+            subtitle=post.subtitle,
+            description=post.description,
+            cover_image_url=post.cover_image_url,
+            banner_image_url=post.banner_image_url,
+            author_id=post.author_id,
+            author_username=post.author.username,
+            is_published=post.is_published,
+            is_featured=post.is_featured,
+            published_at=post.published_at,
+            pack_id=post.pack_id,
+            pack_name=post.pack.name if post.pack else None,
+            linked_song_ids=json.loads(post.linked_song_ids) if post.linked_song_ids else None,
+            linked_songs=linked_songs,
+            slug=post.slug,
+            tags=tags,
+            created_at=post.created_at,
+            updated_at=post.updated_at
+        ))
+    
+    return result
+
+@router.post("/release-posts", response_model=ReleasePostOut)
+def create_release_post(
+    post_data: ReleasePostCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Create a new release post (admin only)"""
+    
+    # Generate slug if not provided
+    slug = post_data.slug
+    if not slug and post_data.title:
+        import re
+        slug = re.sub(r'[^a-zA-Z0-9\s\-]', '', post_data.title.lower())
+        slug = re.sub(r'[\s\-]+', '-', slug).strip('-')
+        
+        # Ensure slug is unique
+        counter = 1
+        original_slug = slug
+        while db.query(ReleasePost).filter(ReleasePost.slug == slug).first():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+    
+    # Serialize lists to JSON
+    linked_song_ids_json = None
+    if post_data.linked_song_ids:
+        linked_song_ids_json = json.dumps(post_data.linked_song_ids)
+    
+    tags_json = None
+    if post_data.tags:
+        tags_json = json.dumps(post_data.tags)
+    
+    # Set published_at if publishing
+    published_at = post_data.published_at
+    if post_data.is_published and not published_at:
+        published_at = datetime.utcnow()
+    
+    new_post = ReleasePost(
+        post_type=post_data.post_type,
+        title=post_data.title,
+        subtitle=post_data.subtitle,
+        description=post_data.description,
+        cover_image_url=post_data.cover_image_url,
+        banner_image_url=post_data.banner_image_url,
+        author_id=current_user.id,
+        is_published=post_data.is_published,
+        is_featured=post_data.is_featured,
+        published_at=published_at,
+        pack_id=post_data.pack_id,
+        linked_song_ids=linked_song_ids_json,
+        slug=slug,
+        tags=tags_json
+    )
+    
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
+    
+    # Return formatted response
+    return get_release_post_response(db, new_post)
+
+@router.post("/release-posts/auto-generate")
+def auto_generate_release_post(
+    pack_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Auto-generate a release post from a pack (admin only)"""
+    pack = db.query(Pack).filter(Pack.id == pack_id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Pack not found")
+    
+    # Get songs in the pack
+    songs = db.query(Song).filter(
+        Song.pack_id == pack_id,
+        Song.status == "Released"
+    ).all()
+    
+    if not songs:
+        raise HTTPException(status_code=400, detail="No released songs found in pack")
+    
+    # Generate post content
+    artist = songs[0].artist if songs else "Various Artists"
+    album = songs[0].album if songs and songs[0].album else pack.name
+    song_count = len(songs)
+    
+    title = f"{artist} - {album}"
+    subtitle = f"{song_count} song{'s' if song_count != 1 else ''} now available"
+    description = f"The complete {album} pack by {artist} is now available for rhythm gaming! " \
+                 f"Featuring {song_count} track{'s' if song_count != 1 else ''}: " \
+                 + ", ".join([f'"{song.title}"' for song in songs[:5]]) \
+                 + ("..." if len(songs) > 5 else "")
+    
+    # Use first song's album cover or pack cover
+    cover_image_url = songs[0].album_cover if songs and songs[0].album_cover else None
+    
+    new_post = ReleasePost(
+        post_type=PostType.PACK_RELEASE,
+        title=title,
+        subtitle=subtitle,
+        description=description,
+        cover_image_url=cover_image_url,
+        author_id=current_user.id,
+        is_published=False,  # Start as draft
+        is_featured=False,
+        pack_id=pack_id,
+        linked_song_ids=json.dumps([song.id for song in songs]),
+        tags=json.dumps([artist.lower(), album.lower(), "pack", "release"])
+    )
+    
+    # Generate slug
+    import re
+    slug = re.sub(r'[^a-zA-Z0-9\s\-]', '', title.lower())
+    slug = re.sub(r'[\s\-]+', '-', slug).strip('-')
+    
+    # Ensure slug is unique
+    counter = 1
+    original_slug = slug
+    while db.query(ReleasePost).filter(ReleasePost.slug == slug).first():
+        slug = f"{original_slug}-{counter}"
+        counter += 1
+    
+    new_post.slug = slug
+    
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
+    
+    return get_release_post_response(db, new_post)
+
+
+def get_release_post_response(db: Session, post: ReleasePost) -> ReleasePostOut:
+    """Helper to format release post response"""
+    # Load relationships if not loaded
+    if not hasattr(post, 'author') or post.author is None:
+        post = db.query(ReleasePost).options(
+            joinedload(ReleasePost.author),
+            joinedload(ReleasePost.pack)
+        ).filter(ReleasePost.id == post.id).first()
+    
+    # Parse linked song IDs and fetch songs
+    linked_songs = []
+    if post.linked_song_ids:
+        try:
+            song_ids = json.loads(post.linked_song_ids)
+            if song_ids:
+                songs = db.query(Song).filter(Song.id.in_(song_ids)).all()
+                linked_songs = [format_song_for_release_post(song) for song in songs]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
+    # Parse tags
+    tags = []
+    if post.tags:
+        try:
+            tags = json.loads(post.tags)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    
+    return ReleasePostOut(
+        id=post.id,
+        post_type=post.post_type,
+        title=post.title,
+        subtitle=post.subtitle,
+        description=post.description,
+        cover_image_url=post.cover_image_url,
+        banner_image_url=post.banner_image_url,
+        author_id=post.author_id,
+        author_username=post.author.username,
+        is_published=post.is_published,
+        is_featured=post.is_featured,
+        published_at=post.published_at,
+        pack_id=post.pack_id,
+        pack_name=post.pack.name if post.pack else None,
+        linked_song_ids=json.loads(post.linked_song_ids) if post.linked_song_ids else None,
+        linked_songs=linked_songs,
+        slug=post.slug,
+        tags=tags,
+        created_at=post.created_at,
+        updated_at=post.updated_at
+    )
+
+def format_song_for_release_post(song: Song) -> SongOut:
+    """Helper to format song for release post"""
+    return SongOut(
+        id=song.id,
+        title=song.title,
+        artist=song.artist,
+        album=song.album,
+        status=song.status,
+        pack_id=song.pack_id,
+        year=song.year,
+        album_cover=song.album_cover,
+        author=song.user.username if song.user else "Unknown",
+        user_id=song.user_id,
+        collaborations=[],
+        authoring=None,
+        optional=song.optional,
+        released_at=song.released_at
+    )

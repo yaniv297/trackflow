@@ -2,12 +2,12 @@
 Achievements API routes - handles HTTP requests for achievement operations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from database import get_db
-from api.auth import get_current_active_user
+from api.auth import get_current_active_user, get_optional_user
 from ..services.achievements_service import AchievementsService
 from ..validators.achievements_validators import (
     AchievementResponse, UserAchievementResponse, AchievementProgressSummary,
@@ -70,13 +70,25 @@ def check_achievements(
 
 @router.get("/leaderboard", response_model=LeaderboardResponse)
 def get_leaderboard(
+    request: Request,
     limit: int = 50,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ):
-    """Get achievement points leaderboard."""
+    """Get achievement points leaderboard. Works for both authenticated and unauthenticated users."""
     try:
-        return achievements_service.get_leaderboard(db, current_user.id, limit)
+        # Manually check for authentication without requiring it
+        current_user_id = None
+        authorization = request.headers.get("Authorization")
+        if authorization and authorization.startswith("Bearer "):
+            try:
+                current_user = get_optional_user(request, db)
+                if current_user:
+                    current_user_id = current_user.id
+            except Exception:
+                # If auth check fails, just continue without user
+                pass
+        
+        return achievements_service.get_leaderboard(db, current_user_id, limit)
     except Exception as e:
         print(f"❌ Error getting leaderboard: {e}")
         raise HTTPException(status_code=500, detail="Failed to get leaderboard")

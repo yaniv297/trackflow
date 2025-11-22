@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from database import get_db
 from schemas import SongCreate, SongOut
-from models import SongStatus, User
+from models import SongStatus, User, Song, Pack
 from api.auth import get_current_active_user
 
 from ..services.song_service import SongService
@@ -121,3 +121,52 @@ def release_pack(
     
     service = SongService(db)
     return service.release_pack(pack_name, current_user)
+
+
+@router.get("/recent-releases", response_model=List[SongOut])
+def get_recent_releases(
+    limit: int = Query(10, le=50, description="Maximum number of releases to return"),
+    db: Session = Depends(get_db)
+):
+    """Get recently released songs, ordered by release date."""
+    # This endpoint is public - no authentication required
+    recent_releases = db.query(Song).options(
+        joinedload(Song.user),
+        joinedload(Song.pack_obj).joinedload(Pack.user)
+    ).filter(
+        Song.status == "Released",
+        Song.released_at.isnot(None)
+    ).order_by(Song.released_at.desc()).limit(limit).all()
+    
+    # Convert to SongOut format
+    releases_data = []
+    for song in recent_releases:
+        song_dict = {
+            "id": song.id,
+            "title": song.title,
+            "artist": song.artist,
+            "album": song.album,
+            "year": song.year,
+            "status": song.status,
+            "album_cover": song.album_cover,
+            "user_id": song.user_id,
+            "pack_id": song.pack_id,
+            "pack_name": song.pack_obj.name if song.pack_obj else None,
+            "pack_priority": song.pack_obj.priority if song.pack_obj else None,
+            "pack_owner_id": song.pack_obj.user_id if song.pack_obj else None,
+            "pack_owner_username": song.pack_obj.user.username if song.pack_obj and song.pack_obj.user else None,
+            "optional": song.optional,
+            "author": song.user.username if song.user else "Unknown",  # Required field
+            "collaborations": [],
+            "authoring": None,
+            "artist_image_url": None,
+            "album_series_id": None,
+            "album_series_number": None,
+            "album_series_name": None,
+            "is_editable": False,  # Public endpoint, no edit permissions
+            "pack_collaboration": None,
+            "released_at": song.released_at,
+        }
+        releases_data.append(song_dict)
+    
+    return [SongOut(**release) for release in releases_data]

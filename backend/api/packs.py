@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 from database import get_db
 from models import Pack, User, Song, SongStatus, AlbumSeries
 from api.auth import get_current_active_user
@@ -188,8 +189,29 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
     
     # Update all songs in the pack
     songs = db.query(Song).filter(Song.pack_id == pack_id).all()
+    
+    # If changing to Released, set released_at timestamp
+    release_timestamp = datetime.utcnow() if status_update.status == "Released" else None
+    
     for song in songs:
+        old_status = song.status
         song.status = new_status
+        
+        # Set released_at for songs that are changing to Released
+        if status_update.status == "Released":
+            if old_status != SongStatus.released and old_status != "Released":
+                song.released_at = release_timestamp
+                print(f"🚀 Pack Release: Set released_at for song {song.id} '{song.title}' - status change from {old_status} to Released")
+            elif song.released_at is None:
+                # Edge case: song is already Released but has no timestamp
+                song.released_at = release_timestamp
+                print(f"🔧 Pack Release: Fixed missing released_at for song {song.id} '{song.title}' (was already Released)")
+            else:
+                print(f"ℹ️ Pack Release: Song {song.id} '{song.title}' already released with timestamp {song.released_at}")
+    
+    # Also set released_at for the pack itself
+    if status_update.status == "Released":
+        pack.released_at = release_timestamp
     
     db.commit()
     

@@ -161,7 +161,10 @@ class AchievementsService:
                 return UserStats(user_id=user_id)
 
     def award_achievement(self, db: Session, user_id: int, achievement_code: str) -> Optional[UserAchievement]:
-        """Award an achievement to a user if they don't already have it."""
+        """Award an achievement to a user if they don't already have it.
+        
+        Uses a single transaction to ensure atomicity. Handles race conditions gracefully.
+        """
         try:
             # Validate inputs
             if not isinstance(user_id, int) or user_id <= 0:
@@ -178,29 +181,41 @@ class AchievementsService:
                 print(f"⚠️ Achievement not found: {achievement_code}")
                 return None
             
-            # Check if user already has it
+            # Validate achievement has points
+            if achievement.points is None:
+                print(f"⚠️ Achievement {achievement_code} has no points value, defaulting to 0")
+                achievement.points = 0
+            
+            # Check if user already has it (optimistic check - race condition still possible)
             existing = self.repository.get_user_achievement(db, user_id, achievement.id)
             if existing:
                 return None  # Already has it
             
-            # Award achievement
-            user_achievement = self.repository.create_user_achievement(db, user_id, achievement.id)
+            # Award achievement (this will handle IntegrityError if race condition occurs)
+            # Don't commit yet - we want atomic transaction
+            user_achievement = self.repository.create_user_achievement(db, user_id, achievement.id, commit=False)
+            
+            # If None returned, achievement already exists (race condition handled in repository)
+            if user_achievement is None:
+                return None
+            
             print(f"🏆 Awarded achievement '{achievement.name}' to user {user_id}")
             
-            # Update cached total points
-            self.repository.update_user_total_points(db, user_id, achievement.points)
+            # Update cached total points (don't commit yet)
+            self.repository.update_user_total_points(db, user_id, achievement.points, commit=False)
             print(f"💰 Updated cached points for user {user_id}: +{achievement.points} points")
             
-            # Ensure achievement is committed before creating notification
+            # Single commit for atomicity - achievement and points update together
             db.commit()
             
-            # Create notification for the new achievement
+            # Create notification for the new achievement (non-blocking, outside transaction)
             try:
                 notification_service = NotificationService(db)
                 notification_out = notification_service.create_achievement_notification(
                     user_id=user_id,
                     achievement_id=achievement.id,
-                    achievement_name=achievement.name
+                    achievement_name=achievement.name,
+                    achievement_description=achievement.description
                 )
                 print(f"📢 Created notification for achievement '{achievement.name}' for user {user_id} (notification_id: {notification_out.id})")
             except Exception as e:
@@ -213,6 +228,9 @@ class AchievementsService:
             
         except Exception as e:
             print(f"❌ Error awarding achievement {achievement_code} to user {user_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            db.rollback()
             return None
 
     def check_metric_based_achievements(self, db: Session, user_id: int, metric_type: str):
@@ -438,7 +456,7 @@ class AchievementsService:
             print(f"❌ Error in _get_achievement_progress_data: {e}")
             return {}
 
-    def get_leaderboard(self, db: Session, current_user_id: int, limit: int = 50) -> LeaderboardResponse:
+    def get_leaderboard(self, db: Session, current_user_id: Optional[int], limit: int = 50) -> LeaderboardResponse:
         """Get leaderboard with user rankings by total achievement points."""
         try:
             # Get all users with their cached total points and achievement counts
@@ -476,11 +494,11 @@ class AchievementsService:
                 leaderboard_data.append(entry)
                 
                 # Track current user's rank
-                if user_data.id == current_user_id:
+                if current_user_id and user_data.id == current_user_id:
                     current_user_rank = i
             
             # If current user is not in top results, find their rank
-            if current_user_rank is None:
+            if current_user_id and current_user_rank is None:
                 for i, user_data in enumerate(sorted_users, 1):
                     if user_data.id == current_user_id:
                         current_user_rank = i

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
@@ -181,6 +181,66 @@ def get_current_active_user(current_user: UserResponse = Depends(get_current_use
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+def get_optional_user(
+    request: Request,
+    db: Session = Depends(get_db)
+) -> Optional[UserResponse]:
+    """Get current user if authenticated, otherwise return None. Does not raise errors."""
+    # Manually check for Authorization header
+    authorization = request.headers.get("Authorization")
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    
+    token = authorization.replace("Bearer ", "").strip()
+    if not token:
+        return None
+    
+    try:
+        payload = verify_token(token)
+        if payload is None:
+            return None
+        
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+        
+        # Try cache first
+        cached_user_data = _get_cached_user_data(username)
+        if cached_user_data:
+            user = UserResponse(**cached_user_data)
+            # Only record activity if user is active
+            if user.is_active:
+                try:
+                    record_activity(user.id)
+                except Exception:
+                    pass
+            return user if user.is_active else None
+        
+        # Cache miss - query database
+        db_user = db.query(User).filter(User.username == username).first()
+        if db_user is None or not db_user.is_active:
+            return None
+        
+        # Cache the user data
+        _cache_user_data(username, db_user)
+        
+        # Record user activity for online tracking
+        try:
+            record_activity(db_user.id)
+        except Exception:
+            pass
+        
+        return UserResponse(
+            id=db_user.id,
+            username=db_user.username,
+            email=db_user.email,
+            is_active=db_user.is_active,
+            is_admin=db_user.is_admin,
+            created_at=db_user.created_at.isoformat()
+        )
+    except Exception:
+        return None
 
 @router.get("/unclaimed-users")
 def get_unclaimed_users(db: Session = Depends(get_db)):

@@ -15,11 +15,12 @@ class NotificationService:
         self, 
         user_id: int, 
         achievement_id: int, 
-        achievement_name: str
+        achievement_name: str,
+        achievement_description: str = None
     ) -> NotificationOut:
         """Create a notification for a new achievement"""
-        title = "Achievement Unlocked! 🏆"
-        message = f"You've earned the '{achievement_name}' achievement!"
+        title = f"{achievement_name} Unlocked!"
+        message = achievement_description if achievement_description else f"You've earned the '{achievement_name}' achievement!"
         
         notification = self.repository.create_notification(
             user_id=user_id,
@@ -187,6 +188,7 @@ class NotificationService:
             notification_dict["achievement"] = {
                 "id": notification.related_achievement.id,
                 "name": notification.related_achievement.name,
+                "description": notification.related_achievement.description,
                 "icon": notification.related_achievement.icon,
                 "points": notification.related_achievement.points
             }

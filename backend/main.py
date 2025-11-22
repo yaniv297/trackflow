@@ -24,7 +24,7 @@ from api import admin as admin
 from api.feature_requests import router as feature_requests_router
 from api.achievements import router as achievements_router
 from api.notifications import router as notifications_router
-from database import engine, SQLALCHEMY_DATABASE_URL
+from database import engine, SQLALCHEMY_DATABASE_URL, get_db
 from models import Base
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))

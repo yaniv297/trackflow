@@ -65,6 +65,15 @@ class NotificationRepository:
             )
         ).first()
     
+    def get_notification_by_type_and_user(self, user_id: int, notification_type: str) -> Optional[Notification]:
+        """Get a specific notification by type and user (useful for checking duplicates)"""
+        return self.db.query(Notification).filter(
+            and_(
+                Notification.user_id == user_id,
+                Notification.type == notification_type
+            )
+        ).first()
+    
     def mark_notification_read(self, notification_id: int, user_id: int) -> bool:
         """Mark a notification as read"""
         notification = self.get_notification_by_id(notification_id, user_id)

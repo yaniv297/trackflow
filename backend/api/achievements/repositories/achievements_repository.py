@@ -314,3 +314,40 @@ class AchievementsRepository:
                 completed_packs += 1
         
         return completed_packs
+    
+    def update_user_total_points(self, db: Session, user_id: int, points_to_add: int) -> None:
+        """Update user's cached total points by adding the given points."""
+        try:
+            stats = self.get_user_stats(db, user_id)
+            if not stats:
+                stats = self.create_user_stats(db, user_id)
+            
+            stats.total_points = (stats.total_points or 0) + points_to_add
+            stats.updated_at = datetime.utcnow()
+            db.commit()
+            
+        except Exception as e:
+            print(f"❌ Error updating total points for user {user_id}: {e}")
+            db.rollback()
+    
+    def recalculate_user_total_points(self, db: Session, user_id: int) -> int:
+        """Recalculate and update user's total points from scratch."""
+        try:
+            # Calculate actual points from achievements
+            actual_points = self.get_user_total_points(db, user_id)
+            
+            # Update cached value
+            stats = self.get_user_stats(db, user_id)
+            if not stats:
+                stats = self.create_user_stats(db, user_id)
+            
+            stats.total_points = actual_points
+            stats.updated_at = datetime.utcnow()
+            db.commit()
+            
+            return actual_points
+            
+        except Exception as e:
+            print(f"❌ Error recalculating total points for user {user_id}: {e}")
+            db.rollback()
+            return 0

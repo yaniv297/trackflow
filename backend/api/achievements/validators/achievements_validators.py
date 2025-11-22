@@ -44,6 +44,7 @@ class UserStatsResponse(BaseModel):
     total_spotify_imports: int
     total_feature_requests: int
     login_streak: int
+    total_points: int
 
 
 class AchievementProgressSummary(BaseModel):

@@ -87,6 +87,34 @@ class NotificationService:
         
         return self._format_notification_out(notification)
     
+    def create_welcome_notification(self, user_id: int) -> NotificationOut:
+        """Create a welcome notification for new users"""
+        
+        # Check if user already has a welcome notification
+        existing = self.repository.get_notification_by_type_and_user(user_id, NotificationType.WELCOME)
+        if existing:
+            return self._format_notification_out(existing)
+        
+        notification = self.repository.create_notification(
+            user_id=user_id,
+            type=NotificationType.WELCOME,
+            title="🎉 Welcome to TrackFlow!",
+            message="Click ⚙️ → Help & FAQ to learn about features and get started. Check out the Stats section to view your progress and achievements!"
+        )
+        
+        return self._format_notification_out(notification)
+    
+    def create_general_notification(self, user_id: int, title: str, message: str) -> NotificationOut:
+        """Create a general notification"""
+        notification = self.repository.create_notification(
+            user_id=user_id,
+            type=NotificationType.GENERAL,
+            title=title,
+            message=message
+        )
+        
+        return self._format_notification_out(notification)
+    
     def get_user_notifications(
         self, 
         user_id: int, 

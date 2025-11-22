@@ -28,6 +28,7 @@ import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
 import FeatureRequestPage from "./FeatureRequestPage";
 import AchievementsPage from "./AchievementsPage";
+import NotificationsPage from "./NotificationsPage";
 import { apiGet } from "./utils/api";
 import { initializeAchievements } from "./utils/achievements";
 import "./App.css";
@@ -607,7 +608,73 @@ function AppContent() {
                 <span className="nav-username">
                   {user?.username}
                 </span>
-                <div className="nav-points">
+                {user?.is_admin && (
+                  <span
+                    className="nav-online-users"
+                    style={{
+                      position: "relative",
+                      fontSize: "0.75rem",
+                      color: "rgba(255, 255, 255, 0.7)",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      textDecorationStyle: "dotted",
+                    }}
+                    onMouseEnter={() => setShowOnlineTooltip(true)}
+                    onMouseLeave={() => setShowOnlineTooltip(false)}
+                  >
+                    {onlineUserCount !== null ? `${onlineUserCount} ${onlineUserCount === 1 ? "user" : "users"} online` : "Loading..."}
+                    {showOnlineTooltip && onlineUsers.length > 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          right: 0,
+                          marginTop: "0.5rem",
+                          background: "white",
+                          border: "1px solid #ddd",
+                          borderRadius: "6px",
+                          padding: "0.5rem 0.75rem",
+                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                          zIndex: 10000,
+                          minWidth: "150px",
+                          maxWidth: "250px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                            marginBottom: "0.25rem",
+                            color: "#333",
+                          }}
+                        >
+                          Online Users:
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "#666",
+                          }}
+                        >
+                          {onlineUsers.map((username, idx) => (
+                            <div key={idx}>{username}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </span>
+                )}
+                <div 
+                  className="nav-points" 
+                  onClick={() => navigate('/achievements')}
+                  style={{ 
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.target.style.opacity = '1'}
+                  title="View achievements"
+                >
                   <span style={{ fontSize: "0.8rem" }}>🏆</span>
                   <span className="points-value">
                     {achievementPoints.toLocaleString()}
@@ -873,69 +940,6 @@ function AppContent() {
             </div>
           </nav>
         )}
-        
-        {/* Online users info (admin only) - below nav */}
-        {isAuthenticated && user?.is_admin && onlineUserCount !== null && (
-          <div
-            className="admin-online-users"
-            style={{
-              position: "relative",
-              padding: "0.5rem 2rem",
-              background: "#f8f9fa",
-              borderBottom: "1px solid #e9ecef",
-              fontSize: "0.75rem",
-              color: "#666",
-              display: "flex",
-              justifyContent: "flex-end"
-            }}
-            onMouseEnter={() => setShowOnlineTooltip(true)}
-            onMouseLeave={() => setShowOnlineTooltip(false)}
-          >
-            <span
-              style={{
-                cursor: "pointer",
-                textDecoration: "underline",
-                textDecorationStyle: "dotted",
-              }}
-            >
-              {onlineUserCount} {onlineUserCount === 1 ? "user" : "users"} online
-            </span>
-            {showOnlineTooltip && onlineUsers.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: "2rem",
-                  marginTop: "0.25rem",
-                  background: "white",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                  padding: "0.5rem 0.75rem",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                  zIndex: 10000,
-                  minWidth: "150px",
-                  maxWidth: "250px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.75rem",
-                    fontWeight: "bold",
-                    marginBottom: "0.25rem",
-                    color: "#333",
-                  }}
-                >
-                  Online Users:
-                </div>
-                <div style={{ fontSize: "0.7rem", color: "#666" }}>
-                  {onlineUsers.map((username, idx) => (
-                    <div key={idx}>{username}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="main-content">
           <Routes>
@@ -1012,6 +1016,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <AchievementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
               </ProtectedRoute>
             }
           />

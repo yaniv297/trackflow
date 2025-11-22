@@ -160,13 +160,20 @@ function WipPage() {
     const showWelcome = sessionStorage.getItem("show_welcome");
     if (showWelcome === "true") {
       sessionStorage.removeItem("show_welcome");
-      setTimeout(() => {
-        if (window.showNotification) {
-          window.showNotification(
-            "🎉 Welcome to TrackFlow! Click ⚙️ → Help & FAQ to learn about features and get started.",
-            "success",
-            12000
-          );
+      setTimeout(async () => {
+        try {
+          // Create a persistent bell notification instead of a temporary toast
+          await apiPost("/notifications/welcome");
+        } catch (error) {
+          console.error("Failed to create welcome notification:", error);
+          // Fallback to temporary toast if API fails
+          if (window.showNotification) {
+            window.showNotification(
+              "🎉 Welcome to TrackFlow! Click ⚙️ → Help & FAQ to learn about features and get started.",
+              "success",
+              12000
+            );
+          }
         }
       }, 800);
     }
@@ -1067,7 +1074,7 @@ function WipPage() {
 
   return (
     <WorkflowErrorBoundary>
-      <div style={{ padding: "2rem" }}>
+      <div style={{ padding: "0.5rem 2rem" }}>
         <Fireworks trigger={fireworksTrigger} />
 
         <WipPageHeader

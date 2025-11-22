@@ -378,6 +378,7 @@ class UserStats(Base):
     total_spotify_imports = Column(Integer, default=0)
     total_feature_requests = Column(Integer, default=0)
     login_streak = Column(Integer, default=0)
+    total_points = Column(Integer, default=0)
     last_login_date = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -388,6 +389,8 @@ class NotificationType(str, enum.Enum):
     ACHIEVEMENT_EARNED = "achievement_earned"
     COMMENT_REPLY = "comment_reply"
     FEATURE_REQUEST_UPDATE = "feature_request_update"
+    WELCOME = "welcome"
+    GENERAL = "general"
 
 class Notification(Base):
     __tablename__ = "notifications"

@@ -19,6 +19,10 @@ function AdminPage() {
   const [showTools, setShowTools] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
   const [showActivityFeed, setShowActivityFeed] = useState(false);
+  const [showBroadcastForm, setShowBroadcastForm] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
@@ -171,6 +175,48 @@ function AdminPage() {
       );
     } finally {
       setFixingSongLinks(false);
+    }
+  };
+
+  const handleBroadcastNotification = async () => {
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      window.showNotification("Please enter both title and message", "error");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Send notification "${broadcastTitle}" to all users? This will be sent to all active users immediately.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSendingBroadcast(true);
+      const response = await apiPost("/admin/broadcast-notification", {
+        title: broadcastTitle,
+        message: broadcastMessage,
+      });
+      
+      window.showNotification(
+        response.message || `Notification sent to ${response.sent_count} users`,
+        "success"
+      );
+      
+      // Clear the form
+      setBroadcastTitle("");
+      setBroadcastMessage("");
+      setShowBroadcastForm(false);
+      
+    } catch (err) {
+      console.error("Failed to send broadcast notification:", err);
+      window.showNotification(
+        `Error: ${err.message || "Failed to send notification"}`,
+        "error"
+      );
+    } finally {
+      setSendingBroadcast(false);
     }
   };
 
@@ -343,6 +389,21 @@ function AdminPage() {
               ? "⏳ Linking Songs..."
               : "🪢 Link Songs to Artists"}
           </button>
+          <button
+            onClick={() => setShowBroadcastForm(!showBroadcastForm)}
+            style={{
+              padding: "0.75rem 1.5rem",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: "500",
+            }}
+          >
+            📢 Broadcast Notification
+          </button>
         </div>
         <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
           Fetches artist profile pictures from Spotify for all artists that don't
@@ -386,6 +447,103 @@ function AdminPage() {
             {songLinkLogs.map((entry, idx) => (
               <div key={`song-link-${idx}`}>{entry}</div>
             ))}
+          </div>
+        )}
+        {showBroadcastForm && (
+          <div
+            style={{
+              marginTop: "1rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "6px",
+              padding: "1rem",
+              background: "#f9f9f9",
+            }}
+          >
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem", color: "#333" }}>
+              📢 Send Notification to All Users
+            </h3>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "#555" }}>
+                Title:
+              </label>
+              <input
+                type="text"
+                value={broadcastTitle}
+                onChange={(e) => setBroadcastTitle(e.target.value)}
+                placeholder="e.g., New Feature Available!"
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                }}
+                maxLength={100}
+              />
+              <small style={{ color: "#666" }}>{broadcastTitle.length}/100 characters</small>
+            </div>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "#555" }}>
+                Message:
+              </label>
+              <textarea
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="e.g., We've added dark mode! Check it out in your settings."
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                  resize: "vertical",
+                  minHeight: "80px",
+                }}
+                maxLength={300}
+              />
+              <small style={{ color: "#666" }}>{broadcastMessage.length}/300 characters</small>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                onClick={handleBroadcastNotification}
+                disabled={sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim()}
+                style={{
+                  padding: "0.6rem 1.2rem",
+                  backgroundColor: sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim() ? "#ccc" : "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim() ? "not-allowed" : "pointer",
+                  fontSize: "1rem",
+                  fontWeight: "500",
+                }}
+              >
+                {sendingBroadcast ? "⏳ Sending..." : "Send to All Users"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBroadcastForm(false);
+                  setBroadcastTitle("");
+                  setBroadcastMessage("");
+                }}
+                style={{
+                  padding: "0.6rem 1.2rem",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "1rem",
+                  fontWeight: "500",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+            <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#666" }}>
+              This will send a bell notification to all active users. They will see it in their notification dropdown.
+            </p>
           </div>
         )}
           </div>

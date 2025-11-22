@@ -331,6 +331,10 @@ class SongService:
         """Build a complete song response dictionary."""
         song_dict = song.__dict__.copy()
         
+        # Clean up empty string values that should be None
+        if song_dict.get("album_series_id") == "":
+            song_dict["album_series_id"] = None
+        
         # Set basic fields
         song_dict["author"] = song.user.username if song.user else None
         song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None

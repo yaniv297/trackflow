@@ -82,6 +82,23 @@ def mark_all_notifications_read(
     service = NotificationService(db)
     return service.mark_all_notifications_read(current_user.id)
 
+@router.post("/welcome", response_model=NotificationOut)
+def create_welcome_notification(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a welcome notification for the current user"""
+    try:
+        service = NotificationService(db)
+        result = service.create_welcome_notification(current_user.id)
+        print(f"🎉 Created welcome notification for user {current_user.id}")
+        return result
+    except Exception as e:
+        print(f"❌ Error creating welcome notification for user {current_user.id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to create welcome notification")
+
 @router.delete("/{notification_id}", response_model=dict)
 def delete_notification(
     notification_id: int,

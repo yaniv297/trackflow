@@ -217,7 +217,7 @@ const NotificationDropdown = ({
       )}
 
       {/* Footer */}
-      {!loading && totalCount > notifications.length && (
+      {!loading && totalCount > 0 && (
         <div
           style={{
             padding: '0.75rem',
@@ -228,7 +228,7 @@ const NotificationDropdown = ({
         >
           <button
             onClick={() => {
-              navigate('/notifications'); // We could create a full notifications page later
+              navigate('/notifications'); // Go to the full notifications page
               onClose();
             }}
             style={{

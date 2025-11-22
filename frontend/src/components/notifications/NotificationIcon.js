@@ -33,7 +33,7 @@ const NotificationIcon = () => {
     console.log('📋 Fetching notifications...');
     setLoading(true);
     try {
-      const data = await apiGet('/notifications/?limit=20');
+      const data = await apiGet('/notifications/?limit=4');
       console.log('📋 Fetched notifications response:', data);
       setNotifications(data.notifications);
       setUnreadCount(data.unread_count);
@@ -68,7 +68,7 @@ const NotificationIcon = () => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      const response = await apiPut('/notifications/mark-all-read');
+      await apiPut('/notifications/mark-all-read');
       
       // Update local state
       setNotifications(notifications.map(n => ({ 
@@ -79,9 +79,7 @@ const NotificationIcon = () => {
       
       setUnreadCount(0);
       
-      if (window.showNotification) {
-        window.showNotification(response.message, 'success');
-      }
+      // No popup message - silent operation
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
       if (window.showNotification) {

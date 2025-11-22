@@ -8,9 +8,14 @@ from typing import List, Optional
 from datetime import timedelta
 from .auth import create_access_token, clear_user_cache
 from .user_activity import get_online_user_count, get_online_user_ids
+from pydantic import BaseModel
 import json
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+class BroadcastNotificationRequest(BaseModel):
+    title: str
+    message: str
 
 def require_admin(current_user: User = Depends(get_current_user)):
     """Dependency to check if user is an admin"""
@@ -239,5 +244,55 @@ def get_activity_feed(
             metadata=metadata,
             created_at=activity.created_at
         ))
+    
+    return result
+
+@router.post("/broadcast-notification")
+def broadcast_notification(
+    request: BroadcastNotificationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Send a notification to all users (admin only)"""
+    from api.notifications.services.notification_service import NotificationService
+    from models import NotificationType
+    
+    title = request.title
+    message = request.message
+    
+    if not title or not message:
+        raise HTTPException(status_code=400, detail="Title and message are required")
+    
+    # Get all active users
+    users = db.query(User).filter(User.is_active == True).all()
+    
+    if not users:
+        return {"message": "No active users found", "sent_count": 0}
+    
+    # Initialize notification service
+    notification_service = NotificationService(db)
+    
+    sent_count = 0
+    errors = []
+    
+    for user in users:
+        try:
+            notification_service.create_general_notification(
+                user_id=user.id,
+                title=title,
+                message=message
+            )
+            sent_count += 1
+        except Exception as e:
+            errors.append(f"Failed to send to {user.username}: {str(e)}")
+    
+    result = {
+        "message": f"Broadcast notification sent to {sent_count} users",
+        "sent_count": sent_count,
+        "total_users": len(users)
+    }
+    
+    if errors:
+        result["errors"] = errors[:10]  # Limit to first 10 errors
     
     return result

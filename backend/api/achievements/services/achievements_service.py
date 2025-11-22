@@ -91,10 +91,11 @@ class AchievementsService:
                     total_collaborations=stats.total_collaborations,
                     total_spotify_imports=stats.total_spotify_imports,
                     total_feature_requests=stats.total_feature_requests,
-                    login_streak=stats.login_streak
+                    login_streak=stats.login_streak,
+                    total_points=stats.total_points
                 ),
                 progress=progress,
-                total_points=total_points
+                total_points=stats.total_points
             )
         
         except Exception as e:
@@ -185,6 +186,10 @@ class AchievementsService:
             # Award achievement
             user_achievement = self.repository.create_user_achievement(db, user_id, achievement.id)
             print(f"🏆 Awarded achievement '{achievement.name}' to user {user_id}")
+            
+            # Update cached total points
+            self.repository.update_user_total_points(db, user_id, achievement.points)
+            print(f"💰 Updated cached points for user {user_id}: +{achievement.points} points")
             
             # Ensure achievement is committed before creating notification
             db.commit()
@@ -436,24 +441,24 @@ class AchievementsService:
     def get_leaderboard(self, db: Session, current_user_id: int, limit: int = 50) -> LeaderboardResponse:
         """Get leaderboard with user rankings by total achievement points."""
         try:
-            # Get all users with their total points and achievement counts
+            # Get all users with their cached total points and achievement counts
             leaderboard_data = []
             
-            # This query gets all users, their total points, and achievement count
+            # This query gets all users with their cached points and achievement count
             from sqlalchemy import func
-            from models import User, UserAchievement, Achievement
+            from models import User, UserAchievement, UserStats
             
-            # Get all users with their achievement data
+            # Get all users with their cached stats and achievement counts
             users_query = db.query(
                 User.id,
                 User.username,
-                func.coalesce(func.sum(Achievement.points), 0).label('total_points'),
+                func.coalesce(UserStats.total_points, 0).label('total_points'),
                 func.count(UserAchievement.id).label('total_achievements')
             ).outerjoin(
-                UserAchievement, User.id == UserAchievement.user_id
+                UserStats, User.id == UserStats.user_id
             ).outerjoin(
-                Achievement, UserAchievement.achievement_id == Achievement.id
-            ).group_by(User.id, User.username).all()
+                UserAchievement, User.id == UserAchievement.user_id
+            ).group_by(User.id, User.username, UserStats.total_points).all()
             
             # Convert to list and sort by points (descending), then by username (ascending)
             sorted_users = sorted(users_query, key=lambda x: (-x.total_points, x.username))

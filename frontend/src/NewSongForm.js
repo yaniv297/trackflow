@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost, apiGet } from "./utils/api";
-import SmartDropdown from "./components/SmartDropdown";
-import DLCWarning from "./components/DLCWarning";
+import { checkAndShowNewAchievements } from "./utils/achievements";
+import SmartDropdown from "./components/ui/SmartDropdown";
+import DLCWarning from "./components/features/dlc/DLCWarning";
 
 // Utility function to capitalize artist and album names
 const capitalizeName = (str) =>
@@ -96,8 +97,10 @@ function NewSongForm() {
     songData.title = capitalizeName(songData.title);
 
     apiPost("/songs/", songData)
-      .then(() => {
+      .then(async () => {
         window.showNotification("Song added successfully!", "success");
+        // Check for new achievements
+        await checkAndShowNewAchievements();
         navigate(
           `/${
             form.status === "In Progress"

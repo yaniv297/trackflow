@@ -1,23 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/useWipData";
 import { useWorkflowData } from "./hooks/useWorkflowData";
-import WipPageHeader from "./components/WipPageHeader";
-import WipPackCard from "./components/WipPackCard";
-import CompletionGroupCard from "./components/CompletionGroupCard";
-import Fireworks from "./components/Fireworks";
-import CustomAlert from "./components/CustomAlert";
-import UnifiedCollaborationModal from "./components/UnifiedCollaborationModal";
-import WorkflowErrorBoundary from "./components/WorkflowErrorBoundary";
-import WorkflowLoadingSpinner from "./components/WorkflowLoadingSpinner";
+import WipPageHeader from "./components/navigation/WipPageHeader";
+import WipPackCard from "./components/pages/WipPackCard";
+import CompletionGroupCard from "./components/pages/CompletionGroupCard";
+import Fireworks from "./components/ui/Fireworks";
+import CustomAlert from "./components/ui/CustomAlert";
+import UnifiedCollaborationModal from "./components/modals/UnifiedCollaborationModal";
+import WorkflowErrorBoundary from "./components/features/workflows/WorkflowErrorBoundary";
+import WorkflowLoadingSpinner from "./components/features/workflows/WorkflowLoadingSpinner";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 import {
   getSongCompletionPercentage,
   isSongComplete,
 } from "./utils/progressUtils";
-import AlbumSeriesModal from "./components/AlbumSeriesModal";
-import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
-import DoubleAlbumSeriesModal from "./components/DoubleAlbumSeriesModal";
+import { checkAndShowNewAchievements } from "./utils/achievements";
+import AlbumSeriesModal from "./components/modals/AlbumSeriesModal";
+import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
+import DoubleAlbumSeriesModal from "./components/modals/DoubleAlbumSeriesModal";
 
 // Utility function to capitalize artist and album names (keeping for compatibility)
 // eslint-disable-next-line no-unused-vars
@@ -133,7 +135,6 @@ const capitalizeName = (name) => {
 };
 
 function WipPage() {
-  // console.log("WipPage component rendered");
   const { user } = useAuth();
   const {
     songs,
@@ -159,13 +160,20 @@ function WipPage() {
     const showWelcome = sessionStorage.getItem("show_welcome");
     if (showWelcome === "true") {
       sessionStorage.removeItem("show_welcome");
-      setTimeout(() => {
-        if (window.showNotification) {
-          window.showNotification(
-            "🎉 Welcome to TrackFlow! Click ⚙️ → Help & FAQ to learn about features and get started.",
-            "success",
-            12000
-          );
+      setTimeout(async () => {
+        try {
+          // Create a persistent bell notification instead of a temporary toast
+          await apiPost("/notifications/welcome");
+        } catch (error) {
+          console.error("Failed to create welcome notification:", error);
+          // Fallback to temporary toast if API fails
+          if (window.showNotification) {
+            window.showNotification(
+              "🎉 Welcome to TrackFlow! Click ⚙️ → Help & FAQ to learn about features and get started.",
+              "success",
+              12000
+            );
+          }
         }
       }, 800);
     }
@@ -319,10 +327,8 @@ function WipPage() {
   }, []);
 
   useEffect(() => {
-    // console.log("Setting up event listeners in WipPage");
 
     const handler = (e) => {
-      // console.log("Received open-edit-album-series event", e.detail);
       const { packId, series } = e.detail || {};
       setEditSeriesModal({
         open: true,
@@ -333,16 +339,7 @@ function WipPage() {
     };
 
     const createHandler = (e) => {
-      // console.log(
-      //   "Received open-create-album-series-modal event in WipPage",
-      //   e.detail
-      // );
       const { artistName, albumName, status } = e.detail || {};
-      // console.log("Setting modal state with:", {
-      //   artistName,
-      //   albumName,
-      //   status,
-      // });
       setEditSeriesModal({
         open: true,
         packId: null,
@@ -355,7 +352,6 @@ function WipPage() {
 
     window.addEventListener("open-edit-album-series", handler);
     window.addEventListener("open-create-album-series-modal", createHandler);
-    // console.log("Event listeners registered in WipPage");
 
     return () => {
       window.removeEventListener("open-edit-album-series", handler);
@@ -363,7 +359,6 @@ function WipPage() {
         "open-create-album-series-modal",
         createHandler
       );
-      // console.log("Event listeners removed from WipPage");
     };
   }, []);
 
@@ -672,6 +667,9 @@ function WipPage() {
           }
 
           setFireworksTrigger((prev) => prev + 1);
+          
+          // Check for new achievements after releasing pack
+          await checkAndShowNewAchievements();
         } catch (error) {
           console.error("Failed to release pack:", error);
           window.showNotification("Failed to release pack", "error");
@@ -695,6 +693,9 @@ function WipPage() {
       
       window.showNotification(`${songTitle} released successfully!`, "success");
       setFireworksTrigger((prev) => prev + 1);
+      
+      // Check for new achievements after releasing song
+      await checkAndShowNewAchievements();
     } catch (error) {
       console.error("Failed to release song:", error);
       window.showNotification("Failed to release song", "error");
@@ -1073,7 +1074,7 @@ function WipPage() {
 
   return (
     <WorkflowErrorBoundary>
-      <div style={{ padding: "2rem" }}>
+      <div style={{ padding: "0.5rem 2rem" }}>
         <Fireworks trigger={fireworksTrigger} />
 
         <WipPageHeader
@@ -1093,8 +1094,109 @@ function WipPage() {
           <WorkflowLoadingSpinner message="Loading WIP songs..." size="large" />
         )}
 
+        {/* Empty State */}
+        {!loading && songs.length === 0 && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "4rem 2rem",
+              color: "#666",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "3rem",
+                marginBottom: "1rem",
+                opacity: 0.5,
+              }}
+            >
+              🎬
+            </div>
+            <h2
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 600,
+                marginBottom: "0.5rem",
+                color: "#333",
+              }}
+            >
+              No songs in progress yet
+            </h2>
+            <p
+              style={{
+                fontSize: "1rem",
+                marginBottom: "2rem",
+                color: "#666",
+              }}
+            >
+              Start working on a song to see it here!
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: "1rem",
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <Link
+                to="/new"
+                style={{
+                  display: "inline-block",
+                  padding: "0.75rem 1.5rem",
+                  background: "#007bff",
+                  color: "#fff",
+                  textDecoration: "none",
+                  borderRadius: "6px",
+                  fontWeight: 500,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => (e.target.style.background = "#0056b3")}
+                onMouseLeave={(e) => (e.target.style.background = "#007bff")}
+              >
+                ➕ Add Song
+              </Link>
+              <Link
+                to="/pack"
+                style={{
+                  display: "inline-block",
+                  padding: "0.75rem 1.5rem",
+                  background: "#28a745",
+                  color: "#fff",
+                  textDecoration: "none",
+                  borderRadius: "6px",
+                  fontWeight: 500,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => (e.target.style.background = "#218838")}
+                onMouseLeave={(e) => (e.target.style.background = "#28a745")}
+              >
+                📦 Create Pack
+              </Link>
+              <Link
+                to="/import-spotify"
+                style={{
+                  display: "inline-block",
+                  padding: "0.75rem 1.5rem",
+                  background: "#6f42c1",
+                  color: "#fff",
+                  textDecoration: "none",
+                  borderRadius: "6px",
+                  fontWeight: 500,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => (e.target.style.background = "#5a32a3")}
+                onMouseLeave={(e) => (e.target.style.background = "#6f42c1")}
+              >
+                🎧 Import from Spotify
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Pack View */}
         {!loading &&
+          songs.length > 0 &&
           viewMode === "pack" &&
           (searchQuery ? filteredGrouped : grouped).map((packData) => (
             <WipPackCard
@@ -1148,7 +1250,7 @@ function WipPage() {
           ))}
 
         {/* Completion View */}
-        {!loading && viewMode === "completion" && (
+        {!loading && songs.length > 0 && viewMode === "completion" && (
           <>
             <CompletionGroupCard
               categoryName="Completed Songs"

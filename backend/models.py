@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -326,4 +326,97 @@ class ActivityLog(Base):
     __table_args__ = (
         Index('idx_activity_created', 'created_at'),
         Index('idx_activity_user_type', 'user_id', 'activity_type'),
+    )
+
+class Achievement(Base):
+    __tablename__ = "achievements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)  # e.g., "first_song", "hundred_songs"
+    name = Column(String, nullable=False)  # Display name
+    description = Column(Text, nullable=False)  # What the user needs to do
+    icon = Column(String, nullable=False)  # Emoji or icon identifier
+    category = Column(String, nullable=False, index=True)  # "milestone", "activity", "quality", "social", "special"
+    points = Column(Integer, nullable=False, default=10)  # Points awarded
+    rarity = Column(String, nullable=False, default="common", index=True)  # "common", "uncommon", "rare", "epic", "legendary"
+    target_value = Column(Integer, nullable=True)  # Target number for count-based achievements (e.g., 5, 10, 100)
+    metric_type = Column(String, nullable=True)  # What metric this tracks (e.g., "total_future", "total_released", "wip_completions")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user_achievements = relationship("UserAchievement", back_populates="achievement")
+
+class UserAchievement(Base):
+    __tablename__ = "user_achievements"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=False, index=True)
+    earned_at = Column(DateTime, default=datetime.utcnow, index=True)
+    notified = Column(Boolean, default=False)  # Whether user has been notified (for Phase 2 notification system)
+    is_public = Column(Boolean, default=True)  # Whether to show in community feed (for Phase 2)
+    
+    # Relationships
+    user = relationship("User")
+    achievement = relationship("Achievement", back_populates="user_achievements")
+    
+    __table_args__ = (
+        UniqueConstraint('user_id', 'achievement_id', name='unique_user_achievement'),
+        Index('idx_user_achievement_earned', 'earned_at'),
+    )
+
+class UserStats(Base):
+    __tablename__ = "user_stats"
+    
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    total_songs = Column(Integer, default=0)
+    total_released = Column(Integer, default=0)
+    total_future = Column(Integer, default=0)
+    total_wip = Column(Integer, default=0)
+    total_packs = Column(Integer, default=0)
+    total_collaborations = Column(Integer, default=0)
+    total_spotify_imports = Column(Integer, default=0)
+    total_feature_requests = Column(Integer, default=0)
+    login_streak = Column(Integer, default=0)
+    total_points = Column(Integer, default=0)
+    last_login_date = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", uselist=False)
+
+class NotificationType(str, enum.Enum):
+    ACHIEVEMENT_EARNED = "achievement_earned"
+    COMMENT_REPLY = "comment_reply"
+    FEATURE_REQUEST_UPDATE = "feature_request_update"
+    WELCOME = "welcome"
+    GENERAL = "general"
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    type = Column(String, nullable=False, index=True)  # NotificationType enum value
+    title = Column(String, nullable=False)  # Short notification title
+    message = Column(Text, nullable=False)  # Notification content
+    is_read = Column(Boolean, default=False, index=True)
+    
+    # Context data for linking to relevant content
+    related_achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=True, index=True)
+    related_feature_request_id = Column(Integer, ForeignKey("feature_requests.id"), nullable=True, index=True)
+    related_comment_id = Column(Integer, ForeignKey("feature_request_comments.id"), nullable=True, index=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    read_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    user = relationship("User")
+    related_achievement = relationship("Achievement", foreign_keys=[related_achievement_id])
+    related_feature_request = relationship("FeatureRequest", foreign_keys=[related_feature_request_id])
+    related_comment = relationship("FeatureRequestComment", foreign_keys=[related_comment_id])
+    
+    __table_args__ = (
+        Index('idx_notification_user_read', 'user_id', 'is_read'),
+        Index('idx_notification_user_created', 'user_id', 'created_at'),
     )

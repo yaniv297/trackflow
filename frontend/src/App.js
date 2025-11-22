@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Routes,
   Route,
@@ -7,25 +7,30 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import LoginForm from "./components/LoginForm";
-import RegistrationWizard from "./components/RegistrationWizard";
+import ProtectedRoute from "./components/ui/ProtectedRoute";
+import LoginForm from "./components/forms/LoginForm";
+import RegistrationWizard from "./components/shared/RegistrationWizard";
 import SongPage from "./SongPage";
 import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
 import NewPackForm from "./NewPackForm";
 import StatsPage from "./StatsPage";
 import AlbumSeriesPage from "./AlbumSeriesPage";
-import NotificationManager from "./components/NotificationManager";
+import Leaderboard from "./pages/Leaderboard";
+import NotificationManager from "./components/notifications/NotificationManager";
+import NotificationIcon from "./components/notifications/NotificationIcon";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
-import WorkflowSettings from "./components/WorkflowSettings";
+import WorkflowSettings from "./components/features/workflows/WorkflowSettings";
 import HelpPage from "./HelpPage";
 import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
 import FeatureRequestPage from "./FeatureRequestPage";
+import AchievementsPage from "./AchievementsPage";
+import NotificationsPage from "./NotificationsPage";
 import { apiGet } from "./utils/api";
+import { initializeAchievements } from "./utils/achievements";
 import "./App.css";
 
 const FEATURE_REQUEST_PROMO_END = new Date("2025-11-20T00:00:00Z").getTime();
@@ -33,14 +38,61 @@ const FEATURE_REQUEST_PROMO_END = new Date("2025-11-20T00:00:00Z").getTime();
 function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showAnalyticsDropdown, setShowAnalyticsDropdown] = useState(false);
+  const newDropdownRef = useRef(null);
+  const analyticsDropdownRef = useRef(null);
+  const userDropdownRef = useRef(null);
+  const [newDropdownPos, setNewDropdownPos] = useState({ top: 0, left: 0 });
+  const [analyticsDropdownPos, setAnalyticsDropdownPos] = useState({ top: 0, left: 0 });
+  const [userDropdownPos, setUserDropdownPos] = useState({ top: 0, right: 0 });
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedUsername, setImpersonatedUsername] = useState("");
   const [onlineUserCount, setOnlineUserCount] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showOnlineTooltip, setShowOnlineTooltip] = useState(false);
+  const [achievementPoints, setAchievementPoints] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated, loading, updateAuth } = useAuth();
+
+  // Initialize achievement tracking when user logs in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      initializeAchievements();
+      fetchAchievementPoints();
+    }
+  }, [isAuthenticated, user]);
+
+  // Fetch user's achievement points
+  const fetchAchievementPoints = async () => {
+    try {
+      const achievements = await apiGet("/achievements/me");
+      const totalPoints = achievements.reduce(
+        (sum, ua) => sum + (ua.achievement?.points || 0),
+        0
+      );
+      setAchievementPoints(totalPoints);
+    } catch (error) {
+      console.error("Failed to fetch achievement points:", error);
+    }
+  };
+
+  // Update points when achievements are earned
+  useEffect(() => {
+    const handleAchievementUpdate = () => {
+      if (isAuthenticated && user) {
+        fetchAchievementPoints();
+      }
+    };
+
+    window.addEventListener('achievement-earned', handleAchievementUpdate);
+    window.addEventListener('achievements-updated', handleAchievementUpdate);
+    
+    return () => {
+      window.removeEventListener('achievement-earned', handleAchievementUpdate);
+      window.removeEventListener('achievements-updated', handleAchievementUpdate);
+    };
+  }, [isAuthenticated, user]);
 
   // Check if we're impersonating
   useEffect(() => {
@@ -88,6 +140,9 @@ function AppContent() {
       if (showNewDropdown && !event.target.closest(".dropdown-container")) {
         setShowNewDropdown(false);
       }
+      if (showAnalyticsDropdown && !event.target.closest(".dropdown-container")) {
+        setShowAnalyticsDropdown(false);
+      }
       if (
         showUserDropdown &&
         !event.target.closest(".user-dropdown-container")
@@ -98,7 +153,7 @@ function AppContent() {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showNewDropdown, showUserDropdown]);
+  }, [showNewDropdown, showAnalyticsDropdown, showUserDropdown]);
 
   // After route changes, check if we should open the edit album series modal
   useEffect(() => {
@@ -122,19 +177,12 @@ function AppContent() {
 
   // Global event listeners for album series modals
   useEffect(() => {
-    // console.log("Setting up global event listeners in App.js");
 
     const createHandler = (e) => {
-      console.log(
-        "Received open-create-album-series event in App.js",
-        e.detail
-      );
-      console.log("Current pathname:", window.location.pathname);
       const { artistName, albumName, status, skipNavigation } = e.detail || {};
 
       // Check if we should skip navigation (when called from NewPackForm)
       if (skipNavigation) {
-        console.log("Skipping navigation, opening modal immediately");
         const modalEvent = new CustomEvent("open-create-album-series-modal", {
           detail: { artistName, albumName, status },
         });
@@ -144,7 +192,6 @@ function AppContent() {
 
       // Only navigate to WIP page if we're not already there
       if (window.location.pathname !== "/wip") {
-        console.log("Navigating to WIP page");
         navigate("/wip");
         // Use setTimeout to ensure navigation completes before opening modal
         setTimeout(() => {
@@ -154,7 +201,6 @@ function AppContent() {
           window.dispatchEvent(modalEvent);
         }, 100);
       } else {
-        console.log("Already on WIP page, opening modal immediately");
         // If already on WIP page, open modal immediately
         const modalEvent = new CustomEvent("open-create-album-series-modal", {
           detail: { artistName, albumName, status },
@@ -164,11 +210,9 @@ function AppContent() {
     };
 
     window.addEventListener("open-create-album-series", createHandler);
-    // console.log("Global event listener registered in App.js");
 
     return () => {
       window.removeEventListener("open-create-album-series", createHandler);
-      // console.log("Global event listener removed from App.js");
     };
   }, [navigate]);
 
@@ -201,6 +245,28 @@ function AppContent() {
     setShowNewDropdown(false);
     navigate(path);
   };
+
+  // Calculate dropdown positions when they open
+  useEffect(() => {
+    if (showNewDropdown && newDropdownRef.current) {
+      const rect = newDropdownRef.current.getBoundingClientRect();
+      setNewDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [showNewDropdown]);
+
+  useEffect(() => {
+    if (showAnalyticsDropdown && analyticsDropdownRef.current) {
+      const rect = analyticsDropdownRef.current.getBoundingClientRect();
+      setAnalyticsDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [showAnalyticsDropdown]);
+
+  useEffect(() => {
+    if (showUserDropdown && userDropdownRef.current) {
+      const rect = userDropdownRef.current.getBoundingClientRect();
+      setUserDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
+  }, [showUserDropdown]);
 
   const handleLogout = () => {
     logout();
@@ -257,57 +323,318 @@ function AppContent() {
             </button>
           </div>
         )}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 12,
-          }}
-        >
-          <h1>🎶 TrackFlow</h1>
-          {isAuthenticated && !loading && (
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                }}
-              >
-                <span style={{ color: "#666", fontSize: "0.9rem" }}>
-                  Welcome, {user?.username}!
+        {isAuthenticated && !loading && (
+          <nav className="unified-nav">
+            {/* Left side - Brand and Navigation */}
+            <div className="nav-left">
+              <div className="nav-brand">
+                TrackFlow
+              </div>
+              <div className="nav-links">
+                <NavLink to="/future" activeclassname="active">
+                  Future
+                </NavLink>
+                <NavLink to="/wip" activeclassname="active">
+                  WIP
+                </NavLink>
+                <NavLink to="/released" activeclassname="active">
+                  Released
+                </NavLink>
+
+                {/* New Dropdown */}
+                <div
+                  className="dropdown-container"
+                  style={{ position: "relative", display: "inline-block" }}
+                >
+                  <button
+                    ref={newDropdownRef}
+                    onClick={() => {
+                      setShowNewDropdown(!showNewDropdown);
+                      setShowAnalyticsDropdown(false);
+                    }}
+                    className="nav-dropdown-btn"
+                    style={{
+                      background: showNewDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                      color: "white",
+                      border: showNewDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                      borderRadius: "6px",
+                      padding: "0.4rem 0.8rem",
+                      fontWeight: "600",
+                      fontSize: "0.9rem",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
+                    ➕ New
+                    <span style={{ fontSize: "0.7rem" }}>▼</span>
+                  </button>
+
+                  {showNewDropdown && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: `${newDropdownPos.top}px`,
+                        left: `${newDropdownPos.left}px`,
+                        background: "white",
+                        border: "1px solid #ddd",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                        zIndex: 10001,
+                        overflow: "hidden",
+                        minWidth: "180px",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      <div
+                        onClick={() => handleDropdownClick("/new")}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          borderBottom: "1px solid #eee",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "inherit",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Song
+                      </div>
+                      <div
+                        onClick={() => handleDropdownClick("/pack")}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "inherit",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Pack
+                      </div>
+                      <div
+                        onClick={() => handleDropdownClick("/import-spotify")}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "inherit",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Import from Spotify
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Analytics Dropdown */}
+                <div
+                  className="dropdown-container"
+                  style={{ position: "relative", display: "inline-block" }}
+                >
+                  <button
+                    ref={analyticsDropdownRef}
+                    onClick={() => {
+                      setShowAnalyticsDropdown(!showAnalyticsDropdown);
+                      setShowNewDropdown(false);
+                    }}
+                    className="nav-dropdown-btn"
+                    style={{
+                      background: showAnalyticsDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                      color: "white",
+                      border: showAnalyticsDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                      borderRadius: "6px",
+                      padding: "0.4rem 0.8rem",
+                      fontWeight: "600",
+                      fontSize: "0.9rem",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                    }}
+                  >
+                    Stats
+                    <span style={{ fontSize: "0.7rem" }}>▼</span>
+                  </button>
+
+                  {showAnalyticsDropdown && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: `${analyticsDropdownPos.top}px`,
+                        left: `${analyticsDropdownPos.left}px`,
+                        background: "white",
+                        border: "1px solid #ddd",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                        zIndex: 10001,
+                        overflow: "hidden",
+                        minWidth: "150px",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      <div
+                        onClick={() => {
+                          setShowAnalyticsDropdown(false);
+                          navigate("/achievements");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          borderBottom: "1px solid #eee",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Achievements
+                      </div>
+                      <div
+                        onClick={() => {
+                          setShowAnalyticsDropdown(false);
+                          navigate("/stats");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          borderBottom: "1px solid #eee",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Stats
+                      </div>
+                      <div
+                        onClick={() => {
+                          setShowAnalyticsDropdown(false);
+                          navigate("/album-series");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          borderBottom: "1px solid #eee",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Album Series
+                      </div>
+                      <div
+                        onClick={() => {
+                          setShowAnalyticsDropdown(false);
+                          navigate("/leaderboard");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Leaderboard
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right side - User info and controls */}
+            <div className="nav-right">
+              {/* User info */}
+              <div className="nav-user-info">
+                <span className="nav-username">
+                  {user?.username}
                 </span>
-                {user?.is_admin && onlineUserCount !== null && (
-                  <div
-                    style={{ position: "relative", display: "inline-block" }}
+                {user?.is_admin && (
+                  <span
+                    className="nav-online-users"
+                    style={{
+                      position: "relative",
+                      fontSize: "0.75rem",
+                      color: "rgba(255, 255, 255, 0.7)",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      textDecorationStyle: "dotted",
+                    }}
                     onMouseEnter={() => setShowOnlineTooltip(true)}
                     onMouseLeave={() => setShowOnlineTooltip(false)}
                   >
-                    <span
-                      style={{
-                        color: "#888",
-                        fontSize: "0.75rem",
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                        textDecorationStyle: "dotted",
-                      }}
-                    >
-                      {onlineUserCount}{" "}
-                      {onlineUserCount === 1 ? "user" : "users"} online
-                    </span>
+                    {onlineUserCount !== null ? `${onlineUserCount} ${onlineUserCount === 1 ? "user" : "users"} online` : "Loading..."}
                     {showOnlineTooltip && onlineUsers.length > 0 && (
                       <div
                         style={{
                           position: "absolute",
                           top: "100%",
                           right: 0,
-                          marginTop: "0.25rem",
+                          marginTop: "0.5rem",
                           background: "white",
                           border: "1px solid #ddd",
-                          borderRadius: "4px",
+                          borderRadius: "6px",
                           padding: "0.5rem 0.75rem",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
                           zIndex: 10000,
                           minWidth: "150px",
                           maxWidth: "250px",
@@ -323,16 +650,42 @@ function AppContent() {
                         >
                           Online Users:
                         </div>
-                        <div style={{ fontSize: "0.7rem", color: "#666" }}>
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "#666",
+                          }}
+                        >
                           {onlineUsers.map((username, idx) => (
                             <div key={idx}>{username}</div>
                           ))}
                         </div>
                       </div>
                     )}
-                  </div>
+                  </span>
                 )}
+                <div 
+                  className="nav-points" 
+                  onClick={() => navigate('/achievements')}
+                  style={{ 
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.target.style.opacity = '1'}
+                  title="View achievements"
+                >
+                  <span style={{ fontSize: "0.8rem" }}>🏆</span>
+                  <span className="points-value">
+                    {achievementPoints.toLocaleString()}
+                  </span>
+                  <span className="points-label">pts</span>
+                </div>
               </div>
+
+
+              {/* Notification Icon */}
+              <NotificationIcon />
 
               {/* User Dropdown */}
               <div
@@ -340,37 +693,42 @@ function AppContent() {
                 style={{ position: "relative", display: "inline-block" }}
               >
                 <button
-                  onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  ref={userDropdownRef}
+                  onClick={() => {
+                    setShowUserDropdown(!showUserDropdown);
+                    setShowNewDropdown(false);
+                    setShowAnalyticsDropdown(false);
+                  }}
+                  className="nav-settings-btn"
                   style={{
-                    background: showUserDropdown ? "#007bff" : "#f8f9fa",
-                    color: showUserDropdown ? "white" : "#333",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    padding: "0.5rem 1rem",
+                    background: showUserDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                    color: "white",
+                    border: showUserDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                    borderRadius: "6px",
+                    padding: "0.4rem 0.8rem",
                     cursor: "pointer",
                     fontSize: "0.9rem",
                     display: "flex",
                     alignItems: "center",
                     gap: "0.3rem",
-                    transition: "background 0.2s, color 0.2s",
+                    transition: "all 0.2s",
                   }}
                 >
                   ⚙️
-                  <span style={{ fontSize: "0.8rem" }}>▼</span>
+                  <span style={{ fontSize: "0.7rem" }}>▼</span>
                 </button>
 
                 {showUserDropdown && (
                   <div
                     style={{
-                      position: "absolute",
-                      top: "100%",
-                      right: "0",
+                      position: "fixed",
+                      top: `${userDropdownPos.top}px`,
+                      right: `${userDropdownPos.right}px`,
                       background: "white",
                       border: "1px solid #ddd",
                       borderRadius: "8px",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      zIndex: 1000,
-                      marginTop: "0.5rem",
+                      zIndex: 10001,
                       overflow: "hidden",
                       minWidth: "150px",
                     }}
@@ -503,6 +861,58 @@ function AppContent() {
                     <div
                       onClick={() => {
                         setShowUserDropdown(false);
+                        navigate("/help");
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        color: "#333",
+                        textDecoration: "none",
+                        borderBottom: "1px solid #eee",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                        fontSize: "0.9rem",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.background = "#f8f9fa")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.background = "transparent")
+                      }
+                    >
+                      Help
+                    </div>
+                    {user?.is_admin && (
+                      <div
+                        onClick={() => {
+                          setShowUserDropdown(false);
+                          navigate("/admin");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "0.75rem 1rem",
+                          color: "#333",
+                          textDecoration: "none",
+                          borderBottom: "1px solid #eee",
+                          transition: "background 0.2s",
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = "#f8f9fa")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = "transparent")
+                        }
+                      >
+                        Admin
+                      </div>
+                    )}
+                    <div
+                      onClick={() => {
+                        setShowUserDropdown(false);
                         handleLogout();
                       }}
                       style={{
@@ -528,145 +938,11 @@ function AppContent() {
                 )}
               </div>
             </div>
-          )}
-        </div>
-        {isAuthenticated && !loading && (
-          <nav className="nav">
-            <NavLink to="/future" activeclassname="active">
-              Future
-            </NavLink>
-            <NavLink to="/wip" activeclassname="active">
-              WIP
-            </NavLink>
-            <NavLink to="/released" activeclassname="active">
-              Released
-            </NavLink>
-
-            {/* New Dropdown */}
-            <div
-              className="dropdown-container"
-              style={{ position: "relative", display: "inline-block" }}
-            >
-              <button
-                onClick={() => setShowNewDropdown(!showNewDropdown)}
-                style={{
-                  background: showNewDropdown ? "#007bff" : "#f3f3f3",
-                  color: showNewDropdown ? "white" : "#333",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "0.5rem 1.2rem",
-                  fontWeight: "bold",
-                  fontSize: "1.05rem",
-                  cursor: "pointer",
-                  transition: "background 0.2s, color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.3rem",
-                }}
-              >
-                ➕ New
-                <span style={{ fontSize: "0.8rem" }}>▼</span>
-              </button>
-
-              {showNewDropdown && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: "0",
-                    right: "0",
-                    background: "white",
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    zIndex: 1000,
-                    marginTop: "0.5rem",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    onClick={() => handleDropdownClick("/new")}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      color: "#333",
-                      borderBottom: "1px solid #eee",
-                      transition: "background 0.2s",
-                      cursor: "pointer",
-                      fontSize: "inherit",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.target.style.background = "#f8f9fa")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.target.style.background = "transparent")
-                    }
-                  >
-                    Song
-                  </div>
-                  <div
-                    onClick={() => handleDropdownClick("/pack")}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      color: "#333",
-                      transition: "background 0.2s",
-                      cursor: "pointer",
-                      fontSize: "inherit",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.target.style.background = "#f8f9fa")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.target.style.background = "transparent")
-                    }
-                  >
-                    Pack
-                  </div>
-                  <div
-                    onClick={() => handleDropdownClick("/import-spotify")}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      color: "#333",
-                      transition: "background 0.2s",
-                      cursor: "pointer",
-                      fontSize: "inherit",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.target.style.background = "#f8f9fa")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.target.style.background = "transparent")
-                    }
-                  >
-                    Import from Spotify
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <NavLink to="/album-series" activeclassname="active">
-              Album Series
-            </NavLink>
-            <NavLink to="/stats" activeclassname="active">
-              Stats
-            </NavLink>
-            <NavLink to="/help" activeclassname="active">
-              Help
-            </NavLink>
-            {user?.is_admin && (
-              <NavLink to="/admin" activeclassname="active">
-                👑 Admin
-              </NavLink>
-            )}
           </nav>
         )}
 
-        <Routes>
+        <div className="main-content">
+          <Routes>
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegistrationWizard />} />
 
@@ -736,10 +1012,34 @@ function AppContent() {
             }
           />
           <Route
+            path="/achievements"
+            element={
+              <ProtectedRoute>
+                <AchievementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/stats"
             element={
               <ProtectedRoute>
                 <StatsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <Leaderboard />
               </ProtectedRoute>
             }
           />
@@ -807,7 +1107,8 @@ function AppContent() {
               </ProtectedRoute>
             }
           />
-        </Routes>
+          </Routes>
+        </div>
       </div>
     </NotificationManager>
   );

@@ -4,6 +4,7 @@ from database import get_db
 from models import Collaboration, CollaborationType, User, Pack, Song
 from api.auth import get_current_active_user
 from api.activity_logger import log_activity
+from api.achievements import check_collaboration_achievements, check_social_achievements
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -104,6 +105,13 @@ def add_pack_collaborator(
         )
     except Exception as log_err:
         print(f"⚠️ Failed to log pack collaboration addition: {log_err}")
+    
+    # Check achievements
+    try:
+        check_collaboration_achievements(db, current_user.id)  # For pack owner
+        check_social_achievements(db, request.user_id)  # For collaborator
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     # Return all collaborations for this user on this pack
     result = db.query(Collaboration).filter(
@@ -234,6 +242,13 @@ def add_song_collaborator(
         )
     except Exception as log_err:
         print(f"⚠️ Failed to log song collaboration addition: {log_err}")
+    
+    # Check achievements
+    try:
+        check_collaboration_achievements(db, current_user.id)  # For song owner
+        check_social_achievements(db, request.user_id)  # For collaborator
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
     
     return CollaborationResponse(
         id=collab.id,

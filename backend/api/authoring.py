@@ -103,6 +103,14 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
     
     db.commit()
     db.refresh(song)
+    
+    # Check quality achievements after authoring update
+    try:
+        from api.achievements import check_quality_achievements
+        check_quality_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
+    
     return {"message": "Authoring updated"}
 
 @router.post("/complete/{song_id}")
@@ -170,6 +178,14 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
 
     db.commit()
     db.refresh(song)
+    
+    # Check quality achievements after marking all complete
+    try:
+        from api.achievements import check_quality_achievements
+        check_quality_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
+    
     return {"success": True}
 
 @router.get("/{song_id}/wip-collaborations")

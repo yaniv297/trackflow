@@ -1,8 +1,4 @@
 import os
-import threading
-import time
-
-import psutil
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,36 +6,30 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import text
 
-from api import songs as songs
+from api.songs import router as songs_router
 from api import authoring as authoring
 from api import tools as tools
 from api import stats as stats
-from api import album_series as album_series
+from api.album_series import router as album_series_router
 from api import auth as auth
 from api import packs as packs
 from api import collaborations as collaborations
 from api import user_settings as user_settings
 from api import file_links as file_links
-from api import spotify as spotify
+from api.spotify import router as spotify_router
 from api import rockband_dlc as rockband_dlc
 from api import workflows as workflows
 from api import bug_reports as bug_reports
 from api import admin as admin
-from api import feature_requests as feature_requests
-from database import engine, SQLALCHEMY_DATABASE_URL
+from api.feature_requests import router as feature_requests_router
+from api.achievements import router as achievements_router
+from api.notifications import router as notifications_router
+from database import engine, SQLALCHEMY_DATABASE_URL, get_db
 from models import Base
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 
-def mem_watchdog():
-    while True:
-        used = psutil.virtual_memory().percent
-        print(f"MEMORY USAGE: {used}%")
-        time.sleep(5)
-
-
-threading.Thread(target=mem_watchdog, daemon=True).start()
 
 app = FastAPI(
     title="TrackFlow API",
@@ -88,12 +78,12 @@ def init_db():
 
 # Register route modules
 app.include_router(auth.router)
-app.include_router(songs.router)
+app.include_router(songs_router)
 app.include_router(authoring.router)
-app.include_router(spotify.router)
+app.include_router(spotify_router)
 app.include_router(tools.router)
 app.include_router(stats.router)
-app.include_router(album_series.router)
+app.include_router(album_series_router)
 app.include_router(packs.router)
 app.include_router(collaborations.router)
 app.include_router(user_settings.router)
@@ -102,7 +92,9 @@ app.include_router(rockband_dlc.router)
 app.include_router(workflows.router)
 app.include_router(bug_reports.router)
 app.include_router(admin.router)
-app.include_router(feature_requests.router)
+app.include_router(feature_requests_router)
+app.include_router(achievements_router)
+app.include_router(notifications_router, prefix="/notifications")
 
 # Timeout middleware removed - was causing more problems than it solved
 

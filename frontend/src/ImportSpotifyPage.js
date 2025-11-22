@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiPost } from "./utils/api";
+import { checkAndShowNewAchievements } from "./utils/achievements";
 
 const statuses = [
   { label: "Future Plans", value: "Future Plans" },
@@ -40,6 +41,9 @@ function ImportSpotifyPage() {
         `✅ Successfully imported ${result.imported_count} songs from playlist!`,
         "success"
       );
+
+      // Check for new achievements
+      await checkAndShowNewAchievements();
 
       // Reset form
       setPlaylistUrl("");

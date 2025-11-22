@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./utils/api";
-import FeatureRequestCard from "./components/FeatureRequestCard";
-import FeatureRequestForm from "./components/FeatureRequestForm";
-import CustomAlert from "./components/CustomAlert";
-import CustomPrompt from "./components/CustomPrompt";
+import FeatureRequestCard from "./components/pages/FeatureRequestCard";
+import FeatureRequestForm from "./components/forms/FeatureRequestForm";
+import { checkAndShowNewAchievements } from "./utils/achievements";
+import { dispatchNewNotificationEvent } from "./utils/notificationEvents";
+import CustomAlert from "./components/ui/CustomAlert";
+import CustomPrompt from "./components/ui/CustomPrompt";
 
 function FeatureRequestPage() {
   const { user } = useAuth();
@@ -82,6 +84,9 @@ function FeatureRequestPage() {
       setNewDescription("");
       setShowCreateForm(false);
       loadFeatureRequests();
+      
+      // Check for new achievements
+      await checkAndShowNewAchievements();
     } catch (error) {
       console.error("Failed to create feature request:", error);
       window.showNotification(
@@ -125,6 +130,9 @@ function FeatureRequestPage() {
       setCommentText((prev) => ({ ...prev, [requestId]: "" }));
       setReplyingTo((prev) => ({ ...prev, [requestId]: null }));
       loadFeatureRequests();
+      
+      // Trigger notification event for real-time updates
+      dispatchNewNotificationEvent();
     } catch (error) {
       console.error("Failed to add comment:", error);
       window.showNotification(
@@ -182,6 +190,11 @@ function FeatureRequestPage() {
           : "Feature marked as not done!",
         "success"
       );
+      
+      // Trigger notification event for real-time updates if marked as done
+      if (updated.is_done) {
+        dispatchNewNotificationEvent();
+      }
     } catch (error) {
       console.error("Failed to mark feature as done:", error);
       window.showNotification(
@@ -240,6 +253,9 @@ function FeatureRequestPage() {
 
       window.showNotification("Feature marked as not planned.", "success");
       setRejectPrompt({ isOpen: false, requestId: null });
+      
+      // Trigger notification event for real-time updates when rejected
+      dispatchNewNotificationEvent();
     } catch (error) {
       console.error("Failed to update feature status:", error);
       window.showNotification(

@@ -193,6 +193,7 @@ export default function StatsPage() {
     setHoveredYear(null);
   };
 
+
   return (
     <div style={{ padding: "2rem" }}>
       <h2>📊 TrackFlow Stats</h2>

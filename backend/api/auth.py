@@ -758,7 +758,9 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
             pass  # Don't fail if logging fails
             
     except Exception as e:
-        print(f"❌ Error in forgot password: {e}")
+        error_msg = str(e) if str(e) else repr(e)
+        print(f"❌ Error in forgot password: {error_msg}")
+        print(f"❌ Error type: {type(e).__name__}")
         import traceback
         print(f"❌ Full traceback: {traceback.format_exc()}")
         # Clean up token if something went wrong
@@ -766,11 +768,11 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
             if 'reset_token' in locals():
                 db.delete(reset_token)
                 db.commit()
-        except:
-            pass
+        except Exception as cleanup_err:
+            print(f"❌ Cleanup error: {cleanup_err}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Forgot password error: {str(e)}"
+            detail=f"Forgot password error: {error_msg}"
         )
     
     return {"message": "If an account with that email exists, a password reset link has been sent."}

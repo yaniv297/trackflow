@@ -62,6 +62,23 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request, call_next):
+    import time
+    start_time = time.time()
+    
+    print(f"📥 {request.method} {request.url}")
+    if request.method == "POST":
+        print(f"📥 Headers: {dict(request.headers)}")
+    
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    print(f"📤 {request.method} {request.url} - Status: {response.status_code} - Time: {process_time:.2f}s")
+    
+    return response
+
 # Add trusted host middleware to handle Railway's forwarded headers
 app.add_middleware(
     TrustedHostMiddleware, 

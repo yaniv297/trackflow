@@ -13,7 +13,7 @@ import RegistrationWizard from "./components/shared/RegistrationWizard";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import SongPage from "./SongPage";
-import WipPage from "./WipPage";
+import WipPage from "./pages/wip/WipPage";
 import NewSongForm from "./NewSongForm";
 import NewPackForm from "./NewPackForm";
 import StatsPage from "./StatsPage";
@@ -25,7 +25,7 @@ import NotificationIcon from "./components/notifications/NotificationIcon";
 import ImportSpotifyPage from "./ImportSpotifyPage";
 import UserSettings from "./UserSettings";
 import WorkflowSettings from "./components/features/workflows/WorkflowSettings";
-import HelpPage from "./HelpPage";
+import HelpPage from "./pages/help/HelpPage";
 import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
@@ -49,7 +49,10 @@ function AppContent() {
   const userDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
   const [newDropdownPos, setNewDropdownPos] = useState({ top: 0, left: 0 });
-  const [analyticsDropdownPos, setAnalyticsDropdownPos] = useState({ top: 0, left: 0 });
+  const [analyticsDropdownPos, setAnalyticsDropdownPos] = useState({
+    top: 0,
+    left: 0,
+  });
   const [userDropdownPos, setUserDropdownPos] = useState({ top: 0, right: 0 });
   const [adminDropdownPos, setAdminDropdownPos] = useState({ top: 0, left: 0 });
   const [isImpersonating, setIsImpersonating] = useState(false);
@@ -58,7 +61,10 @@ function AppContent() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showOnlineTooltip, setShowOnlineTooltip] = useState(false);
   const onlineTooltipRef = useRef(null);
-  const [onlineTooltipPos, setOnlineTooltipPos] = useState({ top: 0, right: 0 });
+  const [onlineTooltipPos, setOnlineTooltipPos] = useState({
+    top: 0,
+    right: 0,
+  });
   const [achievementPoints, setAchievementPoints] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,12 +100,15 @@ function AppContent() {
       }
     };
 
-    window.addEventListener('achievement-earned', handleAchievementUpdate);
-    window.addEventListener('achievements-updated', handleAchievementUpdate);
-    
+    window.addEventListener("achievement-earned", handleAchievementUpdate);
+    window.addEventListener("achievements-updated", handleAchievementUpdate);
+
     return () => {
-      window.removeEventListener('achievement-earned', handleAchievementUpdate);
-      window.removeEventListener('achievements-updated', handleAchievementUpdate);
+      window.removeEventListener("achievement-earned", handleAchievementUpdate);
+      window.removeEventListener(
+        "achievements-updated",
+        handleAchievementUpdate
+      );
     };
   }, [isAuthenticated, user]);
 
@@ -115,24 +124,24 @@ function AppContent() {
         setImpersonatedUsername("");
       }
     };
-    
+
     checkImpersonation();
-    
+
     // Check again after a short delay to ensure localStorage is updated
     const timeout = setTimeout(checkImpersonation, 100);
-    
+
     // Listen for storage changes
     const handleStorageChange = (e) => {
       if (e.key === "impersonating" || e.key === null) {
         checkImpersonation();
       }
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
+
+    window.addEventListener("storage", handleStorageChange);
+
     return () => {
       clearTimeout(timeout);
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, [user, isAuthenticated]);
 
@@ -170,7 +179,10 @@ function AppContent() {
       if (showNewDropdown && !event.target.closest(".dropdown-container")) {
         setShowNewDropdown(false);
       }
-      if (showAnalyticsDropdown && !event.target.closest(".dropdown-container")) {
+      if (
+        showAnalyticsDropdown &&
+        !event.target.closest(".dropdown-container")
+      ) {
         setShowAnalyticsDropdown(false);
       }
       if (showAdminDropdown && !event.target.closest(".dropdown-container")) {
@@ -186,7 +198,12 @@ function AppContent() {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showNewDropdown, showAnalyticsDropdown, showAdminDropdown, showUserDropdown]);
+  }, [
+    showNewDropdown,
+    showAnalyticsDropdown,
+    showAdminDropdown,
+    showUserDropdown,
+  ]);
 
   // After route changes, check if we should open the edit album series modal
   useEffect(() => {
@@ -210,7 +227,6 @@ function AppContent() {
 
   // Global event listeners for album series modals
   useEffect(() => {
-
     const createHandler = (e) => {
       const { artistName, albumName, status, skipNavigation } = e.detail || {};
 
@@ -264,7 +280,8 @@ function AppContent() {
       ) {
         window.showNotification(
           <span>
-            🎉 <strong>New Features:</strong> Added song notes, column selection, forgot password, and various bug fixes!
+            🎉 <strong>New Features:</strong> Added song notes, column
+            selection, forgot password, and various bug fixes!
           </span>,
           "success"
         );
@@ -303,14 +320,20 @@ function AppContent() {
   useEffect(() => {
     if (showOnlineTooltip && onlineTooltipRef.current) {
       const rect = onlineTooltipRef.current.getBoundingClientRect();
-      setOnlineTooltipPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      setOnlineTooltipPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
     }
   }, [showOnlineTooltip]);
 
   useEffect(() => {
     if (showUserDropdown && userDropdownRef.current) {
       const rect = userDropdownRef.current.getBoundingClientRect();
-      setUserDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+      setUserDropdownPos({
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right,
+      });
     }
   }, [showUserDropdown]);
 
@@ -373,10 +396,10 @@ function AppContent() {
           <nav className="unified-nav">
             {/* Left side - Brand and Navigation */}
             <div className="nav-left">
-              <div 
-                className="nav-brand" 
-                onClick={() => navigate('/wip')}
-                style={{ cursor: 'pointer' }}
+              <div
+                className="nav-brand"
+                onClick={() => navigate("/wip")}
+                style={{ cursor: "pointer" }}
               >
                 TrackFlow
               </div>
@@ -408,9 +431,13 @@ function AppContent() {
                     }}
                     className="nav-dropdown-btn"
                     style={{
-                      background: showNewDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                      background: showNewDropdown
+                        ? "rgba(255,255,255,0.2)"
+                        : "transparent",
                       color: "white",
-                      border: showNewDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                      border: showNewDropdown
+                        ? "1px solid rgba(255,255,255,0.3)"
+                        : "1px solid transparent",
                       borderRadius: "6px",
                       padding: "0.4rem 0.8rem",
                       fontWeight: "600",
@@ -439,7 +466,7 @@ function AppContent() {
                         zIndex: 10001,
                         overflow: "hidden",
                         minWidth: "180px",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
                       }}
                     >
                       <div
@@ -521,9 +548,13 @@ function AppContent() {
                     }}
                     className="nav-dropdown-btn"
                     style={{
-                      background: showAnalyticsDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                      background: showAnalyticsDropdown
+                        ? "rgba(255,255,255,0.2)"
+                        : "transparent",
                       color: "white",
-                      border: showAnalyticsDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                      border: showAnalyticsDropdown
+                        ? "1px solid rgba(255,255,255,0.3)"
+                        : "1px solid transparent",
                       borderRadius: "6px",
                       padding: "0.4rem 0.8rem",
                       fontWeight: "600",
@@ -552,7 +583,7 @@ function AppContent() {
                         zIndex: 10001,
                         overflow: "hidden",
                         minWidth: "150px",
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
                       }}
                     >
                       <div
@@ -669,9 +700,13 @@ function AppContent() {
                       }}
                       className="nav-dropdown-btn"
                       style={{
-                        background: showAdminDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                        background: showAdminDropdown
+                          ? "rgba(255,255,255,0.2)"
+                          : "transparent",
                         color: "white",
-                        border: showAdminDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                        border: showAdminDropdown
+                          ? "1px solid rgba(255,255,255,0.3)"
+                          : "1px solid transparent",
                         borderRadius: "6px",
                         padding: "0.4rem 0.8rem",
                         fontWeight: "600",
@@ -700,7 +735,7 @@ function AppContent() {
                           zIndex: 10001,
                           overflow: "hidden",
                           minWidth: "180px",
-                          whiteSpace: "nowrap"
+                          whiteSpace: "nowrap",
                         }}
                       >
                         <div
@@ -833,9 +868,7 @@ function AppContent() {
             <div className="nav-right">
               {/* User info */}
               <div className="nav-user-info">
-                <span className="nav-username">
-                  {user?.username}
-                </span>
+                <span className="nav-username">{user?.username}</span>
                 {user?.is_admin && (
                   <span
                     ref={onlineTooltipRef}
@@ -851,7 +884,11 @@ function AppContent() {
                     onMouseEnter={() => setShowOnlineTooltip(true)}
                     onMouseLeave={() => setShowOnlineTooltip(false)}
                   >
-                    {onlineUserCount !== null ? `${onlineUserCount} ${onlineUserCount === 1 ? "user" : "users"} online` : "Loading..."}
+                    {onlineUserCount !== null
+                      ? `${onlineUserCount} ${
+                          onlineUserCount === 1 ? "user" : "users"
+                        } online`
+                      : "Loading..."}
                     {showOnlineTooltip && onlineUsers.length > 0 && (
                       <div
                         style={{
@@ -892,15 +929,15 @@ function AppContent() {
                     )}
                   </span>
                 )}
-                <div 
-                  className="nav-points" 
-                  onClick={() => navigate('/achievements')}
-                  style={{ 
-                    cursor: 'pointer',
-                    transition: 'opacity 0.2s',
+                <div
+                  className="nav-points"
+                  onClick={() => navigate("/achievements")}
+                  style={{
+                    cursor: "pointer",
+                    transition: "opacity 0.2s",
                   }}
-                  onMouseEnter={(e) => e.target.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.target.style.opacity = '1'}
+                  onMouseEnter={(e) => (e.target.style.opacity = "0.8")}
+                  onMouseLeave={(e) => (e.target.style.opacity = "1")}
                   title="View achievements"
                 >
                   <span style={{ fontSize: "0.8rem" }}>⭐</span>
@@ -910,7 +947,6 @@ function AppContent() {
                   <span className="points-label">pts</span>
                 </div>
               </div>
-
 
               {/* Notification Icon */}
               <NotificationIcon />
@@ -930,9 +966,13 @@ function AppContent() {
                   }}
                   className="nav-settings-btn"
                   style={{
-                    background: showUserDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                    background: showUserDropdown
+                      ? "rgba(255,255,255,0.2)"
+                      : "transparent",
                     color: "white",
-                    border: showUserDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                    border: showUserDropdown
+                      ? "1px solid rgba(255,255,255,0.3)"
+                      : "1px solid transparent",
                     borderRadius: "6px",
                     padding: "0.4rem 0.8rem",
                     cursor: "pointer",
@@ -1145,215 +1185,215 @@ function AppContent() {
 
         <div className="main-content">
           <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/register" element={<RegistrationWizard />} />
-          <Route path="/releases" element={<LatestReleasesPage />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Public Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginForm />} />
+            <Route path="/register" element={<RegistrationWizard />} />
+            <Route path="/releases" element={<LatestReleasesPage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Protected Routes */}
-          <Route
-            path="/wip"
-            element={
-              <ProtectedRoute>
-                <WipPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/future"
-            element={
-              <ProtectedRoute>
-                <SongPage status="Future Plans" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/wip"
-            element={
-              <ProtectedRoute>
-                <WipPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/released"
-            element={
-              <ProtectedRoute>
-                <SongPage status="Released" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/new"
-            element={
-              <ProtectedRoute>
-                <NewSongForm />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/pack"
-            element={
-              <ProtectedRoute>
-                <NewPackForm />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/import-spotify"
-            element={
-              <ProtectedRoute>
-                <ImportSpotifyPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/album-series"
-            element={
-              <ProtectedRoute>
-                <AlbumSeriesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/achievements"
-            element={
-              <ProtectedRoute>
-                <AchievementsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute>
-                <NotificationsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/stats"
-            element={
-              <ProtectedRoute>
-                <StatsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/leaderboard"
-            element={
-              <ProtectedRoute>
-                <Leaderboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <UserSettings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings/workflow"
-            element={
-              <ProtectedRoute>
-                <WorkflowSettings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/help"
-            element={
-              <ProtectedRoute>
-                <HelpPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/contact"
-            element={
-              <ProtectedRoute>
-                <ContactPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/bug-report"
-            element={
-              <ProtectedRoute>
-                <BugReportPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/release-posts"
-            element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/notifications"
-            element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/tools"
-            element={
-              <ProtectedRoute>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/feature-requests"
-            element={
-              <ProtectedRoute>
-                <FeatureRequestPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="*"
-            element={
-              <ProtectedRoute>
-                <WipPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected Routes */}
+            <Route
+              path="/wip"
+              element={
+                <ProtectedRoute>
+                  <WipPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/future"
+              element={
+                <ProtectedRoute>
+                  <SongPage status="Future Plans" />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wip"
+              element={
+                <ProtectedRoute>
+                  <WipPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/released"
+              element={
+                <ProtectedRoute>
+                  <SongPage status="Released" />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/new"
+              element={
+                <ProtectedRoute>
+                  <NewSongForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pack"
+              element={
+                <ProtectedRoute>
+                  <NewPackForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import-spotify"
+              element={
+                <ProtectedRoute>
+                  <ImportSpotifyPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/album-series"
+              element={
+                <ProtectedRoute>
+                  <AlbumSeriesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/achievements"
+              element={
+                <ProtectedRoute>
+                  <AchievementsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <NotificationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/stats"
+              element={
+                <ProtectedRoute>
+                  <StatsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leaderboard"
+              element={
+                <ProtectedRoute>
+                  <Leaderboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <UserSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings/workflow"
+              element={
+                <ProtectedRoute>
+                  <WorkflowSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/help"
+              element={
+                <ProtectedRoute>
+                  <HelpPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/contact"
+              element={
+                <ProtectedRoute>
+                  <ContactPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bug-report"
+              element={
+                <ProtectedRoute>
+                  <BugReportPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/release-posts"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/notifications"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tools"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/feature-requests"
+              element={
+                <ProtectedRoute>
+                  <FeatureRequestPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <ProtectedRoute>
+                  <WipPage />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </div>
       </div>

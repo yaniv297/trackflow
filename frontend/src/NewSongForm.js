@@ -321,11 +321,10 @@ function NewSongForm() {
                 fontSize: "0.95rem",
               }}
             >
-              Progress Notes
+              Notes (optional)
             </label>
             <textarea
               name="notes"
-              placeholder="Add notes about your progress, where you left off, etc..."
               value={form.notes}
               onChange={handleChange}
               rows="3"

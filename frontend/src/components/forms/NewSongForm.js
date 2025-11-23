@@ -1,16 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPost, apiGet } from "./utils/api";
-import { checkAndShowNewAchievements } from "./utils/achievements";
-import SmartDropdown from "./components/ui/SmartDropdown";
-import DLCWarning from "./components/features/dlc/DLCWarning";
-
-// Utility function to capitalize artist and album names
-const capitalizeName = (str) =>
-  str
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
+import { apiPost, apiGet } from "../../utils/api";
+import { checkAndShowNewAchievements } from "../../utils/achievements";
+import SmartDropdown from "../ui/SmartDropdown";
+import DLCWarning from "../features/dlc/DLCWarning";
+import { simpleCapitalize } from "../../utils/formUtils";
 
 function NewSongForm() {
   const navigate = useNavigate();
@@ -94,8 +88,8 @@ function NewSongForm() {
     const songData = { ...form };
 
     // Capitalize names
-    songData.artist = capitalizeName(songData.artist);
-    songData.title = capitalizeName(songData.title);
+    songData.artist = simpleCapitalize(songData.artist);
+    songData.title = simpleCapitalize(songData.title);
 
     apiPost("/songs/", songData)
       .then(async () => {
@@ -324,11 +318,10 @@ function NewSongForm() {
                 fontSize: "0.95rem",
               }}
             >
-              Progress Notes
+              Notes
             </label>
             <textarea
               name="notes"
-              placeholder="Add notes about your progress, where you left off, etc..."
               value={form.notes}
               onChange={handleChange}
               rows="3"
@@ -388,3 +381,4 @@ function NewSongForm() {
 }
 
 export default NewSongForm;
+

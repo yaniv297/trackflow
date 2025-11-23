@@ -54,7 +54,7 @@ export const gettingStartedContent = {
               "Enter the song title and artist",
               "Choose or create a pack to organize it",
               "The song will automatically be enhanced with Spotify metadata",
-              'Your new song will appear in Future Plans',
+              "Your new song will appear in Future Plans",
             ],
           },
           {
@@ -64,22 +64,22 @@ export const gettingStartedContent = {
               'Choose "Single Artist" mode for one artist, multiple songs',
               'Or "Mixed Artists" mode using "Artist - Title" format',
               "All songs will be grouped together for easy management",
-              'All new songs start in Future Plans status',
+              "All new songs start in Future Plans status",
             ],
           },
           {
             title: "3. Start Working on Songs",
             description: [
-              'Go to the Future Plans page to see your planned songs',
+              "Go to the Future Plans page to see your planned songs",
               "Select songs you want to work on",
               'Open the pack\'s actions dropdown (gear) and click "Start Work" to move them to WIP',
-              'Your songs will now appear on the WIP page with progress tracking',
+              "Your songs will now appear on the WIP page with progress tracking",
             ],
           },
           {
             title: "4. Track Your Progress",
             description: [
-              'Navigate to the WIP (Work In Progress) page',
+              "Navigate to the WIP (Work In Progress) page",
               "Check off workflow steps as you complete them",
               "Watch your progress bars fill up",
               "Celebrate when you complete songs! 🎉",
@@ -120,4 +120,3 @@ export const gettingStartedContent = {
     },
   ],
 };
-

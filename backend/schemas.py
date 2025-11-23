@@ -110,6 +110,9 @@ class SongOut(BaseModel):
     pack_release_description: Optional[str] = None  # Pack description for the release
     pack_release_download_link: Optional[str] = None  # Pack download link
     pack_release_youtube_url: Optional[str] = None  # Pack YouTube video URL
+    # Timestamps
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
 
     class Config:

@@ -399,6 +399,12 @@ class SongService:
         # Add access control information
         self._add_access_control_data(song_dict, song, current_user)
         
+        # Ensure timestamp formatting
+        if song.created_at:
+            song_dict["created_at"] = song.created_at
+        if hasattr(song, 'updated_at') and song.updated_at:
+            song_dict["updated_at"] = song.updated_at
+        
         return song_dict
     
     def _build_collaboration_data(self, song: Song) -> List[Dict[str, Any]]:

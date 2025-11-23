@@ -77,6 +77,7 @@ class Song(Base):
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     notes = Column(Text, nullable=True)  # Progress notes for the song
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)  # When song was released
     release_description = Column(Text, nullable=True)  # Optional description for the release
     release_download_link = Column(String, nullable=True)  # Download link for the song

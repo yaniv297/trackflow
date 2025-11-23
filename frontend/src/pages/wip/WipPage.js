@@ -14,6 +14,7 @@ import { useWipWelcomeNotification } from "../../hooks/wip/useWipWelcomeNotifica
 import { useWipPackToggle } from "../../hooks/wip/useWipPackToggle";
 import { useWipFilteredGrouped } from "../../hooks/wip/useWipFilteredGrouped";
 import { useWipSongAdd } from "../../hooks/wip/useWipSongAdd";
+import { useWipAutoExpand } from "../../hooks/wip/useWipAutoExpand";
 import WipPageHeader from "../../components/navigation/WipPageHeader";
 import WorkflowErrorBoundary from "../../components/features/workflows/WorkflowErrorBoundary";
 import WorkflowLoadingSpinner from "../../components/features/workflows/WorkflowLoadingSpinner";
@@ -62,6 +63,16 @@ function WipPage() {
     fireworksTrigger,
     setFireworksTrigger,
   } = useWipPageUI();
+
+  // Auto-expand pack from URL parameters (handles navigation from dashboard)
+  useWipAutoExpand({
+    loading,
+    songs,
+    collapsedPacks,
+    setCollapsedPacks,
+    viewMode,
+    setViewMode,
+  });
 
   // Modal state
   const {

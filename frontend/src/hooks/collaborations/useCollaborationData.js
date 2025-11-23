@@ -60,7 +60,7 @@ export const useCollaborationData = ({
   const loadPackSongs = useCallback(async () => {
     if (collaborationType !== "pack" || !packId) return;
     try {
-      const response = await apiGet(`/songs?pack_id=${packId}`);
+      const response = await apiGet(`/songs/?pack_id=${packId}`);
       setPackSongs(response);
     } catch (error) {
       console.error("Error loading pack songs:", error);

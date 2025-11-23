@@ -237,6 +237,8 @@ const WipPackCard = ({
   return (
     <div
       key={packName}
+      data-pack-name={packName}
+      data-pack-id={packId}
       style={{
         marginBottom: "2rem",
         borderBottom: "1px solid #ccc",

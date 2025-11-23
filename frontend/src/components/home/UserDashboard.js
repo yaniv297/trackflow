@@ -34,8 +34,8 @@ const UserDashboard = () => {
       // Fetch all required data in parallel
       const results = await Promise.allSettled([
         apiGet('/songs?status=In%20Progress&limit=100&order=created_at'), // Get more songs to find high completion ones
-        apiGet('/authoring/recent?limit=3'),
-        apiGet('/packs/near-completion?limit=3&threshold=80')
+        apiGet('/authoring/recent?limit=20'),
+        apiGet('/packs/near-completion?limit=3&threshold=70')
       ]);
 
       // Extract values from Promise.allSettled results, defaulting to empty array on failure
@@ -81,7 +81,7 @@ const UserDashboard = () => {
 
       const songsWithAuthoring = await Promise.all(songsWithCompletionPromises);
       const songsWithCompletion = songsWithAuthoring
-        .filter(song => song.completionPercentage >= 80)
+        .filter(song => song.completionPercentage >= 80 && song.completionPercentage < 100)
         .sort((a, b) => b.completionPercentage - a.completionPercentage)
         .slice(0, 3);
 
@@ -119,15 +119,22 @@ const UserDashboard = () => {
   };
 
   const getPackCompletionStats = (pack) => {
-    const totalSongs = pack.songs?.length || 0;
-    const completedSongs = pack.songs?.filter(song => song.status === 'Released').length || 0;
+    // Use values from API if available (more accurate)
+    const totalSongs = pack.total_songs !== undefined ? pack.total_songs : (pack.songs?.length || 0);
+    const completedSongs = pack.completed_songs !== undefined ? pack.completed_songs : (pack.songs?.filter(song => song.status === 'Released').length || 0);
     const wipSongs = pack.songs?.filter(song => song.status === 'In Progress').length || 0;
+    
+    // Use completion_percentage from API if available (matches WIP page calculation)
+    // Otherwise fall back to released/total calculation
+    const percentage = pack.completion_percentage !== undefined 
+      ? pack.completion_percentage 
+      : (totalSongs > 0 ? Math.round((completedSongs / totalSongs) * 100) : 0);
     
     return {
       totalSongs,
       completedSongs,
       wipSongs,
-      percentage: totalSongs > 0 ? Math.round((completedSongs / totalSongs) * 100) : 0
+      percentage
     };
   };
 
@@ -174,7 +181,7 @@ const UserDashboard = () => {
             {lastWorkedSong ? (
               <div 
                 className="work-item featured"
-                onClick={() => navigate(`/songs/${lastWorkedSong.id}`)}
+                onClick={() => navigate(`/wip?song=${lastWorkedSong.id}`)}
               >
                 <div className="work-info">
                   <h4>{lastWorkedSong.title}</h4>
@@ -213,20 +220,63 @@ const UserDashboard = () => {
           <div className="card-content">
             {recentParts.length > 0 ? (
               <div className="parts-list">
-                {recentParts.map((part, index) => (
-                  <div 
-                    key={index}
-                    className="part-item"
-                    onClick={() => navigate(`/songs/${part.song_id}`)}
-                  >
-                    <div className="part-icon">✓</div>
-                    <div className="part-info">
-                      <p className="part-name">{part.part_name}</p>
-                      <p className="part-song">{part.song_title}</p>
-                      <p className="part-time">{formatTimeAgo(part.completed_at)}</p>
+                {(() => {
+                  // Function to format part names (capitalize and remove underscores)
+                  const formatPartName = (partName) => {
+                    return partName
+                      .replace(/_/g, ' ')
+                      .replace(/\b\w/g, l => l.toUpperCase());
+                  };
+
+                  // Group parts by song
+                  const groupedParts = recentParts.reduce((acc, part) => {
+                    const songKey = `${part.song_id}-${part.song_title}`;
+                    if (!acc[songKey]) {
+                      acc[songKey] = {
+                        song_id: part.song_id,
+                        song_title: part.song_title,
+                        artist: part.artist,
+                        album_cover: part.album_cover,
+                        parts: [],
+                        latest_time: part.completed_at
+                      };
+                    }
+                    acc[songKey].parts.push(formatPartName(part.part_name));
+                    // Keep the most recent completion time for this song
+                    if (new Date(part.completed_at) > new Date(acc[songKey].latest_time)) {
+                      acc[songKey].latest_time = part.completed_at;
+                    }
+                    return acc;
+                  }, {});
+
+                  // Convert to array and sort by latest completion time
+                  const songGroups = Object.values(groupedParts)
+                    .sort((a, b) => new Date(b.latest_time) - new Date(a.latest_time))
+                    .slice(0, 3); // Show top 3 songs
+
+                  return songGroups.map((songGroup, index) => (
+                    <div 
+                      key={index}
+                      className="part-item"
+                      onClick={() => navigate(`/wip?song=${songGroup.song_id}`)}
+                    >
+                      {songGroup.album_cover && (
+                        <img 
+                          src={songGroup.album_cover} 
+                          alt={`${songGroup.song_title} cover`}
+                          className="part-album-art"
+                        />
+                      )}
+                      <div className="part-icon">✓</div>
+                      <div className="part-info">
+                        <p className="part-name">{songGroup.parts.join(', ')}</p>
+                        <p className="part-song">{songGroup.song_title}</p>
+                        <p className="part-artist">{songGroup.artist}</p>
+                        <p className="part-time">{formatTimeAgo(songGroup.latest_time)}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             ) : (
               <div className="empty-state">
@@ -250,8 +300,15 @@ const UserDashboard = () => {
                     <div 
                       key={song.id}
                       className="completion-item"
-                      onClick={() => navigate(`/songs/${song.id}`)}
+                      onClick={() => navigate(`/wip?song=${song.id}`)}
                     >
+                      {song.album_cover && (
+                        <img 
+                          src={song.album_cover} 
+                          alt={`${song.title} cover`}
+                          className="completion-album-art"
+                        />
+                      )}
                       <div className="completion-info">
                         <h4>{song.title}</h4>
                         <p className="completion-meta">{song.artist}</p>
@@ -293,8 +350,15 @@ const UserDashboard = () => {
                       className="completion-item"
                       onClick={() => navigate(`/wip?pack=${pack.id}`)}
                     >
+                      {pack.album_cover && (
+                        <img 
+                          src={pack.album_cover} 
+                          alt={`${pack.display_name || pack.name} cover`}
+                          className="completion-album-art"
+                        />
+                      )}
                       <div className="completion-info">
-                        <h4>{pack.name}</h4>
+                        <h4>{pack.display_name || pack.name}</h4>
                         <p className="completion-meta">
                           {stats.completedSongs}/{stats.totalSongs} songs done
                         </p>

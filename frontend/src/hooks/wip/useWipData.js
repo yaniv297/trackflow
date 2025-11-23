@@ -128,14 +128,15 @@ export const useWipData = (user) => {
         const packs = Array.from(
           new Set(data.map((s) => s.pack_name || "(no pack)"))
         );
-        const collapsed = {};
-
-        packs.forEach((packName) => {
-          // ALL PACKS ALWAYS COLLAPSED BY DEFAULT
-          collapsed[packName] = true;
+        
+        setCollapsedPacks((prev) => {
+          const collapsed = {};
+          packs.forEach((packName) => {
+            // Preserve existing expanded state if pack exists, otherwise collapse by default
+            collapsed[packName] = prev[packName] !== undefined ? prev[packName] : true;
+          });
+          return collapsed;
         });
-
-        setCollapsedPacks(collapsed);
       })
       .catch((error) => {
         console.error("Failed to load songs:", error);

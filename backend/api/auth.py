@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
-# Email configuration (moved from email_service.py to avoid import issues)
+# Email configuration (inline to avoid import issues)
 EMAIL_USERNAME = os.getenv("EMAIL_USERNAME", "")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", EMAIL_USERNAME)
@@ -37,91 +37,13 @@ def is_email_configured() -> bool:
     """Check if email is properly configured"""
     return bool(EMAIL_USERNAME and EMAIL_PASSWORD and EMAIL_SERVER)
 
-def send_password_reset_email(email: str, token: str, username: str) -> bool:
-    """Send password reset email to user"""
+def send_password_reset_email_inline(email: str, token: str, username: str) -> bool:
+    """Send password reset email to user (inline version)"""
     if not is_email_configured():
         print("⚠️  Email not configured - cannot send password reset email")
         return False
     
     reset_url = f"{FRONTEND_URL}/reset-password?token={token}"
-    
-    # Email content
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Password Reset - TrackFlow</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }}
-            .container {{ max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-            .header {{ text-align: center; margin-bottom: 30px; }}
-            .logo {{ font-size: 28px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }}
-            .title {{ font-size: 24px; color: #1f2937; margin-bottom: 20px; }}
-            .content {{ color: #374151; line-height: 1.6; margin-bottom: 30px; }}
-            .warning {{ background-color: #fef3cd; border: 1px solid #faebcd; padding: 15px; border-radius: 5px; color: #856404; margin: 20px 0; }}
-            .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">🎵 TrackFlow</div>
-                <div class="title">Password Reset Request</div>
-            </div>
-            
-            <div class="content">
-                <p>Hi <strong>{username}</strong>,</p>
-                
-                <p>We received a request to reset your password for your TrackFlow account. If you made this request, click the button below to reset your password:</p>
-                
-                <div style="text-align: center;">
-                    <table cellpadding="0" cellspacing="0" style="margin: 20px auto;">
-                        <tr>
-                            <td style="background-color: #28a745; padding: 12px 30px; border-radius: 5px; border: 2px solid #28a745;">
-                                <a href="{reset_url}" style="color: #ffffff !important; text-decoration: none; font-weight: bold; font-family: Arial, sans-serif; font-size: 16px; display: block;">Reset Your Password</a>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <p>Or copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #2563eb; font-size: 14px;">{reset_url}</p>
-                
-                <div class="warning">
-                    <strong>⚠️ Security Notice:</strong><br>
-                    • This link will expire in 1 hour for your security<br>
-                    • If you didn't request this reset, you can safely ignore this email<br>
-                    • Your password won't change until you create a new one using the link above
-                </div>
-            </div>
-            
-            <div class="footer">
-                <p>This email was sent from TrackFlow. If you have any questions, please contact your administrator.</p>
-                <p style="font-size: 12px; color: #9ca3af;">This is an automated email. Please do not reply to this message.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    plain_body = f"""
-    Password Reset Request - TrackFlow
-
-    Hi {username},
-
-    We received a request to reset your password for your TrackFlow account. 
-    If you made this request, use the link below to reset your password:
-
-    {reset_url}
-
-    Security Notice:
-    - This link will expire in 1 hour for your security
-    - If you didn't request this reset, you can safely ignore this email
-    - Your password won't change until you create a new one using the link above
-
-    This email was sent from TrackFlow. If you have any questions, please contact your administrator.
-    """
     
     try:
         # Create message
@@ -129,6 +51,26 @@ def send_password_reset_email(email: str, token: str, username: str) -> bool:
         msg['Subject'] = "Reset Your TrackFlow Password"
         msg['From'] = f"{EMAIL_FROM_NAME} <{EMAIL_FROM}>"
         msg['To'] = email
+        
+        # Simple HTML content
+        html_body = f'''
+        <h2>Password Reset - TrackFlow</h2>
+        <p>Hi {username},</p>
+        <p>Click the link below to reset your password:</p>
+        <p><a href="{reset_url}" style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;">Reset Your Password</a></p>
+        <p>Or copy this link: {reset_url}</p>
+        <p>This link expires in 1 hour.</p>
+        '''
+        
+        plain_body = f'''
+        Password Reset - TrackFlow
+        
+        Hi {username},
+        
+        Use this link to reset your password: {reset_url}
+        
+        This link expires in 1 hour.
+        '''
         
         # Add text and HTML parts
         text_part = MIMEText(plain_body, 'plain')
@@ -150,6 +92,7 @@ def send_password_reset_email(email: str, token: str, username: str) -> bool:
     except Exception as e:
         print(f"❌ Failed to send password reset email: {e}")
         return False
+
 
 # Simple user cache with TTL
 _user_cache = {}
@@ -691,30 +634,9 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     
     # Send password reset email
     try:
-        print(f"🔄 STEP 7: Importing email service")
-        # Try different import methods
-        try:
-            import email_service
-            send_password_reset_email = email_service.send_password_reset_email
-            is_email_configured = email_service.is_email_configured
-            print(f"✅ STEP 7: Email service imported via module")
-        except ImportError:
-            try:
-                from backend.email_service import send_password_reset_email, is_email_configured
-                print(f"✅ STEP 7: Email service imported via backend.email_service")
-            except ImportError:
-                try:
-                    import sys
-                    import os
-                    backend_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    sys.path.insert(0, backend_path)
-                    import email_service
-                    send_password_reset_email = email_service.send_password_reset_email
-                    is_email_configured = email_service.is_email_configured
-                    print(f"✅ STEP 7: Email service imported with path: {backend_path}")
-                except Exception as e:
-                    print(f"❌ STEP 7 All import attempts failed: {e}")
-                    raise HTTPException(status_code=500, detail="Email service import failed")
+        print(f"🔄 STEP 7: Using inline email functions")
+        # Use inline functions instead of importing
+        print(f"✅ STEP 7: Inline email functions ready")
         
         print(f"🔄 STEP 8: Checking email configuration")
         print(f"🔍 EMAIL_USERNAME: {EMAIL_USERNAME}")
@@ -730,7 +652,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
         print(f"✅ STEP 8: Email is configured")
         
         print(f"🔄 STEP 9: Sending password reset email")
-        email_sent = send_password_reset_email(email, token, user.username)
+        email_sent = send_password_reset_email_inline(email, token, user.username)
         if not email_sent:
             print(f"❌ STEP 9 ERROR: Email sending failed")
             # Clean up token if email failed
@@ -865,10 +787,9 @@ def forgot_password_test():
     print("🔥 TEST ENDPOINT CALLED!")
     try:
         from models import PasswordResetToken
-        from email_service import is_email_configured
         return {
             "models_import": "OK", 
-            "email_service_import": "OK",
+            "email_inline_import": "OK",
             "email_configured": is_email_configured(),
             "test": "All imports successful",
             "timestamp": datetime.utcnow().isoformat()

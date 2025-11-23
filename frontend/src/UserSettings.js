@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { apiGet, apiPut } from "./utils/api";
-import AchievementBadge from "./components/features/achievements/AchievementBadge";
 import "./UserSettings.css";
 
 function UserSettings() {
@@ -9,10 +8,6 @@ function UserSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
-  const [achievements, setAchievements] = useState([]);
-  const [allAchievements, setAllAchievements] = useState([]);
-  const [loadingAchievements, setLoadingAchievements] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState("all");
 
   const [formData, setFormData] = useState({
     email: "",
@@ -23,33 +18,7 @@ function UserSettings() {
 
   useEffect(() => {
     fetchUserSettings();
-    fetchAchievements();
   }, []);
-
-  const fetchAchievements = async () => {
-    try {
-      const [userAchievements, allAchievementsList] = await Promise.all([
-        apiGet("/achievements/me"),
-        apiGet("/achievements/"),
-      ]);
-
-      const earnedCodes = new Set(
-        userAchievements.map((ua) => ua.achievement.code)
-      );
-
-      const achievementsWithStatus = allAchievementsList.map((ach) => ({
-        ...ach,
-        earned: earnedCodes.has(ach.code),
-      }));
-
-      setAchievements(userAchievements);
-      setAllAchievements(achievementsWithStatus);
-      setLoadingAchievements(false);
-    } catch (error) {
-      console.error("Failed to load achievements:", error);
-      setLoadingAchievements(false);
-    }
-  };
 
   const fetchUserSettings = async () => {
     try {
@@ -182,12 +151,6 @@ function UserSettings() {
           >
             Settings
           </button>
-          <button
-            className={`settings-tab ${activeTab === "achievements" ? "active" : ""}`}
-            onClick={() => setActiveTab("achievements")}
-          >
-            Achievements
-          </button>
         </div>
 
         {/* Tab Content */}
@@ -316,92 +279,16 @@ function UserSettings() {
               </>
             )}
 
-            {/* Achievements Tab */}
-            {activeTab === "achievements" && (
-              <div>
-                <h2>Achievements</h2>
-                {loadingAchievements ? (
-                  <div className="loading">Loading achievements...</div>
-                ) : (
-                  <>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "1rem",
-                      }}
-                    >
-                      <div style={{ fontSize: "1.1rem", color: "#666" }}>
-                        {achievements.length} / {allAchievements.length} earned •{" "}
-                        {achievements.reduce(
-                          (sum, ua) => sum + (ua.achievement?.points || 0),
-                          0
-                        )}{" "}
-                        points
-                      </div>
-                      <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        style={{
-                          padding: "0.5rem",
-                          borderRadius: "4px",
-                          border: "1px solid #ddd",
-                        }}
-                      >
-                        <option value="all">All Categories</option>
-                        <option value="milestone">Milestone</option>
-                        <option value="activity">Activity</option>
-                        <option value="quality">Quality</option>
-                        <option value="social">Social</option>
-                        <option value="diversity">Diversity</option>
-                      </select>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-                        gap: "1rem",
-                        maxHeight: "600px",
-                        overflowY: "auto",
-                        padding: "1rem",
-                        background: "#f8f9fa",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      {allAchievements
-                        .filter(
-                          (ach) =>
-                            selectedCategory === "all" ||
-                            ach.category === selectedCategory
-                        )
-                        .map((ach) => (
-                          <AchievementBadge
-                            key={ach.id}
-                            achievement={ach}
-                            earned={ach.earned}
-                            size="medium"
-                          />
-                        ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Show save button only for profile and settings tabs */}
-            {activeTab !== "achievements" && (
-              <div className="form-actions">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn btn-primary"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            )}
+            {/* Show save button for all tabs */}
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn btn-primary"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </form>
         </div>
       </div>

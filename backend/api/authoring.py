@@ -279,3 +279,40 @@ async def update_wip_collaborations(
     db.commit()
     return {"message": "WIP collaborations updated successfully"}
 
+@router.get("/recent")
+def get_recent_authoring_activity(
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get recent authoring activity for the current user"""
+    recent_activity = db.execute(
+        text("""
+            SELECT 
+                sp.step_name as part_name,
+                s.title as song_title,
+                sp.song_id,
+                sp.completed_at,
+                s.artist
+            FROM song_progress sp
+            JOIN songs s ON s.id = sp.song_id
+            WHERE s.user_id = :user_id 
+            AND sp.is_completed = TRUE
+            AND sp.completed_at IS NOT NULL
+            ORDER BY sp.completed_at DESC
+            LIMIT :limit
+        """),
+        {"user_id": current_user.id, "limit": limit}
+    ).fetchall()
+    
+    return [
+        {
+            "part_name": row.part_name,
+            "song_title": row.song_title,
+            "song_id": row.song_id,
+            "completed_at": row.completed_at,
+            "artist": row.artist
+        }
+        for row in recent_activity
+    ]
+

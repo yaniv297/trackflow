@@ -116,6 +116,63 @@ class NotificationService:
         
         return self._format_notification_out(notification)
     
+    def create_pack_release_notification(
+        self, 
+        user_id: int, 
+        pack_name: str, 
+        pack_owner_username: str
+    ) -> NotificationOut:
+        """Create a pack release notification"""
+        title = f"🎵 New Pack Released!"
+        message = f"{pack_owner_username} just released '{pack_name}' - Check out the latest releases!"
+        
+        notification = self.repository.create_notification(
+            user_id=user_id,
+            type=NotificationType.PACK_RELEASE,
+            title=title,
+            message=message
+        )
+        
+        return self._format_notification_out(notification)
+    
+    def broadcast_pack_release_notification(self, pack_name: str, pack_owner_username: str) -> dict:
+        """Send pack release notifications to all active users"""
+        from models import User
+        
+        # Get all active users except the pack owner
+        users = self.db.query(User).filter(
+            User.is_active == True,
+            User.username != pack_owner_username
+        ).all()
+        
+        if not users:
+            return {"message": "No active users found", "sent_count": 0}
+        
+        sent_count = 0
+        errors = []
+        
+        for user in users:
+            try:
+                self.create_pack_release_notification(
+                    user_id=user.id,
+                    pack_name=pack_name,
+                    pack_owner_username=pack_owner_username
+                )
+                sent_count += 1
+            except Exception as e:
+                errors.append(f"Failed to send to {user.username}: {str(e)}")
+        
+        result = {
+            "message": f"Pack release notifications sent to {sent_count} users",
+            "sent_count": sent_count,
+            "total_users": len(users)
+        }
+        
+        if errors:
+            result["errors"] = errors[:10]  # Limit to first 10 errors
+        
+        return result
+    
     def get_user_notifications(
         self, 
         user_id: int, 

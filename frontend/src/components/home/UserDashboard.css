@@ -1,0 +1,373 @@
+.user-dashboard {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.dashboard-header {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.dashboard-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.dashboard-header p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.dashboard-card {
+  border-right: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dashboard-card:nth-child(even) {
+  border-right: none;
+}
+
+.dashboard-card:nth-child(n+3) {
+  border-bottom: none;
+}
+
+.card-header {
+  padding: 1rem 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.card-content {
+  padding: 1.5rem;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+}
+
+/* Continue Work Card */
+.continue-work .card-content {
+  padding: 0;
+}
+
+.work-item.featured {
+  width: 100%;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.work-item.featured:hover {
+  background-color: #f8f9fa;
+}
+
+.work-info h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.work-meta {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.work-time {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.progress-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Recent Parts */
+.parts-list {
+  width: 100%;
+}
+
+.part-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 6px;
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.part-item:hover {
+  background-color: #f8f9fa;
+}
+
+.part-item:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.part-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #28a745;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.part-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.part-name {
+  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.part-song {
+  margin: 0 0 0.25rem 0;
+  color: #666;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.part-time {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+/* Completion Lists */
+.completion-list {
+  width: 100%;
+}
+
+.completion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 6px;
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.completion-item:hover {
+  background-color: #f8f9fa;
+}
+
+.completion-item:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.completion-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.completion-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.completion-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.completion-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.progress-bar {
+  width: 60px;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  transition: width 0.3s ease;
+  border-radius: 3px;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* Empty States */
+.empty-state {
+  text-align: center;
+  color: #666;
+  width: 100%;
+}
+
+.empty-state p {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+}
+
+.cta-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cta-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Loading and Error States */
+.dashboard-loading {
+  padding: 3rem;
+  text-align: center;
+  color: #666;
+}
+
+.dashboard-loading .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f0f0f0;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.dashboard-error {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}
+
+.retry-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.retry-btn:hover {
+  background: #5a6fd8;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-card {
+    border-right: none;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .dashboard-card:last-child {
+    border-bottom: none;
+  }
+  
+  .dashboard-header {
+    padding: 1rem 1.5rem;
+  }
+  
+  .card-content {
+    padding: 1rem;
+    min-height: 100px;
+  }
+  
+  .work-item.featured {
+    padding: 1rem;
+  }
+  
+  .completion-progress {
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-end;
+  }
+}

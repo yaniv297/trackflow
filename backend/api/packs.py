@@ -21,6 +21,13 @@ class PackUpdate(BaseModel):
 class PackStatusUpdate(BaseModel):
     status: str
 
+class PackReleaseData(BaseModel):
+    description: Optional[str] = None
+    download_link: Optional[str] = None
+    youtube_url: Optional[str] = None
+    song_download_links: Optional[dict] = None  # {song_id: download_link}
+    hide_from_homepage: Optional[bool] = False  # If True, don't set released_at
+
 class PackResponse(BaseModel):
     id: int
     name: str
@@ -28,6 +35,10 @@ class PackResponse(BaseModel):
     priority: Optional[int] = None  # Can be null
     created_at: str
     updated_at: str
+    released_at: Optional[str] = None  # When pack was released
+    release_description: Optional[str] = None  # Optional description for the release
+    release_download_link: Optional[str] = None  # Download link for the pack
+    release_youtube_url: Optional[str] = None  # YouTube video URL for the release
 
 @router.post("/", response_model=PackResponse)
 def create_pack(pack: PackCreate, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
@@ -266,4 +277,174 @@ def delete_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depe
     if orphaned_series_count > 0:
         message += f" (and {orphaned_series_count} orphaned album series)"
     
-    return {"message": message} 
+    return {"message": message}
+
+@router.post("/{pack_id}/release")
+def release_pack_with_metadata(
+    pack_id: int,
+    release_data: PackReleaseData,
+    db: Session = Depends(get_db), 
+    current_user = Depends(get_current_active_user)
+):
+    """Release a pack with optional metadata."""
+    
+    # Get the pack
+    pack = db.query(Pack).filter(Pack.id == pack_id, Pack.user_id == current_user.id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Pack not found")
+    
+    # Check if pack is already released - if so, just update metadata
+    if pack.released_at:
+        # Pack already released, just update the metadata
+        pack.release_description = release_data.description
+        pack.release_download_link = release_data.download_link 
+        pack.release_youtube_url = release_data.youtube_url
+        db.commit()
+        return {"message": f"Pack '{pack.name}' metadata updated successfully", "pack_id": pack_id}
+    
+    # Update pack with release metadata
+    # Only set released_at if not hiding from homepage
+    if not release_data.hide_from_homepage:
+        pack.released_at = datetime.utcnow()
+    pack.release_description = release_data.description
+    pack.release_download_link = release_data.download_link 
+    pack.release_youtube_url = release_data.youtube_url
+    
+    # Get all songs in the pack
+    songs = db.query(Song).filter(Song.pack_id == pack_id).all()
+    
+    # Release completed songs and move optional incomplete songs to "Future Plans"
+    released_count = 0
+    moved_count = 0
+    
+    for song in songs:
+        if song.status == "In Progress":
+            if not song.optional:
+                # Required song must be released
+                song.status = "Released"
+                song.released_at = datetime.utcnow()
+                
+                # Set song download link if provided
+                if release_data.song_download_links and str(song.id) in release_data.song_download_links:
+                    song.release_download_link = release_data.song_download_links[str(song.id)]
+                
+                released_count += 1
+            else:
+                # Optional song - move to "Future Plans" with new pack name
+                song.status = "Future Plans"
+                song.pack_id = None
+                # Create a new pack name for the moved song
+                new_pack_name = f"{pack.name} (Bonus)"
+                
+                # Find or create the new pack
+                new_pack = db.query(Pack).filter(
+                    Pack.name == new_pack_name,
+                    Pack.user_id == current_user.id
+                ).first()
+                
+                if not new_pack:
+                    new_pack = Pack(
+                        name=new_pack_name,
+                        user_id=current_user.id,
+                        priority=pack.priority
+                    )
+                    db.add(new_pack)
+                    db.flush()  # Get the ID
+                    
+                song.pack_id = new_pack.id
+                moved_count += 1
+        elif song.status == "Released":
+            # Song already released - ensure it has release timestamp
+            if not song.released_at:
+                song.released_at = datetime.utcnow()
+            
+            # Set song download link if provided
+            if release_data.song_download_links and str(song.id) in release_data.song_download_links:
+                song.release_download_link = release_data.song_download_links[str(song.id)]
+            
+            released_count += 1
+    
+    # Check pack achievements
+    try:
+        check_pack_achievements(current_user.id, db)
+    except Exception as e:
+        print(f"Warning: Failed to check pack achievements: {e}")
+    
+    # Send notifications to all users if not hidden from homepage
+    if not release_data.hide_from_homepage:
+        try:
+            from api.notifications.services.notification_service import NotificationService
+            notification_service = NotificationService(db)
+            notification_result = notification_service.broadcast_pack_release_notification(
+                pack_name=pack.name,
+                pack_owner_username=current_user.username
+            )
+            print(f"🔔 Pack release notifications: {notification_result}")
+        except Exception as e:
+            print(f"Warning: Failed to send pack release notifications: {e}")
+    
+    db.commit()
+    
+    message = f"Pack '{pack.name}' released successfully with {released_count} songs"
+    if moved_count > 0:
+        message += f" ({moved_count} optional songs moved to future plans)"
+    
+    return {"message": message, "pack_id": pack_id}
+
+@router.get("/near-completion")
+def get_packs_near_completion(
+    limit: int = Query(3, le=10),
+    threshold: int = Query(80, le=100),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get packs that are close to completion for the current user"""
+    
+    # Get packs with their songs
+    packs = db.query(Pack).filter(
+        Pack.user_id == current_user.id
+    ).all()
+    
+    near_completion_packs = []
+    
+    for pack in packs:
+        # Get songs in the pack
+        pack_songs = db.query(Song).filter(Song.pack_id == pack.id).all()
+        
+        if not pack_songs:
+            continue
+            
+        # Calculate completion percentage
+        total_songs = len(pack_songs)
+        completed_songs = len([song for song in pack_songs if song.status == "Released"])
+        wip_songs = len([song for song in pack_songs if song.status == "In Progress"])
+        
+        completion_percentage = (completed_songs / total_songs) * 100 if total_songs > 0 else 0
+        
+        # Only include packs that have WIP songs and meet the threshold
+        if wip_songs > 0 and completion_percentage >= threshold:
+            pack_data = {
+                "id": pack.id,
+                "name": pack.name,
+                "priority": pack.priority,
+                "created_at": pack.created_at.isoformat(),
+                "updated_at": pack.updated_at.isoformat(),
+                "songs": [
+                    {
+                        "id": song.id,
+                        "title": song.title,
+                        "artist": song.artist,
+                        "status": song.status
+                    }
+                    for song in pack_songs
+                ]
+            }
+            near_completion_packs.append(pack_data)
+    
+    # Sort by completion percentage descending
+    near_completion_packs.sort(key=lambda p: 
+        len([s for s in p["songs"] if s["status"] == "Released"]) / len(p["songs"]) if p["songs"] else 0, 
+        reverse=True
+    )
+    
+    return near_completion_packs[:limit] 

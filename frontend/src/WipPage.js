@@ -20,6 +20,7 @@ import { checkAndShowNewAchievements } from "./utils/achievements";
 import AlbumSeriesModal from "./components/modals/AlbumSeriesModal";
 import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
 import DoubleAlbumSeriesModal from "./components/modals/DoubleAlbumSeriesModal";
+import ReleaseModal from "./components/modals/ReleaseModal";
 
 // Utility function to capitalize artist and album names (keeping for compatibility)
 // eslint-disable-next-line no-unused-vars
@@ -216,6 +217,8 @@ function WipPage() {
   const [showDoubleAlbumSeriesModal, setShowDoubleAlbumSeriesModal] =
     useState(false);
   const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
+  const [releaseModalData, setReleaseModalData] = useState(null);
   const [isExecutingDoubleAlbumSeries, setIsExecutingDoubleAlbumSeries] =
     useState(false);
 
@@ -605,84 +608,88 @@ function WipPage() {
   };
 
   const releasePack = (pack) => {
-    setAlertConfig({
-      isOpen: true,
-      title: "Release Pack",
-      message: `Are you sure you want to release "${pack}"? This will move completed songs to "Released" status and move incomplete optional songs back to "Future Plans" with a new pack name. Any album series associated with this pack will also be released and assigned a series number.`,
-      type: "warning",
-      onConfirm: async () => {
-        try {
-          const packSongs = songs.filter(
-            (s) => (s.pack_name || "(no pack)") === pack
-          );
-
-          // Call the pack release endpoint
-          const response = await apiPost(
-            `/songs/release-pack?pack_name=${encodeURIComponent(pack)}`
-          );
-
-          // Handle the response
-          if (response.details) {
-            const {
-              completed_songs,
-              optional_songs,
-              optional_pack_name,
-              released_series,
-            } = response.details;
-
-            // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
-            setSongs((prev) =>
-              prev.filter(
-                (song) => !packSongs.some((packSong) => packSong.id === song.id)
-              )
-            );
-
-            // Show detailed notification
-            let message = `Pack "${pack}" released successfully!`;
-            if (completed_songs > 0) {
-              message += ` ${completed_songs} song(s) moved to Released.`;
-            }
-            if (optional_songs > 0) {
-              message += ` ${optional_songs} optional song(s) moved to Future Plans in pack "${optional_pack_name}".`;
-            }
-            if (released_series && released_series.length > 0) {
-              const seriesInfo = released_series
-                .map((s) => `#${s.series_number} ${s.name}`)
-                .join(", ");
-              message += ` Album series ${seriesInfo} released!`;
-            }
-
-            window.showNotification(message, "success");
-          } else {
-            // All songs were completed
-            setSongs((prev) =>
-              prev.filter(
-                (song) => !packSongs.some((packSong) => packSong.id === song.id)
-              )
-            );
-            window.showNotification(
-              `Pack "${pack}" released successfully!`,
-              "success"
-            );
-          }
-
-          setFireworksTrigger((prev) => prev + 1);
-          
-          // Check for new achievements after releasing pack
-          await checkAndShowNewAchievements();
-        } catch (error) {
-          console.error("Failed to release pack:", error);
-          window.showNotification("Failed to release pack", "error");
-        }
-        setAlertConfig((prev) => ({ ...prev, isOpen: false }));
-      },
+    // Find the pack ID for the new API
+    const packSongs = songs.filter(
+      (s) => (s.pack_name || "(no pack)") === pack
+    );
+    const packId = packSongs[0]?.pack_id;
+    
+    if (!packId) {
+      window.showNotification("Pack not found", "error");
+      return;
+    }
+    
+    // Set up release modal data
+    setReleaseModalData({
+      type: 'pack',
+      itemId: packId,
+      itemName: pack,
+      title: `Release "${pack}"`,
+      packSongs: packSongs
     });
+    
+    // Open release modal
+    setShowReleaseModal(true);
   };
 
-  const releaseSong = async (songId) => {
+  const handlePackReleaseComplete = async (packId, releaseData) => {
     try {
-      // Update song status to Released
-      await apiPatch(`/songs/${songId}`, { status: "Released" });
+      // Call the new pack release endpoint with metadata
+      const response = await apiPost(`/packs/${packId}/release`, releaseData);
+
+      // Get pack name for notifications
+      const packName = releaseModalData?.itemName || 'Pack';
+      
+      // Get the pack songs that will be affected
+      const packSongs = songs.filter(s => s.pack_id === packId);
+
+      // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
+      setSongs((prev) =>
+        prev.filter(
+          (song) => !packSongs.some((packSong) => packSong.id === song.id)
+        )
+      );
+
+      // Show notification
+      window.showNotification(response.message || `Pack "${packName}" released successfully!`, "success");
+      setFireworksTrigger((prev) => prev + 1);
+      
+      // Check for new achievements after releasing pack
+      await checkAndShowNewAchievements();
+    } catch (error) {
+      console.error("Failed to release pack:", error);
+      window.showNotification("Failed to release pack", "error");
+    }
+  };
+
+  const releaseSong = (songId) => {
+    // Get song info
+    const song = songs.find(s => s.id === songId);
+    if (!song) return;
+    
+    // Set up release modal data
+    setReleaseModalData({
+      type: 'song',
+      itemId: songId,
+      itemName: song.title,
+      title: `Release "${song.title}"`
+    });
+    
+    // Open release modal
+    setShowReleaseModal(true);
+  };
+
+  const handleSongReleaseComplete = async (songId, releaseData) => {
+    try {
+      // Update song status to Released with release metadata
+      const updatePayload = {
+        status: "Released",
+        release_description: releaseData.description || null,
+        release_download_link: releaseData.download_link || null,
+        release_youtube_url: releaseData.youtube_url || null
+      };
+      
+      await apiPatch(`/songs/${songId}`, updatePayload);
       
       // Remove song from WIP view optimistically
       setSongs((prev) => prev.filter(song => song.id !== songId));
@@ -1419,6 +1426,27 @@ function WipPage() {
           currentUser={user}
           onCollaborationSaved={handleCollaborationSaved}
         />
+
+        {/* Release Modal */}
+        {releaseModalData && (
+          <ReleaseModal
+            isOpen={showReleaseModal}
+            onClose={() => {
+              setShowReleaseModal(false);
+              setReleaseModalData(null);
+            }}
+            title={releaseModalData.title}
+            type={releaseModalData.type}
+            itemId={releaseModalData.itemId}
+            itemName={releaseModalData.itemName}
+            onReleaseComplete={
+              releaseModalData.type === 'song' 
+                ? handleSongReleaseComplete 
+                : handlePackReleaseComplete
+            }
+            packSongs={releaseModalData.packSongs}
+          />
+        )}
 
         {/* Custom Alert */}
         <CustomAlert

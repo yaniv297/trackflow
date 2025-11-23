@@ -32,6 +32,9 @@ def get_filtered_songs(
     status: Optional[SongStatus] = Query(None),
     query: Optional[str] = Query(None),
     pack_id: Optional[int] = Query(None),
+    completion_threshold: Optional[int] = Query(None),
+    order: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -40,7 +43,7 @@ def get_filtered_songs(
         SongValidator.validate_search_query(query)
     
     service = SongService(db)
-    return service.get_filtered_songs(current_user, status, query, pack_id)
+    return service.get_filtered_songs(current_user, status, query, pack_id, completion_threshold, order, limit)
 
 
 @router.patch("/{song_id}", response_model=SongOut)
@@ -126,6 +129,7 @@ def release_pack(
 @router.get("/recent-releases", response_model=List[SongOut])
 def get_recent_releases(
     limit: int = Query(10, le=50, description="Maximum number of releases to return"),
+    offset: int = Query(0, ge=0, description="Number of releases to skip"),
     db: Session = Depends(get_db)
 ):
     """Get recently released songs, ordered by release date."""
@@ -136,7 +140,7 @@ def get_recent_releases(
     ).filter(
         Song.status == "Released",
         Song.released_at.isnot(None)
-    ).order_by(Song.released_at.desc()).limit(limit).all()
+    ).order_by(Song.released_at.desc()).offset(offset).limit(limit).all()
     
     # Convert to SongOut format
     releases_data = []
@@ -166,7 +170,84 @@ def get_recent_releases(
             "is_editable": False,  # Public endpoint, no edit permissions
             "pack_collaboration": None,
             "released_at": song.released_at,
+            "release_description": song.release_description,
+            "release_download_link": song.release_download_link,
+            "release_youtube_url": song.release_youtube_url,
+            # Pack-level release metadata
+            "pack_release_description": song.pack_obj.release_description if song.pack_obj else None,
+            "pack_release_download_link": song.pack_obj.release_download_link if song.pack_obj else None,
+            "pack_release_youtube_url": song.pack_obj.release_youtube_url if song.pack_obj else None,
         }
         releases_data.append(song_dict)
     
     return [SongOut(**release) for release in releases_data]
+
+
+@router.get("/recent-pack-releases")
+def get_recent_pack_releases(
+    limit: int = Query(10, le=50, description="Maximum number of pack releases to return"),
+    offset: int = Query(0, ge=0, description="Number of pack releases to skip"),
+    db: Session = Depends(get_db)
+):
+    """Get recently released packs with their songs, grouped by pack and ordered by pack release date."""
+    # Get unique packs that have released songs, ordered by most recent release
+    pack_releases = db.query(Pack).options(
+        joinedload(Pack.user),
+        joinedload(Pack.songs).joinedload(Song.user)
+    ).join(Song).filter(
+        Song.status == "Released",
+        Song.released_at.isnot(None),
+        Song.released_at != '',
+        Pack.released_at.isnot(None),
+        Pack.released_at != ''
+    ).group_by(Pack.id).order_by(Pack.released_at.desc()).offset(offset).limit(limit).all()
+    
+    pack_data = []
+    for pack in pack_releases:
+        # Get all released songs from this pack
+        released_songs = [song for song in pack.songs if song.status == "Released" and song.released_at]
+        
+        if not released_songs:
+            continue
+            
+        # Use the pack's released_at timestamp
+        pack_released_at = pack.released_at
+        
+        pack_info = {
+            "pack_id": pack.id,
+            "pack_name": pack.name,
+            "pack_owner_id": pack.user_id,
+            "pack_owner_username": pack.user.username if pack.user else "Unknown",
+            "pack_priority": pack.priority,
+            "released_at": pack_released_at,
+            "release_description": pack.release_description,
+            "release_download_link": pack.release_download_link,
+            "release_youtube_url": pack.release_youtube_url,
+            "songs": []
+        }
+        
+        # Add song data
+        for song in released_songs:
+            song_info = {
+                "id": song.id,
+                "title": song.title,
+                "artist": song.artist,
+                "album": song.album,
+                "year": song.year,
+                "album_cover": song.album_cover,
+                "author": song.user.username if song.user else "Unknown",
+                "user_id": song.user_id,
+                "optional": song.optional,
+                "released_at": song.released_at,
+                "release_description": song.release_description,
+                "release_download_link": song.release_download_link,
+                "release_youtube_url": song.release_youtube_url
+            }
+            pack_info["songs"].append(song_info)
+        
+        # Sort songs by release date within the pack
+        pack_info["songs"].sort(key=lambda s: s["released_at"] or "", reverse=True)
+        
+        pack_data.append(pack_info)
+    
+    return pack_data

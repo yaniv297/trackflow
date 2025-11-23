@@ -34,3 +34,19 @@ export const dispatchAllNotificationsReadEvent = () => {
   });
   window.dispatchEvent(event);
 };
+
+export const dispatchNotificationDeletedEvent = (notificationId) => {
+  // Dispatch event when a notification is deleted
+  const event = new CustomEvent('notification-deleted', {
+    detail: { notificationId, timestamp: Date.now() }
+  });
+  window.dispatchEvent(event);
+};
+
+export const dispatchAllNotificationsDeletedEvent = () => {
+  // Dispatch event when all notifications are deleted
+  const event = new CustomEvent('all-notifications-deleted', {
+    detail: { timestamp: Date.now() }
+  });
+  window.dispatchEvent(event);
+};

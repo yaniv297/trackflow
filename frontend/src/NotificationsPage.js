@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPut, apiDelete } from './utils/api';
+import { dispatchNotificationDeletedEvent } from './utils/notificationEvents';
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
@@ -74,10 +75,14 @@ const NotificationsPage = () => {
       if (notification && !notification.is_read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
+      
+      // Dispatch event to update header count
+      dispatchNotificationDeletedEvent(notificationId);
     } catch (error) {
       console.error('Failed to delete notification:', error);
     }
   };
+
 
   // Handle notification click (navigate to relevant page)
   const handleNotificationClick = (notification) => {
@@ -95,6 +100,8 @@ const NotificationsPage = () => {
       }
     } else if (notification.type === 'welcome') {
       navigate('/help'); // Or wherever help/FAQ is located
+    } else if (notification.type === 'pack_release') {
+      navigate('/releases');
     }
   };
 
@@ -124,6 +131,8 @@ const NotificationsPage = () => {
         return '📋';
       case 'welcome':
         return '🎉';
+      case 'pack_release':
+        return '🎵';
       default:
         return '🔔';
     }

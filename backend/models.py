@@ -53,6 +53,9 @@ class Pack(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)  # When pack was released
+    release_description = Column(Text, nullable=True)  # Optional description for the release
+    release_download_link = Column(String, nullable=True)  # Download link for the pack
+    release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
     # Relationships
     user = relationship("User", back_populates="packs")
     songs = relationship("Song", back_populates="pack_obj")
@@ -74,6 +77,9 @@ class Song(Base):
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     created_at = Column(DateTime, default=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)  # When song was released
+    release_description = Column(Text, nullable=True)  # Optional description for the release
+    release_download_link = Column(String, nullable=True)  # Download link for the song
+    release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
     
     # Composite indexes for common query patterns
     __table_args__ = (
@@ -393,6 +399,7 @@ class NotificationType(str, enum.Enum):
     FEATURE_REQUEST_UPDATE = "feature_request_update"
     WELCOME = "welcome"
     GENERAL = "general"
+    PACK_RELEASE = "pack_release"
 
 class PostType(str, enum.Enum):
     PACK_RELEASE = "pack_release"      # Automatic pack release

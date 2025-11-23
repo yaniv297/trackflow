@@ -43,6 +43,8 @@ const NotificationDropdown = ({
       if (notification.related_feature_request_id) {
         navigate('/feature-requests');
       }
+    } else if (notification.type === 'pack_release') {
+      navigate('/releases');
     }
 
     onClose();
@@ -56,6 +58,8 @@ const NotificationDropdown = ({
         return '💬';
       case 'feature_request_update':
         return '📋';
+      case 'pack_release':
+        return '🎵';
       default:
         return '🔔';
     }

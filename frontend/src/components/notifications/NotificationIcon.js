@@ -177,16 +177,41 @@ const NotificationIcon = () => {
       }
     };
 
+    const handleNotificationDeleted = (event) => {
+      const { notificationId } = event.detail;
+      console.log(`🗑️ NotificationIcon: Received deletion event for notification ${notificationId}`);
+      
+      // Update local state
+      const notification = notifications.find(n => n.id === notificationId);
+      setNotifications(notifications.filter(n => n.id !== notificationId));
+      setTotalCount(prev => Math.max(0, prev - 1));
+      
+      if (notification && !notification.is_read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    };
+
+    const handleAllNotificationsDeleted = () => {
+      console.log('🗑️ NotificationIcon: All notifications deleted');
+      setNotifications([]);
+      setUnreadCount(0);
+      setTotalCount(0);
+    };
+
     window.addEventListener('new-notification', handleNewNotification);
     window.addEventListener('achievement-earned', handleAchievementEarned);
     window.addEventListener('achievements-updated', handleAchievementEarned);
+    window.addEventListener('notification-deleted', handleNotificationDeleted);
+    window.addEventListener('all-notifications-deleted', handleAllNotificationsDeleted);
     
     return () => {
       window.removeEventListener('new-notification', handleNewNotification);
       window.removeEventListener('achievement-earned', handleAchievementEarned);
       window.removeEventListener('achievements-updated', handleAchievementEarned);
+      window.removeEventListener('notification-deleted', handleNotificationDeleted);
+      window.removeEventListener('all-notifications-deleted', handleAllNotificationsDeleted);
     };
-  }, [showDropdown]);
+  }, [showDropdown, notifications]);
 
   return (
     <div className="notification-icon-container" ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>

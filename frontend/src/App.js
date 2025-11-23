@@ -17,6 +17,7 @@ import NewPackForm from "./NewPackForm";
 import StatsPage from "./StatsPage";
 import AlbumSeriesPage from "./AlbumSeriesPage";
 import Leaderboard from "./pages/Leaderboard";
+import HomePage from "./pages/HomePage";
 import NotificationManager from "./components/notifications/NotificationManager";
 import NotificationIcon from "./components/notifications/NotificationIcon";
 import ImportSpotifyPage from "./ImportSpotifyPage";
@@ -27,6 +28,7 @@ import ContactPage from "./ContactPage";
 import BugReportPage from "./BugReportPage";
 import AdminPage from "./AdminPage";
 import FeatureRequestPage from "./FeatureRequestPage";
+import LatestReleasesPage from "./pages/LatestReleasesPage";
 import AchievementsPage from "./AchievementsPage";
 import NotificationsPage from "./NotificationsPage";
 import { apiGet } from "./utils/api";
@@ -39,17 +41,22 @@ function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showAnalyticsDropdown, setShowAnalyticsDropdown] = useState(false);
+  const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   const newDropdownRef = useRef(null);
   const analyticsDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
+  const adminDropdownRef = useRef(null);
   const [newDropdownPos, setNewDropdownPos] = useState({ top: 0, left: 0 });
   const [analyticsDropdownPos, setAnalyticsDropdownPos] = useState({ top: 0, left: 0 });
   const [userDropdownPos, setUserDropdownPos] = useState({ top: 0, right: 0 });
+  const [adminDropdownPos, setAdminDropdownPos] = useState({ top: 0, left: 0 });
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedUsername, setImpersonatedUsername] = useState("");
   const [onlineUserCount, setOnlineUserCount] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showOnlineTooltip, setShowOnlineTooltip] = useState(false);
+  const onlineTooltipRef = useRef(null);
+  const [onlineTooltipPos, setOnlineTooltipPos] = useState({ top: 0, right: 0 });
   const [achievementPoints, setAchievementPoints] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
@@ -96,15 +103,36 @@ function AppContent() {
 
   // Check if we're impersonating
   useEffect(() => {
-    const impersonating = localStorage.getItem("impersonating");
-    if (impersonating) {
-      setIsImpersonating(true);
-      setImpersonatedUsername(impersonating);
-    } else {
-      setIsImpersonating(false);
-      setImpersonatedUsername("");
-    }
-  }, [user]);
+    const checkImpersonation = () => {
+      const impersonating = localStorage.getItem("impersonating");
+      if (impersonating) {
+        setIsImpersonating(true);
+        setImpersonatedUsername(impersonating);
+      } else {
+        setIsImpersonating(false);
+        setImpersonatedUsername("");
+      }
+    };
+    
+    checkImpersonation();
+    
+    // Check again after a short delay to ensure localStorage is updated
+    const timeout = setTimeout(checkImpersonation, 100);
+    
+    // Listen for storage changes
+    const handleStorageChange = (e) => {
+      if (e.key === "impersonating" || e.key === null) {
+        checkImpersonation();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [user, isAuthenticated]);
 
   // Fetch online user count for admins
   useEffect(() => {
@@ -143,6 +171,9 @@ function AppContent() {
       if (showAnalyticsDropdown && !event.target.closest(".dropdown-container")) {
         setShowAnalyticsDropdown(false);
       }
+      if (showAdminDropdown && !event.target.closest(".dropdown-container")) {
+        setShowAdminDropdown(false);
+      }
       if (
         showUserDropdown &&
         !event.target.closest(".user-dropdown-container")
@@ -153,7 +184,7 @@ function AppContent() {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showNewDropdown, showAnalyticsDropdown, showUserDropdown]);
+  }, [showNewDropdown, showAnalyticsDropdown, showAdminDropdown, showUserDropdown]);
 
   // After route changes, check if we should open the edit album series modal
   useEffect(() => {
@@ -262,6 +293,20 @@ function AppContent() {
   }, [showAnalyticsDropdown]);
 
   useEffect(() => {
+    if (showAdminDropdown && adminDropdownRef.current) {
+      const rect = adminDropdownRef.current.getBoundingClientRect();
+      setAdminDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [showAdminDropdown]);
+
+  useEffect(() => {
+    if (showOnlineTooltip && onlineTooltipRef.current) {
+      const rect = onlineTooltipRef.current.getBoundingClientRect();
+      setOnlineTooltipPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
+  }, [showOnlineTooltip]);
+
+  useEffect(() => {
     if (showUserDropdown && userDropdownRef.current) {
       const rect = userDropdownRef.current.getBoundingClientRect();
       setUserDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
@@ -270,7 +315,7 @@ function AppContent() {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/");
   };
 
   const handleExitImpersonation = async () => {
@@ -281,9 +326,9 @@ function AppContent() {
       localStorage.removeItem("admin_token");
       localStorage.removeItem("impersonating");
 
-      // Update auth context and reload
+      // Update auth context and navigate
       await updateAuth(adminToken, null);
-      window.location.href = "/admin";
+      navigate("/admin");
     }
   };
 
@@ -305,7 +350,7 @@ function AppContent() {
               boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
             }}
           >
-            <span>👤 Impersonating: {impersonatedUsername}</span>
+            <span>Impersonating: {impersonatedUsername}</span>
             <button
               onClick={handleExitImpersonation}
               style={{
@@ -327,10 +372,17 @@ function AppContent() {
           <nav className="unified-nav">
             {/* Left side - Brand and Navigation */}
             <div className="nav-left">
-              <div className="nav-brand">
+              <div 
+                className="nav-brand" 
+                onClick={() => navigate('/wip')}
+                style={{ cursor: 'pointer' }}
+              >
                 TrackFlow
               </div>
               <div className="nav-links">
+                <NavLink to="/" activeclassname="active">
+                  Home
+                </NavLink>
                 <NavLink to="/future" activeclassname="active">
                   Future
                 </NavLink>
@@ -351,6 +403,7 @@ function AppContent() {
                     onClick={() => {
                       setShowNewDropdown(!showNewDropdown);
                       setShowAnalyticsDropdown(false);
+                      setShowAdminDropdown(false);
                     }}
                     className="nav-dropdown-btn"
                     style={{
@@ -368,7 +421,7 @@ function AppContent() {
                       gap: "0.3rem",
                     }}
                   >
-                    ➕ New
+                    New
                     <span style={{ fontSize: "0.7rem" }}>▼</span>
                   </button>
 
@@ -463,6 +516,7 @@ function AppContent() {
                     onClick={() => {
                       setShowAnalyticsDropdown(!showAnalyticsDropdown);
                       setShowNewDropdown(false);
+                      setShowAdminDropdown(false);
                     }}
                     className="nav-dropdown-btn"
                     style={{
@@ -598,6 +652,179 @@ function AppContent() {
                     </div>
                   )}
                 </div>
+
+                {/* Admin Dropdown - Only show for admins */}
+                {user?.is_admin && (
+                  <div
+                    className="dropdown-container"
+                    style={{ position: "relative", display: "inline-block" }}
+                  >
+                    <button
+                      ref={adminDropdownRef}
+                      onClick={() => {
+                        setShowAdminDropdown(!showAdminDropdown);
+                        setShowNewDropdown(false);
+                        setShowAnalyticsDropdown(false);
+                      }}
+                      className="nav-dropdown-btn"
+                      style={{
+                        background: showAdminDropdown ? "rgba(255,255,255,0.2)" : "transparent",
+                        color: "white",
+                        border: showAdminDropdown ? "1px solid rgba(255,255,255,0.3)" : "1px solid transparent",
+                        borderRadius: "6px",
+                        padding: "0.4rem 0.8rem",
+                        fontWeight: "600",
+                        fontSize: "0.9rem",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.3rem",
+                      }}
+                    >
+                      Admin
+                      <span style={{ fontSize: "0.7rem" }}>▼</span>
+                    </button>
+
+                    {showAdminDropdown && (
+                      <div
+                        style={{
+                          position: "fixed",
+                          top: `${adminDropdownPos.top}px`,
+                          left: `${adminDropdownPos.left}px`,
+                          background: "white",
+                          border: "1px solid #ddd",
+                          borderRadius: "8px",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                          zIndex: 10001,
+                          overflow: "hidden",
+                          minWidth: "180px",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        <div
+                          onClick={() => {
+                            setShowAdminDropdown(false);
+                            navigate("/admin/dashboard");
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "0.75rem 1rem",
+                            color: "#333",
+                            borderBottom: "1px solid #eee",
+                            transition: "background 0.2s",
+                            cursor: "pointer",
+                            fontSize: "0.9rem",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.target.style.background = "#f8f9fa")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.background = "transparent")
+                          }
+                        >
+                          Dashboard
+                        </div>
+                        <div
+                          onClick={() => {
+                            setShowAdminDropdown(false);
+                            navigate("/admin/users");
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "0.75rem 1rem",
+                            color: "#333",
+                            borderBottom: "1px solid #eee",
+                            transition: "background 0.2s",
+                            cursor: "pointer",
+                            fontSize: "0.9rem",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.target.style.background = "#f8f9fa")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.background = "transparent")
+                          }
+                        >
+                          Users
+                        </div>
+                        <div
+                          onClick={() => {
+                            setShowAdminDropdown(false);
+                            navigate("/admin/release-posts");
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "0.75rem 1rem",
+                            color: "#333",
+                            borderBottom: "1px solid #eee",
+                            transition: "background 0.2s",
+                            cursor: "pointer",
+                            fontSize: "0.9rem",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.target.style.background = "#f8f9fa")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.background = "transparent")
+                          }
+                        >
+                          Release Posts
+                        </div>
+                        <div
+                          onClick={() => {
+                            setShowAdminDropdown(false);
+                            navigate("/admin/notifications");
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "0.75rem 1rem",
+                            color: "#333",
+                            borderBottom: "1px solid #eee",
+                            transition: "background 0.2s",
+                            cursor: "pointer",
+                            fontSize: "0.9rem",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.target.style.background = "#f8f9fa")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.background = "transparent")
+                          }
+                        >
+                          Notifications
+                        </div>
+                        <div
+                          onClick={() => {
+                            setShowAdminDropdown(false);
+                            navigate("/admin/tools");
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            padding: "0.75rem 1rem",
+                            color: "#333",
+                            transition: "background 0.2s",
+                            cursor: "pointer",
+                            fontSize: "0.9rem",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.target.style.background = "#f8f9fa")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.background = "transparent")
+                          }
+                        >
+                          Tools
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -610,6 +837,7 @@ function AppContent() {
                 </span>
                 {user?.is_admin && (
                   <span
+                    ref={onlineTooltipRef}
                     className="nav-online-users"
                     style={{
                       position: "relative",
@@ -626,16 +854,15 @@ function AppContent() {
                     {showOnlineTooltip && onlineUsers.length > 0 && (
                       <div
                         style={{
-                          position: "absolute",
-                          top: "100%",
-                          right: 0,
-                          marginTop: "0.5rem",
+                          position: "fixed",
+                          top: `${onlineTooltipPos.top}px`,
+                          right: `${onlineTooltipPos.right}px`,
                           background: "white",
                           border: "1px solid #ddd",
                           borderRadius: "6px",
                           padding: "0.5rem 0.75rem",
                           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                          zIndex: 10000,
+                          zIndex: 10001,
                           minWidth: "150px",
                           maxWidth: "250px",
                         }}
@@ -675,7 +902,7 @@ function AppContent() {
                   onMouseLeave={(e) => e.target.style.opacity = '1'}
                   title="View achievements"
                 >
-                  <span style={{ fontSize: "0.8rem" }}>🏆</span>
+                  <span style={{ fontSize: "0.8rem" }}>⭐</span>
                   <span className="points-value">
                     {achievementPoints.toLocaleString()}
                   </span>
@@ -698,6 +925,7 @@ function AppContent() {
                     setShowUserDropdown(!showUserDropdown);
                     setShowNewDropdown(false);
                     setShowAnalyticsDropdown(false);
+                    setShowAdminDropdown(false);
                   }}
                   className="nav-settings-btn"
                   style={{
@@ -883,33 +1111,6 @@ function AppContent() {
                     >
                       Help
                     </div>
-                    {user?.is_admin && (
-                      <div
-                        onClick={() => {
-                          setShowUserDropdown(false);
-                          navigate("/admin");
-                        }}
-                        style={{
-                          display: "block",
-                          width: "100%",
-                          padding: "0.75rem 1rem",
-                          color: "#333",
-                          textDecoration: "none",
-                          borderBottom: "1px solid #eee",
-                          transition: "background 0.2s",
-                          cursor: "pointer",
-                          fontSize: "0.9rem",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.target.style.background = "#f8f9fa")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.target.style.background = "transparent")
-                        }
-                      >
-                        Admin
-                      </div>
-                    )}
                     <div
                       onClick={() => {
                         setShowUserDropdown(false);
@@ -943,12 +1144,15 @@ function AppContent() {
 
         <div className="main-content">
           <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegistrationWizard />} />
+          <Route path="/releases" element={<LatestReleasesPage />} />
 
           {/* Protected Routes */}
           <Route
-            path="/"
+            path="/wip"
             element={
               <ProtectedRoute>
                 <WipPage />
@@ -1085,6 +1289,46 @@ function AppContent() {
           />
           <Route
             path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/release-posts"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/notifications"
+            element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/tools"
             element={
               <ProtectedRoute>
                 <AdminPage />

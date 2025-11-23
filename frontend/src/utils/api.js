@@ -135,7 +135,7 @@ export const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-// Convenience methods
+// Convenience methods (authenticated)
 export const apiGet = (endpoint) => apiCall(endpoint, { method: "GET" });
 export const apiPost = (endpoint, data) =>
   apiCall(endpoint, {
@@ -153,3 +153,68 @@ export const apiPatch = (endpoint, data) =>
     body: JSON.stringify(data),
   });
 export const apiDelete = (endpoint) => apiCall(endpoint, { method: "DELETE" });
+
+// Public API call function - doesn't require authentication
+export const publicApiCall = async (endpoint, options = {}) => {
+  let url = `${API_BASE_URL}${endpoint}`;
+
+  // Force HTTPS in production
+  if (window.location.protocol === "https:" && url.startsWith("http:")) {
+    url = url.replace("http:", "https:");
+  }
+
+  if (window.location.hostname !== "localhost" && !url.startsWith("https:")) {
+    url = url.replace("http:", "https:");
+  }
+
+  if (
+    window.location.hostname.includes("railway.app") &&
+    url.startsWith("http:")
+  ) {
+    url = url.replace("http:", "https:");
+  }
+
+  // Add cache-busting timestamp for production
+  if (window.location.hostname.includes("railway.app")) {
+    const separator = url.includes("?") ? "&" : "?";
+    url += `${separator}_t=${Date.now()}`;
+  }
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  const config = {
+    ...options,
+    headers,
+    mode: "cors",
+  };
+
+  try {
+    const response = await fetch(url, config);
+
+    if (!response.ok) {
+      // For public endpoints, just throw the error without auth handling
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    if (
+      response.status === 204 ||
+      response.headers.get("content-length") === "0"
+    ) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Public API call failed:", error);
+    throw error;
+  }
+};
+
+// Public convenience methods
+export const publicApiGet = (endpoint) => publicApiCall(endpoint, { method: "GET" });

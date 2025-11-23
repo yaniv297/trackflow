@@ -34,6 +34,11 @@ class SongCollaborationOut(BaseModel):
     class Config:
         from_attributes = True
 
+class SongReleaseData(BaseModel):
+    description: Optional[str] = None
+    download_link: Optional[str] = None
+    youtube_url: Optional[str] = None
+
 class SongCreate(BaseModel):
     artist: str
     title: str
@@ -97,6 +102,13 @@ class SongOut(BaseModel):
     is_editable: Optional[bool] = None
     pack_collaboration: Optional[dict] = None
     released_at: Optional[datetime] = None  # When song was released
+    release_description: Optional[str] = None  # Optional description for the release
+    release_download_link: Optional[str] = None  # Download link for the song
+    release_youtube_url: Optional[str] = None  # YouTube video URL for the release
+    # Pack-level release metadata
+    pack_release_description: Optional[str] = None  # Pack description for the release
+    pack_release_download_link: Optional[str] = None  # Pack download link
+    pack_release_youtube_url: Optional[str] = None  # Pack YouTube video URL
     
 
     class Config:

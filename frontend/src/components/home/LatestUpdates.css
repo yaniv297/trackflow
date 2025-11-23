@@ -1,0 +1,251 @@
+.latest-updates {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 100%;
+}
+
+.updates-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.toggle-view-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.toggle-view-btn:hover {
+  background: #0056b3;
+}
+
+/* Updates Widget */
+.updates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.update-item {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.update-item:hover {
+  background: #f5f5f5;
+  border-color: #ddd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.update-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.update-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.next-update-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.next-update-btn:hover {
+  background: #1e7e34;
+}
+
+/* Compact updates styles */
+.compact-updates {
+  max-width: 100%;
+}
+
+.compact-updates .update-item {
+  margin-bottom: 0;
+}
+
+.update-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.update-title {
+  flex: 1;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+  color: #333;
+  min-width: 200px;
+}
+
+.update-date {
+  font-size: 0.9rem;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.update-content {
+  margin: 0 0 0.75rem 0;
+  line-height: 1.5;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.update-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.update-author {
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
+.update-type-badge {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.update-type-badge[data-type="announcement"] {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  color: #1976d2;
+}
+
+.update-type-badge[data-type="feature"] {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  color: #388e3c;
+}
+
+.update-type-badge[data-type="update"] {
+  background: linear-gradient(135deg, #fff3e0, #ffcc80);
+  color: #f57c00;
+}
+
+.update-type-badge[data-type="bugfix"] {
+  background: linear-gradient(135deg, #ffebee, #ffcdd2);
+  color: #d32f2f;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  margin: 1rem 0 0.5rem 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* Error State */
+.error-state {
+  text-align: center;
+  padding: 2rem;
+  color: #dc3545;
+}
+
+.retry-button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: background 0.2s;
+}
+
+.retry-button:hover {
+  background: #c82333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .latest-updates {
+    padding: 1.5rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+  }
+
+  .update-item {
+    padding: 1rem;
+  }
+
+  .update-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .update-title {
+    min-width: unset;
+    font-size: 1.1rem;
+  }
+
+  .update-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .update-type-badge {
+    align-self: flex-start;
+  }
+}

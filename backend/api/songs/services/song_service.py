@@ -59,10 +59,15 @@ class SongService:
         current_user: User,
         status: Optional[SongStatus] = None,
         query: Optional[str] = None,
-        pack_id: Optional[int] = None
+        pack_id: Optional[int] = None,
+        completion_threshold: Optional[int] = None,
+        order: Optional[str] = None,
+        limit: Optional[int] = None
     ) -> List[SongOut]:
         """Get filtered songs with proper access control and formatting."""
-        songs = self.song_repo.get_filtered_songs(current_user.id, status, query, pack_id)
+        songs = self.song_repo.get_filtered_songs(
+            current_user.id, status, query, pack_id, completion_threshold, order, limit
+        )
         
         # Handle pack and series data efficiently
         pack_map = self._get_pack_map(songs)

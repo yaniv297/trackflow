@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { apiGet, apiPatch, apiDelete, apiPost } from "./utils/api";
 import { useAuth } from "./contexts/AuthContext";
 import ActivityFeed from "./components/shared/ActivityFeed";
 import "./AdminPage.css";
 
 function AdminPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,9 +30,15 @@ function AdminPage() {
   const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
 
+  // Determine current admin section from URL
+  const currentSection = location.pathname === '/admin' ? 'dashboard' : 
+                        location.pathname.split('/admin/')[1] || 'dashboard';
+
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (currentSection === 'users' || currentSection === 'dashboard') {
+      loadUsers();
+    }
+  }, [currentSection]);
 
   const loadUsers = async () => {
     try {
@@ -49,19 +58,23 @@ function AdminPage() {
     if (
       !window.confirm(
         `Are you sure you want to ${
-          currentAdminStatus ? "remove" : "grant"
-        } admin privileges?`
+          currentAdminStatus ? "remove admin access from" : "grant admin access to"
+        } this user?`
       )
     ) {
       return;
     }
 
     try {
-      await apiPatch(`/admin/users/${userId}/toggle-admin`);
-      await loadUsers(); // Reload the list
+      const result = await apiPatch(`/admin/users/${userId}/toggle-admin`);
+      setUsers(
+        users.map((user) =>
+          user.id === userId ? { ...user, is_admin: result.is_admin } : user
+        )
+      );
     } catch (err) {
       console.error("Failed to toggle admin status:", err);
-      alert(`Error: ${err.message || "Failed to update admin status"}`);
+      alert("Failed to toggle admin status");
     }
   };
 
@@ -76,119 +89,40 @@ function AdminPage() {
 
     try {
       await apiDelete(`/admin/users/${userId}`);
-      await loadUsers(); // Reload the list
+      setUsers(users.filter((user) => user.id !== userId));
     } catch (err) {
       console.error("Failed to delete user:", err);
-      alert(`Error: ${err.message || "Failed to delete user"}`);
+      alert("Failed to delete user");
     }
   };
 
   const handleImpersonate = async (userId, username) => {
     if (
       !window.confirm(
-        `Impersonate user "${username}"? You will be logged in as this user.`
+        `Are you sure you want to impersonate user "${username}"? You will be logged in as them.`
       )
     ) {
       return;
     }
 
     try {
-      const response = await apiPost(`/admin/impersonate/${userId}`);
-
-      // Store the current admin token before impersonation
       const currentToken = localStorage.getItem("token");
       localStorage.setItem("admin_token", currentToken);
       localStorage.setItem("impersonating", username);
 
-      // Store the new token and update auth context
-      localStorage.setItem("token", response.access_token);
-      updateAuth(response.access_token, response.username);
+      const response = await apiPost(`/admin/impersonate/${userId}`);
+      await updateAuth(response.access_token, response.username);
 
-      // Redirect to home page as the impersonated user
-      window.location.href = "/";
+      navigate("/wip");
     } catch (err) {
       console.error("Failed to impersonate user:", err);
-      alert(`Error: ${err.message || "Failed to impersonate user"}`);
-    }
-  };
-
-  const handleFetchAllArtistImages = async () => {
-    if (
-      !window.confirm(
-        "This will fetch artist images from Spotify for all artists that don't have them. This may take a while. Continue?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setFetchingImages(true);
-      setFetchLogs(["Starting artist image fetch..."]);
-      const response = await apiPost("/spotify/artists/fetch-all-missing-images");
-      setFetchLogs(response.log || []);
-      window.showNotification(
-        response.message || `Updated ${response.updated_count} artist images`,
-        "success"
-      );
-    } catch (err) {
-      console.error("Failed to fetch artist images:", err);
-      window.showNotification(
-        `Error: ${err.message || "Failed to fetch artist images"}`,
-        "error"
-      );
-    } finally {
-      setFetchingImages(false);
-    }
-  };
-
-  const handleFixSongArtistLinks = async () => {
-    if (
-      !window.confirm(
-        "This will link songs without artist_id to existing artists by name. Continue?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setFixingSongLinks(true);
-      setSongLinkLogs(["Starting song↔artist link fix..."]);
-      const response = await apiPost("/admin/fix-song-artist-links");
-      const logs = [
-        response.message || `Linked ${response.linked || 0} songs`,
-        `Checked ${response.checked || 0} songs total.`,
-      ];
-      if (response.missing_artist_names && response.missing_artist_names.length > 0) {
-        logs.push(
-          `Still missing ${response.missing_artist_names.length} artists (showing up to 25):`,
-          ...response.missing_artist_names.map((name) => ` - ${name}`)
-        );
-      }
-      const combinedLogs = response.log ? [...response.log, "---", ...logs] : logs;
-      setSongLinkLogs(combinedLogs);
-      window.showNotification(response.message || "Song/artist links updated", "success");
-    } catch (err) {
-      console.error("Failed to fix song artist links:", err);
-      window.showNotification(
-        `Error: ${err.message || "Failed to fix song artist links"}`,
-        "error"
-      );
-    } finally {
-      setFixingSongLinks(false);
+      alert("Failed to impersonate user");
     }
   };
 
   const handleBroadcastNotification = async () => {
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
-      window.showNotification("Please enter both title and message", "error");
-      return;
-    }
-
-    if (
-      !window.confirm(
-        `Send notification "${broadcastTitle}" to all users? This will be sent to all active users immediately.`
-      )
-    ) {
+      alert("Please enter both title and message");
       return;
     }
 
@@ -198,95 +132,56 @@ function AdminPage() {
         title: broadcastTitle,
         message: broadcastMessage,
       });
-      
-      window.showNotification(
-        response.message || `Notification sent to ${response.sent_count} users`,
-        "success"
-      );
-      
-      // Clear the form
+
+      alert(response.message);
       setBroadcastTitle("");
       setBroadcastMessage("");
       setShowBroadcastForm(false);
-      
     } catch (err) {
-      console.error("Failed to send broadcast notification:", err);
-      window.showNotification(
-        `Error: ${err.message || "Failed to send notification"}`,
-        "error"
-      );
+      console.error("Failed to send broadcast:", err);
+      alert("Failed to send broadcast notification");
     } finally {
       setSendingBroadcast(false);
     }
   };
 
+  // Sorting logic
+  const sortedUsers = React.useMemo(() => {
+    if (!sortConfig.key) return users;
+
+    return [...users].sort((a, b) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+
+      // Handle null dates
+      if (sortConfig.key.includes("_at")) {
+        aValue = aValue ? new Date(aValue) : new Date(0);
+        bValue = bValue ? new Date(bValue) : new Date(0);
+      }
+
+      if (aValue < bValue) {
+        return sortConfig.direction === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [users, sortConfig]);
+
   const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [users.length]);
-
-  const sortedUsers = [...users].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-
-    let aValue = a[sortConfig.key];
-    let bValue = b[sortConfig.key];
-
-    // Handle date fields
-    if (sortConfig.key === 'created_at' || sortConfig.key === 'last_login_at') {
-      aValue = aValue ? new Date(aValue).getTime() : 0;
-      bValue = bValue ? new Date(bValue).getTime() : 0;
-    }
-
-    // Handle null/undefined values
-    if (aValue == null) aValue = '';
-    if (bValue == null) bValue = '';
-
-    // Handle boolean values
-    if (typeof aValue === 'boolean') {
-      aValue = aValue ? 1 : 0;
-      bValue = bValue ? 1 : 0;
-    }
-
-    // Handle string comparison
-    if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-
-    if (aValue < bValue) {
-      return sortConfig.direction === 'asc' ? -1 : 1;
-    }
-    if (aValue > bValue) {
-      return sortConfig.direction === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
-
-  const getSortIcon = (key) => {
-    if (sortConfig.key !== key) {
-      return "↕️";
-    }
-    return sortConfig.direction === "asc" ? "↑" : "↓";
-  };
-
-  const totalPages = Math.ceil(sortedUsers.length / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedUsers = sortedUsers.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
-  const goToPage = (page) => {
-    if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
-  };
+  const totalPages = Math.ceil(sortedUsers.length / ITEMS_PER_PAGE);
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -297,7 +192,7 @@ function AdminPage() {
   if (loading) {
     return (
       <div className="admin-page">
-        <div className="loading">Loading users...</div>
+        <div className="loading">Loading...</div>
       </div>
     );
   }
@@ -311,464 +206,378 @@ function AdminPage() {
     );
   }
 
-  return (
-    <div className="admin-page">
-      <div className="admin-header">
-        <h1>Admin Panel</h1>
-        <p className="admin-subtitle">Manage users and system settings</p>
-      </div>
-
-      <div className="admin-tools-section" style={{ marginBottom: "1.5rem" }}>
+  // Render admin navigation tabs
+  const renderNavTabs = () => (
+    <div className="admin-nav-tabs" style={{ 
+      display: 'flex', 
+      gap: '1rem', 
+      marginBottom: '2rem',
+      borderBottom: '2px solid #eee'
+    }}>
+      {[
+        { id: 'dashboard', label: 'Dashboard', path: '/admin/dashboard' },
+        { id: 'users', label: 'Users', path: '/admin/users' },
+        { id: 'release-posts', label: 'Release Posts', path: '/admin/release-posts' },
+        { id: 'notifications', label: 'Notifications', path: '/admin/notifications' },
+        { id: 'tools', label: 'Tools', path: '/admin/tools' }
+      ].map(tab => (
         <button
-          onClick={() => setShowTools((prev) => !prev)}
+          key={tab.id}
+          onClick={() => navigate(tab.path)}
           style={{
-            width: "100%",
-            textAlign: "left",
-            border: "none",
-            background: "transparent",
-            padding: "0.75rem 0",
-            marginBottom: "0.25rem",
-            cursor: "pointer",
-            color: "#172035",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            borderBottom: "1px solid #e5e9f0",
+            padding: '0.75rem 1.5rem',
+            border: 'none',
+            background: currentSection === tab.id ? '#007bff' : 'transparent',
+            color: currentSection === tab.id ? 'white' : '#666',
+            borderRadius: '8px 8px 0 0',
+            cursor: 'pointer',
+            fontWeight: currentSection === tab.id ? '600' : '400',
+            transition: 'all 0.2s',
+            fontSize: '0.9rem'
+          }}
+          onMouseEnter={(e) => {
+            if (currentSection !== tab.id) {
+              e.target.style.background = '#f8f9fa';
+              e.target.style.color = '#333';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (currentSection !== tab.id) {
+              e.target.style.background = 'transparent';
+              e.target.style.color = '#666';
+            }
           }}
         >
-          <span
-            style={{
-              fontSize: "1.1rem",
-              color: "#5a6a85",
-              width: "1.2rem",
-              display: "inline-block",
-            }}
-          >
-            {showTools ? "▾" : "▸"}
-          </span>
-          <span>Admin Tools</span>
+          {tab.label}
         </button>
-        {showTools && (
-          <div style={{ padding: "0.5rem 0 1rem" }}>
-            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <button
-            onClick={handleFetchAllArtistImages}
-            disabled={fetchingImages}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: fetchingImages ? "#ccc" : "#9C27B0",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: fetchingImages ? "not-allowed" : "pointer",
-              fontSize: "1rem",
-              fontWeight: "500",
-            }}
-          >
-            {fetchingImages
-              ? "⏳ Fetching Artist Images..."
-              : "🎨 Fetch All Missing Artist Images"}
-          </button>
-          <button
-            onClick={handleFixSongArtistLinks}
-            disabled={fixingSongLinks}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: fixingSongLinks ? "#ccc" : "#0d6efd",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: fixingSongLinks ? "not-allowed" : "pointer",
-              fontSize: "1rem",
-              fontWeight: "500",
-            }}
-          >
-            {fixingSongLinks
-              ? "⏳ Linking Songs..."
-              : "🪢 Link Songs to Artists"}
-          </button>
-          <button
-            onClick={() => setShowBroadcastForm(!showBroadcastForm)}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: "#28a745",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "1rem",
-              fontWeight: "500",
-            }}
-          >
-            📢 Broadcast Notification
+      ))}
+    </div>
+  );
+
+  const renderDashboard = () => (
+    <div className="admin-dashboard">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+        {/* Recent Activity */}
+        <div className="admin-card">
+          <h3>Activity Feed</h3>
+          <ActivityFeed limit={5} />
+        </div>
+        
+        {/* Quick Actions */}
+        <div className="admin-card">
+          <h3>Quick Actions</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <button 
+              onClick={() => navigate('/admin/release-posts')}
+              className="admin-action-btn"
+              style={{
+                padding: '0.75rem 1rem',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+            >
+              Create Release Post
+            </button>
+            <button 
+              onClick={() => navigate('/admin/notifications')}
+              className="admin-action-btn"
+              style={{
+                padding: '0.75rem 1rem',
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+            >
+              Send Notification
+            </button>
+            <button 
+              onClick={() => navigate('/admin/users')}
+              className="admin-action-btn"
+              style={{
+                padding: '0.75rem 1rem',
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+            >
+              Manage Users
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderUsers = () => (
+    <div className="admin-users-section">
+      {/* User Table */}
+      <div className="users-table-container">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3>User Management ({users.length} users)</h3>
+          <button onClick={loadUsers} style={{ padding: '0.5rem 1rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Refresh
           </button>
         </div>
-        <p style={{ marginTop: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
-          Fetches artist profile pictures from Spotify for all artists that don't
-          have images yet.
-        </p>
-        {fetchLogs.length > 0 && (
-          <div
-            style={{
-              marginTop: "1rem",
-              maxHeight: "200px",
-              overflowY: "auto",
-              border: "1px solid #eee",
-              borderRadius: "6px",
-              padding: "0.75rem",
-              background: "#fafafa",
-              fontFamily: "monospace",
-              fontSize: "0.85rem",
-              lineHeight: 1.5,
-            }}
-          >
-            {fetchLogs.map((entry, idx) => (
-              <div key={idx}>{entry}</div>
-            ))}
-          </div>
-        )}
-        {songLinkLogs.length > 0 && (
-          <div
-            style={{
-              marginTop: "1rem",
-              maxHeight: "200px",
-              overflowY: "auto",
-              border: "1px solid #eee",
-              borderRadius: "6px",
-              padding: "0.75rem",
-              background: "#f3f8ff",
-              fontFamily: "monospace",
-              fontSize: "0.85rem",
-              lineHeight: 1.5,
-            }}
-          >
-            {songLinkLogs.map((entry, idx) => (
-              <div key={`song-link-${idx}`}>{entry}</div>
-            ))}
-          </div>
-        )}
-        {showBroadcastForm && (
-          <div
-            style={{
-              marginTop: "1rem",
-              border: "1px solid #e0e0e0",
-              borderRadius: "6px",
-              padding: "1rem",
-              background: "#f9f9f9",
-            }}
-          >
-            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.1rem", color: "#333" }}>
-              📢 Send Notification to All Users
-            </h3>
-            <div style={{ marginBottom: "1rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "#555" }}>
-                Title:
-              </label>
-              <input
-                type="text"
-                value={broadcastTitle}
-                onChange={(e) => setBroadcastTitle(e.target.value)}
-                placeholder="e.g., New Feature Available!"
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                }}
-                maxLength={100}
-              />
-              <small style={{ color: "#666" }}>{broadcastTitle.length}/100 characters</small>
-            </div>
-            <div style={{ marginBottom: "1rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold", color: "#555" }}>
-                Message:
-              </label>
-              <textarea
-                value={broadcastMessage}
-                onChange={(e) => setBroadcastMessage(e.target.value)}
-                placeholder="e.g., We've added dark mode! Check it out in your settings."
-                rows={3}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                  resize: "vertical",
-                  minHeight: "80px",
-                }}
-                maxLength={300}
-              />
-              <small style={{ color: "#666" }}>{broadcastMessage.length}/300 characters</small>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                onClick={handleBroadcastNotification}
-                disabled={sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim()}
-                style={{
-                  padding: "0.6rem 1.2rem",
-                  backgroundColor: sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim() ? "#ccc" : "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim() ? "not-allowed" : "pointer",
-                  fontSize: "1rem",
-                  fontWeight: "500",
-                }}
-              >
-                {sendingBroadcast ? "⏳ Sending..." : "Send to All Users"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowBroadcastForm(false);
-                  setBroadcastTitle("");
-                  setBroadcastMessage("");
-                }}
-                style={{
-                  padding: "0.6rem 1.2rem",
-                  backgroundColor: "#6c757d",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "1rem",
-                  fontWeight: "500",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-            <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#666" }}>
-              This will send a bell notification to all active users. They will see it in their notification dropdown.
-            </p>
-          </div>
-        )}
-          </div>
-        )}
-      </div>
 
-      <div className="users-section" style={{ marginBottom: "1.5rem" }}>
-        <button
-          onClick={() => setShowUsers((prev) => !prev)}
-          style={{
-            width: "100%",
-            textAlign: "left",
-            border: "none",
-            background: "transparent",
-            padding: "0.75rem 0",
-            marginBottom: "0.25rem",
-            cursor: "pointer",
-            color: "#172035",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            borderBottom: "1px solid #e5e9f0",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "1.1rem",
-              color: "#5a6a85",
-              width: "1.2rem",
-              display: "inline-block",
-            }}
-          >
-            {showUsers ? "▾" : "▸"}
-          </span>
-          <span>
-            User Management ({users.length} {users.length === 1 ? "user" : "users"})
-          </span>
-        </button>
-
-        {showUsers && (
-          <div className="users-table-container">
-          <table className="users-table">
+        <div className="table-responsive">
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <thead>
-              <tr>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('id')}
-                >
-                  ID {getSortIcon('id')}
+              <tr style={{ background: '#f8f9fa' }}>
+                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer' }} onClick={() => handleSort('username')}>
+                  Username {sortConfig.key === 'username' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('username')}
-                >
-                  Username {getSortIcon('username')}
+                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Email</th>
+                <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Songs</th>
+                <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Admin</th>
+                <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Active</th>
+                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer' }} onClick={() => handleSort('last_login_at')}>
+                  Last Login {sortConfig.key === 'last_login_at' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('email')}
-                >
-                  Email {getSortIcon('email')}
-                </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('is_admin')}
-                >
-                  Admin {getSortIcon('is_admin')}
-                </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('created_at')}
-                >
-                  Created {getSortIcon('created_at')}
-                </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('last_login_at')}
-                >
-                  Last Login {getSortIcon('last_login_at')}
-                </th>
-                <th 
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleSort('song_count')}
-                >
-                  Songs {getSortIcon('song_count')}
-                </th>
-                <th>Actions</th>
+                <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>{user.id}</td>
-                  <td className="username-cell">{user.username}</td>
-                  <td>{user.email}</td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        user.is_admin ? "badge-admin" : "badge-user"
-                      }`}
-                    >
-                      {user.is_admin ? "Admin" : "User"}
-                    </span>
+              {paginatedUsers.map((user, index) => (
+                <tr key={user.id} style={{ borderBottom: '1px solid #dee2e6' }}>
+                  <td style={{ padding: '1rem', fontWeight: '600' }}>{user.username}</td>
+                  <td style={{ padding: '1rem' }}>{user.email || 'N/A'}</td>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>{user.song_count || 0}</td>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    {user.is_admin ? (
+                      <span style={{ color: '#dc3545', fontWeight: 'bold' }}>✓</span>
+                    ) : (
+                      <span style={{ color: '#6c757d' }}>-</span>
+                    )}
                   </td>
-                  <td className="date-cell">{formatDate(user.created_at)}</td>
-                  <td className="date-cell">
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    {user.is_active ? (
+                      <span style={{ color: '#28a745', fontWeight: 'bold' }}>✓</span>
+                    ) : (
+                      <span style={{ color: '#dc3545', fontWeight: 'bold' }}>✗</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#6c757d' }}>
                     {formatDate(user.last_login_at)}
                   </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {user.song_count || 0}
-                  </td>
-                  <td className="actions-cell">
-                    <button
-                      className="btn-impersonate"
-                      onClick={() => handleImpersonate(user.id, user.username)}
-                      title="Impersonate this user"
-                    >
-                      👤 Login As
-                    </button>
-                    <button
-                      className={`btn-toggle-admin ${
-                        user.is_admin ? "btn-demote" : "btn-promote"
-                      }`}
-                      onClick={() => handleToggleAdmin(user.id, user.is_admin)}
-                      title={user.is_admin ? "Remove admin" : "Make admin"}
-                    >
-                      {user.is_admin ? "⬇️ Demote" : "⬆️ Promote"}
-                    </button>
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleDeleteUser(user.id, user.username)}
-                      title="Delete user"
-                    >
-                      🗑️ Delete
-                    </button>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                      <button
+                        onClick={() => handleToggleAdmin(user.id, user.is_admin)}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          background: user.is_admin ? '#dc3545' : '#28a745',
+                          color: 'white'
+                        }}
+                      >
+                        {user.is_admin ? 'Remove Admin' : 'Make Admin'}
+                      </button>
+                      <button
+                        onClick={() => handleImpersonate(user.id, user.username)}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          background: '#6c757d',
+                          color: 'white'
+                        }}
+                      >
+                        Impersonate
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id, user.username)}
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          background: '#dc3545',
+                          color: 'white'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-            <div
-              style={{
-                marginTop: "1rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "0.5rem",
-              }}
-            >
-              <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                style={{
-                  padding: "0.4rem 0.8rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc",
-                  background: currentPage === 1 ? "#f0f0f0" : "white",
-                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                }}
-              >
-                ← Prev
-              </button>
-              <span style={{ fontSize: "0.9rem", color: "#555" }}>
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                style={{
-                  padding: "0.4rem 0.8rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc",
-                  background: currentPage === totalPages ? "#f0f0f0" : "white",
-                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                }}
-              >
-                Next →
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
+    </div>
+  );
 
-      <div className="admin-tools-section">
+  const renderReleasePosts = () => (
+    <div className="admin-release-posts-section">
+      <h3>Release Posts Management</h3>
+      <p style={{ color: '#666', marginBottom: '2rem' }}>
+        Create and manage release announcements that appear on the home page.
+      </p>
+      <div className="coming-soon" style={{
+        background: '#f8f9fa',
+        padding: '3rem',
+        borderRadius: '12px',
+        textAlign: 'center',
+        border: '2px dashed #dee2e6'
+      }}>
+        <div style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#6c757d' }}>UNDER CONSTRUCTION</div>
+        <h4 style={{ color: '#6c757d', marginBottom: '0.5rem' }}>Release Post Editor Coming Soon</h4>
+        <p style={{ color: '#999' }}>
+          The visual editor for creating and managing release posts is being built.
+          <br />
+          You can use the API endpoints at <code>/admin/release-posts</code> in the meantime.
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderNotifications = () => (
+    <div className="admin-notifications-section">
+      <h3>Broadcast Notifications</h3>
+      <p style={{ color: '#666', marginBottom: '2rem' }}>
+        Send system-wide notifications to all active users.
+      </p>
+      
+      <div className="broadcast-form" style={{
+        background: '#f8f9fa',
+        padding: '2rem',
+        borderRadius: '8px',
+        maxWidth: '600px'
+      }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+            Notification Title:
+          </label>
+          <input
+            type="text"
+            value={broadcastTitle}
+            onChange={(e) => setBroadcastTitle(e.target.value)}
+            placeholder="Enter notification title..."
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px',
+              fontSize: '1rem'
+            }}
+          />
+        </div>
+        
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+            Message:
+          </label>
+          <textarea
+            value={broadcastMessage}
+            onChange={(e) => setBroadcastMessage(e.target.value)}
+            placeholder="Enter notification message..."
+            rows={4}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+        
         <button
-          onClick={() => setShowActivityFeed((prev) => !prev)}
+          onClick={handleBroadcastNotification}
+          disabled={sendingBroadcast || !broadcastTitle.trim() || !broadcastMessage.trim()}
           style={{
-            width: "100%",
-            textAlign: "left",
-            border: "none",
-            background: "transparent",
-            padding: "0.75rem 0",
-            marginBottom: "0.25rem",
-            cursor: "pointer",
-            color: "#172035",
-            fontSize: "1.1rem",
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            borderBottom: "1px solid #e5e9f0",
+            padding: '0.75rem 1.5rem',
+            background: sendingBroadcast ? '#6c757d' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: sendingBroadcast ? 'not-allowed' : 'pointer',
+            fontSize: '1rem',
+            fontWeight: '600'
           }}
         >
-          <span
-            style={{
-              fontSize: "1.1rem",
-              color: "#5a6a85",
-              width: "1.2rem",
-              display: "inline-block",
-            }}
-          >
-            {showActivityFeed ? "▾" : "▸"}
-          </span>
-          <span>Activity Feed</span>
+          {sendingBroadcast ? 'Sending...' : 'Send Broadcast'}
         </button>
-
-        {showActivityFeed && (
-          <div style={{ padding: "0.5rem 0 1rem" }}>
-            <ActivityFeed />
-          </div>
-        )}
       </div>
+    </div>
+  );
+
+  const renderTools = () => (
+    <div className="admin-tools-section">
+      <h3>System Tools</h3>
+      <p style={{ color: '#666', marginBottom: '2rem' }}>
+        Administrative tools and maintenance functions.
+      </p>
+      
+      <div className="tools-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: '1.5rem'
+      }}>
+        {/* Activity Feed */}
+        <div className="admin-card">
+          <h4>Activity Feed</h4>
+          <ActivityFeed limit={10} />
+        </div>
+        
+        {/* Coming Soon Tools */}
+        <div className="admin-card">
+          <h4>Maintenance Tools</h4>
+          <div className="coming-soon" style={{
+            background: '#f8f9fa',
+            padding: '2rem',
+            borderRadius: '8px',
+            textAlign: 'center',
+            border: '2px dashed #dee2e6'
+          }}>
+            <div style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#6c757d' }}>UNDER CONSTRUCTION</div>
+            <p style={{ color: '#6c757d' }}>
+              Additional admin tools coming soon
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="admin-page">
+      <div className="admin-header">
+        <h1>Admin Panel</h1>
+        <p className="admin-subtitle">
+          {currentSection === 'dashboard' && 'Overview and quick actions'}
+          {currentSection === 'users' && 'Manage users and permissions'}
+          {currentSection === 'release-posts' && 'Create and manage release announcements'}
+          {currentSection === 'notifications' && 'Send system messages to users'}
+          {currentSection === 'tools' && 'Maintenance and system tools'}
+        </p>
+      </div>
+      
+      {renderNavTabs()}
+      
+      {currentSection === 'dashboard' && renderDashboard()}
+      {currentSection === 'users' && renderUsers()}
+      {currentSection === 'release-posts' && renderReleasePosts()}
+      {currentSection === 'notifications' && renderNotifications()}
+      {currentSection === 'tools' && renderTools()}
     </div>
   );
 }

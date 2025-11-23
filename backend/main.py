@@ -95,6 +95,7 @@ app.add_middleware(
         "https://frontend-production-4e01.up.railway.app",
         "https://trackflow-frontend.up.railway.app",
         "https://trackflow-frontend.railway.app",
+        "https://site-production-8de8.up.railway.app",
         "https://www.trackflow.site",
         "https://trackflow.site",
     ],

@@ -12,5 +12,3 @@ python-dotenv==1.0.0
 cloudinary==1.36.0
 spotipy==2.25.1
 psutil==5.9.6
-fastapi-mail==1.4.1
-aiofiles==23.2.1

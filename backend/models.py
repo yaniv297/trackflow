@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -75,6 +75,7 @@ class Song(Base):
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     pack_id = Column(Integer, ForeignKey("packs.id"), index=True)
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
+    notes = Column(Text, nullable=True)  # Progress notes for the song
     created_at = Column(DateTime, default=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)  # When song was released
     release_description = Column(Text, nullable=True)  # Optional description for the release
@@ -476,4 +477,19 @@ class ReleasePost(Base):
         Index('idx_release_post_published', 'is_published', 'published_at'),
         Index('idx_release_post_featured', 'is_featured', 'published_at'),
         Index('idx_release_post_type', 'post_type', 'published_at'),
+    )
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_token_email', 'email'),
+        Index('idx_token_expires', 'expires_at'),
     )

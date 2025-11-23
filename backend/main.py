@@ -27,7 +27,16 @@ from api.notifications import router as notifications_router
 from database import engine, SQLALCHEMY_DATABASE_URL, get_db
 from models import Base
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+# Load environment variables from multiple possible locations
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),  # backend/.env
+    os.path.join(os.path.dirname(__file__), '..', '.env'),  # root/.env
+]
+
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        break
 
 
 
@@ -36,6 +45,15 @@ app = FastAPI(
     description="API for TrackFlow music management system",
     version="1.0.0"
 )
+
+# Request logging middleware (disabled in production for cleaner logs)
+# @app.middleware("http")
+# async def log_requests(request, call_next):
+#     import time
+#     start_time = time.time()
+#     response = await call_next(request)
+#     process_time = time.time() - start_time
+#     return response
 
 # Add trusted host middleware to handle Railway's forwarded headers
 app.add_middleware(
@@ -53,6 +71,7 @@ app.add_middleware(
         "https://frontend-production-4e01.up.railway.app",
         "https://trackflow-frontend.up.railway.app",
         "https://trackflow-frontend.railway.app",
+        "https://site-production-8de8.up.railway.app",
         "https://www.trackflow.site",
         "https://trackflow.site",
     ],
@@ -71,10 +90,8 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 def init_db():
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created successfully")
-    except Exception as e:
-        print(f"⚠️ Warning: Could not create database tables: {e}")
-        print("The app will start but database operations may fail")
+    except Exception:
+        pass  # Don't block startup if database is not available
 
 # Register route modules
 app.include_router(auth.router)

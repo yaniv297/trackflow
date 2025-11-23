@@ -22,17 +22,29 @@ export default function EditableCell({
 
   // Special handling for album_cover field
   const isAlbumCover = field === "album_cover";
+  // Special handling for notes field
+  const isNotes = field === "notes";
 
   const handleChange = (e) => {
     setEditValues((prev) => ({ ...prev, [key]: e.target.value }));
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") saveEdit(songId, field);
-    if (e.key === "Escape") {
-      // Cancel edit and restore original value
-      setEditValues((prev) => ({ ...prev, [key]: value }));
-      setEditing({ [key]: false });
+    // For notes field, only save on Ctrl+Enter or Escape
+    if (isNotes) {
+      if (e.key === "Enter" && e.ctrlKey) saveEdit(songId, field);
+      if (e.key === "Escape") {
+        // Cancel edit and restore original value
+        setEditValues((prev) => ({ ...prev, [key]: value }));
+        setEditing({ [key]: false });
+      }
+    } else {
+      if (e.key === "Enter") saveEdit(songId, field);
+      if (e.key === "Escape") {
+        // Cancel edit and restore original value
+        setEditValues((prev) => ({ ...prev, [key]: value }));
+        setEditing({ [key]: false });
+      }
     }
   };
 
@@ -87,6 +99,25 @@ export default function EditableCell({
               padding: "2px 4px",
             }}
           />
+        ) : isNotes ? (
+          <textarea
+            value={displayValue}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            placeholder="Progress notes... (Ctrl+Enter to save)"
+            autoFocus
+            rows="2"
+            style={{
+              width: "100%",
+              border: "none",
+              outline: "none",
+              fontSize: "0.85rem",
+              padding: "2px 4px",
+              resize: "vertical",
+              minHeight: "40px",
+            }}
+          />
         ) : (
           <input
             value={displayValue}
@@ -109,6 +140,19 @@ export default function EditableCell({
                 flex: 1,
               }}
             />
+          ) : isNotes ? (
+            <div style={{ 
+              flex: 1, 
+              fontSize: "0.85rem", 
+              color: displayValue ? "#333" : "#999",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              maxHeight: "60px",
+              overflowY: "auto",
+              padding: "2px 0"
+            }}>
+              {displayValue || "Click to add notes..."}
+            </div>
           ) : (
             <span style={{ flex: 1 }}>{displayValue}</span>
           )}

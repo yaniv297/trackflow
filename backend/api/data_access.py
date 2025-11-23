@@ -8,7 +8,7 @@ from fastapi import HTTPException
 def get_songs(db: Session):
     return db.query(Song).all()
 
-def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: bool = True):
+def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: bool = True, auto_commit: bool = True):
     # Extract collaborations from the song data
     song_data = song.dict()
     collaborations = song_data.pop('collaborations', [])
@@ -33,8 +33,12 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
                 priority = song_data.get('priority')  # Get priority from song data or None
                 new_pack = Pack(name=pack_name, user_id=user.id, priority=priority)
                 db.add(new_pack)
-                db.commit()
-                db.refresh(new_pack)
+                if auto_commit:
+                    db.commit()
+                    db.refresh(new_pack)
+                else:
+                    db.flush()
+                    db.refresh(new_pack)
                 song_data['pack_id'] = new_pack.id
                 print(f"Created pack with ID: {new_pack.id}")
         else:
@@ -53,7 +57,7 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
     song_data['user_id'] = user.id
     
     # Clean up song_data to remove fields that don't exist in the Song model
-    valid_fields = ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'user_id']
+    valid_fields = ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'user_id', 'notes', 'optional']
     cleaned_song_data = {k: v for k, v in song_data.items() if k in valid_fields}
     # Remove priority field as it's only used for pack creation, not song creation
     cleaned_song_data.pop('priority', None)
@@ -62,8 +66,12 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
     
     db_song = Song(**cleaned_song_data)
     db.add(db_song)
-    db.commit()
-    db.refresh(db_song)
+    if auto_commit:
+        db.commit()
+        db.refresh(db_song)
+    else:
+        db.flush()  # Get the ID without committing
+        db.refresh(db_song)
     
     print(f"Successfully created song with ID: {db_song.id}")
     
@@ -87,14 +95,19 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
                         collaboration_type=CollaborationType.SONG_EDIT
                     )
                     db.add(db_collab)
-        db.commit()
+        if auto_commit:
+            db.commit()
     
     # Auto-create authoring row if song is "In Progress"
     if db_song.status == "In Progress":
         db_authoring = Authoring(song_id=db_song.id)
         db.add(db_authoring)
-        db.commit()
-        db.refresh(db_authoring)
+        if auto_commit:
+            db.commit()
+            db.refresh(db_authoring)
+        else:
+            db.flush()
+            db.refresh(db_authoring)
     
     # Auto-enhance song with Spotify data (only if auto_enhance is True and user has it enabled)
     # Reload user from database to get fresh setting value (user might be from cache)
@@ -111,13 +124,52 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
     if auto_enhance and user_auto_enhance_enabled:
         try:
             from api.spotify import auto_enhance_song
-            if auto_enhance_song(db_song.id, db, preserve_artist_album=False):
+            if auto_enhance_song(db_song.id, db, preserve_artist_album=False, auto_commit=auto_commit):
                 print(f"Auto-enhanced song {db_song.id} with Spotify data")
+                
+                # Refresh to get updated metadata from Spotify
+                db.refresh(db_song)
+                
+                # Check for duplicates AFTER Spotify enhancement
+                print(f"Checking for post-enhancement duplicates: '{db_song.title}' by {db_song.artist}")
+                
+                # Look for other songs with the same title/artist (excluding this one)
+                duplicate_song = db.query(Song).filter(
+                    Song.title.ilike(db_song.title),
+                    Song.artist.ilike(db_song.artist),
+                    Song.id != db_song.id  # Exclude the current song
+                ).first()
+                
+                if duplicate_song:
+                    # Check if user owns or collaborates on the duplicate
+                    user_has_access = False
+                    if duplicate_song.user_id == user.id:
+                        user_has_access = True
+                    else:
+                        collaboration = db.query(Collaboration).filter(
+                            Collaboration.song_id == duplicate_song.id,
+                            Collaboration.user_id == user.id,
+                            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+                        ).first()
+                        if collaboration:
+                            user_has_access = True
+                    
+                    if user_has_access:
+                        # Delete the newly created song to prevent duplicate
+                        print(f"Deleting duplicate song {db_song.id} created by Spotify enhancement")
+                        db.delete(db_song)
+                        if auto_commit:
+                            db.commit()
+                        else:
+                            db.flush()
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Song '{db_song.title}' by {db_song.artist} already exists in your database (detected after Spotify enhancement)"
+                        )
                 
                 # Auto-clean remaster tags after enhancement
                 try:
                     from api.tools import clean_string
-                    db.refresh(db_song)  # Refresh to get updated data from Spotify
                     
                     cleaned_title = clean_string(db_song.title)
                     cleaned_album = clean_string(db_song.album or "")
@@ -126,12 +178,16 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
                         print(f"Cleaning remaster tags for song {db_song.id}")
                         db_song.title = cleaned_title
                         db_song.album = cleaned_album
-                        db.commit()
+                        if auto_commit:
+                            db.commit()
                         print(f"Cleaned song {db_song.id}: title='{cleaned_title}', album='{cleaned_album}'")
                 except Exception as clean_error:
                     print(f"Failed to clean remaster tags for song {db_song.id}: {clean_error}")
         except Exception as e:
             print(f"Failed to auto-enhance song {db_song.id}: {e}")
+            # Re-raise HTTPException to propagate duplicate detection errors
+            if isinstance(e, HTTPException):
+                raise e
     else:
         if not auto_enhance:
             print(f"Auto-enhancement skipped for song {db_song.id} (auto_enhance parameter is False)")

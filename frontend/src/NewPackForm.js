@@ -213,14 +213,29 @@ function NewPackForm() {
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .map((line) => {
-          const [artist, title] = line.split(/[–-]/).map((x) => x.trim());
-          return {
-            title: capitalizeName(title || "Unknown Title"),
-            artist: capitalizeName(artist || "Unknown Artist"),
-            pack_name: effectivePack,
-            status: meta.status,
-            priority: meta.priority,
-          };
+          // Split on " - " (space-hyphen-space) to avoid breaking artist names with hyphens
+          const parts = line.split(' - ');
+          if (parts.length >= 2) {
+            // If we have a proper " - " separator
+            const artist = parts[0].trim();
+            const title = parts.slice(1).join(' - ').trim(); // Rejoin in case title has " - "
+            return {
+              title: capitalizeName(title || "Unknown Title"),
+              artist: capitalizeName(artist || "Unknown Artist"),
+              pack_name: effectivePack,
+              status: meta.status,
+              priority: meta.priority,
+            };
+          } else {
+            // Fallback: if no " - " found, treat whole line as title with unknown artist
+            return {
+              title: capitalizeName(line.trim() || "Unknown Title"),
+              artist: capitalizeName("Unknown Artist"),
+              pack_name: effectivePack,
+              status: meta.status,
+              priority: meta.priority,
+            };
+          }
         });
     }
 

@@ -1,25 +1,26 @@
 import React, { useState } from "react";
-import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { apiPost } from "../utils/api";
 
-const LoginForm = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+const ForgotPassword = () => {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setMessage("");
     setLoading(true);
 
     try {
-      await login(username, password);
-      navigate("/wip"); // Redirect to WIP page after login
+      const data = await apiPost("/auth/forgot-password", { email });
+      setMessage(data.message);
+      setEmail(""); // Clear the form
     } catch (error) {
-      setError(error.message || "Login failed");
+      setError(error.detail || error.message || "Failed to send password reset email");
     }
 
     setLoading(false);
@@ -48,8 +49,12 @@ const LoginForm = () => {
         <h2
           style={{ textAlign: "center", marginBottom: "1.5rem", color: "#333" }}
         >
-          🎵 TrackFlow Login
+          🔒 Forgot Password
         </h2>
+
+        <p style={{ color: "#666", marginBottom: "1.5rem", textAlign: "center" }}>
+          Enter your email address and we'll send you a link to reset your password.
+        </p>
 
         {error && (
           <div
@@ -66,34 +71,22 @@ const LoginForm = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1rem" }}>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                fontWeight: "bold",
-              }}
-            >
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-                fontSize: "1rem",
-                boxSizing: "border-box",
-              }}
-              placeholder="Enter your username"
-            />
+        {message && (
+          <div
+            style={{
+              backgroundColor: "#efe",
+              color: "#060",
+              padding: "0.75rem",
+              borderRadius: "4px",
+              marginBottom: "1rem",
+              border: "1px solid #cfc",
+            }}
+          >
+            {message}
           </div>
+        )}
 
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "1.5rem" }}>
             <label
               style={{
@@ -102,12 +95,12 @@ const LoginForm = () => {
                 fontWeight: "bold",
               }}
             >
-              Password
+              Email Address
             </label>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               style={{
                 width: "100%",
@@ -117,7 +110,7 @@ const LoginForm = () => {
                 fontSize: "1rem",
                 boxSizing: "border-box",
               }}
-              placeholder="Enter your password"
+              placeholder="Enter your email address"
             />
           </div>
 
@@ -135,47 +128,30 @@ const LoginForm = () => {
               fontWeight: "bold",
               cursor: loading ? "not-allowed" : "pointer",
               boxSizing: "border-box",
+              marginBottom: "1rem",
             }}
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Sending..." : "Send Reset Link"}
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: "1rem" }}>
-          <p style={{ color: "#666", marginBottom: "0.5rem" }}>
-            <button
-              onClick={() => navigate("/forgot-password")}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#007bff",
-                cursor: "pointer",
-                textDecoration: "underline",
-                fontSize: "0.9rem",
-              }}
-            >
-              Forgot your password?
-            </button>
-          </p>
-          <p style={{ color: "#666" }}>
-            Don't have an account?{" "}
-            <button
-              onClick={() => navigate("/register")}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#007bff",
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
-              Register here
-            </button>
-          </p>
+        <div style={{ textAlign: "center" }}>
+          <button
+            onClick={() => navigate("/login")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#007bff",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            ← Back to Login
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-export default LoginForm;
+export default ForgotPassword;

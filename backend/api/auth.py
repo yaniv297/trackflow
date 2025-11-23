@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User
+from models import User, PasswordResetToken
 from datetime import timedelta, datetime, date
 from pydantic import BaseModel
 from typing import Optional
@@ -10,6 +10,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 import os
 import time
+import secrets
+import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from .user_activity import record_activity
 
@@ -17,6 +22,74 @@ from .user_activity import record_activity
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+
+# Email configuration (inline to avoid import issues)
+EMAIL_USERNAME = os.getenv("EMAIL_USERNAME", "")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+EMAIL_FROM = os.getenv("EMAIL_FROM", EMAIL_USERNAME)
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "TrackFlow")
+EMAIL_SERVER = os.getenv("EMAIL_SERVER", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_STARTTLS = os.getenv("EMAIL_STARTTLS", "True").lower() == "true"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+def is_email_configured() -> bool:
+    """Check if email is properly configured"""
+    return bool(EMAIL_USERNAME and EMAIL_PASSWORD and EMAIL_SERVER)
+
+def send_password_reset_email_inline(email: str, token: str, username: str) -> bool:
+    """Send password reset email to user (inline version)"""
+    if not is_email_configured():
+        return False
+    
+    reset_url = f"{FRONTEND_URL}/reset-password?token={token}"
+    
+    try:
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = "Reset Your TrackFlow Password"
+        msg['From'] = f"{EMAIL_FROM_NAME} <{EMAIL_FROM}>"
+        msg['To'] = email
+        
+        # Simple HTML content
+        html_body = f'''
+        <h2>Password Reset - TrackFlow</h2>
+        <p>Hi {username},</p>
+        <p>Click the link below to reset your password:</p>
+        <p><a href="{reset_url}" style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px;">Reset Your Password</a></p>
+        <p>Or copy this link: {reset_url}</p>
+        <p>This link expires in 1 hour.</p>
+        '''
+        
+        plain_body = f'''
+        Password Reset - TrackFlow
+        
+        Hi {username},
+        
+        Use this link to reset your password: {reset_url}
+        
+        This link expires in 1 hour.
+        '''
+        
+        # Add text and HTML parts
+        text_part = MIMEText(plain_body, 'plain')
+        html_part = MIMEText(html_body, 'html')
+        msg.attach(text_part)
+        msg.attach(html_part)
+        
+        # Send email via SMTP
+        with smtplib.SMTP(EMAIL_SERVER, EMAIL_PORT) as server:
+            if EMAIL_STARTTLS:
+                server.starttls()
+            server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+            text = msg.as_string()
+            server.sendmail(EMAIL_FROM, email, text)
+        
+        return True
+        
+    except Exception:
+        return False
+
 
 # Simple user cache with TTL
 _user_cache = {}
@@ -119,6 +192,13 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -500,8 +580,8 @@ def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             activity_type="login",
             description=f"{user.username} has logged in"
         )
-    except Exception as log_err:
-        print(f"⚠️ Failed to log login activity: {log_err}")
+    except Exception:
+        pass
     
     # Check login streak achievements
     try:
@@ -561,4 +641,192 @@ def refresh_token(current_user: UserResponse = Depends(get_current_active_user))
             is_active=current_user.is_active,
             created_at=current_user.created_at.isoformat()
         )
-    } 
+    }
+
+@router.post("/forgot-password")
+def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Request password reset email for a user
+    """
+    try:
+        email = request.email.strip().lower()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid email format")
+    
+    # Validate email format
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email format"
+        )
+    
+    # Check if user exists
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        # Don't reveal whether email exists or not for security
+        return {"message": "If an account with that email exists, a password reset link has been sent."}
+    
+    # Generate secure token
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
+    
+    # Save token to database (invalidate any existing tokens for this email)
+    db.query(PasswordResetToken).filter(PasswordResetToken.email == email).delete()
+    
+    reset_token = PasswordResetToken(
+        email=email,
+        token=token,
+        expires_at=expires_at
+    )
+    db.add(reset_token)
+    db.commit()
+    
+    # Send password reset email
+    try:
+        if not is_email_configured():
+            # Return the same message for security (don't reveal email config status)
+            return {"message": "If an account with that email exists, a password reset link has been sent."}
+        
+        email_sent = send_password_reset_email_inline(email, token, user.username)
+        if not email_sent:
+            # Clean up token if email failed
+            db.delete(reset_token)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send password reset email. Please try again later."
+            )
+        
+        # Log activity
+        try:
+            from .activity_logger import log_activity
+            log_activity(
+                db=db,
+                user_id=user.id,
+                activity_type="password_reset_requested",
+                description=f"{user.username} requested a password reset"
+            )
+        except Exception:
+            pass  # Don't fail if logging fails
+            
+    except Exception as e:
+        # Clean up token if something went wrong
+        try:
+            if 'reset_token' in locals():
+                db.delete(reset_token)
+                db.commit()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send password reset email. Please try again later."
+        )
+    
+    return {"message": "If an account with that email exists, a password reset link has been sent."}
+
+@router.post("/reset-password")
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Reset user password using a valid token
+    """
+    token = request.token
+    new_password = request.new_password
+    
+    # Validate new password
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long"
+        )
+    if not re.search(r'[A-Za-z]', new_password) or not re.search(r'\d', new_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least one letter and one number"
+        )
+    
+    # Find and validate token
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token,
+        PasswordResetToken.used_at == None  # Token not already used
+    ).first()
+    
+    if not reset_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token"
+        )
+    
+    # Check if token is expired
+    if datetime.utcnow() > reset_token.expires_at:
+        # Clean up expired token
+        db.delete(reset_token)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset token has expired. Please request a new one."
+        )
+    
+    # Find user by email
+    user = db.query(User).filter(User.email == reset_token.email).first()
+    if not user:
+        # Clean up token if user doesn't exist
+        db.delete(reset_token)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid password reset token"
+        )
+    
+    # Update user password
+    user.hashed_password = get_password_hash(new_password)
+    
+    # Mark token as used
+    reset_token.used_at = datetime.utcnow()
+    
+    db.commit()
+    
+    # Clean up all other tokens for this email
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.email == reset_token.email,
+        PasswordResetToken.id != reset_token.id
+    ).delete()
+    db.commit()
+    
+    # Log activity
+    try:
+        from .activity_logger import log_activity
+        log_activity(
+            db=db,
+            user_id=user.id,
+            activity_type="password_reset_completed",
+            description=f"{user.username} successfully reset their password"
+        )
+    except Exception:
+        pass  # Don't fail if logging fails
+    
+    return {"message": "Password has been reset successfully. You can now login with your new password."}
+
+@router.get("/forgot-password-test")
+def forgot_password_test():
+    """Test endpoint to verify imports work"""
+    try:
+        from models import PasswordResetToken
+        return {
+            "models_import": "OK", 
+            "email_inline_import": "OK",
+            "email_configured": is_email_configured(),
+            "test": "All imports successful",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "test": "Import failed",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+@router.get("/ping")
+def ping():
+    """Simple ping endpoint"""
+    return {"message": "pong", "timestamp": datetime.utcnow().isoformat()} 

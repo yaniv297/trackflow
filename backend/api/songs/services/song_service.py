@@ -151,23 +151,49 @@ class SongService:
         return True
     
     def create_songs_batch(self, songs_data: List[SongCreate], current_user: User) -> List[SongOut]:
-        """Create multiple songs in batch."""
+        """Create multiple songs in batch with all-or-nothing transaction behavior."""
+        
+        # First pass: validate ALL songs before creating ANY (including duplicates)
+        from api.data_access import check_song_duplicate_for_user
+        validation_errors = []
+        for i, song_data in enumerate(songs_data):
+            song_dict = song_data.dict()
+            
+            # Check for duplicates before creating anything
+            if check_song_duplicate_for_user(self.db, song_dict.get('title'), song_dict.get('artist'), current_user):
+                validation_errors.append(f"Song '{song_dict.get('title')}' by {song_dict.get('artist')} already exists in your database")
+        
+        # If ANY song fails validation, fail the entire batch
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pack creation failed - {'; '.join(validation_errors)}"
+            )
+        
+        # Second pass: create all songs in transaction
         new_songs = []
         
-        for song in songs_data:
-            try:
+        # Use a transaction to ensure all-or-nothing behavior
+        try:
+            for song in songs_data:
                 song_data = song.dict()
                 song_data["user_id"] = current_user.id
                 song_with_author = SongCreate(**song_data)
                 
-                new_song = create_song_in_db(self.db, song_with_author, current_user, auto_enhance=True)
+                # CRITICAL: auto_commit=False to prevent partial commits
+                new_song = create_song_in_db(self.db, song_with_author, current_user, auto_enhance=True, auto_commit=False)
                 new_songs.append(new_song)
-            except HTTPException as e:
-                print(f"Failed to create song {song.title}: {e.detail}")
-                continue
-        
-        if not new_songs:
-            raise HTTPException(status_code=400, detail="No songs were created successfully")
+            
+            # If we get here, all songs were created successfully - commit the transaction
+            self.db.commit()
+            
+        except Exception as e:
+            # Rollback the entire transaction if any song creation fails
+            self.db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Pack creation failed: {str(e)}"
+            )
         
         # Get songs with relationships
         song_ids = [song.id for song in new_songs]

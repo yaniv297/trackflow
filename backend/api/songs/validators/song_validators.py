@@ -64,22 +64,34 @@ class SongValidator:
                 raise HTTPException(status_code=400, detail="Year must be between 1900 and 2100")
     
     @staticmethod
-    def validate_batch_create(songs_data: List[SongCreate]) -> None:
-        """Validate batch song creation data."""
+    def validate_batch_create(songs_data: List[SongCreate], current_user=None, db=None) -> None:
+        """Validate batch song creation data including duplicate checks."""
         if not songs_data:
             raise HTTPException(status_code=400, detail="No songs provided")
         
         if len(songs_data) > 100:
             raise HTTPException(status_code=400, detail="Cannot create more than 100 songs in a single batch")
         
+        validation_errors = []
         for i, song in enumerate(songs_data):
             try:
                 SongValidator.validate_song_create(song)
+                
+                # Check for duplicates if db and user are provided
+                if db and current_user:
+                    from api.data_access import check_song_duplicate_for_user
+                    if check_song_duplicate_for_user(db, song.title, song.artist, current_user):
+                        validation_errors.append(f"Song #{i+1} '{song.title}' by {song.artist} already exists in your database")
+                        
             except HTTPException as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Song #{i+1}: {e.detail}"
-                )
+                validation_errors.append(f"Song #{i+1}: {e.detail}")
+        
+        # If ANY song fails validation, fail the entire batch
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Batch validation failed - {'; '.join(validation_errors)}"
+            )
     
     @staticmethod
     def validate_pack_name(pack_name: str) -> None:

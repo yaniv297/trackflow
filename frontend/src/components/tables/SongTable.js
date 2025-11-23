@@ -44,6 +44,7 @@ const SongTable = ({
   onMakeDoubleAlbumSeries,
   onUpdatePackPriority,
   packs,
+  visibleColumns,
 }) => {
   const [localSortStates, setLocalSortStates] = useState({});
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -126,6 +127,7 @@ const SongTable = ({
         sortKey={localSortStates[packName]?.key}
         sortDirection={localSortStates[packName]?.direction}
         packName={packName}
+        visibleColumns={visibleColumns}
       />
       {sortSongsInGroup(groupSongs, packName).map((song) => (
         <SongRow
@@ -152,6 +154,7 @@ const SongTable = ({
           status={status}
           groupBy={groupBy}
           packName={packName}
+          visibleColumns={visibleColumns}
         />
       ))}
     </>

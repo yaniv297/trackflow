@@ -48,6 +48,7 @@ export default function SongRow({
   song,
   selected,
   onSelect,
+  visibleColumns = {},
   editing,
   editValues,
   setEditing,
@@ -65,6 +66,12 @@ export default function SongRow({
   const { user } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
+
+  // Helper function to check if a column should be displayed
+  const shouldShowColumn = (columnKey) => {
+    if (!visibleColumns[columnKey]) return true; // Default to showing if not specified
+    return visibleColumns[columnKey].enabled && !visibleColumns[columnKey].groupHidden;
+  };
 
   return (
     <>
@@ -85,37 +92,41 @@ export default function SongRow({
         </td>
 
         {/* Album Cover */}
-        <td style={{ padding: "8px" }}>
-          <EditableCell
-            value={song.album_cover || ""}
-            songId={song.id}
-            field="album_cover"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        </td>
+        {shouldShowColumn("cover") && (
+          <td style={{ padding: "8px" }}>
+            <EditableCell
+              value={song.album_cover || ""}
+              songId={song.id}
+              field="album_cover"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+              isEditable={song.is_editable}
+            />
+          </td>
+        )}
 
         {/* Title */}
-        <td style={{ padding: "8px" }}>
-          <EditableCell
-            value={song.title}
-            songId={song.id}
-            field="title"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        </td>
+        {shouldShowColumn("title") && (
+          <td style={{ padding: "8px" }}>
+            <EditableCell
+              value={song.title}
+              songId={song.id}
+              field="title"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+              isEditable={song.is_editable}
+            />
+          </td>
+        )}
 
         {/* Artist */}
-        {groupBy !== "artist" && (
+        {groupBy !== "artist" && shouldShowColumn("artist") && (
           <td style={{ padding: "8px" }}>
             <EditableCell
               value={song.artist}
@@ -132,22 +143,24 @@ export default function SongRow({
         )}
 
         {/* Album */}
-        <td style={{ padding: "8px" }}>
-          <EditableCell
-            value={song.album}
-            songId={song.id}
-            field="album"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        </td>
+        {shouldShowColumn("album") && (
+          <td style={{ padding: "8px" }}>
+            <EditableCell
+              value={song.album}
+              songId={song.id}
+              field="album"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+              isEditable={song.is_editable}
+            />
+          </td>
+        )}
 
         {/* Pack */}
-        {groupBy !== "pack" && (
+        {groupBy !== "pack" && shouldShowColumn("pack") && (
           <td style={{ padding: "8px" }}>
             <EditableCell
               value={song.pack_name || ""}
@@ -164,42 +177,65 @@ export default function SongRow({
         )}
 
         {/* Author */}
-        <td style={{ padding: "8px" }}>
-          <span
-            style={{
-              background: getCollaboratorColor(song.author || "Unknown"),
-              color: "white",
-              padding: "2px 6px",
-              borderRadius: "12px",
-              fontSize: "0.75rem",
-              fontWeight: "500",
-              cursor: "pointer",
-              display: "inline-block",
-            }}
-            onClick={handleUsernameClick(song.author || "Unknown")}
-            title="Click to view profile"
-          >
-            {song.author || "Unknown"}
-          </span>
-        </td>
+        {shouldShowColumn("author") && (
+          <td style={{ padding: "8px" }}>
+            <span
+              style={{
+                background: getCollaboratorColor(song.author || "Unknown"),
+                color: "white",
+                padding: "2px 6px",
+                borderRadius: "12px",
+                fontSize: "0.75rem",
+                fontWeight: "500",
+                cursor: "pointer",
+                display: "inline-block",
+              }}
+              onClick={handleUsernameClick(song.author || "Unknown")}
+              title="Click to view profile"
+            >
+              {song.author || "Unknown"}
+            </span>
+          </td>
+        )}
 
         {/* Year */}
-        <td style={{ padding: "8px" }}>
-          <EditableCell
-            value={song.year || ""}
-            songId={song.id}
-            field="year"
-            editing={editing}
-            editValues={editValues}
-            setEditing={setEditing}
-            setEditValues={setEditValues}
-            saveEdit={saveEdit}
-            isEditable={song.is_editable}
-          />
-        </td>
+        {shouldShowColumn("year") && (
+          <td style={{ padding: "8px" }}>
+            <EditableCell
+              value={song.year || ""}
+              songId={song.id}
+              field="year"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+              isEditable={song.is_editable}
+            />
+          </td>
+        )}
+
+        {/* Notes */}
+        {shouldShowColumn("notes") && (
+          <td style={{ padding: "8px" }}>
+            <EditableCell
+              value={song.notes || ""}
+              songId={song.id}
+              field="notes"
+              editing={editing}
+              editValues={editValues}
+              setEditing={setEditing}
+              setEditValues={setEditValues}
+              saveEdit={saveEdit}
+              isEditable={song.is_editable}
+              placeholder="Progress notes..."
+            />
+          </td>
+        )}
 
         {/* Collaborations */}
-        <td style={{ padding: "8px" }}>
+        {shouldShowColumn("collaborations") && (
+          <td style={{ padding: "8px" }}>
           {editing[`${song.id}_collaborations`] && status !== "Future Plans" ? (
             <SmartDropdown
               type="users"
@@ -266,10 +302,12 @@ export default function SongRow({
               )}
             </div>
           )}
-        </td>
+          </td>
+        )}
 
         {/* Enhance + Delete */}
-        <td style={{ padding: "8px" }}>
+        {shouldShowColumn("actions") && (
+          <td style={{ padding: "8px" }}>
           {song.is_editable && (
             <div
               style={{
@@ -310,7 +348,8 @@ export default function SongRow({
               )}
             </div>
           )}
-        </td>
+          </td>
+        )}
       </tr>
 
       {/* Spotify Enhancement Row */}

@@ -10,6 +10,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ui/ProtectedRoute";
 import LoginForm from "./components/forms/LoginForm";
 import RegistrationWizard from "./components/shared/RegistrationWizard";
+import ForgotPassword from "./components/ForgotPassword";
+import ResetPassword from "./components/ResetPassword";
 import SongPage from "./SongPage";
 import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
@@ -35,7 +37,7 @@ import { apiGet } from "./utils/api";
 import { initializeAchievements } from "./utils/achievements";
 import "./App.css";
 
-const FEATURE_REQUEST_PROMO_END = new Date("2025-11-20T00:00:00Z").getTime();
+const NEW_FEATURES_PROMO_END = new Date("2025-12-15T00:00:00Z").getTime();
 
 function AppContent() {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
@@ -247,14 +249,14 @@ function AppContent() {
     };
   }, [navigate]);
 
-  // One-time popup to announce Feature Requests
+  // One-time popup to announce new features
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     const now = Date.now();
-    if (now > FEATURE_REQUEST_PROMO_END) {
+    if (now > NEW_FEATURES_PROMO_END) {
       return;
     }
-    const key = `tf_feature_request_popup_shown_${user.id || user.username}`;
+    const key = `tf_new_features_popup_shown_${user.id || user.username}`;
     if (!localStorage.getItem(key)) {
       if (
         typeof window !== "undefined" &&
@@ -262,10 +264,9 @@ function AppContent() {
       ) {
         window.showNotification(
           <span>
-            Have an idea for TrackFlow? Head to{" "}
-            <strong>Feature Requests</strong> in the settings menu and share it!
+            🎉 <strong>New Features:</strong> Added song notes, column selection, forgot password, and various bug fixes!
           </span>,
-          "info"
+          "success"
         );
       }
       localStorage.setItem(key, "true");
@@ -1149,6 +1150,8 @@ function AppContent() {
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegistrationWizard />} />
           <Route path="/releases" element={<LatestReleasesPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes */}
           <Route

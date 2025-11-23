@@ -1,4 +1,5 @@
 import React from "react";
+import ColumnSelector from "./ColumnSelector";
 
 const SongFilters = ({
   search,
@@ -13,6 +14,8 @@ const SongFilters = ({
   songs,
   selectedSongs,
   setSelectedSongs,
+  onColumnChange,
+  groupBy,
 }) => {
   return (
     <div style={{ marginBottom: "1rem" }}>
@@ -25,7 +28,7 @@ const SongFilters = ({
         }}
       >
         {/* Search Input */}
-        <div style={{ flex: 1, minWidth: "200px" }}>
+        <div style={{ flex: "0 0 250px", minWidth: "200px" }}>
           <input
             type="text"
             placeholder="Search songs..."
@@ -98,6 +101,9 @@ const SongFilters = ({
             ? "Deselect All"
             : "Select All"}
         </button>
+
+        {/* Column Selector */}
+        <ColumnSelector onColumnChange={onColumnChange} groupBy={groupBy} />
       </div>
 
       {/* Sort Controls */}

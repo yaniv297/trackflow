@@ -78,7 +78,7 @@ def create_songs_batch(
     current_user: User = Depends(get_current_active_user)
 ):
     """Create multiple songs in batch."""
-    SongValidator.validate_batch_create(songs)
+    SongValidator.validate_batch_create(songs, current_user, db)  # Pass additional params
     
     service = SongService(db)
     return service.create_songs_batch(songs, current_user)

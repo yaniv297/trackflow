@@ -34,6 +34,7 @@ function SongPage({ status }) {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [groupBy, setGroupBy] = useState("pack");
   const [packSortBy, setPackSortBy] = useState("priority"); // Default to priority for Future Plans
+  const [visibleColumns, setVisibleColumns] = useState({});
 
   // Modal state
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -812,6 +813,7 @@ function SongPage({ status }) {
         toggleAllGroups={toggleAllGroups}
         packSortBy={packSortBy}
         setPackSortBy={setPackSortBy}
+        onColumnChange={setVisibleColumns}
       />
 
       {/* Loading Spinner */}
@@ -861,6 +863,7 @@ function SongPage({ status }) {
           onMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
           onUpdatePackPriority={updatePackPriority}
           packs={packs}
+          visibleColumns={visibleColumns}
         />
       )}
 

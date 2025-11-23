@@ -18,6 +18,7 @@ function NewSongForm() {
     artist: "",
     pack: "",
     status: "Future Plans",
+    notes: "",
   });
   const [packStatus, setPackStatus] = useState(null);
   const [isLoadingPackStatus, setIsLoadingPackStatus] = useState(false);
@@ -308,6 +309,45 @@ function NewSongForm() {
               <option value="In Progress">In Progress</option>
               <option value="Released">Released</option>
             </select>
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+                color: "#555",
+                fontSize: "0.95rem",
+              }}
+            >
+              Progress Notes
+            </label>
+            <textarea
+              name="notes"
+              placeholder="Add notes about your progress, where you left off, etc..."
+              value={form.notes}
+              onChange={handleChange}
+              rows="3"
+              style={{
+                width: "100%",
+                padding: "0.75rem 1rem",
+                border: "2px solid #e1e5e9",
+                borderRadius: "8px",
+                fontSize: "1rem",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+                boxSizing: "border-box",
+                resize: "vertical",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "#007bff";
+                e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "#e1e5e9";
+                e.target.style.boxShadow = "none";
+              }}
+            />
           </div>
 
           {/* DLC Warning */}

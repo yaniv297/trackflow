@@ -1,4 +1,5 @@
 import React from "react";
+import ColumnSelector from "./ColumnSelector";
 
 const PageHeader = ({
   status,
@@ -10,6 +11,7 @@ const PageHeader = ({
   toggleAllGroups,
   packSortBy,
   setPackSortBy,
+  onColumnChange,
 }) => {
   return (
     <div>
@@ -118,6 +120,9 @@ const PageHeader = ({
         >
           {allCollapsed ? "Expand All" : "Collapse All"}
         </button>
+
+        {/* Column Selector */}
+        <ColumnSelector onColumnChange={onColumnChange} groupBy={groupBy} />
       </div>
     </div>
   );

@@ -49,6 +49,7 @@ export default function WipSongCard({
     artist: song.artist,
     album: song.album,
     year: song.year || "",
+    notes: song.notes || "",
   });
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [wipCollaborations, setWipCollaborations] = useState([]);
@@ -251,6 +252,7 @@ export default function WipSongCard({
           artist: enhancedSong.artist || prev.artist,
           album: enhancedSong.album || prev.album,
           year: enhancedSong.year || prev.year,
+          notes: enhancedSong.notes || prev.notes,
         }));
       }
     } catch (error) {
@@ -292,26 +294,56 @@ export default function WipSongCard({
       );
     }
 
+    const isNotesField = field === "notes";
+    
     return editing[field] ? (
-      <input
-        value={editValues[field]}
-        autoFocus
-        onChange={(e) =>
-          setEditValues((prev) => ({ ...prev, [field]: e.target.value }))
-        }
-        onBlur={() => saveEdit(field)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") saveEdit(field);
-        }}
-        style={{
-          fontSize: "1.1rem",
-          fontWeight: "600",
-          padding: "2px 6px",
-          borderRadius: "4px",
-          border: "1px solid #ccc",
-          ...style,
-        }}
-      />
+      isNotesField ? (
+        <textarea
+          value={editValues[field]}
+          autoFocus
+          onChange={(e) =>
+            setEditValues((prev) => ({ ...prev, [field]: e.target.value }))
+          }
+          onBlur={() => saveEdit(field)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              saveEdit(field);
+            }
+          }}
+          rows="2"
+          placeholder="Progress notes... (Enter to save, Shift+Enter for new line)"
+          style={{
+            fontSize: "0.9rem",
+            padding: "4px 6px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            resize: "vertical",
+            width: "100%",
+            ...style,
+          }}
+        />
+      ) : (
+        <input
+          value={editValues[field]}
+          autoFocus
+          onChange={(e) =>
+            setEditValues((prev) => ({ ...prev, [field]: e.target.value }))
+          }
+          onBlur={() => saveEdit(field)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") saveEdit(field);
+          }}
+          style={{
+            fontSize: "1.1rem",
+            fontWeight: "600",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            ...style,
+          }}
+        />
+      )
     ) : (
       <span
         onClick={() => setEditing((prev) => ({ ...prev, [field]: true }))}
@@ -667,6 +699,47 @@ export default function WipSongCard({
                 </>
               )}
             </div>
+            
+            {/* Notes Section */}
+            {(editValues.notes || editing.notes) && (
+              <div
+                style={{
+                  marginTop: "0.5rem",
+                  fontSize: "0.85rem",
+                  color: "#666",
+                }}
+              >
+                <strong>Notes:</strong>{" "}
+                {renderEditable("notes", {
+                  fontSize: "0.85rem",
+                  color: "#333",
+                  display: "block",
+                  marginTop: "0.25rem",
+                })}
+              </div>
+            )}
+            
+            {/* Add notes button when no notes exist */}
+            {!editValues.notes && !editing.notes && !readOnly && (
+              <div
+                style={{
+                  marginTop: "0.25rem",
+                  fontSize: "0.8rem",
+                }}
+              >
+                <span
+                  onClick={() => setEditing((prev) => ({ ...prev, notes: true }))}
+                  style={{
+                    color: "#007bff",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                  title="Click to add progress notes"
+                >
+                  + Add notes
+                </span>
+              </div>
+            )}
 
             {showPackName && song.pack_name && (
               <div

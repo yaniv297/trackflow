@@ -10,6 +10,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginForm from "./components/LoginForm";
 import RegistrationWizard from "./components/RegistrationWizard";
+import ForgotPassword from "./components/ForgotPassword";
+import ResetPassword from "./components/ResetPassword";
 import SongPage from "./SongPage";
 import WipPage from "./WipPage";
 import NewSongForm from "./NewSongForm";
@@ -669,6 +671,8 @@ function AppContent() {
         <Routes>
           <Route path="/login" element={<LoginForm />} />
           <Route path="/register" element={<RegistrationWizard />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes */}
           <Route

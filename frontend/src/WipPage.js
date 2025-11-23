@@ -1,8 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { useWipData } from "./hooks/wip/useWipData";
 import { useWorkflowData } from "./hooks/workflows/useWorkflowData";
+import { useWipPageUI } from "./hooks/wip/useWipPageUI";
+import { useWipPageModals } from "./hooks/wip/useWipPageModals";
+import { useWipSongOperations } from "./hooks/wip/useWipSongOperations";
+import { useWipPackOperations } from "./hooks/wip/useWipPackOperations";
+import { useWipAlbumSeriesOperations } from "./hooks/wip/useWipAlbumSeriesOperations";
+import { useWipReleaseOperations } from "./hooks/wip/useWipReleaseOperations";
+import { useWipReleaseHandlers } from "./hooks/wip/useWipReleaseHandlers";
+import { useWipCompletionGroups } from "./hooks/wip/useWipCompletionGroups";
+import { useWipWelcomeNotification } from "./hooks/wip/useWipWelcomeNotification";
+import { useWipPackToggle } from "./hooks/wip/useWipPackToggle";
+import { useWipFilteredGrouped } from "./hooks/wip/useWipFilteredGrouped";
+import { useWipSongAdd } from "./hooks/wip/useWipSongAdd";
 import WipPageHeader from "./components/navigation/WipPageHeader";
 import WipPackCard from "./components/pages/WipPackCard";
 import CompletionGroupCard from "./components/pages/CompletionGroupCard";
@@ -11,12 +23,6 @@ import CustomAlert from "./components/ui/CustomAlert";
 import UnifiedCollaborationModal from "./components/modals/UnifiedCollaborationModal";
 import WorkflowErrorBoundary from "./components/features/workflows/WorkflowErrorBoundary";
 import WorkflowLoadingSpinner from "./components/features/workflows/WorkflowLoadingSpinner";
-import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
-import {
-  getSongCompletionPercentage,
-  isSongComplete,
-} from "./utils/progressUtils";
-import { checkAndShowNewAchievements } from "./utils/achievements";
 import AlbumSeriesModal from "./components/modals/AlbumSeriesModal";
 import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
 import DoubleAlbumSeriesModal from "./components/modals/DoubleAlbumSeriesModal";
@@ -156,933 +162,157 @@ function WipPage() {
   // Get dynamic workflow fields for the current user
   const { authoringFields } = useWorkflowData(user);
 
-  // Show welcome notification for first-time users
-  useEffect(() => {
-    const showWelcome = sessionStorage.getItem("show_welcome");
-    if (showWelcome === "true") {
-      sessionStorage.removeItem("show_welcome");
-      setTimeout(async () => {
-        try {
-          // Create a persistent bell notification instead of a temporary toast
-          await apiPost("/notifications/welcome");
-        } catch (error) {
-          console.error("Failed to create welcome notification:", error);
-          // Fallback to temporary toast if API fails
-          if (window.showNotification) {
-            window.showNotification(
-              "🎉 Welcome to TrackFlow! Click ⚙️ → Help & FAQ to learn about features and get started.",
-              "success",
-              12000
-            );
-          }
-        }
-      }, 800);
-    }
-  }, []);
+  // Welcome notification
+  useWipWelcomeNotification();
 
-  // UI State
-  const [viewMode, setViewMode] = useState("pack"); // "pack" or "completion"
-  const [searchQuery, setSearchQuery] = useState("");
-  const [newSongData, setNewSongData] = useState({});
-  const [showAddForm, setShowAddForm] = useState(null);
-  const [selectedSongs, setSelectedSongs] = useState([]);
-  const [showAlbumSeriesModal, setShowAlbumSeriesModal] = useState(false);
-  const [albumSeriesForm, setAlbumSeriesForm] = useState({
-    artist_name: "",
-    album_name: "",
-    year: "",
-    cover_image_url: "",
-    description: "",
-  });
-  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
-  const [selectedItemForCollaboration, setSelectedItemForCollaboration] =
-    useState(null);
-  const [collaborationType, setCollaborationType] = useState("pack");
-  const [fireworksTrigger, setFireworksTrigger] = useState(0);
-  const [alertConfig, setAlertConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: null,
-    type: "warning",
-  });
-  const [editSeriesModal, setEditSeriesModal] = useState({
-    open: false,
-    packId: null,
-    series: [],
-    defaultSeriesId: null,
-    createMode: false,
-    createData: null,
-  });
-  const [showDoubleAlbumSeriesModal, setShowDoubleAlbumSeriesModal] =
-    useState(false);
-  const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
-  const [showReleaseModal, setShowReleaseModal] = useState(false);
-  const [releaseModalData, setReleaseModalData] = useState(null);
-  const [isExecutingDoubleAlbumSeries, setIsExecutingDoubleAlbumSeries] =
-    useState(false);
+  // UI state
+  const {
+    viewMode,
+    setViewMode,
+    searchQuery,
+    setSearchQuery,
+    newSongData,
+    setNewSongData,
+    showAddForm,
+    setShowAddForm,
+    selectedSongs,
+    setSelectedSongs,
+    fireworksTrigger,
+    setFireworksTrigger,
+  } = useWipPageUI();
 
-  // Group songs by completion status
-  const completionGroups = useMemo(() => {
-    // Separate songs by category
-    const completed = [];
-    const inProgress = [];
-    const optional = [];
-    const collaboratorSongs = [];
-    const optionalCollaboratorSongs = [];
+  // Modal state
+  const {
+    showAlbumSeriesModal,
+    setShowAlbumSeriesModal,
+    albumSeriesForm,
+    setAlbumSeriesForm,
+    showCollaborationModal,
+    setShowCollaborationModal,
+    selectedItemForCollaboration,
+    setSelectedItemForCollaboration,
+    collaborationType,
+    setCollaborationType,
+    editSeriesModal,
+    setEditSeriesModal,
+    showDoubleAlbumSeriesModal,
+    setShowDoubleAlbumSeriesModal,
+    doubleAlbumSeriesData,
+    setDoubleAlbumSeriesData,
+    showReleaseModal,
+    setShowReleaseModal,
+    releaseModalData,
+    setReleaseModalData,
+    isExecutingDoubleAlbumSeries,
+    setIsExecutingDoubleAlbumSeries,
+    alertConfig,
+    setAlertConfig,
+  } = useWipPageModals();
 
-    const matchesSearch = (s) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.trim().toLowerCase();
-      return [s.title, s.artist, s.album, s.pack_name]
-        .map((v) => (v || "").toString().toLowerCase())
-        .some((v) => v.includes(q));
-    };
+  // Completion groups
+  const { completionGroups } = useWipCompletionGroups(
+    songs,
+    authoringFields,
+    user,
+    searchQuery
+  );
 
-    songs.filter(matchesSearch).forEach((song) => {
-      const isOwner = song.user_id === user?.id;
-      const completionPercent = getSongCompletionPercentage(
-        song,
-        authoringFields
-      );
-      const isComplete = isSongComplete(song, authoringFields);
+  // Filtered grouped packs
+  const { filteredGrouped } = useWipFilteredGrouped(grouped, searchQuery);
 
-      if (!isOwner) {
-        // Songs by collaborators - only show if they have collaboration access
-        if (song.optional) {
-          optionalCollaboratorSongs.push({ ...song, completionPercent });
-        } else {
-          collaboratorSongs.push({ ...song, completionPercent });
-        }
-      } else {
-        // Songs owned by current user
-        if (song.optional) {
-          // Optional songs by current user
-          optional.push({ ...song, completionPercent });
-        } else if (isComplete) {
-          // Completed songs by current user
-          completed.push({ ...song, completionPercent });
-        } else {
-          // In progress songs by current user
-          inProgress.push({ ...song, completionPercent });
-        }
-      }
-    });
+  // Pack toggle operations
+  const { togglePack, toggleCategory, toggleAll } = useWipPackToggle(
+    collapsedPacks,
+    setCollapsedPacks,
+    grouped,
+    viewMode
+  );
 
-    // Sort in progress songs by completion percentage (descending)
-    inProgress.sort((a, b) => b.completionPercent - a.completionPercent);
-    collaboratorSongs.sort((a, b) => b.completionPercent - a.completionPercent);
+  // Song operations
+  const {
+    updateAuthoringField,
+    updateSongData,
+    toggleOptional,
+    createDeleteSongHandler,
+  } = useWipSongOperations(
+    songs,
+    setSongs,
+    authoringFields,
+    setFireworksTrigger
+  );
 
-    return {
-      completed,
-      inProgress,
-      optional,
-      collaboratorSongs,
-      optionalCollaboratorSongs,
-    };
-  }, [songs, authoringFields, user, searchQuery]);
+  const handleDeleteSong = createDeleteSongHandler(setAlertConfig);
 
-  // Filtered packs for Pack view based on search
-  const filteredGrouped = useMemo(() => {
-    if (!searchQuery) return grouped;
-    const q = searchQuery.trim().toLowerCase();
-    const matches = (s) =>
-      [s.title, s.artist, s.album, s.pack_name]
-        .map((v) => (v || "").toString().toLowerCase())
-        .some((v) => v.includes(q));
+  // Pack operations
+  const {
+    updatePackPriority,
+    handleDeletePack,
+    handleRenamePack,
+    handleMovePackToFuturePlans,
+  } = useWipPackOperations(
+    songs,
+    setSongs,
+    updatePackPriorityLocal,
+    setAlertConfig,
+    refreshSongs
+  );
 
-    return grouped
-      .map((packData) => {
-        const filteredCore = (packData.coreSongs || []).filter(matches);
-        const filteredAll = (packData.allSongs || []).filter(matches);
-        if (filteredAll.length === 0) return null;
-        return {
-          ...packData,
-          coreSongs: filteredCore,
-          allSongs: filteredAll,
-        };
-      })
-      .filter(Boolean);
-  }, [grouped, searchQuery]);
+  // Album series operations
+  const {
+    handleCreateAlbumSeries,
+    handleShowAlbumSeriesModal,
+    handleMakeDoubleAlbumSeries,
+    executeDoubleAlbumSeries: executeDoubleAlbumSeriesBase,
+    handleCreateAlbumSeriesFromPack,
+  } = useWipAlbumSeriesOperations(
+    songs,
+    setSongs,
+    selectedSongs,
+    setSelectedSongs,
+    albumSeriesForm,
+    setAlbumSeriesForm,
+    setShowAlbumSeriesModal,
+    setShowDoubleAlbumSeriesModal,
+    setDoubleAlbumSeriesData,
+    isExecutingDoubleAlbumSeries,
+    setIsExecutingDoubleAlbumSeries,
+    refreshSongs
+  );
 
-  // Option: open the edit modal after creating an album series
-
-  // If a pending request exists (set by NewPackForm), open the editor on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("tf_open_edit_series");
-      if (raw) {
-        const detail = JSON.parse(raw);
-        if (
-          detail &&
-          detail.packId &&
-          detail.series &&
-          detail.series.length > 0
-        ) {
-          const evt = new CustomEvent("open-edit-album-series", { detail });
-          window.dispatchEvent(evt);
-        }
-        localStorage.removeItem("tf_open_edit_series");
-      }
-    } catch (_e) {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => {
-      const { packId, series } = e.detail || {};
-      setEditSeriesModal({
-        open: true,
-        packId: packId || null,
-        series: series || [],
-        defaultSeriesId: series?.[0]?.id || null,
-      });
-    };
-
-    const createHandler = (e) => {
-      const { artistName, albumName, status } = e.detail || {};
-      setEditSeriesModal({
-        open: true,
-        packId: null,
-        series: [],
-        defaultSeriesId: null,
-        createMode: true,
-        createData: { artistName, albumName, status },
-      });
-    };
-
-    window.addEventListener("open-edit-album-series", handler);
-    window.addEventListener("open-create-album-series-modal", createHandler);
-
-    return () => {
-      window.removeEventListener("open-edit-album-series", handler);
-      window.removeEventListener(
-        "open-create-album-series-modal",
-        createHandler
-      );
-    };
-  }, []);
-
-  // Pack Management
-  const togglePack = (packName) => {
-    setCollapsedPacks((prev) => ({
-      ...prev,
-      [packName]: !prev[packName],
-    }));
+  // Wrapper for executeDoubleAlbumSeries to pass doubleAlbumSeriesData
+  const executeDoubleAlbumSeries = () => {
+    executeDoubleAlbumSeriesBase(doubleAlbumSeriesData);
   };
 
-  const toggleAll = () => {
-    if (viewMode === "pack") {
-      const allCollapsed = grouped.every(({ pack }) => collapsedPacks[pack]);
-      const newState = {};
-      grouped.forEach(({ pack }) => {
-        newState[pack] = !allCollapsed;
-      });
-      setCollapsedPacks(newState);
-    } else {
-      // Completion view
-      const categories = [
-        "completed",
-        "inProgress",
-        "optional",
-        "collaboratorSongs",
-        "optionalCollaboratorSongs",
-      ];
-      const allCollapsed = categories.every((cat) => collapsedPacks[cat]);
-      const newState = { ...collapsedPacks };
-      categories.forEach((cat) => {
-        newState[cat] = !allCollapsed;
-      });
-      setCollapsedPacks(newState);
-    }
-  };
+  // Release handlers
+  const { releasePack, releaseSong } = useWipReleaseHandlers(
+    songs,
+    setReleaseModalData,
+    setShowReleaseModal
+  );
 
-  const toggleCategory = (categoryName) => {
-    setCollapsedPacks((prev) => ({
-      ...prev,
-      [categoryName]: !prev[categoryName],
-    }));
-  };
-
-  // Song Management
-  const updateAuthoringField = async (songId, field, value) => {
-    // Update local state immediately (optimistic)
-    setSongs((prev) =>
-      prev.map((song) => {
-        if (song.id !== songId) return song;
-        const nextProgress = { ...(song.progress || {}), [field]: value };
-        return { ...song, progress: nextProgress };
-      })
+  // Release operations
+  const { handlePackReleaseComplete, handleSongReleaseComplete } =
+    useWipReleaseOperations(
+      songs,
+      setSongs,
+      setFireworksTrigger,
+      releaseModalData
     );
 
-    // Persist to backend and wait for it
-    try {
-      await apiPut(`/authoring/${songId}`, { [field]: value });
-
-      // Check if song is now complete for fireworks
-      const updatedSong = songs.find((s) => s.id === songId);
-      if (updatedSong) {
-        const isComplete = isSongComplete(
-          {
-            ...updatedSong,
-            progress: { ...(updatedSong.progress || {}), [field]: value },
-          },
-          authoringFields
-        );
-        if (isComplete) {
-          setFireworksTrigger((prev) => prev + 1);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to update authoring field:", error);
-      // Revert optimistic update on error
-      setSongs((prev) =>
-        prev.map((song) => {
-          if (song.id !== songId) return song;
-          const revertedProgress = {
-            ...(song.progress || {}),
-            [field]: !value,
-          };
-          return { ...song, progress: revertedProgress };
-        })
-      );
-      throw error; // Re-throw so WipSongCard can handle it
-    }
-  };
-
-  const updateSongData = (songId, updatedSongData) => {
-    setSongs((prev) =>
-      prev.map((song) => {
-        if (song.id === songId) {
-          // Only update specific fields to avoid overwriting completion status
-          const updatedSong = { ...song };
-
-          // Safe fields that can be updated without affecting song status
-          const safeFields = [
-            "album_cover",
-            "title",
-            "artist",
-            "album",
-            "year",
-            "notes",
-          ];
-
-          safeFields.forEach((field) => {
-            if (updatedSongData.hasOwnProperty(field)) {
-              updatedSong[field] = updatedSongData[field];
-            }
-          });
-
-          return updatedSong;
-        }
-        return song;
-      })
-    );
-  };
-
-  const toggleOptional = async (songId, isCurrentlyOptional) => {
-    const newOptionalValue = !isCurrentlyOptional;
-
-    // Optimistic UI update
-    setSongs((prev) =>
-      prev.map((song) =>
-        song.id === songId ? { ...song, optional: newOptionalValue } : song
-      )
-    );
-
-    try {
-      const response = await apiPatch(`/songs/${songId}`, {
-        optional: newOptionalValue,
-      });
-
-      // Update the local song with the response data to ensure consistency
-      setSongs((prev) =>
-        prev.map((song) =>
-          song.id === songId
-            ? { ...song, ...response, optional: newOptionalValue }
-            : song
-        )
-      );
-
-      // Remove the unnecessary full refresh - we already have the updated data
-      // refreshSongs();
-
-      window.showNotification(
-        `Song marked as ${newOptionalValue ? "optional" : "required"}`,
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to update optional status:", error);
-      // Revert the UI change on error
-      setSongs((prev) =>
-        prev.map((song) =>
-          song.id === songId ? { ...song, optional: isCurrentlyOptional } : song
-        )
-      );
-      window.showNotification("Failed to update optional status", "error");
-    }
-  };
-
-  const handleDeleteSong = (songId) => {
-    setAlertConfig({
-      isOpen: true,
-      title: "Delete Song",
-      message:
-        "Are you sure you want to delete this song? This action cannot be undone.",
-      type: "warning",
-      onConfirm: async () => {
-        try {
-          await apiDelete(`/songs/${songId}`);
-          setSongs((prev) => prev.filter((song) => song.id !== songId));
-          window.showNotification("Song deleted successfully", "success");
-        } catch (error) {
-          console.error("Failed to delete song:", error);
-          window.showNotification("Failed to delete song", "error");
-        }
-        setAlertConfig((prev) => ({ ...prev, isOpen: false }));
-      },
-    });
-  };
-
-  const handleDeletePack = async (packName, packId) => {
-    setAlertConfig({
-      isOpen: true,
-      title: "Delete Pack",
-      message: `Are you sure you want to delete "${packName}"? This will permanently delete the pack and all songs in it.`,
-      onConfirm: async () => {
-        try {
-          // Delete the pack using the proper backend endpoint (this will cascade delete songs and album series)
-          await apiDelete(`/packs/${packId}`);
-
-          // Remove songs from current view (optimistic update)
-          setSongs((prev) =>
-            prev.filter((song) => (song.pack_name || "(no pack)") !== packName)
-          );
-
-          window.showNotification(
-            `Pack "${packName}" deleted successfully`,
-            "success"
-          );
-        } catch (error) {
-          console.error("Failed to delete pack:", error);
-          window.showNotification("Failed to delete pack", "error");
-        }
-        setAlertConfig((prev) => ({ ...prev, isOpen: false }));
-      },
-      type: "danger",
-    });
-  };
-
-  const updatePackPriority = async (packName, priority) => {
-    if (!packName) return;
-
-    const packSongs = songs.filter((song) => song.pack_name === packName);
-    const packId = packSongs[0]?.pack_id;
-
-    if (!packId) {
-      window.showNotification("Could not find pack ID", "error");
-      return;
-    }
-
-    try {
-      await apiPatch(`/packs/${packId}`, { priority });
-
-      // Update local pack data immediately without loading state
-      // The grouped data will automatically re-sort based on updated pack priority
-      updatePackPriorityLocal(packId, priority);
-
-      const priorityText = priority
-        ? `Priority ${priority} (${
-            ["💤 Someday", "📋 Low", "📝 Medium", "⚡ High", "🔥 Urgent"][
-              priority - 1
-            ]
-          })`
-        : "No priority";
-
-      window.showNotification(
-        `Pack priority updated to: ${priorityText}`,
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to update pack priority:", error);
-      window.showNotification("Failed to update pack priority", "error");
-      throw error;
-    }
-  };
-
-  const releasePack = (pack) => {
-    // Find the pack ID for the new API
-    const packSongs = songs.filter(
-      (s) => (s.pack_name || "(no pack)") === pack
-    );
-    const packId = packSongs[0]?.pack_id;
-
-    if (!packId) {
-      window.showNotification("Pack not found", "error");
-      return;
-    }
-
-    // Set up release modal data
-    setReleaseModalData({
-      type: "pack",
-      itemId: packId,
-      itemName: pack,
-      title: `Release "${pack}"`,
-      packSongs: packSongs,
-    });
-
-    // Open release modal
-    setShowReleaseModal(true);
-  };
-
-  const handlePackReleaseComplete = async (packId, releaseData) => {
-    try {
-      // Call the new pack release endpoint with metadata
-      const response = await apiPost(`/packs/${packId}/release`, releaseData);
-
-      // Get pack name for notifications
-      const packName = releaseModalData?.itemName || "Pack";
-
-      // Get the pack songs that will be affected
-      const packSongs = songs.filter((s) => s.pack_id === packId);
-
-      // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
-      setSongs((prev) =>
-        prev.filter(
-          (song) => !packSongs.some((packSong) => packSong.id === song.id)
-        )
-      );
-
-      // Show notification
-      window.showNotification(
-        response.message || `Pack "${packName}" released successfully!`,
-        "success"
-      );
-      setFireworksTrigger((prev) => prev + 1);
-
-      // Check for new achievements after releasing pack
-      await checkAndShowNewAchievements();
-    } catch (error) {
-      console.error("Failed to release pack:", error);
-      window.showNotification("Failed to release pack", "error");
-    }
-  };
-
-  const releaseSong = (songId) => {
-    // Get song info
-    const song = songs.find((s) => s.id === songId);
-    if (!song) return;
-
-    // Set up release modal data
-    setReleaseModalData({
-      type: "song",
-      itemId: songId,
-      itemName: song.title,
-      title: `Release "${song.title}"`,
-    });
-
-    // Open release modal
-    setShowReleaseModal(true);
-  };
-
-  const handleSongReleaseComplete = async (songId, releaseData) => {
-    try {
-      // Update song status to Released with release metadata
-      const updatePayload = {
-        status: "Released",
-        release_description: releaseData.description || null,
-        release_download_link: releaseData.download_link || null,
-        release_youtube_url: releaseData.youtube_url || null,
-      };
-
-      await apiPatch(`/songs/${songId}`, updatePayload);
-
-      // Remove song from WIP view optimistically
-      setSongs((prev) => prev.filter((song) => song.id !== songId));
-
-      // Get song info for notification
-      const song = songs.find((s) => s.id === songId);
-      const songTitle = song ? `"${song.title}"` : "Song";
-
-      window.showNotification(`${songTitle} released successfully!`, "success");
-      setFireworksTrigger((prev) => prev + 1);
-
-      // Check for new achievements after releasing song
-      await checkAndShowNewAchievements();
-    } catch (error) {
-      console.error("Failed to release song:", error);
-      window.showNotification("Failed to release song", "error");
-    }
-  };
-
-  const addSongToPack = async (packId, songData) => {
-    try {
-      if (!songData.title || !songData.artist) {
-        window.showNotification(
-          "Please fill in song title and artist",
-          "error"
-        );
-        return;
-      }
-
-      const payload = {
-        title: songData.title,
-        artist: songData.artist,
-        pack_id: packId, // Use pack_id instead of pack_name
-        status: "In Progress",
-      };
-
-      const newSong = await apiPost("/songs/", payload);
-
-      // Note: Spotify enhancement happens automatically on the backend
-      // No need for manual enhancement call
-
-      const allSongs = await apiGet("/songs/?status=In%20Progress");
-      const found = allSongs.find((s) => s.id === newSong.id);
-      if (found) {
-        setSongs((prev) => [...prev, found]);
-      }
-
-      setShowAddForm(null);
-      setNewSongData({});
-      window.showNotification(`Added "${songData.title}" to pack`, "success");
-    } catch (error) {
-      window.showNotification(error.message, "error");
-    }
-  };
-
-  // Album Series Management
-  const handleCreateAlbumSeries = async () => {
-    if (selectedSongs.length === 0) {
-      window.showNotification("Please select songs first", "warning");
-      return;
-    }
-
-    try {
-      const firstSong = songs.find((song) => song.id === selectedSongs[0]);
-      if (!firstSong?.pack_name) {
-        window.showNotification("Selected songs must be in a pack", "error");
-        return;
-      }
-
-      await apiPost("/album-series/create-from-pack", {
-        pack_name: firstSong.pack_name,
-        song_ids: selectedSongs,
-        artist_name: albumSeriesForm.artist_name,
-        album_name: albumSeriesForm.album_name,
-        year: parseInt(albumSeriesForm.year) || null,
-        cover_image_url: albumSeriesForm.cover_image_url || null,
-        description: albumSeriesForm.description || null,
-      });
-
-      // Optimistic update - remove selected songs from the current view
-      // since they're now part of an album series
-      setSongs((prev) =>
-        prev.filter((song) => !selectedSongs.includes(song.id))
-      );
-
-      window.showNotification(
-        `Album series "${albumSeriesForm.album_name}" created successfully!`,
-        "success"
-      );
-
-      setShowAlbumSeriesModal(false);
-      setSelectedSongs([]);
-      setAlbumSeriesForm({
-        artist_name: "",
-        album_name: "",
-        year: "",
-        cover_image_url: "",
-        description: "",
-      });
-      // Remove unnecessary full refresh - we already updated local state
-      // refreshSongs();
-    } catch (error) {
-      console.error("Failed to create album series:", error);
-      window.showNotification("Failed to create album series", "error");
-      // Revert optimistic update on error
-      refreshSongs();
-    }
-  };
-
-  const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
-    const packSongs = songs.filter((song) => song.pack_name === packName);
-    if (packSongs.length === 0) {
-      console.error("No songs found for pack:", packName);
-      return;
-    }
-
-    const packSongIds = packSongs.map((song) => song.id);
-    setSelectedSongs(packSongIds);
-
-    if (albumsWithEnoughSongs && albumsWithEnoughSongs.length > 0) {
-      const [albumName] = albumsWithEnoughSongs[0];
-      const firstSong = packSongs[0];
-      setAlbumSeriesForm({
-        artist_name: firstSong?.artist || "",
-        album_name: albumName || "",
-        year: firstSong?.year || "",
-        cover_image_url: firstSong?.album_cover || "",
-        description: "",
-      });
-    }
-    setShowAlbumSeriesModal(true);
-  };
-
-  const handleMakeDoubleAlbumSeries = async (
-    packName,
-    albumsWithEnoughSongs
-  ) => {
-    if (!albumsWithEnoughSongs || albumsWithEnoughSongs.length < 2) {
-      window.showNotification(
-        "Pack must have at least 2 albums with 4+ songs each for double album series",
-        "error"
-      );
-      return;
-    }
-
-    // Prevent multiple modal openings
-    if (showDoubleAlbumSeriesModal || isExecutingDoubleAlbumSeries) {
-      return;
-    }
-
-    const packSongs = songs.filter(
-      (song) => (song.pack_name || "(no pack)") === packName
-    );
-    const mostCommonArtist = packSongs[0]?.artist;
-
-    // Find the album that should be the "base" album series (the one that stays)
-    // This should be the album with the most songs that has an album_series_id
-    const albumSeriesCounts = {};
-    packSongs.forEach((song) => {
-      if (song.album_series_id && song.album) {
-        albumSeriesCounts[song.album] =
-          (albumSeriesCounts[song.album] || 0) + 1;
-      }
-    });
-
-    // Find the album with the most songs in the album series (this becomes the "base")
-    const baseAlbumSeries = Object.entries(albumSeriesCounts).sort(
-      (a, b) => b[1] - a[1]
-    )[0]?.[0];
-
-    const albumsToChooseFrom = albumsWithEnoughSongs.filter(
-      ([albumName]) => albumName !== baseAlbumSeries
-    );
-
-    if (albumsToChooseFrom.length === 0) {
-      window.showNotification(
-        "No suitable album found for double album series",
-        "error"
-      );
-      return;
-    }
-
-    const [secondAlbumName] = albumsToChooseFrom[0];
-    const songsInSecondAlbum = packSongs.filter(
-      (song) => song.album === secondAlbumName
-    );
-
-    if (songsInSecondAlbum.length < 4) {
-      window.showNotification(
-        `"${secondAlbumName}" needs at least 4 songs for album series (found ${songsInSecondAlbum.length} total songs including optional ones)`,
-        "error"
-      );
-      return;
-    }
-
-    // Show confirmation modal instead of immediately executing
-    const newPackName = `${secondAlbumName} Album Series`;
-    setDoubleAlbumSeriesData({
-      packName,
-      secondAlbumName,
-      songsToMove: songsInSecondAlbum,
-      newPackName,
-      mostCommonArtist,
-    });
-    setShowDoubleAlbumSeriesModal(true);
-  };
-
-  const executeDoubleAlbumSeries = async () => {
-    if (!doubleAlbumSeriesData || isExecutingDoubleAlbumSeries) return;
-
-    setIsExecutingDoubleAlbumSeries(true);
-
-    const { secondAlbumName, songsToMove, newPackName, mostCommonArtist } =
-      doubleAlbumSeriesData;
-
-    try {
-      // Update all songs from the second album to the new pack
-      const songIdsToMove = songsToMove.map((song) => song.id);
-
-      // Update pack names for songs in the second album (sequentially to avoid race conditions)
-      for (const songId of songIdsToMove) {
-        await apiPatch(`/songs/${songId}`, { pack: newPackName });
-      }
-
-      // Create album series for the second album
-      await apiPost("/album-series/create-from-pack", {
-        pack_name: newPackName,
-        artist_name: mostCommonArtist,
-        album_name: secondAlbumName,
-        year: null,
-        cover_image_url: null,
-        description: null,
-      });
-
-      window.showNotification(
-        `Double album series created! "${secondAlbumName}" split into its own album series with ${songsToMove.length} songs.`,
-        "success"
-      );
-
-      // Close modal and refresh songs to show the updated structure
-      setShowDoubleAlbumSeriesModal(false);
-      setDoubleAlbumSeriesData(null);
-      refreshSongs();
-    } catch (error) {
-      console.error("Error creating double album series:", error);
-      window.showNotification("Failed to create double album series", "error");
-    } finally {
-      setIsExecutingDoubleAlbumSeries(false);
-    }
-  };
-
+  // Song add operation
+  const { addSongToPack } = useWipSongAdd(
+    setSongs,
+    setShowAddForm,
+    setNewSongData
+  );
+
+  // Collaboration saved handler
   const handleCollaborationSaved = async () => {
     try {
       await Promise.all([refreshCollaborations(), refreshSongs()]);
     } catch (error) {
       console.error("Failed to refresh after collaboration saved:", error);
-    }
-  };
-
-  // Pack Settings Handlers
-  const handleRenamePack = async (oldPackName, newPackName) => {
-    try {
-      // Find the pack ID by looking at songs in the pack
-      const packSongs = songs.filter(
-        (s) => (s.pack_name || "(no pack)") === oldPackName
-      );
-      if (packSongs.length === 0) {
-        window.showNotification("No songs found in pack", "error");
-        return;
-      }
-
-      const packId = packSongs[0].pack_id;
-      if (!packId) {
-        window.showNotification("Pack ID not found", "error");
-        return;
-      }
-
-      await apiPatch(`/packs/${packId}`, { name: newPackName });
-
-      // Optimistic update - update pack_name for all songs in the pack
-      setSongs((prev) =>
-        prev.map((song) =>
-          (song.pack_name || "(no pack)") === oldPackName
-            ? { ...song, pack_name: newPackName }
-            : song
-        )
-      );
-
-      window.showNotification(`Pack renamed to "${newPackName}"`, "success");
-    } catch (error) {
-      console.error("Failed to rename pack:", error);
-      window.showNotification("Failed to rename pack", "error");
-      // Revert optimistic update on error
-      refreshSongs();
-    }
-  };
-
-  const handleMovePackToFuturePlans = async (packName) => {
-    try {
-      // Find the pack ID by looking at songs in the pack
-      const packSongs = songs.filter(
-        (s) => (s.pack_name || "(no pack)") === packName
-      );
-      if (packSongs.length === 0) {
-        window.showNotification("No songs found in pack", "error");
-        return;
-      }
-
-      const packId = packSongs[0].pack_id;
-      if (!packId) {
-        window.showNotification("Pack ID not found", "error");
-        return;
-      }
-
-      // Optimistic update BEFORE server call for instant feedback
-      setSongs((prev) =>
-        prev.map((song) =>
-          (song.pack_name || "(no pack)") === packName
-            ? { ...song, status: "Future Plans" }
-            : song
-        )
-      );
-
-      await apiPatch(`/packs/${packId}/status`, { status: "Future Plans" });
-
-      // Refresh WIP data to ensure consistency
-      refreshSongs();
-
-      window.showNotification(
-        `Pack "${packName}" moved back to Future Plans`,
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to move pack to Future Plans:", error);
-      window.showNotification("Failed to move pack to Future Plans", "error");
-      // Revert optimistic update on error
-      refreshSongs();
-    }
-  };
-
-  const handleCreateAlbumSeriesFromPack = async (packName, albumSeriesForm) => {
-    try {
-      // Find the pack ID by looking at songs in the pack
-      const packSongs = songs.filter(
-        (s) => (s.pack_name || "(no pack)") === packName
-      );
-      if (packSongs.length === 0) {
-        window.showNotification("No songs found in pack", "error");
-        return;
-      }
-
-      const packId = packSongs[0].pack_id;
-      if (!packId) {
-        window.showNotification("Pack ID not found", "error");
-        return;
-      }
-
-      // Check if pack has at least 4 songs from the specified album
-      const songsFromAlbum = packSongs.filter(
-        (song) =>
-          song.artist?.toLowerCase() ===
-            albumSeriesForm.artist_name.toLowerCase() &&
-          song.album?.toLowerCase() === albumSeriesForm.album_name.toLowerCase()
-      );
-
-      if (songsFromAlbum.length < 4) {
-        window.showNotification(
-          `Pack must have at least 4 songs from "${albumSeriesForm.artist_name} - ${albumSeriesForm.album_name}" (found ${songsFromAlbum.length})`,
-          "error"
-        );
-        return;
-      }
-
-      await apiPost("/album-series/", {
-        pack_id: packId,
-        artist_name: albumSeriesForm.artist_name,
-        album_name: albumSeriesForm.album_name,
-      });
-
-      window.showNotification(
-        `Album series created for "${albumSeriesForm.artist_name} - ${albumSeriesForm.album_name}"`,
-        "success"
-      );
-    } catch (error) {
-      console.error("Failed to create album series:", error);
-      window.showNotification("Failed to create album series", "error");
     }
   };
 

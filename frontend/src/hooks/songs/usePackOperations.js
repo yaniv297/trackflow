@@ -89,7 +89,8 @@ export const usePackOperations = (songs, setSongs, packs, setPacks, refreshSongs
       } catch (error) {
         console.error("Failed to update pack priority:", error);
         if (window.showNotification) {
-          window.showNotification("Failed to update pack priority", "error");
+          const errorMessage = error.message || "Failed to update pack priority";
+          window.showNotification(errorMessage, "error");
         }
         throw error;
       }

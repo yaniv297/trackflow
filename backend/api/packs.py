@@ -136,7 +136,13 @@ def update_pack(pack_id: int, pack_update: PackUpdate, db: Session = Depends(get
     
     # Check if user owns this pack
     if pack.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only pack owner can rename pack")
+        # Determine which operation is being attempted for a more specific error message
+        if pack_update.name is not None:
+            raise HTTPException(status_code=403, detail="Only pack owner can rename pack")
+        elif pack_update.priority is not None:
+            raise HTTPException(status_code=403, detail="Only pack owner can update pack priority")
+        else:
+            raise HTTPException(status_code=403, detail="Only pack owner can modify pack")
     
     # Update pack name if provided
     if pack_update.name is not None:

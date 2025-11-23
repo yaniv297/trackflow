@@ -37,7 +37,7 @@ def send_password_reset_email(email: str, token: str, username: str) -> bool:
         bool: True if email was sent successfully, False otherwise
     """
     if not is_email_configured():
-        print("⚠️  Email not configured - cannot send password reset email")
+        # Email not configured
         return False
     
     # Create reset URL
@@ -146,11 +146,11 @@ def send_password_reset_email(email: str, token: str, username: str) -> bool:
             text = msg.as_string()
             server.sendmail(EMAIL_FROM, email, text)
         
-        print(f"✅ Password reset email sent to {email}")
+        # Email sent successfully
         return True
         
     except Exception as e:
-        print(f"❌ Failed to send password reset email: {e}")
+        # Failed to send email
         return False
 
 def send_test_email(email: str) -> bool:
@@ -164,7 +164,7 @@ def send_test_email(email: str) -> bool:
         bool: True if email was sent successfully, False otherwise
     """
     if not is_email_configured():
-        print("⚠️  Email not configured - cannot send test email")
+        # Email not configured
         return False
     
     try:
@@ -182,9 +182,9 @@ def send_test_email(email: str) -> bool:
             text = msg.as_string()
             server.sendmail(EMAIL_FROM, email, text)
         
-        print(f"✅ Test email sent to {email}")
+        # Test email sent
         return True
         
     except Exception as e:
-        print(f"❌ Failed to send test email: {e}")
+        # Failed to send test email
         return False

@@ -17,7 +17,7 @@ def _get_client() -> Optional[Spotify]:
     SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
     
     if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
-        print(f"Spotify credentials missing: CLIENT_ID={'set' if SPOTIFY_CLIENT_ID else 'missing'}, CLIENT_SECRET={'set' if SPOTIFY_CLIENT_SECRET else 'missing'}")
+        # Spotify credentials not configured
         return None
     auth = SpotifyClientCredentials(
         client_id=SPOTIFY_CLIENT_ID,
@@ -29,21 +29,21 @@ def _get_client() -> Optional[Spotify]:
 def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, preserve_artist_album: bool = False, auto_commit: bool = True) -> Optional[Song]:
     sp = _get_client()
     if sp is None:
-        print(f"Spotify client not available for song {song_id}")
+        # Spotify client not available
         return None
 
     song = db.query(Song).get(song_id)
     if not song:
-        print(f"Song {song_id} not found in database")
+        # Song not found
         return None
 
     try:
-        print(f"Fetching track {track_id} from Spotify for song {song_id}")
+        # Fetching track from Spotify
         track = sp.track(track_id)
         if not track:
-            print(f"Track {track_id} not found on Spotify")
+            # Track not found on Spotify
             return None
-        print(f"Successfully fetched track: {track.get('name', 'Unknown')} by {track.get('artists', [{}])[0].get('name', 'Unknown')}")
+        # Track fetched successfully
 
         album = track.get("album") or {}
         images = album.get("images") or []
@@ -94,27 +94,27 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                             if auto_commit:
                                 db.commit()
                         except Exception as seq_error:
-                            print(f"Sequence reset skipped: {seq_error}")
+                            pass
                     
                     # Create the artist (no user_id - artists are shared entities)
                     artist = Artist(name=artist_name, image_url=artist_img, user_id=None)
                     db.add(artist)
                     db.flush()
-                    print(f"Successfully created artist {artist_name} with ID {artist.id}")
+                    pass
                     
                 except Exception as e:
-                    print(f"Failed to create artist {artist_name}: {e}")
+                    pass
                     db.rollback()
                     
                     # Try to get existing artist (might have been created by another request)
                     artist = db.query(Artist).filter(Artist.name == artist_name).first()
                     if not artist:
-                        print(f"Could not create or find artist {artist_name}")
+                        pass
                         return None
                     else:
-                        print(f"Found existing artist {artist_name} with ID {artist.id} after creation failure")
+                        pass
             else:
-                print(f"Found existing artist {artist_name} with ID {artist.id}")
+                pass
                 # If artist exists but has no image, try to fetch it
                 if not artist.image_url and sp:
                     try:
@@ -128,7 +128,7 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                             else:
                                 db.flush()
                                 db.refresh(artist)
-                            print(f"Fetched image for existing artist {artist_name}")
+                            pass
                     except Exception:
                         pass
             
@@ -137,11 +137,11 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
             if artist and song.artist.lower() == artist_name.lower():
                 # Only update artist_id if names match (case-insensitive)
                 song.artist_id = artist.id
-                print(f"Updated artist_id to {artist.id} for matching artist {artist_name}")
+                pass
             elif artist:
-                print(f"Artist mismatch: user entered '{song.artist}', Spotify found '{artist_name}' - keeping user's artist")
+                pass
 
-        print(f"Updating song {song_id} in database")
+        pass
         db.add(song)
         if auto_commit:
             db.commit()
@@ -149,11 +149,11 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
         else:
             db.flush()
             db.refresh(song)
-        print(f"Successfully enhanced song {song_id}")
+        pass
         return song
     except Exception as e:
         # swallow to avoid breaking core flows
-        print(f"Exception during enhancement of song {song_id}: {str(e)}")
+        pass
         import traceback
         traceback.print_exc()
         db.rollback()
@@ -614,7 +614,7 @@ def import_playlist(
             metadata={"imported_count": imported_count, "playlist_url": req.playlist_url, "status": req.status, "pack": req.pack}
         )
     except Exception as log_err:
-        print(f"⚠️ Failed to log import_spotify activity: {log_err}")
+        pass
     
     return {"imported_count": imported_count}
 
@@ -818,7 +818,7 @@ def fetch_all_missing_artist_images(
             # Commit periodically to avoid long transactions
             if (i + 1) % commit_interval == 0:
                 db.commit()
-                print(f"Progress: {i + 1}/{total_count} artists processed, {updated_count} images fetched")
+                pass
             
             # Small delay to avoid rate limiting (Spotify allows ~100 requests per second)
             time.sleep(0.1)

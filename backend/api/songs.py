@@ -125,7 +125,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
             metadata={"song_id": db_song.id, "title": db_song.title, "artist": db_song.artist, "status": db_song.status.value if hasattr(db_song.status, 'value') else str(db_song.status)}
         )
     except Exception as log_err:
-        print(f"⚠️ Failed to log create_song activity: {log_err}")
+        pass
     
     return SongOut(**song_dict)
 
@@ -358,7 +358,7 @@ def delete_song(song_id: int, db: Session = Depends(get_db), current_user = Depe
             metadata={"song_id": song.id, "title": song.title, "artist": song.artist, "status": song.status.value if hasattr(song.status, 'value') else str(song.status)}
         )
     except Exception as log_err:
-        print(f"⚠️ Failed to log delete_song activity: {log_err}")
+        pass
     
     success = delete_song_from_db(db, song_id)
     if not success:
@@ -567,7 +567,7 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
                 metadata={"song_id": song.id, "title": song.title, "artist": song.artist, "old_status": old_status.value if hasattr(old_status, 'value') else str(old_status), "new_status": song.status.value if hasattr(song.status, 'value') else str(song.status)}
             )
         except Exception as log_err:
-            print(f"⚠️ Failed to log change_status activity: {log_err}")
+            pass
     
     # Build result with proper collaboration formatting
     song_dict = song.__dict__.copy()
@@ -864,7 +864,7 @@ def add_collaborations(song_id: int, data: dict = Body(...), db: Session = Depen
             }
         )
     except Exception as log_err:
-        print(f"⚠️ Failed to log song collaboration update: {log_err}")
+        pass
     
     return {"message": f"Updated collaborations for song {song_id}"}
 

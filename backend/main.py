@@ -37,15 +37,8 @@ env_paths = [
 
 for env_path in env_paths:
     if os.path.exists(env_path):
-        print(f"🔧 Loading .env from: {env_path}")
         load_dotenv(env_path)
         break
-else:
-    print("🔧 Warning: No .env file found")
-
-# Debug: Check if Spotify credentials are loaded
-print(f"🔧 Debug: SPOTIFY_CLIENT_ID loaded: {'✅' if os.getenv('SPOTIFY_CLIENT_ID') else '❌'}")
-print(f"🔧 Debug: SPOTIFY_CLIENT_SECRET loaded: {'✅' if os.getenv('SPOTIFY_CLIENT_SECRET') else '❌'}")
 
 
 def mem_watchdog():
@@ -62,22 +55,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add request logging middleware
-@app.middleware("http")
-async def log_requests(request, call_next):
-    import time
-    start_time = time.time()
-    
-    print(f"📥 {request.method} {request.url}")
-    if request.method == "POST":
-        print(f"📥 Headers: {dict(request.headers)}")
-    
-    response = await call_next(request)
-    
-    process_time = time.time() - start_time
-    print(f"📤 {request.method} {request.url} - Status: {response.status_code} - Time: {process_time:.2f}s")
-    
-    return response
+# Request logging middleware (disabled in production for cleaner logs)
+# @app.middleware("http")
+# async def log_requests(request, call_next):
+#     import time
+#     start_time = time.time()
+#     response = await call_next(request)
+#     process_time = time.time() - start_time
+#     return response
 
 # Add trusted host middleware to handle Railway's forwarded headers
 app.add_middleware(
@@ -114,10 +99,8 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 def init_db():
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created successfully")
-    except Exception as e:
-        print(f"⚠️ Warning: Could not create database tables: {e}")
-        print("The app will start but database operations may fail")
+    except Exception:
+        pass  # Don't block startup if database is not available
 
 # Register route modules
 app.include_router(auth.router)

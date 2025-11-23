@@ -10,46 +10,21 @@ import DoubleAlbumSeriesModal from "./components/modals/DoubleAlbumSeriesModal";
 import UnifiedCollaborationModal from "./components/modals/UnifiedCollaborationModal";
 import Fireworks from "./components/ui/Fireworks";
 import LoadingSpinner from "./components/ui/LoadingSpinner";
-import useCollaborations from "./hooks/useCollaborations";
-import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
-import { checkAndShowNewAchievements } from "./utils/achievements";
 import AlbumSeriesEditModal from "./components/modals/AlbumSeriesEditModal";
+import useCollaborations from "./hooks/collaborations/useCollaborations";
+import { useSongData } from "./hooks/songs/useSongData";
+import { useSongSortingAndGrouping } from "./hooks/songs/useSongSortingAndGrouping";
+import { useSongOperations } from "./hooks/songs/useSongOperations";
+import { usePackOperations } from "./hooks/songs/usePackOperations";
+import { useAlbumSeriesOperations } from "./hooks/songs/useAlbumSeriesOperations";
+import { useBulkOperations } from "./hooks/songs/useBulkOperations";
+import { useSongPageModals } from "./hooks/songs/useSongPageModals";
 
 function SongPage({ status }) {
   const { user } = useAuth();
-
-  // Core state
-  const [songs, setSongs] = useState([]);
-  const [packs, setPacks] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedSongs, setSelectedSongs] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  // UI state
-  const [editing, setEditing] = useState({});
-  const [editValues, setEditValues] = useState({});
-  const [spotifyOptions, setSpotifyOptions] = useState({});
-  const [sortKey, setSortKey] = useState(null);
-  const [sortDirection, setSortDirection] = useState("asc");
-  const [collapsedGroups, setCollapsedGroups] = useState({});
-  const [groupBy, setGroupBy] = useState("pack");
-  const [packSortBy, setPackSortBy] = useState("priority"); // Default to priority for Future Plans
-  const [visibleColumns, setVisibleColumns] = useState({});
-
-  // Modal state
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [showAlbumSeriesModal, setShowAlbumSeriesModal] = useState(false);
-  const [showCollaborationModal, setShowCollaborationModal] = useState(false);
-  const [albumSeriesFormData, setAlbumSeriesFormData] = useState({
-    artist_name: "",
-    album_name: "",
-    year: "",
-    cover_image_url: "",
-    description: "",
-  });
-  const [selectedItemForCollaboration, setSelectedItemForCollaboration] =
-    useState(null);
-  const [collaborationType, setCollaborationType] = useState("pack");
   // Alert/Prompt state
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false,
@@ -66,220 +41,28 @@ function SongPage({ status }) {
     placeholder: "",
   });
 
-  const [editSeriesModal, setEditSeriesModal] = useState({
-    open: false,
-    packId: null,
-    series: [],
-    defaultSeriesId: null,
-  });
-  const [showDoubleAlbumSeriesModal, setShowDoubleAlbumSeriesModal] =
-    useState(false);
-  const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
-  const [isExecutingDoubleAlbumSeries, setIsExecutingDoubleAlbumSeries] =
-    useState(false);
+  // Data fetching
+  const { songs, setSongs, packs, setPacks, loading, refreshSongs } =
+    useSongData(status, search);
 
-  // Use collaboration hook
+  // Collaborations
   const { fetchCollaborations, getPackCollaborators } = useCollaborations();
 
-  // Simple cache for songs data
-  const [songsCache, setSongsCache] = useState({});
-
-  // Define fetchSongs before using it in useEffect
-  // Note: We don't need to fetch packs separately anymore since pack priority 
-  // comes from song data (pack_priority field) which is more reliable
-
-  const fetchSongs = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (status) params.append("status", status);
-      if (search) params.append("query", search);
-
-      const cacheKey = `${status || "all"}-${search || ""}`;
-
-      // Check cache first
-      if (songsCache[cacheKey] && !search) {
-        // Only use cache for non-search requests
-        setSongs(songsCache[cacheKey]);
-        setLoading(false);
-        return;
-      }
-
-      const response = await apiGet(`/songs/?${params.toString()}`);
-      setSongs(response);
-
-      // Cache the result (only for non-search requests)
-      if (!search) {
-        setSongsCache((prev) => ({ ...prev, [cacheKey]: response }));
-      }
-    } catch (error) {
-      console.error("Failed to fetch songs:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [status, search, songsCache]);
-
-  // Load data
+  // Load collaborations on mount
   useEffect(() => {
-    fetchSongs();
     fetchCollaborations();
-  }, [status, fetchCollaborations, fetchSongs]);
+  }, [fetchCollaborations]);
 
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => fetchSongs(), 300);
-    return () => clearTimeout(delayDebounceFn);
-  }, [search, fetchSongs]);
+  // UI state - initialize basic state first
+  const [editing, setEditing] = useState({});
+  const [editValues, setEditValues] = useState({});
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [groupBy, setGroupBy] = useState("pack");
+  const [packSortBy, setPackSortBy] = useState("priority");
+  const [visibleColumns, setVisibleColumns] = useState({});
 
-  useEffect(() => {
-    const handler = (e) => {
-      const { packId, series } = e.detail || {};
-      setEditSeriesModal({
-        open: true,
-        packId: packId || null,
-        series: series || [],
-        defaultSeriesId: series?.[0]?.id || null,
-      });
-    };
-    window.addEventListener("open-edit-album-series", handler);
-    return () => window.removeEventListener("open-edit-album-series", handler);
-  }, []);
-
-  // Listen for global cache invalidation events
-  useEffect(() => {
-    const invalidate = () => {
-      setSongsCache({});
-      fetchSongs();
-    };
-    window.addEventListener("songs-invalidate-cache", invalidate);
-    return () =>
-      window.removeEventListener("songs-invalidate-cache", invalidate);
-  }, [fetchSongs]);
-
-  // Sorting and grouping logic
-  const sortedSongs = useMemo(() => {
-    return [...songs].sort((a, b) => {
-      if (!sortKey) return 0;
-
-      let aValue = a[sortKey] || "";
-      let bValue = b[sortKey] || "";
-
-      if (typeof aValue === "string") aValue = aValue.toLowerCase();
-      if (typeof bValue === "string") bValue = bValue.toLowerCase();
-
-      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-  }, [songs, sortKey, sortDirection]);
-
-  const groupedSongs = useMemo(() => {
-    // No need to filter here since we're already filtering on the backend
-    const filteredSongs = sortedSongs;
-
-    if (groupBy === "artist") {
-      const grouped = filteredSongs.reduce((acc, song) => {
-        if (!song || typeof song !== "object") return acc;
-
-        const artist = song.artist || "Unknown Artist";
-        const album = song.album || "Unknown Album";
-
-        if (!acc[artist]) acc[artist] = {};
-        if (!acc[artist][album]) acc[artist][album] = [];
-
-        acc[artist][album].push(song);
-        return acc;
-      }, {});
-
-      // Sort songs within each album (editable first)
-      Object.keys(grouped).forEach((artist) => {
-        Object.keys(grouped[artist]).forEach((album) => {
-          grouped[artist][album].sort((a, b) => {
-            // Editable songs first
-            if (a.is_editable && !b.is_editable) return -1;
-            if (!a.is_editable && b.is_editable) return 1;
-            // Then by title
-            return (a.title || "").localeCompare(b.title || "");
-          });
-        });
-      });
-
-      return grouped;
-    } else {
-      const grouped = filteredSongs.reduce((acc, song) => {
-        if (!song || typeof song !== "object") return acc;
-
-        const packName = song.pack_name || "(no pack)";
-        if (!acc[packName]) acc[packName] = [];
-        acc[packName].push(song);
-        return acc;
-      }, {});
-
-      // Sort songs within each pack (editable first)
-      Object.keys(grouped).forEach((packName) => {
-        grouped[packName].sort((a, b) => {
-          // Editable songs first
-          if (a.is_editable && !b.is_editable) return -1;
-          if (!a.is_editable && b.is_editable) return 1;
-          // Then by title
-          return (a.title || "").localeCompare(b.title || "");
-        });
-      });
-
-      // Sort pack names by priority first, then alphabetically, with "(no pack)" at the end
-      const sortedGrouped = {};
-      
-      // Helper function to get pack priority
-      const getPackPriority = (packName) => {
-        if (packName === "(no pack)") return null; // No priority for no pack
-        
-        // First try to find from packs array
-        const packData = packs.find(p => p.name === packName);
-        if (packData && packData.priority !== null) {
-          return packData.priority;
-        }
-        
-        // Fallback: get priority from songs in this pack (they have pack_priority field)
-        const songsInPack = grouped[packName] || [];
-        const songWithPriority = songsInPack.find(song => song.pack_priority !== null && song.pack_priority !== undefined);
-        return songWithPriority ? songWithPriority.pack_priority : null;
-      };
-      
-      Object.keys(grouped)
-        .sort((a, b) => {
-          // Put "(no pack)" at the end
-          if (a === "(no pack)") return 1;
-          if (b === "(no pack)") return -1;
-          
-          if (packSortBy === "alphabetical") {
-            // Alphabetical sorting (case insensitive)
-            return a.toLowerCase().localeCompare(b.toLowerCase());
-          } else if (packSortBy === "priority") {
-            // Priority sorting (highest first), then alphabetically
-            const aPriority = getPackPriority(a) ?? 0;
-            const bPriority = getPackPriority(b) ?? 0;
-            if (aPriority !== bPriority) {
-              return bPriority - aPriority; // Higher priority first
-            }
-            return a.toLowerCase().localeCompare(b.toLowerCase()); // Then alphabetically
-          } else {
-            // For Future Plans, we don't have completion data, so default to priority sorting
-            const aPriority = getPackPriority(a) ?? 0;
-            const bPriority = getPackPriority(b) ?? 0;
-            if (aPriority !== bPriority) {
-              return bPriority - aPriority; // Higher priority first
-            }
-            return a.toLowerCase().localeCompare(b.toLowerCase());
-          }
-        })
-        .forEach((packName) => {
-          sortedGrouped[packName] = grouped[packName];
-        });
-
-      return sortedGrouped;
-    }
-  }, [sortedSongs, search, groupBy, packs, packSortBy]);
-
-  // Event handlers
   const handleSort = (key) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -296,14 +79,32 @@ function SongPage({ status }) {
     }));
   };
 
-  const allCollapsed = Object.keys(groupedSongs || {})
-    .filter((key) => groupedSongs[key]?.length > 0)
-    .every((key) => collapsedGroups[key]);
+  // Sorting and grouping
+  const { groupedSongs } = useSongSortingAndGrouping(
+    songs,
+    sortKey,
+    sortDirection,
+    groupBy,
+    packSortBy,
+    packs
+  );
 
-  const toggleAllGroups = () => {
-    const groupKeys = Object.keys(groupedSongs).map((key) =>
-      groupBy === "pack" ? key : key
-    );
+  // Compute allCollapsed and toggleAllGroups after groupedSongs is available
+  const allCollapsed = useMemo(() => {
+    if (!groupedSongs || typeof groupedSongs !== "object") {
+      return false;
+    }
+    return Object.keys(groupedSongs)
+      .filter((key) => groupedSongs[key]?.length > 0)
+      .every((key) => collapsedGroups[key]);
+  }, [groupedSongs, collapsedGroups]);
+
+  const toggleAllGroups = useCallback(() => {
+    if (!groupedSongs || typeof groupedSongs !== "object") {
+      return;
+    }
+
+    const groupKeys = Object.keys(groupedSongs);
 
     if (allCollapsed) {
       setCollapsedGroups({});
@@ -314,245 +115,45 @@ function SongPage({ status }) {
       });
       setCollapsedGroups(newCollapsed);
     }
-  };
+  }, [groupedSongs, allCollapsed]);
 
-  // Bulk action handlers
+  // Song operations
+  const {
+    spotifyOptions,
+    setSpotifyOptions,
+    saveEdit: saveEditBase,
+    fetchSpotifyOptions,
+    applySpotifyEnhancement,
+    handleDelete,
+  } = useSongOperations(songs, setSongs, refreshSongs);
 
-  const handleStartWork = async (songIds = null) => {
-    // Move songs from Future Plans to In Progress
-    try {
-      const songsToMove = songIds
-        ? songs.filter((s) => songIds.includes(s.id))
-        : songs.filter((s) => selectedSongs.includes(s.id));
-
-      const movedIds = new Set(songsToMove.map((s) => s.id));
-
-      // Group songs by album series for status updates
-      const seriesGroups = {};
-      songsToMove.forEach((song) => {
-        if (song.album_series_id) {
-          if (!seriesGroups[song.album_series_id]) {
-            seriesGroups[song.album_series_id] = [];
-          }
-          seriesGroups[song.album_series_id].push(song);
-        }
-      });
-
-
-      // Optimistic UI update
-      setSongs((prev) => {
-        if (status === "Future Plans") {
-          // Remove moved songs from the current view
-          return prev.filter((s) => !movedIds.has(s.id));
-        }
-        // Otherwise, mark them as In Progress
-        return prev.map((s) =>
-          movedIds.has(s.id) ? { ...s, status: "In Progress" } : s
-        );
-      });
-
-      await Promise.all(
-        songsToMove.map((song) =>
-          apiPatch(`/songs/${song.id}`, { status: "In Progress" })
-        )
-      );
-      
-      // Check achievements after status change
-      await checkAndShowNewAchievements();
-
-      // Update album series status to "in_progress" if any songs belong to a series
-      for (const [seriesId, seriesSongs] of Object.entries(seriesGroups)) {
-        if (seriesSongs.length > 0) {
-          try {
-            const response = await apiPut(`/album-series/${seriesId}/status`, {
-              status: "in_progress",
-            });
-          } catch (err) {
-            console.error(
-              `Failed to update album series ${seriesId} status:`,
-              err
-            );
-          }
-        }
-      }
-
-      // Invalidate cache so fetchSongs pulls fresh data
-      setSongsCache({});
-      fetchSongs();
-      setSelectedSongs([]);
-
-      if (window.showNotification) {
-        window.showNotification(
-          `Started work on ${songsToMove.length} song${
-            songsToMove.length === 1 ? "" : "s"
-          }.`,
-          "success"
-        );
-      }
-    } catch (error) {
-      console.error("Failed to start work:", error);
-      if (window.showNotification) {
-        window.showNotification("Failed to start work", "error");
-      }
-      // Optionally refresh to recover from any mismatch
-      fetchSongs();
-    }
-  };
-
-  // Song editing handlers
+  // Wrapper for saveEdit to handle editValues and setEditing
   const saveEdit = async (id, field) => {
-    const value = editValues[`${id}_${field}`];
-    if (value === undefined) return;
-
     try {
-      let updates = { [field]: value };
-      const oldSong = songs.find((s) => s.id === id);
-
-      // Special handling for pack field - backend expects "pack" field, not "pack_name"
-      // The backend will handle pack creation if it doesn't exist
-      if (field === "pack") {
-        // Keep the field name as "pack" (confirmed by MovePackModal.js)
-        updates = { pack: value };
-      }
-      const response = await apiPatch(`/songs/${id}`, updates);
-
-      setSongs((prevSongs) =>
-        prevSongs.map((song) =>
-          song.id === id ? { ...song, ...response } : song
-        )
-      );
-
-      // Remove unnecessary cache clearing - we already updated local state
-      // setSongsCache({});
-
-      setEditing((prev) => {
-        const newState = { ...prev };
-        delete newState[`${id}_${field}`];
-        return newState;
-      });
-
-      setEditValues((prev) => {
-        const newState = { ...prev };
-        delete newState[`${id}_${field}`];
-        return newState;
-      });
-
-      // Check achievements if status changed
-      if (field === "status" && oldSong && oldSong.status !== value) {
-        await checkAndShowNewAchievements();
-      }
-      
-      // Clear cache and refresh to get updated pack information
-      if (field === "pack") {
-        setSongsCache({});
-        fetchSongs();
-      }
+      await saveEditBase(id, field, editValues, setEditing, setEditValues);
     } catch (error) {
-      console.error("Failed to save edit:", error);
-      window.showNotification(
-        error.message || "Failed to save changes",
-        "error"
-      );
+      // Error already handled in hook
     }
   };
 
-  const fetchSpotifyOptions = async (song) => {
-    try {
-      const data = await apiGet(`/spotify/${song.id}/spotify-options/`);
-      setSpotifyOptions((prev) => ({ ...prev, [song.id]: data }));
-    } catch (error) {
-      console.error("Failed to fetch Spotify options:", error);
-    }
-  };
+  // Pack operations
+  const {
+    handlePackNameUpdate: handlePackNameUpdateBase,
+    handleDeletePack: handleDeletePackBase,
+    updatePackPriority,
+  } = usePackOperations(songs, setSongs, packs, setPacks, refreshSongs);
 
-  const applySpotifyEnhancement = async (songId, trackId) => {
-    try {
-      const updated = await apiPost(`/spotify/${songId}/enhance/`, {
-        track_id: trackId,
-      });
-
-      // Only update specific fields that should change from Spotify enhancement
-      // Preserve pack-related fields and other important display fields
-      setSongs((prevSongs) =>
-        prevSongs.map((song) =>
-          song.id === songId
-            ? {
-                ...song,
-                album: updated.album,
-                year: updated.year,
-                album_cover: updated.album_cover,
-                artist: updated.artist,
-                title: updated.title,
-              }
-            : song
-        )
-      );
-
-      // Close the Spotify enhancement modal
-      setSpotifyOptions((prev) => ({ ...prev, [songId]: undefined }));
-
-      window.showNotification("Song enhanced successfully!", "success");
-    } catch (error) {
-      console.error(
-        "Failed to apply Spotify enhancement:",
-        error.message || error
-      );
-      // Show user-friendly error message
-      window.showNotification("Failed to apply Spotify enhancement", "error");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await apiDelete(`/songs/${id}`);
-      setSongs(songs.filter((song) => song.id !== id));
-      // Remove unnecessary cache clearing - we already updated local state
-      // setSongsCache({});
-    } catch (error) {
-      console.error("Failed to delete song:", error);
-    }
-  };
-
-  const handlePackNameUpdate = async (packId, newName) => {
-    try {
-      await apiPatch(`/packs/${packId}`, { name: newName });
-      // Clear cache and refresh
-      setSongsCache({});
-      fetchSongs();
-    } catch (error) {
-      console.error("Failed to update pack name:", error);
-      throw error; // Re-throw so the component can handle it
-    }
-  };
-
-  const handleDeletePack = async (packName, packId) => {
+  // Wrapper for handleDeletePack to show alert
+  const handleDeletePack = (packName, packId) => {
     setAlertConfig({
       isOpen: true,
       title: "Delete Pack",
       message: `Are you sure you want to delete "${packName}"? This will permanently delete the pack and all songs in it.`,
       onConfirm: async () => {
         try {
-          if (!packId) {
-            throw new Error("Pack ID is missing - cannot delete pack");
-          }
-
-          // Delete the pack (this will cascade delete songs and album series)
-          await apiDelete(`/packs/${packId}`);
-
-          // Clear cache and refresh
-          setSongsCache({});
-          fetchSongs();
-
-          window.showNotification(
-            `Pack "${packName}" deleted successfully`,
-            "success"
-          );
+          await handleDeletePackBase(packName, packId);
         } catch (error) {
-          console.error("Failed to delete pack:", error);
-          window.showNotification(
-            `Failed to delete pack: ${error.message}`,
-            "error"
-          );
+          // Error already handled in hook
         }
         setAlertConfig((prev) => ({ ...prev, isOpen: false }));
       },
@@ -560,246 +161,63 @@ function SongPage({ status }) {
     });
   };
 
-  const updatePackPriority = async (packName, priority) => {
-    if (!packName) return;
-    
-    // Find pack ID from songs
-    const packSongs = songs.filter(song => song.pack_name === packName);
-    const packId = packSongs[0]?.pack_id;
-    
-    if (!packId) {
-      window.showNotification("Could not find pack ID", "error");
-      return;
-    }
+  // Modal state
+  const {
+    showBulkModal,
+    setShowBulkModal,
+    showAlbumSeriesModal,
+    setShowAlbumSeriesModal,
+    showCollaborationModal,
+    setShowCollaborationModal,
+    selectedItemForCollaboration,
+    setSelectedItemForCollaboration,
+    collaborationType,
+    setCollaborationType,
+    editSeriesModal,
+    setEditSeriesModal,
+  } = useSongPageModals();
 
-    try {
-      await apiPatch(`/packs/${packId}`, { priority });
-      
-      // Update local packs state immediately (no page refresh!)
-      setPacks(prevPacks => 
-        prevPacks.map(pack => 
-          pack.id === packId 
-            ? { ...pack, priority }
-            : pack
-        )
-      );
-      
-      // ALSO update the pack_priority field on all songs in this pack
-      // This is what the UI actually displays!
-      setSongs(prevSongs =>
-        prevSongs.map(song =>
-          song.pack_id === packId
-            ? { ...song, pack_priority: priority }
-            : song
-        )
-      );
-      
-      const priorityText = priority ? 
-        `Priority ${priority} (${['💤 Someday', '📋 Low', '📝 Medium', '⚡ High', '🔥 Urgent'][priority - 1]})` : 
-        "No priority";
-      
-      window.showNotification(`Pack priority updated to: ${priorityText}`, "success");
-      
-    } catch (error) {
-      console.error("Failed to update pack priority:", error);
-      window.showNotification("Failed to update pack priority", "error");
-      throw error;
-    }
-  };
+  // Album series operations
+  const {
+    albumSeriesFormData,
+    setAlbumSeriesFormData,
+    showDoubleAlbumSeriesModal,
+    setShowDoubleAlbumSeriesModal,
+    doubleAlbumSeriesData,
+    setDoubleAlbumSeriesData,
+    isExecutingDoubleAlbumSeries,
+    handleShowAlbumSeriesModal,
+    handleAlbumSeriesSubmit: handleAlbumSeriesSubmitBase,
+    handleMakeDoubleAlbumSeries,
+    executeDoubleAlbumSeries,
+  } = useAlbumSeriesOperations(
+    songs,
+    setSongs,
+    selectedSongs,
+    setSelectedSongs,
+    refreshSongs,
+    setShowAlbumSeriesModal
+  );
 
-  const handleShowAlbumSeriesModal = (packName, albumsWithEnoughSongs) => {
-
-    // Find the songs in this pack
-    const packSongs = songs.filter((song) => song.pack_name === packName);
-
-    if (packSongs.length === 0) {
-      console.error("No songs found for pack:", packName);
-      return;
-    }
-
-    // Select all songs in the pack by default
-    const packSongIds = packSongs.map((song) => song.id);
-    setSelectedSongs(packSongIds);
-
-    // Pre-populate form data if possible
-    if (albumsWithEnoughSongs && albumsWithEnoughSongs.length > 0) {
-      const [albumName] = albumsWithEnoughSongs[0];
-      const firstSong = packSongs[0];
-      setAlbumSeriesFormData({
-        artist_name: firstSong?.artist || "",
-        album_name: albumName || "",
-        year: firstSong?.year || "",
-        cover_image_url: firstSong?.album_cover || "",
-        description: "",
-      });
-    }
-
-    // Open the traditional AlbumSeriesModal
-    setShowAlbumSeriesModal(true);
-  };
-
+  // Wrapper for handleAlbumSeriesSubmit to close modal
   const handleAlbumSeriesSubmit = async () => {
-    if (selectedSongs.length === 0) {
-      window.showNotification("Please select songs first", "warning");
-      return;
-    }
-
     try {
-      const firstSong = songs.find((song) => selectedSongs.includes(song.id));
-      if (!firstSong?.pack_name) {
-        window.showNotification("Selected songs must be in a pack", "error");
-        return;
-      }
-
-      await apiPost("/album-series/create-from-pack", {
-        pack_name: firstSong.pack_name,
-        artist_name: albumSeriesFormData.artist_name,
-        album_name: albumSeriesFormData.album_name,
-        year: parseInt(albumSeriesFormData.year) || null,
-        cover_image_url: albumSeriesFormData.cover_image_url || null,
-        description: albumSeriesFormData.description || null,
-      });
-
-      window.showNotification(
-        `Album series "${albumSeriesFormData.album_name}" created successfully!`,
-        "success"
-      );
-
+      await handleAlbumSeriesSubmitBase();
       setShowAlbumSeriesModal(false);
-      setSelectedSongs([]);
-      setAlbumSeriesFormData({
-        artist_name: "",
-        album_name: "",
-        year: "",
-        cover_image_url: "",
-        description: "",
-      });
-
-      // Clear cache and refresh
-      setSongsCache({});
-      fetchSongs();
     } catch (error) {
-      console.error("Failed to create album series:", error);
-      window.showNotification("Failed to create album series", "error");
+      // Error already handled in hook
     }
   };
 
-  const handleMakeDoubleAlbumSeries = async (
-    packName,
-    albumsWithEnoughSongs
-  ) => {
-    if (!albumsWithEnoughSongs || albumsWithEnoughSongs.length < 2) {
-      window.showNotification(
-        "Pack must have at least 2 albums with 4+ songs each for double album series",
-        "error"
-      );
-      return;
-    }
-
-    // Prevent multiple modal openings
-    if (showDoubleAlbumSeriesModal || isExecutingDoubleAlbumSeries) {
-      return;
-    }
-
-    const packSongs = songs.filter((song) => song.pack_name === packName);
-    const mostCommonArtist = packSongs[0]?.artist;
-
-    // Find the album that should be the "base" album series (the one that stays)
-    // This should be the album with the most songs that has an album_series_id
-    const albumSeriesCounts = {};
-    packSongs.forEach((song) => {
-      if (song.album_series_id && song.album) {
-        albumSeriesCounts[song.album] =
-          (albumSeriesCounts[song.album] || 0) + 1;
-      }
-    });
-
-    // Find the album with the most songs in the album series (this becomes the "base")
-    const baseAlbumSeries = Object.entries(albumSeriesCounts).sort(
-      (a, b) => b[1] - a[1]
-    )[0]?.[0];
-
-    const albumsToChooseFrom = albumsWithEnoughSongs.filter(
-      ([albumName]) => albumName !== baseAlbumSeries
-    );
-
-    if (albumsToChooseFrom.length === 0) {
-      window.showNotification(
-        "No suitable album found for double album series",
-        "error"
-      );
-      return;
-    }
-
-    const [secondAlbumName] = albumsToChooseFrom[0];
-    const songsInSecondAlbum = packSongs.filter(
-      (song) => song.album === secondAlbumName
-    );
-
-    if (songsInSecondAlbum.length < 4) {
-      window.showNotification(
-        `"${secondAlbumName}" needs at least 4 songs for album series (found ${songsInSecondAlbum.length} total songs including optional ones)`,
-        "error"
-      );
-      return;
-    }
-
-    // Show confirmation modal instead of immediately executing
-    const newPackName = `${secondAlbumName} Album Series`;
-    setDoubleAlbumSeriesData({
-      packName,
-      secondAlbumName,
-      songsToMove: songsInSecondAlbum,
-      newPackName,
-      mostCommonArtist,
-    });
-    setShowDoubleAlbumSeriesModal(true);
-  };
-
-  const executeDoubleAlbumSeries = async () => {
-    if (!doubleAlbumSeriesData || isExecutingDoubleAlbumSeries) return;
-
-    setIsExecutingDoubleAlbumSeries(true);
-
-    const { secondAlbumName, songsToMove, newPackName, mostCommonArtist } =
-      doubleAlbumSeriesData;
-
-    try {
-      // Update all songs from the second album to the new pack
-      const songIdsToMove = songsToMove.map((song) => song.id);
-
-      // Update pack names for songs in the second album (sequentially to avoid race conditions)
-      for (const songId of songIdsToMove) {
-        await apiPatch(`/songs/${songId}`, { pack: newPackName });
-      }
-
-      // Create album series for the second album
-      await apiPost("/album-series/create-from-pack", {
-        pack_name: newPackName,
-        artist_name: mostCommonArtist,
-        album_name: secondAlbumName,
-        year: null,
-        cover_image_url: null,
-        description: null,
-      });
-
-      window.showNotification(
-        `Double album series created! "${secondAlbumName}" split into its own album series with ${songsToMove.length} songs.`,
-        "success"
-      );
-
-      // Close modal and refresh songs to show the updated structure
-      setShowDoubleAlbumSeriesModal(false);
-      setDoubleAlbumSeriesData(null);
-      setSongsCache({});
-      fetchSongs();
-    } catch (error) {
-      console.error("Error creating double album series:", error);
-      window.showNotification("Failed to create double album series", "error");
-    } finally {
-      setIsExecutingDoubleAlbumSeries(false);
-    }
-  };
+  // Bulk operations
+  const { handleStartWork } = useBulkOperations(
+    songs,
+    setSongs,
+    selectedSongs,
+    setSelectedSongs,
+    status,
+    refreshSongs
+  );
 
   return (
     <div className="app-container">
@@ -854,10 +272,9 @@ function SongPage({ status }) {
           onCleanTitles={() => {}} // Placeholder for now
           onSongAdded={() => {
             // Ensure we bypass the local cache so new songs appear immediately
-            setSongsCache({});
-            fetchSongs();
+            refreshSongs();
           }}
-          onPackNameUpdate={handlePackNameUpdate}
+          onPackNameUpdate={handlePackNameUpdateBase}
           onDeletePack={handleDeletePack}
           onShowAlbumSeriesModal={handleShowAlbumSeriesModal}
           onMakeDoubleAlbumSeries={handleMakeDoubleAlbumSeries}
@@ -882,10 +299,7 @@ function SongPage({ status }) {
         packId={editSeriesModal.packId}
         seriesList={editSeriesModal.series}
         defaultSeriesId={editSeriesModal.defaultSeriesId}
-        onChanged={() => {
-          setSongsCache({});
-          fetchSongs();
-        }}
+        onChanged={refreshSongs}
       />
 
       {/* Modals */}
@@ -898,8 +312,7 @@ function SongPage({ status }) {
             setShowBulkModal(false);
             setSelectedSongs([]);
             // Clear cache to force fresh data fetch
-            setSongsCache({});
-            fetchSongs();
+            refreshSongs();
           }}
         />
       )}
@@ -961,7 +374,7 @@ function SongPage({ status }) {
           currentUser={user}
           onCollaborationSaved={() => {
             fetchCollaborations();
-            fetchSongs();
+            refreshSongs();
           }}
         />
       )}

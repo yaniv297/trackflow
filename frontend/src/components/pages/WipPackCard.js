@@ -3,7 +3,7 @@ import SmartDropdown from "../ui/SmartDropdown";
 import WipSongCard from "./WipSongCard";
 import DLCWarning from "../features/dlc/DLCWarning";
 import PackPriorityBadge from "../shared/PackPriorityBadge";
-import { useUserWorkflowFields } from "../../hooks/useUserWorkflowFields";
+import { useUserWorkflowFields } from "../../hooks/workflows/useUserWorkflowFields";
 import {
   getSongCompletionPercentage,
   isSongComplete,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiGet } from "../../utils/api";
-import { useUserProfilePopup } from "../../hooks/useUserProfilePopup";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
 import UserProfilePopup from "../shared/UserProfilePopup";
 
 const UserDropdown = ({

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { apiGet } from "../utils/api";
+import { apiGet } from "../../utils/api";
 
 // GLOBAL cache shared across all component instances (outside React state)
 const globalWorkflowCache = {};

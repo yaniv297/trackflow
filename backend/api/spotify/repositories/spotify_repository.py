@@ -15,18 +15,23 @@ from ..validators.spotify_validators import SpotifyOptionResponse
 
 class SpotifyRepository:
     def __init__(self):
-        self.client_id = os.getenv("SPOTIFY_CLIENT_ID")
-        self.client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+        # Don't load credentials at init time - load them lazily when needed
+        # This ensures .env file is loaded before we try to read credentials
+        pass
 
     def get_spotify_client(self) -> Optional[Spotify]:
         """Get authenticated Spotify client."""
-        if not self.client_id or not self.client_secret:
-            print(f"Spotify credentials missing: CLIENT_ID={'set' if self.client_id else 'missing'}, CLIENT_SECRET={'set' if self.client_secret else 'missing'}")
+        # Load credentials lazily to ensure .env is loaded
+        client_id = os.getenv("SPOTIFY_CLIENT_ID")
+        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+        
+        if not client_id or not client_secret:
+            print(f"Spotify credentials missing: CLIENT_ID={'set' if client_id else 'missing'}, CLIENT_SECRET={'set' if client_secret else 'missing'}")
             return None
         
         auth = SpotifyClientCredentials(
-            client_id=self.client_id,
-            client_secret=self.client_secret,
+            client_id=client_id,
+            client_secret=client_secret,
         )
         return Spotify(auth_manager=auth)
 

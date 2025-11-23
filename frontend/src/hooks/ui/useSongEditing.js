@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { apiPatch } from "../utils/api";
-import { checkAndShowNewAchievements } from "../utils/achievements";
+import { apiPatch } from "../../utils/api";
+import { checkAndShowNewAchievements } from "../../utils/achievements";
 
 /**
  * Custom hook for managing song editing state and operations

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiPost, apiDelete, apiPut } from "../utils/api";
+import { apiPost, apiDelete, apiPut } from "../../utils/api";
 
 export const useCollaborationOperations = ({
   collaborationType,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useUserProfilePopup } from "../../hooks/useUserProfilePopup";
-import { useCollaborationData } from "../../hooks/useCollaborationData";
-import { useCollaborationOperations } from "../../hooks/useCollaborationOperations";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
+import { useCollaborationData } from "../../hooks/collaborations/useCollaborationData";
+import { useCollaborationOperations } from "../../hooks/collaborations/useCollaborationOperations";
 import UserProfilePopup from "../shared/UserProfilePopup";
 import UserSelector from "../features/collaboration/UserSelector";
 import PermissionSelector from "../features/collaboration/PermissionSelector";

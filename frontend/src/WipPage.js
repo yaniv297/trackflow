@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
-import { useWipData } from "./hooks/useWipData";
-import { useWorkflowData } from "./hooks/useWorkflowData";
+import { useWipData } from "./hooks/wip/useWipData";
+import { useWorkflowData } from "./hooks/workflows/useWorkflowData";
 import WipPageHeader from "./components/navigation/WipPageHeader";
 import WipPackCard from "./components/pages/WipPackCard";
 import CompletionGroupCard from "./components/pages/CompletionGroupCard";
@@ -330,7 +330,6 @@ function WipPage() {
   }, []);
 
   useEffect(() => {
-
     const handler = (e) => {
       const { packId, series } = e.detail || {};
       setEditSeriesModal({
@@ -408,7 +407,6 @@ function WipPage() {
 
   // Song Management
   const updateAuthoringField = async (songId, field, value) => {
-
     // Update local state immediately (optimistic)
     setSongs((prev) =>
       prev.map((song) => {
@@ -578,10 +576,10 @@ function WipPage() {
 
   const updatePackPriority = async (packName, priority) => {
     if (!packName) return;
-    
-    const packSongs = songs.filter(song => song.pack_name === packName);
+
+    const packSongs = songs.filter((song) => song.pack_name === packName);
     const packId = packSongs[0]?.pack_id;
-    
+
     if (!packId) {
       window.showNotification("Could not find pack ID", "error");
       return;
@@ -589,17 +587,23 @@ function WipPage() {
 
     try {
       await apiPatch(`/packs/${packId}`, { priority });
-      
+
       // Update local pack data immediately without loading state
       // The grouped data will automatically re-sort based on updated pack priority
       updatePackPriorityLocal(packId, priority);
-      
-      const priorityText = priority ? 
-        `Priority ${priority} (${['💤 Someday', '📋 Low', '📝 Medium', '⚡ High', '🔥 Urgent'][priority - 1]})` : 
-        "No priority";
-      
-      window.showNotification(`Pack priority updated to: ${priorityText}`, "success");
-      
+
+      const priorityText = priority
+        ? `Priority ${priority} (${
+            ["💤 Someday", "📋 Low", "📝 Medium", "⚡ High", "🔥 Urgent"][
+              priority - 1
+            ]
+          })`
+        : "No priority";
+
+      window.showNotification(
+        `Pack priority updated to: ${priorityText}`,
+        "success"
+      );
     } catch (error) {
       console.error("Failed to update pack priority:", error);
       window.showNotification("Failed to update pack priority", "error");
@@ -613,21 +617,21 @@ function WipPage() {
       (s) => (s.pack_name || "(no pack)") === pack
     );
     const packId = packSongs[0]?.pack_id;
-    
+
     if (!packId) {
       window.showNotification("Pack not found", "error");
       return;
     }
-    
+
     // Set up release modal data
     setReleaseModalData({
-      type: 'pack',
+      type: "pack",
       itemId: packId,
       itemName: pack,
       title: `Release "${pack}"`,
-      packSongs: packSongs
+      packSongs: packSongs,
     });
-    
+
     // Open release modal
     setShowReleaseModal(true);
   };
@@ -638,10 +642,10 @@ function WipPage() {
       const response = await apiPost(`/packs/${packId}/release`, releaseData);
 
       // Get pack name for notifications
-      const packName = releaseModalData?.itemName || 'Pack';
-      
+      const packName = releaseModalData?.itemName || "Pack";
+
       // Get the pack songs that will be affected
-      const packSongs = songs.filter(s => s.pack_id === packId);
+      const packSongs = songs.filter((s) => s.pack_id === packId);
 
       // Optimistic update - remove songs from current view (they're now in Released or Future Plans)
       setSongs((prev) =>
@@ -651,9 +655,12 @@ function WipPage() {
       );
 
       // Show notification
-      window.showNotification(response.message || `Pack "${packName}" released successfully!`, "success");
+      window.showNotification(
+        response.message || `Pack "${packName}" released successfully!`,
+        "success"
+      );
       setFireworksTrigger((prev) => prev + 1);
-      
+
       // Check for new achievements after releasing pack
       await checkAndShowNewAchievements();
     } catch (error) {
@@ -664,17 +671,17 @@ function WipPage() {
 
   const releaseSong = (songId) => {
     // Get song info
-    const song = songs.find(s => s.id === songId);
+    const song = songs.find((s) => s.id === songId);
     if (!song) return;
-    
+
     // Set up release modal data
     setReleaseModalData({
-      type: 'song',
+      type: "song",
       itemId: songId,
       itemName: song.title,
-      title: `Release "${song.title}"`
+      title: `Release "${song.title}"`,
     });
-    
+
     // Open release modal
     setShowReleaseModal(true);
   };
@@ -686,21 +693,21 @@ function WipPage() {
         status: "Released",
         release_description: releaseData.description || null,
         release_download_link: releaseData.download_link || null,
-        release_youtube_url: releaseData.youtube_url || null
+        release_youtube_url: releaseData.youtube_url || null,
       };
-      
+
       await apiPatch(`/songs/${songId}`, updatePayload);
-      
+
       // Remove song from WIP view optimistically
-      setSongs((prev) => prev.filter(song => song.id !== songId));
-      
+      setSongs((prev) => prev.filter((song) => song.id !== songId));
+
       // Get song info for notification
-      const song = songs.find(s => s.id === songId);
+      const song = songs.find((s) => s.id === songId);
       const songTitle = song ? `"${song.title}"` : "Song";
-      
+
       window.showNotification(`${songTitle} released successfully!`, "success");
       setFireworksTrigger((prev) => prev + 1);
-      
+
       // Check for new achievements after releasing song
       await checkAndShowNewAchievements();
     } catch (error) {
@@ -1440,8 +1447,8 @@ function WipPage() {
             itemId={releaseModalData.itemId}
             itemName={releaseModalData.itemName}
             onReleaseComplete={
-              releaseModalData.type === 'song' 
-                ? handleSongReleaseComplete 
+              releaseModalData.type === "song"
+                ? handleSongReleaseComplete
                 : handlePackReleaseComplete
             }
             packSongs={releaseModalData.packSongs}

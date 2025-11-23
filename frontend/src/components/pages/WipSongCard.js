@@ -13,13 +13,13 @@ import SpotifyEnhancement from "./WipSongCard/SpotifyEnhancement";
 import AuthoringFields from "./WipSongCard/AuthoringFields";
 
 import { useAuth } from "../../contexts/AuthContext";
-import { useUserProfilePopup } from "../../hooks/useUserProfilePopup";
-import { useWorkflowData } from "../../hooks/useWorkflowData";
-import { useSongEditing } from "../../hooks/useSongEditing";
-import { useFileLinks } from "../../hooks/useFileLinks";
-import { useSpotifyEnhancement } from "../../hooks/useSpotifyEnhancement";
-import { useWipCollaborations } from "../../hooks/useWipCollaborations";
-import { useSongProgress } from "../../hooks/useSongProgress";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
+import { useWorkflowData } from "../../hooks/workflows/useWorkflowData";
+import { useSongEditing } from "../../hooks/ui/useSongEditing";
+import { useFileLinks } from "../../hooks/ui/useFileLinks";
+import { useSpotifyEnhancement } from "../../hooks/ui/useSpotifyEnhancement";
+import { useWipCollaborations } from "../../hooks/wip/useWipCollaborations";
+import { useSongProgress } from "../../hooks/workflows/useSongProgress";
 
 import { getSongProgressData } from "../../utils/progressUtils";
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiGet, apiPut } from "../utils/api";
-import { getFieldCompletion } from "../utils/progressUtils";
-import { checkAndShowNewAchievements } from "../utils/achievements";
+import { apiGet, apiPut } from "../../utils/api";
+import { getFieldCompletion } from "../../utils/progressUtils";
+import { checkAndShowNewAchievements } from "../../utils/achievements";
 
 /**
  * Custom hook for managing song progress state and operations

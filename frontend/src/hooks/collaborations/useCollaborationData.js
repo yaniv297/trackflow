@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { apiGet } from "../utils/api";
+import { apiGet } from "../../utils/api";
 
 export const useCollaborationData = ({
   isOpen,

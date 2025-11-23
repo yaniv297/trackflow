@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { apiGet } from "../utils/api";
-import { useWorkflowData } from "./useWorkflowData";
-import { useUserWorkflowFields } from "./useUserWorkflowFields";
+import { apiGet } from "../../utils/api";
+import { useWorkflowData } from "../workflows/useWorkflowData";
+import { useUserWorkflowFields } from "../workflows/useUserWorkflowFields";
 import {
   getCompletedFieldsCount,
   getSongCompletionPercentage,
   isSongComplete,
-} from "../utils/progressUtils";
+} from "../../utils/progressUtils";
 
 export const useWipData = (user) => {
   const [songs, setSongs] = useState([]);

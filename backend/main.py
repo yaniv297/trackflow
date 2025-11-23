@@ -1,5 +1,19 @@
 import os
 from dotenv import load_dotenv
+
+# Load environment variables FIRST, before any other imports
+# This ensures env vars are available when modules are imported
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),  # backend/.env
+    os.path.join(os.path.dirname(__file__), '..', '.env'),  # root/.env
+]
+
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        break
+
+# Now import everything else after .env is loaded
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -26,17 +40,6 @@ from api.achievements import router as achievements_router
 from api.notifications import router as notifications_router
 from database import engine, SQLALCHEMY_DATABASE_URL, get_db
 from models import Base
-
-# Load environment variables from multiple possible locations
-env_paths = [
-    os.path.join(os.path.dirname(__file__), '.env'),  # backend/.env
-    os.path.join(os.path.dirname(__file__), '..', '.env'),  # root/.env
-]
-
-for env_path in env_paths:
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-        break
 
 
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiGet, apiPost } from "../utils/api";
+import { apiGet, apiPost } from "../../utils/api";
 
 /**
  * Custom hook for Spotify enhancement functionality

@@ -1,6 +1,6 @@
 import React from "react";
 import WipSongCard from "./WipSongCard";
-import { useUserWorkflowFields } from "../../hooks/useUserWorkflowFields";
+import { useUserWorkflowFields } from "../../hooks/workflows/useUserWorkflowFields";
 
 const CompletionGroupCard = ({
   categoryName,

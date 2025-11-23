@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiGet } from "../utils/api";
+import { apiGet } from "../../utils/api";
 
 /**
  * Custom hook for managing WIP collaborations

@@ -4,7 +4,7 @@ import SpotifyEnhancementRow from "../music/SpotifyEnhancementRow";
 import SmartDropdown from "../ui/SmartDropdown";
 import CustomAlert from "../ui/CustomAlert";
 import { useAuth } from "../../contexts/AuthContext";
-import { useUserProfilePopup } from "../../hooks/useUserProfilePopup";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
 import UserProfilePopup from "../shared/UserProfilePopup";
 
 // Color palette for collaborators

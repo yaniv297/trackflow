@@ -5,9 +5,9 @@ import MovePackModal from "../modals/MovePackModal";
 import FileHistoryModal from "../modals/FileHistoryModal";
 import ChangeAlbumArtModal from "../modals/ChangeAlbumArtModal";
 import { useAuth } from "../../contexts/AuthContext";
-import { useUserProfilePopup } from "../../hooks/useUserProfilePopup";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
 import UserProfilePopup from "../shared/UserProfilePopup";
-import { useWorkflowData } from "../../hooks/useWorkflowData";
+import { useWorkflowData } from "../../hooks/workflows/useWorkflowData";
 
 export default function DynamicWipSongCard({
   song,

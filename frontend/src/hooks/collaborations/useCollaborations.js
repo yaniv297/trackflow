@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { apiGet } from "../utils/api";
+import { apiGet } from "../../utils/api";
 
 export const useCollaborations = () => {
   const [userCollaborations, setUserCollaborations] = useState([]);

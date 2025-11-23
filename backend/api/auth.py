@@ -491,56 +491,88 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     Request password reset email for a user
     """
     try:
-        print(f"🔄 Forgot password request for: {request.email}")
+        print(f"🔄 STEP 1: Forgot password request for: {request.email}")
         email = request.email.strip().lower()
-        print(f"🔄 Normalized email: {email}")
+        print(f"🔄 STEP 2: Normalized email: {email}")
     except Exception as e:
-        print(f"❌ Error processing email: {e}")
+        print(f"❌ STEP 1-2 ERROR: Error processing email: {e}")
         raise HTTPException(status_code=400, detail="Invalid email format")
     
-    # Validate email format
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    if not re.match(email_pattern, email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email format"
+    try:
+        print(f"🔄 STEP 3: Validating email format")
+        # Validate email format
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            print(f"❌ STEP 3 ERROR: Invalid email format")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email format"
+            )
+        print(f"✅ STEP 3: Email format valid")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ STEP 3 ERROR: {e}")
+        raise
+    
+    try:
+        print(f"🔄 STEP 4: Checking for user with email: {email}")
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            print(f"⚠️ STEP 4: No user found with email: {email}")
+            # Don't reveal whether email exists or not for security
+            return {"message": "If an account with that email exists, a password reset link has been sent."}
+        print(f"✅ STEP 4: Found user: {user.username}")
+    except Exception as e:
+        print(f"❌ STEP 4 ERROR: Database query failed: {e}")
+        raise
+    
+    try:
+        print(f"🔄 STEP 5: Generating secure token")
+        # Generate secure token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
+        print(f"✅ STEP 5: Token generated: {token[:10]}...")
+    except Exception as e:
+        print(f"❌ STEP 5 ERROR: Token generation failed: {e}")
+        raise
+    
+    try:
+        print(f"🔄 STEP 6: Saving token to database")
+        # Save token to database (invalidate any existing tokens for this email)
+        db.query(PasswordResetToken).filter(PasswordResetToken.email == email).delete()
+        
+        reset_token = PasswordResetToken(
+            email=email,
+            token=token,
+            expires_at=expires_at
         )
-    
-    # Check if user exists
-    print(f"🔄 Checking for user with email: {email}")
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        print(f"⚠️ No user found with email: {email}")
-        # Don't reveal whether email exists or not for security
-        return {"message": "If an account with that email exists, a password reset link has been sent."}
-    
-    # Generate secure token
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
-    
-    # Save token to database (invalidate any existing tokens for this email)
-    db.query(PasswordResetToken).filter(PasswordResetToken.email == email).delete()
-    
-    reset_token = PasswordResetToken(
-        email=email,
-        token=token,
-        expires_at=expires_at
-    )
-    db.add(reset_token)
-    db.commit()
+        db.add(reset_token)
+        db.commit()
+        print(f"✅ STEP 6: Token saved to database")
+    except Exception as e:
+        print(f"❌ STEP 6 ERROR: Database save failed: {e}")
+        raise
     
     # Send password reset email
     try:
+        print(f"🔄 STEP 7: Importing email service")
         from email_service import send_password_reset_email, is_email_configured
+        print(f"✅ STEP 7: Email service imported")
         
+        print(f"🔄 STEP 8: Checking email configuration")
         if not is_email_configured():
             # For development/testing when email is not configured
-            print(f"⚠️  Email not configured. Password reset token for {email}: {token}")
+            print(f"⚠️ STEP 8: Email not configured. Password reset token for {email}: {token}")
             # Return the same message for security (don't reveal email config status)
             return {"message": "If an account with that email exists, a password reset link has been sent."}
+        print(f"✅ STEP 8: Email is configured")
         
+        print(f"🔄 STEP 9: Sending password reset email")
         email_sent = send_password_reset_email(email, token, user.username)
         if not email_sent:
+            print(f"❌ STEP 9 ERROR: Email sending failed")
             # Clean up token if email failed
             db.delete(reset_token)
             db.commit()
@@ -548,7 +580,9 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to send password reset email. Please try again later."
             )
+        print(f"✅ STEP 9: Email sent successfully")
         
+        print(f"🔄 STEP 10: Logging activity")
         # Log activity
         try:
             from .activity_logger import log_activity
@@ -558,18 +592,25 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
                 activity_type="password_reset_requested",
                 description=f"{user.username} requested a password reset"
             )
+            print(f"✅ STEP 10: Activity logged")
         except Exception as log_err:
-            print(f"⚠️ Failed to log password reset activity: {log_err}")
+            print(f"⚠️ STEP 10 WARNING: Failed to log password reset activity: {log_err}")
             pass  # Don't fail if logging fails
             
     except Exception as e:
         print(f"❌ Error in forgot password: {e}")
+        import traceback
+        print(f"❌ Full traceback: {traceback.format_exc()}")
         # Clean up token if something went wrong
-        db.delete(reset_token)
-        db.commit()
+        try:
+            if 'reset_token' in locals():
+                db.delete(reset_token)
+                db.commit()
+        except:
+            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while processing your request. Please try again later."
+            detail=f"Forgot password error: {str(e)}"
         )
     
     return {"message": "If an account with that email exists, a password reset link has been sent."}
@@ -654,4 +695,23 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     except Exception:
         pass  # Don't fail if logging fails
     
-    return {"message": "Password has been reset successfully. You can now login with your new password."} 
+    return {"message": "Password has been reset successfully. You can now login with your new password."}
+
+@router.get("/forgot-password-test")
+def forgot_password_test():
+    """Test endpoint to verify imports work"""
+    try:
+        from models import PasswordResetToken
+        from email_service import is_email_configured
+        return {
+            "models_import": "OK", 
+            "email_service_import": "OK",
+            "email_configured": is_email_configured(),
+            "test": "All imports successful"
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        } 

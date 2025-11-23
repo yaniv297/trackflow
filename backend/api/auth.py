@@ -621,6 +621,9 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     """
     Request password reset email for a user
     """
+    print("🚀 FORGOT PASSWORD ENDPOINT CALLED!")
+    print(f"🚀 Request received at {datetime.utcnow()}")
+    print(f"🚀 Email from request: {request.email}")
     try:
         print(f"🔄 STEP 1: Forgot password request for: {request.email}")
         email = request.email.strip().lower()
@@ -714,6 +717,11 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
                     raise HTTPException(status_code=500, detail="Email service import failed")
         
         print(f"🔄 STEP 8: Checking email configuration")
+        print(f"🔍 EMAIL_USERNAME: {EMAIL_USERNAME}")
+        print(f"🔍 EMAIL_PASSWORD: {'*' * len(EMAIL_PASSWORD) if EMAIL_PASSWORD else 'None'}")
+        print(f"🔍 EMAIL_SERVER: {EMAIL_SERVER}")
+        print(f"🔍 is_email_configured(): {is_email_configured()}")
+        
         if not is_email_configured():
             # For development/testing when email is not configured
             print(f"⚠️ STEP 8: Email not configured. Password reset token for {email}: {token}")
@@ -852,6 +860,7 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
 @router.get("/forgot-password-test")
 def forgot_password_test():
     """Test endpoint to verify imports work"""
+    print("🔥 TEST ENDPOINT CALLED!")
     try:
         from models import PasswordResetToken
         from email_service import is_email_configured
@@ -859,11 +868,19 @@ def forgot_password_test():
             "models_import": "OK", 
             "email_service_import": "OK",
             "email_configured": is_email_configured(),
-            "test": "All imports successful"
+            "test": "All imports successful",
+            "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
+        print(f"🔥 TEST ENDPOINT ERROR: {e}")
         import traceback
         return {
             "error": str(e),
             "traceback": traceback.format_exc()
-        } 
+        }
+
+@router.get("/ping")
+def ping():
+    """Simple ping endpoint"""
+    print("🏓 PING ENDPOINT CALLED!")
+    return {"message": "pong", "timestamp": datetime.utcnow().isoformat()} 

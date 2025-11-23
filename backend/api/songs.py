@@ -66,7 +66,7 @@ def create_song(song: SongCreate, db: Session = Depends(get_db), current_user = 
     
     # Clean up song_data to remove fields that don't exist in the Song model
     cleaned_song_data = {k: v for k, v in song_data.items() 
-                        if k in ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'optional']}
+                        if k in ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'optional', 'notes']}
     
     # If we have a pack name but no pack_id, add it to cleaned_song_data for create_song_in_db to handle
     if song_data.get('pack') and not song_data.get('pack_id'):
@@ -366,11 +366,29 @@ def delete_song(song_id: int, db: Session = Depends(get_db), current_user = Depe
 
 @router.post("/batch", response_model=list[SongOut])
 def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    new_songs = []
-    errors = []
-    
+    # First pass: validate ALL songs before creating ANY
+    validation_errors = []
     for i, song_data in enumerate(songs):
-        try:
+        song_dict = song_data.dict()
+        
+        # Check for duplicates before creating anything
+        from api.data_access import check_song_duplicate_for_user
+        if check_song_duplicate_for_user(db, song_dict.get('title'), song_dict.get('artist'), current_user):
+            validation_errors.append(f"Song '{song_dict.get('title')}' by {song_dict.get('artist')} already exists in your database")
+    
+    # If ANY song fails validation, fail the entire batch
+    if validation_errors:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pack creation failed - {'; '.join(validation_errors)}"
+        )
+    
+    # Second pass: create all songs in transaction
+    new_songs = []
+    
+    # Use a transaction to ensure all-or-nothing behavior
+    try:
+        for i, song_data in enumerate(songs):
             # Set the user_id to the current user's ID (author field will be populated from user.username)
             song_dict = song_data.dict()
             song_dict["user_id"] = current_user.id
@@ -379,23 +397,18 @@ def create_songs_batch(songs: List[SongCreate], db: Session = Depends(get_db), c
             from schemas import SongCreate
             song_with_author = SongCreate(**song_dict)
             
-            new_song = create_song_in_db(db, song_with_author, current_user, auto_enhance=True)
+            new_song = create_song_in_db(db, song_with_author, current_user, auto_enhance=True, auto_commit=False)
             new_songs.append(new_song)
-        except HTTPException as e:
-            # If it's a duplicate error, add it to errors list but continue
-            if e.status_code == 400 and "already exists" in e.detail:
-                errors.append(f"Song {i+1}: {e.detail}")
-            else:
-                # Re-raise other HTTP exceptions
-                raise e
-        except Exception as e:
-            errors.append(f"Song {i+1}: {str(e)}")
-    
-    # If there were any errors, return them along with successfully created songs
-    if errors:
+        
+        # If we get here, all songs were created successfully - commit the transaction
+        db.commit()
+        
+    except Exception as e:
+        # Rollback the entire transaction if any song creation fails
+        db.rollback()
         raise HTTPException(
             status_code=400,
-            detail=f"Some songs could not be created: {'; '.join(errors)}"
+            detail=f"Pack creation failed: {str(e)}"
         )
     
     # Return properly formatted songs with pack data
@@ -577,6 +590,8 @@ def update_song(song_id: int, updates: dict = Body(...), db: Session = Depends(g
         song_dict["year"] = song.year
     if "album_cover" not in song_dict:
         song_dict["album_cover"] = song.album_cover
+    if "notes" not in song_dict:
+        song_dict["notes"] = song.notes
     if "user_id" not in song_dict:
         song_dict["user_id"] = song.user_id
     

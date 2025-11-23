@@ -11,11 +11,11 @@ from pydantic import BaseModel
 from schemas import SongCreate
 from api.data_access import create_song_in_db
 
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-
-
 def _get_client() -> Optional[Spotify]:
+    # Get credentials dynamically to ensure they're loaded after .env
+    SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+    SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+    
     if not SPOTIFY_CLIENT_ID or not SPOTIFY_CLIENT_SECRET:
         print(f"Spotify credentials missing: CLIENT_ID={'set' if SPOTIFY_CLIENT_ID else 'missing'}, CLIENT_SECRET={'set' if SPOTIFY_CLIENT_SECRET else 'missing'}")
         return None
@@ -26,7 +26,7 @@ def _get_client() -> Optional[Spotify]:
     return Spotify(auth_manager=auth)
 
 
-def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, preserve_artist_album: bool = False) -> Optional[Song]:
+def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, preserve_artist_album: bool = False, auto_commit: bool = True) -> Optional[Song]:
     sp = _get_client()
     if sp is None:
         print(f"Spotify client not available for song {song_id}")
@@ -91,7 +91,8 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                             db.execute(text("""
                                 SELECT setval('artists_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM artists), false)
                             """))
-                            db.commit()
+                            if auto_commit:
+                                db.commit()
                         except Exception as seq_error:
                             print(f"Sequence reset skipped: {seq_error}")
                     
@@ -121,21 +122,33 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
                         items = (search.get("artists") or {}).get("items") or []
                         if items and (items[0].get("images") or []):
                             artist.image_url = items[0]["images"][0].get("url")
-                            db.commit()
-                            db.refresh(artist)
+                            if auto_commit:
+                                db.commit()
+                                db.refresh(artist)
+                            else:
+                                db.flush()
+                                db.refresh(artist)
                             print(f"Fetched image for existing artist {artist_name}")
                     except Exception:
                         pass
             
-            # Only update artist if we're not preserving it
-            if not preserve_artist_album and artist:
-                song.artist = artist_name
+            # NEVER override artist name - users know their artists better than Spotify
+            # But still update artist_id if we found a matching artist record
+            if artist and song.artist.lower() == artist_name.lower():
+                # Only update artist_id if names match (case-insensitive)
                 song.artist_id = artist.id
+                print(f"Updated artist_id to {artist.id} for matching artist {artist_name}")
+            elif artist:
+                print(f"Artist mismatch: user entered '{song.artist}', Spotify found '{artist_name}' - keeping user's artist")
 
         print(f"Updating song {song_id} in database")
         db.add(song)
-        db.commit()
-        db.refresh(song)
+        if auto_commit:
+            db.commit()
+            db.refresh(song)
+        else:
+            db.flush()
+            db.refresh(song)
         print(f"Successfully enhanced song {song_id}")
         return song
     except Exception as e:
@@ -147,7 +160,7 @@ def enhance_song_with_track_data(song_id: int, track_id: str, db: Session, prese
         return None
 
 
-def auto_enhance_song(song_id: int, db: Session, preserve_artist_album: bool = False) -> bool:
+def auto_enhance_song(song_id: int, db: Session, preserve_artist_album: bool = False, auto_commit: bool = True) -> bool:
     sp = _get_client()
     if sp is None:
         # No credentials; skip silently
@@ -166,7 +179,7 @@ def auto_enhance_song(song_id: int, db: Session, preserve_artist_album: bool = F
         track_id = items[0].get("id")
         if not track_id:
             return False
-        return enhance_song_with_track_data(song_id, track_id, db, preserve_artist_album) is not None
+        return enhance_song_with_track_data(song_id, track_id, db, preserve_artist_album, auto_commit) is not None
     except Exception:
         return False
 

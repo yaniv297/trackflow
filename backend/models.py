@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'PasswordResetToken']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -71,6 +71,7 @@ class Song(Base):
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     pack_id = Column(Integer, ForeignKey("packs.id"), index=True)
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
+    notes = Column(Text, nullable=True)  # Progress notes for the song
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Composite indexes for common query patterns
@@ -326,4 +327,19 @@ class ActivityLog(Base):
     __table_args__ = (
         Index('idx_activity_created', 'created_at'),
         Index('idx_activity_user_type', 'user_id', 'activity_type'),
+    )
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_token_email', 'email'),
+        Index('idx_token_expires', 'expires_at'),
     )

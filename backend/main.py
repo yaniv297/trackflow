@@ -29,13 +29,28 @@ from api import feature_requests as feature_requests
 from database import engine, SQLALCHEMY_DATABASE_URL
 from models import Base
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+# Load environment variables from multiple possible locations
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),  # backend/.env
+    os.path.join(os.path.dirname(__file__), '..', '.env'),  # root/.env
+]
+
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        print(f"🔧 Loading .env from: {env_path}")
+        load_dotenv(env_path)
+        break
+else:
+    print("🔧 Warning: No .env file found")
+
+# Debug: Check if Spotify credentials are loaded
+print(f"🔧 Debug: SPOTIFY_CLIENT_ID loaded: {'✅' if os.getenv('SPOTIFY_CLIENT_ID') else '❌'}")
+print(f"🔧 Debug: SPOTIFY_CLIENT_SECRET loaded: {'✅' if os.getenv('SPOTIFY_CLIENT_SECRET') else '❌'}")
 
 
 def mem_watchdog():
     while True:
         used = psutil.virtual_memory().percent
-        print(f"MEMORY USAGE: {used}%")
         time.sleep(5)
 
 

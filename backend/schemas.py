@@ -85,6 +85,7 @@ class SongOut(BaseModel):
     pack_owner_username: Optional[str] = None
     year: Optional[int]
     album_cover: Optional[str]
+    notes: Optional[str] = None
     author: Optional[str]  # Username from user relationship
     user_id: Optional[int]
     collaborations: List[SongCollaborationOut] = []

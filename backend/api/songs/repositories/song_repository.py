@@ -25,7 +25,10 @@ class SongRepository:
         user_id: int,
         status: Optional[SongStatus] = None,
         query: Optional[str] = None,
-        pack_id: Optional[int] = None
+        pack_id: Optional[int] = None,
+        completion_threshold: Optional[int] = None,
+        order: Optional[str] = None,
+        limit: Optional[int] = None
     ) -> List[Song]:
         """Get filtered songs for a user with complex access control."""
         # Pre-fetch collaboration data
@@ -77,6 +80,24 @@ class SongRepository:
                     )
                 )
             )
+        
+        # Apply completion threshold filter
+        if completion_threshold is not None:
+            q = q.filter(Song.completion_percentage >= completion_threshold)
+        
+        # Apply ordering
+        if order == "title":
+            q = q.order_by(Song.title)
+        elif order == "artist":
+            q = q.order_by(Song.artist)
+        elif order == "created_at":
+            q = q.order_by(Song.created_at.desc())
+        else:
+            q = q.order_by(Song.title)  # Default order
+        
+        # Apply limit
+        if limit:
+            q = q.limit(limit)
         
         return q.all()
     

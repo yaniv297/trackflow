@@ -1,5 +1,5 @@
 import React from "react";
-import ColumnSelector from "./ColumnSelector";
+import ColumnSelector from "../ColumnSelector";
 
 const PageHeader = ({
   status,

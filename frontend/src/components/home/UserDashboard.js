@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { apiGet } from '../../utils/api';
+import { useWorkflowData } from '../../hooks/workflows/useWorkflowData';
 import './UserDashboard.css';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { authoringFields, getSongCompletionPercentage } = useWorkflowData(user);
   const [dashboardData, setDashboardData] = useState({
     lastWorkedSong: null,
     recentParts: [],
@@ -15,11 +19,8 @@ const UserDashboard = () => {
   });
 
   const getCompletionPercentage = (song) => {
-    if (!song.authoring) return 0;
-    const total = Object.keys(song.authoring).length;
-    if (total === 0) return 0;
-    const completed = Object.values(song.authoring).filter(status => status === 'complete').length;
-    return Math.round((completed / total) * 100);
+    if (!song) return 0;
+    return getSongCompletionPercentage(song);
   };
 
   useEffect(() => {
@@ -31,29 +32,64 @@ const UserDashboard = () => {
       setDashboardData(prev => ({ ...prev, loading: true }));
 
       // Fetch all required data in parallel
-      const [
-        lastWorkedResponse,
-        recentPartsResponse,
-        songsResponse,
-        packsResponse
-      ] = await Promise.all([
-        apiGet('/songs?status=wip&limit=1&order=updated_at'),
+      const results = await Promise.allSettled([
+        apiGet('/songs?status=In%20Progress&limit=100&order=created_at'), // Get more songs to find high completion ones
         apiGet('/authoring/recent?limit=3'),
-        apiGet('/songs?status=wip&limit=10'), // Get more and filter client-side initially
-        apiGet('/packs/near-completion?limit=3')
+        apiGet('/packs/near-completion?limit=3&threshold=80')
       ]);
 
-      // Filter songs close to completion client-side
-      const songsWithCompletion = (songsResponse || []).filter(song => {
-        const percentage = getCompletionPercentage(song);
-        return percentage >= 80; // 80% threshold
-      }).slice(0, 3);
+      // Extract values from Promise.allSettled results, defaulting to empty array on failure
+      const allSongs = results[0].status === 'fulfilled' ? results[0].value : [];
+      const recentParts = results[1].status === 'fulfilled' ? results[1].value : [];
+      const packs = results[2].status === 'fulfilled' ? results[2].value : [];
+
+      // Get the most recently updated song (last worked on)
+      // Sort by updated_at if available, otherwise use the first one
+      const lastWorkedSong = allSongs.length > 0 
+        ? allSongs.sort((a, b) => {
+            const dateA = new Date(a.updated_at || a.created_at || 0);
+            const dateB = new Date(b.updated_at || b.created_at || 0);
+            return dateB - dateA;
+          })[0]
+        : null;
+
+      // Calculate completion for all songs and filter for those >= 80%
+      // Songs API should include authoring data, but we may need to fetch it for some
+      // For efficiency, we'll only check the first 50 songs
+      const songsToCheck = allSongs.slice(0, 50);
+      const songsWithCompletionPromises = songsToCheck.map(async (song) => {
+        try {
+          // Fetch authoring data if not already included
+          let authoringData = song.authoring;
+          if (!authoringData || Object.keys(authoringData).length === 0) {
+            try {
+              const authoringResponse = await apiGet(`/authoring/${song.id}`);
+              // Authoring response might be in different formats
+              authoringData = authoringResponse.parts || authoringResponse || {};
+            } catch {
+              authoringData = {};
+            }
+          }
+          
+          const songWithAuthoring = { ...song, authoring: authoringData };
+          const percentage = getSongCompletionPercentage(songWithAuthoring);
+          return { ...songWithAuthoring, completionPercentage: percentage };
+        } catch {
+          return { ...song, completionPercentage: 0 };
+        }
+      });
+
+      const songsWithAuthoring = await Promise.all(songsWithCompletionPromises);
+      const songsWithCompletion = songsWithAuthoring
+        .filter(song => song.completionPercentage >= 80)
+        .sort((a, b) => b.completionPercentage - a.completionPercentage)
+        .slice(0, 3);
 
       setDashboardData({
-        lastWorkedSong: lastWorkedResponse.length > 0 ? lastWorkedResponse[0] : null,
-        recentParts: recentPartsResponse || [],
-        songsCloseToCompletion: songsWithCompletion,
-        packsCloseToCompletion: packsResponse || [],
+        lastWorkedSong: lastWorkedSong,
+        recentParts: recentParts || [],
+        songsCloseToCompletion: songsWithCompletion || [],
+        packsCloseToCompletion: packs || [],
         loading: false,
         error: null
       });

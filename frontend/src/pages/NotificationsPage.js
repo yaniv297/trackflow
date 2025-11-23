@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPut, apiDelete } from './utils/api';
-import { dispatchNotificationDeletedEvent } from './utils/notificationEvents';
+import { apiGet, apiPut, apiDelete } from '../utils/api';
+import { dispatchNotificationDeletedEvent } from '../utils/notificationEvents';
 
 const NotificationsPage = () => {
   const navigate = useNavigate();

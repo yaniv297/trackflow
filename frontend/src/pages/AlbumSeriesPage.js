@@ -1,11 +1,11 @@
 import React, { useMemo } from "react";
-import { useAlbumSeriesData } from "./hooks/albumSeries/useAlbumSeriesData";
-import { useAlbumSeriesOperations } from "./hooks/albumSeries/useAlbumSeriesOperations";
-import { useAlbumSeriesUI } from "./hooks/albumSeries/useAlbumSeriesUI";
-import { calculateSeriesCompletion } from "./utils/albumSeriesUtils";
-import SeriesCard from "./components/albumSeries/SeriesCard";
-import StatusLegend from "./components/albumSeries/StatusLegend";
-import LoadingSpinner from "./components/ui/LoadingSpinner";
+import { useAlbumSeriesData } from "../hooks/albumSeries/useAlbumSeriesData";
+import { useAlbumSeriesOperations } from "../hooks/albumSeries/useAlbumSeriesOperations";
+import { useAlbumSeriesUI } from "../hooks/albumSeries/useAlbumSeriesUI";
+import { calculateSeriesCompletion } from "../utils/albumSeriesUtils";
+import SeriesCard from "../components/albumSeries/SeriesCard";
+import StatusLegend from "../components/albumSeries/StatusLegend";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const AlbumSeriesPage = () => {
   // Data fetching

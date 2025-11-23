@@ -1,10 +1,10 @@
 import React, { useMemo } from "react";
-import { useStatsData } from "./hooks/stats/useStatsData";
-import { useYearDetails } from "./hooks/stats/useYearDetails";
-import { filterTopPacks } from "./utils/statsUtils";
-import StatCard from "./components/stats/StatCard";
-import ExpandableList from "./components/stats/ExpandableList";
-import YearDistribution from "./components/stats/YearDistribution";
+import { useStatsData } from "../hooks/stats/useStatsData";
+import { useYearDetails } from "../hooks/stats/useYearDetails";
+import { filterTopPacks } from "../utils/statsUtils";
+import StatCard from "../components/stats/StatCard";
+import ExpandableList from "../components/stats/ExpandableList";
+import YearDistribution from "../components/stats/YearDistribution";
 export default function StatsPage() {
   const { stats, loading } = useStatsData();
   const {

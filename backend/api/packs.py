@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
 from database import get_db
@@ -9,6 +9,96 @@ from api.achievements import check_pack_achievements
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/packs", tags=["Packs"])
+
+# Define specific routes FIRST to avoid conflicts with /{pack_id}
+@router.get("/near-completion")
+def get_packs_near_completion(
+    limit: int = Query(3, le=10),
+    threshold: int = Query(80, le=100),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get packs that are close to completion for the current user"""
+    
+    # Get packs with their songs
+    packs = db.query(Pack).filter(
+        Pack.user_id == current_user.id
+    ).all()
+    
+    near_completion_packs = []
+    
+    for pack in packs:
+        # Get only "In Progress" songs in the pack with authoring data loaded
+        pack_songs = db.query(Song).options(
+            joinedload(Song.authoring)
+        ).filter(
+            Song.pack_id == pack.id,
+            Song.status == "In Progress"
+        ).all()
+        
+        if not pack_songs:
+            continue
+            
+        # Calculate completion percentage based on authoring progress (like WIP page)
+        total_songs = len(pack_songs)
+        
+        # Calculate average song completion percentage from authoring data
+        total_completion = 0
+        songs_with_authoring = 0
+        
+        for song in pack_songs:
+            if hasattr(song, 'authoring') and song.authoring:
+                # Count completed authoring steps
+                authoring_fields = [
+                    'demucs', 'midi', 'tempo_map', 'fake_ending', 'drums', 'bass', 
+                    'guitar', 'vocals', 'harmonies', 'pro_keys', 'keys', 
+                    'animations', 'drum_fills', 'overdrive', 'compile'
+                ]
+                completed_steps = sum(1 for field in authoring_fields if getattr(song.authoring, field, False))
+                total_steps = len(authoring_fields)
+                song_completion = (completed_steps / total_steps) * 100
+                total_completion += song_completion
+                songs_with_authoring += 1
+        
+        completion_percentage = (total_completion / songs_with_authoring) if songs_with_authoring > 0 else 0
+        
+        # Debug: show what we're calculating
+        print(f"🔍 Pack '{pack.name}': {total_songs} WIP songs, {songs_with_authoring} with authoring, {completion_percentage:.1f}% avg completion")
+        if songs_with_authoring > 0:
+            print(f"   First song authoring example: {pack_songs[0].authoring.__dict__ if pack_songs[0].authoring else 'None'}")
+        
+        # Near-completion logic: show packs that meet threshold and are not 100% complete
+        meets_threshold = completion_percentage >= threshold and completion_percentage < 100
+        has_songs_with_progress = songs_with_authoring > 0
+        
+        print(f"   Meets threshold ({threshold}%)? {meets_threshold}, Has progress? {has_songs_with_progress}")
+        
+        if meets_threshold and has_songs_with_progress:
+            pack_data = {
+                "id": pack.id,
+                "name": pack.name,
+                "priority": pack.priority,
+                "created_at": pack.created_at.isoformat() if pack.created_at else None,
+                "updated_at": pack.updated_at.isoformat() if pack.updated_at else None,
+                "songs": [
+                    {
+                        "id": song.id,
+                        "title": song.title,
+                        "artist": song.artist,
+                        "status": song.status
+                    }
+                    for song in pack_songs
+                ]
+            }
+            near_completion_packs.append(pack_data)
+    
+    # Sort by completion percentage descending
+    near_completion_packs.sort(key=lambda p: 
+        len([s for s in p["songs"] if s["status"] == "Released"]) / len(p["songs"]) if p["songs"] else 0, 
+        reverse=True
+    )
+    
+    return near_completion_packs[:limit]
 
 class PackCreate(BaseModel):
     name: str
@@ -395,62 +485,4 @@ def release_pack_with_metadata(
     if moved_count > 0:
         message += f" ({moved_count} optional songs moved to future plans)"
     
-    return {"message": message, "pack_id": pack_id}
-
-@router.get("/near-completion")
-def get_packs_near_completion(
-    limit: int = Query(3, le=10),
-    threshold: int = Query(80, le=100),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_active_user)
-):
-    """Get packs that are close to completion for the current user"""
-    
-    # Get packs with their songs
-    packs = db.query(Pack).filter(
-        Pack.user_id == current_user.id
-    ).all()
-    
-    near_completion_packs = []
-    
-    for pack in packs:
-        # Get songs in the pack
-        pack_songs = db.query(Song).filter(Song.pack_id == pack.id).all()
-        
-        if not pack_songs:
-            continue
-            
-        # Calculate completion percentage
-        total_songs = len(pack_songs)
-        completed_songs = len([song for song in pack_songs if song.status == "Released"])
-        wip_songs = len([song for song in pack_songs if song.status == "In Progress"])
-        
-        completion_percentage = (completed_songs / total_songs) * 100 if total_songs > 0 else 0
-        
-        # Only include packs that have WIP songs and meet the threshold
-        if wip_songs > 0 and completion_percentage >= threshold:
-            pack_data = {
-                "id": pack.id,
-                "name": pack.name,
-                "priority": pack.priority,
-                "created_at": pack.created_at.isoformat(),
-                "updated_at": pack.updated_at.isoformat(),
-                "songs": [
-                    {
-                        "id": song.id,
-                        "title": song.title,
-                        "artist": song.artist,
-                        "status": song.status
-                    }
-                    for song in pack_songs
-                ]
-            }
-            near_completion_packs.append(pack_data)
-    
-    # Sort by completion percentage descending
-    near_completion_packs.sort(key=lambda p: 
-        len([s for s in p["songs"] if s["status"] == "Released"]) / len(p["songs"]) if p["songs"] else 0, 
-        reverse=True
-    )
-    
-    return near_completion_packs[:limit] 
+    return {"message": message, "pack_id": pack_id} 

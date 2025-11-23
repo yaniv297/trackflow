@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { apiGet, apiPatch, apiDelete, apiPost } from "./utils/api";
-import { useAuth } from "./contexts/AuthContext";
-import ActivityFeed from "./components/shared/ActivityFeed";
+import { apiGet, apiPatch, apiDelete, apiPost } from "../utils/api";
+import { useAuth } from "../contexts/AuthContext";
+import ActivityFeed from "../components/shared/ActivityFeed";
 import "./AdminPage.css";
 
 function AdminPage() {

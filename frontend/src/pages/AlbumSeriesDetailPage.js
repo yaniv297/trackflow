@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import API_BASE_URL from "./config";
+import API_BASE_URL from "../config";
 
 const AlbumSeriesDetailPage = () => {
   const { id } = useParams();

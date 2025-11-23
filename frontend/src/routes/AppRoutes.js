@@ -5,25 +5,25 @@ import LoginForm from "../components/forms/LoginForm";
 import RegistrationWizard from "../components/shared/RegistrationWizard";
 import ForgotPassword from "../components/ForgotPassword";
 import ResetPassword from "../components/ResetPassword";
-import SongPage from "../SongPage";
+import SongPage from "../pages/SongPage";
 import WipPage from "../pages/wip/WipPage";
 import NewSongForm from "../components/forms/NewSongForm";
 import NewPackForm from "../components/forms/NewPackForm";
-import StatsPage from "../StatsPage";
-import AlbumSeriesPage from "../AlbumSeriesPage";
+import StatsPage from "../pages/StatsPage";
+import AlbumSeriesPage from "../pages/AlbumSeriesPage";
 import Leaderboard from "../pages/Leaderboard";
 import HomePage from "../pages/HomePage";
-import ImportSpotifyPage from "../ImportSpotifyPage";
-import UserSettings from "../UserSettings";
+import ImportSpotifyPage from "../pages/ImportSpotifyPage";
+import UserSettings from "../pages/UserSettings";
 import WorkflowSettings from "../components/features/workflows/WorkflowSettings";
 import HelpPage from "../pages/help/HelpPage";
-import ContactPage from "../ContactPage";
-import BugReportPage from "../BugReportPage";
-import AdminPage from "../AdminPage";
-import FeatureRequestPage from "../FeatureRequestPage";
+import ContactPage from "../pages/ContactPage";
+import BugReportPage from "../pages/BugReportPage";
+import AdminPage from "../pages/AdminPage";
+import FeatureRequestPage from "../pages/FeatureRequestPage";
 import LatestReleasesPage from "../pages/LatestReleasesPage";
-import AchievementsPage from "../AchievementsPage";
-import NotificationsPage from "../NotificationsPage";
+import AchievementsPage from "../pages/AchievementsPage";
+import NotificationsPage from "../pages/NotificationsPage";
 
 /**
  * All application routes

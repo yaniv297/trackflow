@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "./contexts/AuthContext";
-import { apiGet, apiPut } from "./utils/api";
+import { useAuth } from "../contexts/AuthContext";
+import { apiGet, apiPut } from "../utils/api";
 import "./UserSettings.css";
 
 function UserSettings() {

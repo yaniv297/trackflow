@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiPost } from "./utils/api";
-import { checkAndShowNewAchievements } from "./utils/achievements";
+import { apiPost } from "../utils/api";
+import { checkAndShowNewAchievements } from "../utils/achievements";
 
 const statuses = [
   { label: "Future Plans", value: "Future Plans" },

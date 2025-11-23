@@ -36,8 +36,14 @@
 .home-content.authenticated {
   grid-template-columns: 2fr 1fr;
   grid-template-areas: 
+    "full-width full-width"
     "main-content sidebar"
     "main-content sidebar";
+}
+
+.full-width-section {
+  grid-area: full-width;
+  width: 100%;
 }
 
 @media (max-width: 1023px) {
@@ -49,7 +55,8 @@
   }
 
   .main-content-area,
-  .sidebar-area {
+  .sidebar-area,
+  .full-width-section {
     grid-area: unset;
   }
 }

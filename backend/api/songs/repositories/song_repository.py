@@ -82,8 +82,10 @@ class SongRepository:
             )
         
         # Apply completion threshold filter
-        if completion_threshold is not None:
-            q = q.filter(Song.completion_percentage >= completion_threshold)
+        # Note: completion_percentage is calculated on the fly, not stored in DB
+        # This filter is not supported - completion must be calculated client-side
+        # if completion_threshold is not None:
+        #     q = q.filter(Song.completion_percentage >= completion_threshold)
         
         # Apply ordering
         if order == "title":

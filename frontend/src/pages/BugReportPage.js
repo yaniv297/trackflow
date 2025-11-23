@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useAuth } from "./contexts/AuthContext";
-import { apiPost } from "./utils/api";
-import { checkAndShowNewAchievements } from "./utils/achievements";
+import { useAuth } from "../contexts/AuthContext";
+import { apiPost } from "../utils/api";
+import { checkAndShowNewAchievements } from "../utils/achievements";
 
 function BugReportPage() {
   const { user } = useAuth();

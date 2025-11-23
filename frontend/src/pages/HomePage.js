@@ -34,7 +34,9 @@ const HomePage = () => {
         {isAuthenticated ? (
           // Layout for authenticated users
           <>
-            <UserDashboard />
+            <div className="full-width-section">
+              <UserDashboard />
+            </div>
             <div className="main-content-area">
               <LatestReleases limit={6} />
               <LatestUpdates limit={5} />

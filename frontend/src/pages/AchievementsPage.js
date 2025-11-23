@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { apiGet } from "./utils/api";
+import { apiGet } from "../utils/api";
 
 const RARITY_COLORS = {
   common: "#95a5a6",

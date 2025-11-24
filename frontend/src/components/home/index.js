@@ -3,6 +3,7 @@ export { default as HeroSection } from './HeroSection';
 export { default as CommunityLeaderboard } from './CommunityLeaderboard';
 export { default as LatestUpdates } from './LatestUpdates';
 export { default as LatestReleases } from './LatestReleases';
+export { default as LatestFeatureRequests } from './LatestFeatureRequests';
 export { default as TipsAndTricks } from './TipsAndTricks';
 export { default as LoginSection } from './LoginSection';
 export { default as QuickStats } from './QuickStats';

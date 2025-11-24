@@ -7,7 +7,7 @@ import enum
 Base = declarative_base()
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken']
+__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken', 'CollaborationRequest']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -36,6 +36,7 @@ class User(Base):
     preferred_contact_method = Column(String, nullable=True)  # "email" or "discord"
     discord_username = Column(String, nullable=True)  # Discord username for contact
     auto_spotify_fetch_enabled = Column(Boolean, default=True)  # Enable automatic Spotify metadata fetching
+    default_public_sharing = Column(Boolean, default=False)  # Global public sharing setting
     
     # Relationships
     songs = relationship("Song", back_populates="user")
@@ -76,6 +77,7 @@ class Song(Base):
     pack_id = Column(Integer, ForeignKey("packs.id"), index=True)
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     notes = Column(Text, nullable=True)  # Progress notes for the song
+    is_public = Column(Boolean, default=False, index=True)  # Whether this song is public
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)  # When song was released
@@ -494,3 +496,37 @@ class PasswordResetToken(Base):
         Index('idx_token_email', 'email'),
         Index('idx_token_expires', 'expires_at'),
     )
+
+class CollaborationRequest(Base):
+    __tablename__ = "collaboration_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False, index=True)
+    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    
+    # Request details
+    message = Column(Text, nullable=False)  # Requester's message
+    requested_parts = Column(Text, nullable=True)  # JSON array of requested authoring parts
+    
+    # Response from owner
+    status = Column(String, default="pending", index=True)  # "pending", "accepted", "rejected"
+    owner_response = Column(Text, nullable=True)  # Owner's message when accepting/rejecting
+    assigned_parts = Column(Text, nullable=True)  # JSON array of parts assigned (for WIP songs)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    responded_at = Column(DateTime, nullable=True)
+    
+    # Ensure only one request per song per user
+    __table_args__ = (
+        UniqueConstraint('song_id', 'requester_id', name='unique_song_requester'),
+        Index('idx_collab_req_song', 'song_id'),
+        Index('idx_collab_req_requester', 'requester_id'),
+        Index('idx_collab_req_owner', 'owner_id'),
+        Index('idx_collab_req_status', 'status'),
+    )
+    
+    # Relationships
+    song = relationship("Song", foreign_keys=[song_id])
+    requester = relationship("User", foreign_keys=[requester_id])
+    owner = relationship("User", foreign_keys=[owner_id])

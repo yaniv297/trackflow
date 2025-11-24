@@ -14,6 +14,7 @@ function UserSettings() {
     preferred_contact_method: "",
     discord_username: "",
     auto_spotify_fetch_enabled: true,
+    default_public_sharing: false,
   });
 
   useEffect(() => {
@@ -28,7 +29,12 @@ function UserSettings() {
         preferred_contact_method: response.preferred_contact_method || "",
         discord_username: response.discord_username || "",
         // Explicitly convert to boolean - handle false, 0, null, undefined
-        auto_spotify_fetch_enabled: response.auto_spotify_fetch_enabled === true || response.auto_spotify_fetch_enabled === 1,
+        auto_spotify_fetch_enabled:
+          response.auto_spotify_fetch_enabled === true ||
+          response.auto_spotify_fetch_enabled === 1,
+        default_public_sharing:
+          response.default_public_sharing === true ||
+          response.default_public_sharing === 1,
       });
       setLoading(false);
     } catch (error) {
@@ -84,12 +90,17 @@ function UserSettings() {
     setSaving(true);
 
     try {
-      // Ensure auto_spotify_fetch_enabled is always included (even if false)
+      // Ensure auto_spotify_fetch_enabled and default_public_sharing are always included (even if false)
       const payload = {
         ...formData,
-        auto_spotify_fetch_enabled: formData.auto_spotify_fetch_enabled !== undefined 
-          ? formData.auto_spotify_fetch_enabled 
-          : true
+        auto_spotify_fetch_enabled:
+          formData.auto_spotify_fetch_enabled !== undefined
+            ? formData.auto_spotify_fetch_enabled
+            : true,
+        default_public_sharing:
+          formData.default_public_sharing !== undefined
+            ? formData.default_public_sharing
+            : false,
       };
       const response = await apiPut("/user-settings/me", payload);
 
@@ -140,13 +151,17 @@ function UserSettings() {
         {/* Tab Navigation */}
         <div className="settings-tabs">
           <button
-            className={`settings-tab ${activeTab === "profile" ? "active" : ""}`}
+            className={`settings-tab ${
+              activeTab === "profile" ? "active" : ""
+            }`}
             onClick={() => setActiveTab("profile")}
           >
             Profile
           </button>
           <button
-            className={`settings-tab ${activeTab === "settings" ? "active" : ""}`}
+            className={`settings-tab ${
+              activeTab === "settings" ? "active" : ""
+            }`}
             onClick={() => setActiveTab("settings")}
           >
             Settings
@@ -164,7 +179,9 @@ function UserSettings() {
                   <label htmlFor="email">
                     Email Address
                     {formData.preferred_contact_method === "email" && (
-                      <span style={{ color: "#dc3545", marginLeft: "4px" }}>*</span>
+                      <span style={{ color: "#dc3545", marginLeft: "4px" }}>
+                        *
+                      </span>
                     )}
                   </label>
                   <input
@@ -210,7 +227,9 @@ function UserSettings() {
                   <label htmlFor="discord_username">
                     Discord Username
                     {formData.preferred_contact_method === "discord" && (
-                      <span style={{ color: "#dc3545", marginLeft: "4px" }}>*</span>
+                      <span style={{ color: "#dc3545", marginLeft: "4px" }}>
+                        *
+                      </span>
                     )}
                   </label>
                   <input
@@ -229,8 +248,8 @@ function UserSettings() {
                   />
                   {formData.preferred_contact_method !== "discord" && (
                     <small className="form-text">
-                      Optional. Only required if Discord is your preferred contact
-                      method.
+                      Optional. Only required if Discord is your preferred
+                      contact method.
                     </small>
                   )}
                 </div>
@@ -267,14 +286,32 @@ function UserSettings() {
                     manually enhance songs even if this is disabled.
                   </small>
                 </div>
-                <div className="form-actions">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="btn btn-primary"
+
+                <div className="form-group">
+                  <label
+                    htmlFor="default_public_sharing"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      cursor: "pointer",
+                    }}
                   >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
+                    <input
+                      type="checkbox"
+                      id="default_public_sharing"
+                      name="default_public_sharing"
+                      checked={formData.default_public_sharing}
+                      onChange={handleInputChange}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Make new songs public by default</span>
+                  </label>
+                  <small className="form-text">
+                    When enabled, newly created songs will be shared publicly by
+                    default. You can still manually toggle individual songs to
+                    private using the 🌐/🔒 button in your song tables.
+                  </small>
                 </div>
               </>
             )}

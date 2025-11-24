@@ -1,0 +1,88 @@
+.smart-discovery {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.smart-discovery h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.smart-discovery-loading,
+.smart-discovery-error,
+.smart-discovery-empty {
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  padding: 1rem;
+}
+
+.smart-discovery-empty p {
+  margin: 0.5rem 0;
+}
+
+.smart-discovery-content {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.shared-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.shared-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shared-item {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.75rem;
+  backdrop-filter: blur(10px);
+}
+
+.shared-song,
+.shared-artist {
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.shared-user {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.song-count {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin-left: 0.5rem;
+}
+
+.shared-more {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.5rem;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .smart-discovery {
+    padding: 1rem;
+  }
+  
+  .smart-discovery-content {
+    grid-template-columns: 1fr;
+  }
+}

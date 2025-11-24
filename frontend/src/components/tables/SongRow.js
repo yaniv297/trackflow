@@ -6,6 +6,7 @@ import CustomAlert from "../ui/CustomAlert";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
 import UserProfilePopup from "../shared/UserProfilePopup";
+import publicSongsService from "../../services/publicSongsService";
 
 // Color palette for collaborators
 const collaboratorColors = [
@@ -62,15 +63,35 @@ export default function SongRow({
   status,
   groupBy,
   packName,
+  onSongUpdate,
 }) {
   const { user } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isTogglingPublic, setIsTogglingPublic] = useState(false);
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   // Helper function to check if a column should be displayed
   const shouldShowColumn = (columnKey) => {
     if (!visibleColumns[columnKey]) return true; // Default to showing if not specified
     return visibleColumns[columnKey].enabled && !visibleColumns[columnKey].groupHidden;
+  };
+
+  // Handle public status toggle
+  const handleTogglePublic = async () => {
+    if (isTogglingPublic) return;
+    
+    setIsTogglingPublic(true);
+    try {
+      const result = await publicSongsService.toggleSongPublic(song.id);
+      if (result.success && onSongUpdate) {
+        // Update the song in parent component
+        onSongUpdate(song.id, { is_public: result.data.is_public });
+      }
+    } catch (error) {
+      console.error('Error toggling song public status:', error);
+    } finally {
+      setIsTogglingPublic(false);
+    }
   };
 
   return (
@@ -305,7 +326,41 @@ export default function SongRow({
           </td>
         )}
 
-        {/* Enhance + Delete */}
+        {/* Visibility */}
+        {shouldShowColumn("visibility") && (
+          <td style={{ padding: "8px", textAlign: "center" }}>
+            {song.user_id === user?.id ? (
+              <button
+                onClick={handleTogglePublic}
+                disabled={isTogglingPublic}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: isTogglingPublic ? "not-allowed" : "pointer",
+                  fontSize: "1.2rem",
+                  padding: "4px",
+                  opacity: isTogglingPublic ? 0.6 : 1,
+                  borderRadius: "4px",
+                }}
+                title={`Make song ${song.is_public ? 'private' : 'public'}`}
+              >
+                {song.is_public ? '🌐' : '🔒'}
+              </button>
+            ) : (
+              <span 
+                style={{ 
+                  fontSize: "1.2rem",
+                  opacity: 0.7
+                }}
+                title={song.is_public ? 'Public song' : 'Private song'}
+              >
+                {song.is_public ? '🌐' : '🔒'}
+              </span>
+            )}
+          </td>
+        )}
+
+        {/* Actions (Enhance + Delete) */}
         {shouldShowColumn("actions") && (
           <td style={{ padding: "8px" }}>
           {song.is_editable && (

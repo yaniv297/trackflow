@@ -1,9 +1,9 @@
 import React from "react";
 
 /**
- * Stats/Analytics dropdown component
+ * Community dropdown component
  */
-const StatsDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
+const CommunityDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
   const handleClick = (path) => {
     onNavigate(path);
   };
@@ -42,7 +42,7 @@ const StatsDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
           gap: "0.3rem",
         }}
       >
-        Stats
+        Community
         <span style={{ fontSize: "0.7rem" }}>▼</span>
       </button>
 
@@ -58,25 +58,33 @@ const StatsDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
             boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
             zIndex: 10001,
             overflow: "hidden",
-            minWidth: "150px",
+            minWidth: "160px",
             whiteSpace: "nowrap",
           }}
         >
           <div
-            onClick={() => handleClick("/stats")}
+            onClick={() => handleClick("/community")}
             style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}
           >
-            Stats
+            Public WIPs
           </div>
           <div
-            onClick={() => handleClick("/achievements")}
+            onClick={() => handleClick("/album-series")}
+            style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
+            onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
+          >
+            Album Series
+          </div>
+          <div
+            onClick={() => handleClick("/leaderboard")}
             style={dropdownItemStyle}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}
           >
-            Achievements
+            Leaderboard
           </div>
         </div>
       )}
@@ -84,5 +92,4 @@ const StatsDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
   );
 };
 
-export default StatsDropdown;
-
+export default CommunityDropdown;

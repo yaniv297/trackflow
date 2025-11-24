@@ -27,6 +27,7 @@ from api import stats as stats
 from api.album_series import router as album_series_router
 from api import auth as auth
 from api import packs as packs
+from api import dashboard as dashboard
 from api import collaborations as collaborations
 from api import user_settings as user_settings
 from api import file_links as file_links
@@ -38,6 +39,8 @@ from api import admin as admin
 from api.feature_requests import router as feature_requests_router
 from api.achievements import router as achievements_router
 from api.notifications import router as notifications_router
+from api.public_songs import router as public_songs_router
+from api.collaboration_requests import router as collaboration_requests_router
 from database import engine, SQLALCHEMY_DATABASE_URL, get_db
 from models import Base
 
@@ -105,6 +108,7 @@ app.include_router(tools.router)
 app.include_router(stats.router)
 app.include_router(album_series_router)
 app.include_router(packs.router)
+app.include_router(dashboard.router)
 app.include_router(collaborations.router)
 app.include_router(user_settings.router)
 app.include_router(file_links.router)
@@ -115,6 +119,8 @@ app.include_router(admin.router)
 app.include_router(feature_requests_router)
 app.include_router(achievements_router)
 app.include_router(notifications_router, prefix="/notifications")
+app.include_router(public_songs_router, prefix="/api")
+app.include_router(collaboration_requests_router, prefix="/api")
 
 # Timeout middleware removed - was causing more problems than it solved
 

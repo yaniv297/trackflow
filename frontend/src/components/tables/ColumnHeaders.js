@@ -92,6 +92,9 @@ const ColumnHeaders = ({
       {shouldShowColumn("collaborations") && (
         <th style={{ padding: "0.5rem" }}>Collaborations</th>
       )}
+      {shouldShowColumn("visibility") && (
+        <th style={{ padding: "0.5rem", textAlign: "center", width: "80px" }}>Visibility</th>
+      )}
       {shouldShowColumn("actions") && (
         <th style={{ padding: "0.5rem" }}>Actions</th>
       )}

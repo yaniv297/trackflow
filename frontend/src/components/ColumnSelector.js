@@ -10,6 +10,7 @@ const DEFAULT_COLUMNS = {
   year: { label: "Year", enabled: true, required: false },
   notes: { label: "Notes", enabled: true, required: false },
   collaborations: { label: "Collaborations", enabled: true, required: false },
+  visibility: { label: "Visibility", enabled: true, required: false },
   actions: { label: "Actions", enabled: true, required: true },
 };
 

@@ -12,21 +12,8 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/packs", tags=["Packs"])
 
 # Define specific routes FIRST to avoid conflicts with /{pack_id}
-@router.get("/near-completion")
-def get_packs_near_completion(
-    limit: int = Query(3, le=10),
-    threshold: int = Query(70, le=100),
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_active_user)
-):
-    """Get packs that are close to completion for the current user.
-    Uses EXACT SAME LOGIC as WIP page:
-    1. Get all core (non-optional) "In Progress" songs
-    2. For each song, get the song owner's workflow fields
-    3. Calculate each song's completion: (completed fields / total workflow fields) * 100
-    4. Average all song percentages to get pack completion
-    """
-    
+def compute_packs_near_completion(db: Session, current_user, limit: int, threshold: int):
+    """Shared logic to compute near-completion packs (reused by dashboard)."""
     # Default workflow fields fallback (legacy list)
     DEFAULT_WORKFLOW_FIELDS = [
         'demucs', 'midi', 'tempo_map', 'fake_ending', 'drums', 'bass', 
@@ -44,15 +31,19 @@ def get_packs_near_completion(
     for pack in packs:
         # Get only "In Progress" songs in the pack (core songs only - filter out optional)
         # Handle NULL/False explicitly for SQLite compatibility
-        pack_songs = db.query(Song).filter(
-            Song.pack_id == pack.id,
-            Song.status == "In Progress",
-            or_(Song.optional == False, Song.optional.is_(None))  # Only core songs (not optional)
-        ).all()
+        pack_songs = (
+            db.query(Song)
+            .filter(
+                Song.pack_id == pack.id,
+                Song.status == "In Progress",
+                or_(Song.optional.is_(False), Song.optional.is_(None)),
+            )
+            .all()
+        )
         
         if not pack_songs:
             continue
-        
+            
         # Get unique song owner IDs to fetch their workflows
         song_owner_ids = list(set(song.user_id for song in pack_songs if song.user_id))
         
@@ -201,27 +192,11 @@ def get_packs_near_completion(
         else:
             completion_percentage = 0
         
-        # Debug logging
-        print(f"🔍 Pack '{pack.name}': {core_songs_count} core songs, {len(pack_songs)} total, completion: {completion_percentage}%")
-        if core_songs_count > 0:
-            print(f"   Workflow fields found for {len(workflow_fields_map)} users")
-            print(f"   Progress entries found for {len(song_progress_map)} songs")
-            if pack_songs:
-                first_song = pack_songs[0]
-                first_owner_id = first_song.user_id
-                first_workflow = workflow_fields_map.get(first_owner_id, DEFAULT_WORKFLOW_FIELDS)
-                first_progress = song_progress_map.get(first_song.id, {})
-                print(f"   Example: Song {first_song.id} (owner {first_owner_id}): {len(first_workflow)} workflow fields, {len(first_progress)} progress entries")
-                print(f"   Workflow fields: {first_workflow[:5]}...")
-                print(f"   Progress keys: {list(first_progress.keys())[:5]}...")
-        
         # Near-completion logic: show packs that meet threshold and are not 100% complete
         meets_threshold = completion_percentage >= threshold and completion_percentage < 100
         
         if meets_threshold:
             pack_completions.append((pack, completion_percentage, pack_songs))
-        else:
-            print(f"   ❌ Pack '{pack.name}' filtered out: {completion_percentage}% (threshold: {threshold}%)")
     
     # Sort by completion percentage descending (highest first)
     pack_completions.sort(key=lambda x: x[1], reverse=True)
@@ -230,10 +205,14 @@ def get_packs_near_completion(
     near_completion_packs = []
     for pack, completion_percentage, pack_songs in pack_completions[:limit]:
         # Get all core songs in pack to count completed vs total
-        all_pack_songs = db.query(Song).filter(
-            Song.pack_id == pack.id,
-            or_(Song.optional == False, Song.optional.is_(None))  # Only core songs
-        ).all()
+        all_pack_songs = (
+            db.query(Song)
+            .filter(
+                Song.pack_id == pack.id,
+                or_(Song.optional.is_(False), Song.optional.is_(None)),  # Only core songs
+            )
+            .all()
+        )
         total_songs = len(all_pack_songs)
         
         # Get song owner IDs for all songs
@@ -327,33 +306,41 @@ def get_packs_near_completion(
             if cover_counts:
                 album_cover = max(cover_counts.items(), key=lambda x: x[1])[0]
         
-        # Debug: verify album cover is being set
-        print(f"🎨 Pack '{pack.name}' (id: {pack.id}): album_cover = {album_cover}")
-        
-        pack_data = {
-            "id": pack.id,
+            pack_data = {
+                "id": pack.id,
             "name": pack.name,  # Keep original pack name for reference
             "display_name": display_name,  # Use album series name if available
             "album_cover": album_cover,  # Album art for display
-            "priority": pack.priority,
-            "created_at": pack.created_at.isoformat() if pack.created_at else None,
-            "updated_at": pack.updated_at.isoformat() if pack.updated_at else None,
+                "priority": pack.priority,
+                "created_at": pack.created_at.isoformat() if pack.created_at else None,
+                "updated_at": pack.updated_at.isoformat() if pack.updated_at else None,
             "completion_percentage": completion_percentage,
             "total_songs": total_songs,
             "completed_songs": completed_songs,
-            "songs": [
-                {
-                    "id": song.id,
-                    "title": song.title,
-                    "artist": song.artist,
-                    "status": song.status
-                }
-                for song in pack_songs
-            ]
-        }
-        near_completion_packs.append(pack_data)
+                "songs": [
+                    {
+                        "id": song.id,
+                        "title": song.title,
+                        "artist": song.artist,
+                    "status": song.status,
+                    }
+                    for song in pack_songs
+            ],
+            }
+            near_completion_packs.append(pack_data)
     
     return near_completion_packs
+
+
+@router.get("/near-completion")
+def get_packs_near_completion(
+    limit: int = Query(3, le=10),
+    threshold: int = Query(70, le=100),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get packs that are close to completion for the current user."""
+    return compute_packs_near_completion(db, current_user, limit, threshold)
 
 class PackCreate(BaseModel):
     name: str

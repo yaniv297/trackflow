@@ -5,6 +5,7 @@ import {
   CommunityLeaderboard,
   LatestUpdates,
   LatestReleases,
+  LatestFeatureRequests,
   TipsAndTricks,
   LoginSection,
   QuickStats,
@@ -44,6 +45,7 @@ const HomePage = () => {
             <div className="sidebar-area">
               <CommunityLeaderboard limit={8} />
               <TipsAndTricks />
+              <LatestFeatureRequests limit={2} />
             </div>
           </>
         ) : (

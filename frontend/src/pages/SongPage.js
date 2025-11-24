@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import publicSongsService from "../services/publicSongsService";
 import SongTable from "../components/tables/SongTable";
 import PageHeader from "../components/navigation/PageHeader";
 import BulkEditModal from "../components/modals/BulkEditModal";
@@ -24,6 +25,8 @@ function SongPage({ status }) {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [selectedSongs, setSelectedSongs] = useState([]);
+  const [publicFilter, setPublicFilter] = useState("all");
+  const [showMakeAllPublicConfirm, setShowMakeAllPublicConfirm] = useState(false);
 
   // Alert/Prompt state
   const [alertConfig, setAlertConfig] = useState({
@@ -79,9 +82,17 @@ function SongPage({ status }) {
     }));
   };
 
+  // Filter songs based on public status
+  const filteredSongs = useMemo(() => {
+    if (publicFilter === "all") return songs;
+    if (publicFilter === "public") return songs.filter(song => song.is_public === true);
+    if (publicFilter === "private") return songs.filter(song => song.is_public !== true);
+    return songs;
+  }, [songs, publicFilter]);
+
   // Sorting and grouping
   const { groupedSongs } = useSongSortingAndGrouping(
-    songs,
+    filteredSongs,
     sortKey,
     sortDirection,
     groupBy,
@@ -209,6 +220,114 @@ function SongPage({ status }) {
     }
   };
 
+  // Handle song updates (e.g., public status toggle)
+  const handleSongUpdate = (songId, updates) => {
+    setSongs(prevSongs => 
+      prevSongs.map(song => 
+        song.id === songId ? { ...song, ...updates } : song
+      )
+    );
+  };
+
+  // Handle bulk public status toggle
+  const handleBulkTogglePublic = async (makePublic) => {
+    try {
+      let successCount = 0;
+      
+      // Call API for each selected song that needs to change
+      for (const songId of selectedSongs) {
+        const song = songs.find(s => s.id === songId);
+        if (song && song.is_public !== makePublic) {
+          const result = await publicSongsService.toggleSongPublic(songId);
+          if (result.success) {
+            handleSongUpdate(songId, { is_public: result.data.is_public });
+            successCount++;
+          }
+        }
+      }
+
+      // Show success notification
+      if (window.showNotification) {
+        window.showNotification(
+          `Successfully made ${successCount} songs ${makePublic ? 'public' : 'private'}`,
+          'success',
+          3000
+        );
+      }
+
+      // Clear selection
+      setSelectedSongs([]);
+
+    } catch (error) {
+      console.error('Error toggling bulk public status:', error);
+      if (window.showNotification) {
+        window.showNotification(
+          'Failed to update some songs',
+          'error',
+          5000
+        );
+      }
+    }
+  };
+
+  // Handle making all Future Plans songs public
+  const handleMakeAllPublic = () => {
+    setShowMakeAllPublicConfirm(true);
+  };
+
+  const confirmMakeAllPublic = async () => {
+    try {
+      // Use all songs, not filtered songs, to get accurate count
+      const futurePlansPrivateSongs = songs.filter(song => 
+        song.user_id === user?.id && !song.is_public
+      );
+
+      if (futurePlansPrivateSongs.length === 0) {
+        if (window.showNotification) {
+          window.showNotification(
+            'All your Future Plans songs are already public!',
+            'info',
+            3000
+          );
+        }
+        setShowMakeAllPublicConfirm(false);
+        return;
+      }
+
+      let successCount = 0;
+      
+      // Call API for each private song
+      for (const song of futurePlansPrivateSongs) {
+        const result = await publicSongsService.toggleSongPublic(song.id);
+        if (result.success) {
+          handleSongUpdate(song.id, { is_public: true });
+          successCount++;
+        }
+      }
+
+      // Show success notification
+      if (window.showNotification) {
+        window.showNotification(
+          `Successfully made ${successCount} Future Plans songs public!`,
+          'success',
+          4000
+        );
+      }
+
+      setShowMakeAllPublicConfirm(false);
+
+    } catch (error) {
+      console.error('Error making all songs public:', error);
+      if (window.showNotification) {
+        window.showNotification(
+          'Failed to make some songs public',
+          'error',
+          5000
+        );
+      }
+    }
+  };
+
   // Bulk operations
   const { handleStartWork } = useBulkOperations(
     songs,
@@ -232,6 +351,11 @@ function SongPage({ status }) {
         packSortBy={packSortBy}
         setPackSortBy={setPackSortBy}
         onColumnChange={setVisibleColumns}
+        publicFilter={publicFilter}
+        setPublicFilter={setPublicFilter}
+        selectedSongs={selectedSongs}
+        onBulkTogglePublic={handleBulkTogglePublic}
+        onMakeAllPublic={status === "Future Plans" ? handleMakeAllPublic : undefined}
       />
 
       {/* Loading Spinner */}
@@ -239,7 +363,7 @@ function SongPage({ status }) {
 
       {!loading && (
         <SongTable
-          songs={songs}
+          songs={filteredSongs}
           selectedSongs={selectedSongs}
           setSelectedSongs={setSelectedSongs}
           editing={editing}
@@ -281,6 +405,7 @@ function SongPage({ status }) {
           onUpdatePackPriority={updatePackPriority}
           packs={packs}
           visibleColumns={visibleColumns}
+          onSongUpdate={handleSongUpdate}
         />
       )}
 
@@ -395,6 +520,18 @@ function SongPage({ status }) {
         placeholder={promptConfig.placeholder}
         onConfirm={promptConfig.onConfirm}
         onCancel={() => setPromptConfig({ ...promptConfig, isOpen: false })}
+      />
+
+      {/* Make All Public Confirmation Modal */}
+      <CustomAlert
+        isOpen={showMakeAllPublicConfirm}
+        title="Make All Future Plans Public"
+        message={`Are you sure you want to make ALL your Future Plans songs public? This will make them visible to other users in the Community section. You can still make individual songs private afterward if needed.`}
+        type="warning"
+        confirmText="Yes, Make All Public"
+        cancelText="Cancel"
+        onConfirm={confirmMakeAllPublic}
+        onClose={() => setShowMakeAllPublicConfirm(false)}
       />
 
       <Fireworks />

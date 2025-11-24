@@ -24,6 +24,7 @@ import FeatureRequestPage from "../pages/FeatureRequestPage";
 import LatestReleasesPage from "../pages/LatestReleasesPage";
 import AchievementsPage from "../pages/AchievementsPage";
 import NotificationsPage from "../pages/NotificationsPage";
+import CommunityPage from "../pages/CommunityPage";
 
 /**
  * All application routes
@@ -125,6 +126,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Leaderboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/community"
+        element={
+          <ProtectedRoute>
+            <CommunityPage />
           </ProtectedRoute>
         }
       />

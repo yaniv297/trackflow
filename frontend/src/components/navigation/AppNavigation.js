@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import NotificationIcon from "../notifications/NotificationIcon";
 import NewDropdown from "./dropdowns/NewDropdown";
 import StatsDropdown from "./dropdowns/StatsDropdown";
+import CommunityDropdown from "./dropdowns/CommunityDropdown";
 import AdminDropdown from "./dropdowns/AdminDropdown";
 import UserDropdown from "./dropdowns/UserDropdown";
 import OnlineUsersTooltip from "./OnlineUsersTooltip";
@@ -51,6 +52,7 @@ const AppNavigation = ({
             onToggle={() => {
               dropdowns.setShowNewDropdown(!dropdowns.showNewDropdown);
               dropdowns.setShowAnalyticsDropdown(false);
+              dropdowns.setShowCommunityDropdown(false);
               dropdowns.setShowAdminDropdown(false);
             }}
             buttonRef={dropdowns.newDropdownRef}
@@ -58,16 +60,31 @@ const AppNavigation = ({
             onNavigate={navigate}
           />
 
-          {/* Analytics Dropdown */}
+          {/* Stats Dropdown */}
           <StatsDropdown
             show={dropdowns.showAnalyticsDropdown}
             onToggle={() => {
               dropdowns.setShowAnalyticsDropdown(!dropdowns.showAnalyticsDropdown);
               dropdowns.setShowNewDropdown(false);
+              dropdowns.setShowCommunityDropdown(false);
               dropdowns.setShowAdminDropdown(false);
             }}
             buttonRef={dropdowns.analyticsDropdownRef}
             position={dropdowns.analyticsDropdownPos}
+            onNavigate={navigate}
+          />
+
+          {/* Community Dropdown */}
+          <CommunityDropdown
+            show={dropdowns.showCommunityDropdown}
+            onToggle={() => {
+              dropdowns.setShowCommunityDropdown(!dropdowns.showCommunityDropdown);
+              dropdowns.setShowNewDropdown(false);
+              dropdowns.setShowAnalyticsDropdown(false);
+              dropdowns.setShowAdminDropdown(false);
+            }}
+            buttonRef={dropdowns.communityDropdownRef}
+            position={dropdowns.communityDropdownPos}
             onNavigate={navigate}
           />
 
@@ -79,6 +96,7 @@ const AppNavigation = ({
                 dropdowns.setShowAdminDropdown(!dropdowns.showAdminDropdown);
                 dropdowns.setShowNewDropdown(false);
                 dropdowns.setShowAnalyticsDropdown(false);
+                dropdowns.setShowCommunityDropdown(false);
               }}
               buttonRef={dropdowns.adminDropdownRef}
               position={dropdowns.adminDropdownPos}
@@ -134,6 +152,7 @@ const AppNavigation = ({
             dropdowns.setShowUserDropdown(!dropdowns.showUserDropdown);
             dropdowns.setShowNewDropdown(false);
             dropdowns.setShowAnalyticsDropdown(false);
+            dropdowns.setShowCommunityDropdown(false);
             dropdowns.setShowAdminDropdown(false);
           }}
           buttonRef={dropdowns.userDropdownRef}

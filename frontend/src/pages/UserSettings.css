@@ -13,14 +13,14 @@
 
 .user-settings-header h1 {
   color: #333;
-  margin-bottom: 10px;
-  font-size: 2.5rem;
+  margin-bottom: 8px;
+  font-size: 2rem;
   font-weight: 600;
 }
 
 .user-settings-header p {
   color: #666;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   margin: 0;
 }
 
@@ -73,16 +73,16 @@
 }
 
 .settings-section {
-  padding: 30px;
+  padding: 24px 30px;
 }
 
 .settings-section h2 {
   color: #333;
-  margin-bottom: 25px;
-  font-size: 1.8rem;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
   font-weight: 600;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 10px;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 8px;
 }
 
 .settings-section h3 {
@@ -97,7 +97,7 @@
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -156,9 +156,9 @@
 }
 
 .form-actions {
-  margin-top: 30px;
+  margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e9ecef;
 }
 
 .btn {

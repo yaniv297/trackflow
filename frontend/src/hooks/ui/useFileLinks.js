@@ -17,31 +17,33 @@ export const useFileLinks = (songId, songTitle, wipCollaborations, showFileHisto
       // Get current file IDs
       const currentFileIds = new Set(fileLinks.map((link) => link.id));
 
-      // Find truly new files (files we haven't seen before)
-      const newFileIds = new Set();
-      currentFileIds.forEach((id) => {
-        if (!lastKnownFileIds.has(id)) {
-          newFileIds.add(id);
-        }
-      });
-
-      // Show notification only for genuinely new files
-      if (newFileIds.size > 0 && lastKnownFileIds.size > 0) {
-        const newFilesCount = newFileIds.size;
-        window.showNotification(
-          `${newFilesCount} new file${
-            newFilesCount > 1 ? "s" : ""
-          } uploaded to "${songTitle}"!`,
-          "info"
-        );
-      }
-
       setFileLinksCount(newCount);
-      setLastKnownFileIds(currentFileIds);
+      setLastKnownFileIds((prevFileIds) => {
+        // Find truly new files (files we haven't seen before)
+        const newFileIds = new Set();
+        currentFileIds.forEach((id) => {
+          if (!prevFileIds.has(id)) {
+            newFileIds.add(id);
+          }
+        });
+
+        // Show notification only for genuinely new files
+        if (newFileIds.size > 0 && prevFileIds.size > 0) {
+          const newFilesCount = newFileIds.size;
+          window.showNotification(
+            `${newFilesCount} new file${
+              newFilesCount > 1 ? "s" : ""
+            } uploaded to "${songTitle}"!`,
+            "info"
+          );
+        }
+
+        return currentFileIds;
+      });
     } catch (error) {
       console.error("Error loading file links count:", error);
     }
-  }, [songId, songTitle, lastKnownFileIds]);
+  }, [songId, songTitle]);
 
   // Load file links count when collaborations change
   useEffect(() => {

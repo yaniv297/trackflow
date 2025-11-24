@@ -7,15 +7,21 @@ export const useAppDropdowns = () => {
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showAnalyticsDropdown, setShowAnalyticsDropdown] = useState(false);
+  const [showCommunityDropdown, setShowCommunityDropdown] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
   
   const newDropdownRef = useRef(null);
   const analyticsDropdownRef = useRef(null);
+  const communityDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
   const adminDropdownRef = useRef(null);
   
   const [newDropdownPos, setNewDropdownPos] = useState({ top: 0, left: 0 });
   const [analyticsDropdownPos, setAnalyticsDropdownPos] = useState({
+    top: 0,
+    left: 0,
+  });
+  const [communityDropdownPos, setCommunityDropdownPos] = useState({
     top: 0,
     left: 0,
   });
@@ -34,6 +40,12 @@ export const useAppDropdowns = () => {
       ) {
         setShowAnalyticsDropdown(false);
       }
+      if (
+        showCommunityDropdown &&
+        !event.target.closest(".dropdown-container")
+      ) {
+        setShowCommunityDropdown(false);
+      }
       if (showAdminDropdown && !event.target.closest(".dropdown-container")) {
         setShowAdminDropdown(false);
       }
@@ -50,6 +62,7 @@ export const useAppDropdowns = () => {
   }, [
     showNewDropdown,
     showAnalyticsDropdown,
+    showCommunityDropdown,
     showAdminDropdown,
     showUserDropdown,
   ]);
@@ -68,6 +81,13 @@ export const useAppDropdowns = () => {
       setAnalyticsDropdownPos({ top: rect.bottom + 8, left: rect.left });
     }
   }, [showAnalyticsDropdown]);
+
+  useEffect(() => {
+    if (showCommunityDropdown && communityDropdownRef.current) {
+      const rect = communityDropdownRef.current.getBoundingClientRect();
+      setCommunityDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [showCommunityDropdown]);
 
   useEffect(() => {
     if (showAdminDropdown && adminDropdownRef.current) {
@@ -93,14 +113,18 @@ export const useAppDropdowns = () => {
     setShowUserDropdown,
     showAnalyticsDropdown,
     setShowAnalyticsDropdown,
+    showCommunityDropdown,
+    setShowCommunityDropdown,
     showAdminDropdown,
     setShowAdminDropdown,
     newDropdownRef,
     analyticsDropdownRef,
+    communityDropdownRef,
     userDropdownRef,
     adminDropdownRef,
     newDropdownPos,
     analyticsDropdownPos,
+    communityDropdownPos,
     userDropdownPos,
     adminDropdownPos,
   };

@@ -45,6 +45,7 @@ const SongTable = ({
   onUpdatePackPriority,
   packs,
   visibleColumns,
+  onSongUpdate,
 }) => {
   const [localSortStates, setLocalSortStates] = useState({});
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -155,6 +156,7 @@ const SongTable = ({
           groupBy={groupBy}
           packName={packName}
           visibleColumns={visibleColumns}
+          onSongUpdate={onSongUpdate}
         />
       ))}
     </>

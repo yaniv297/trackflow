@@ -15,13 +15,13 @@ class PublicSongResponse(BaseModel):
     id: int
     title: str
     artist: str
-    album: str
-    year: int
+    album: Optional[str] = None
+    year: Optional[int] = None
     status: str
-    album_cover: str
+    album_cover: Optional[str] = None
     user_id: int
     username: str
-    display_name: Optional[str]
+    display_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

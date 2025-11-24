@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { exportYargIni } from "../../../utils/yargUtils";
+import { apiPost } from "../../../utils/api";
 
 /**
  * Component for the song actions dropdown menu
@@ -17,9 +18,11 @@ const SongActions = ({
   onShowMovePackModal,
   onShowChangeAlbumArtModal,
   onDelete,
+  onSongUpdate,
   readOnly = false,
 }) => {
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+  const [togglingVisibility, setTogglingVisibility] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -46,6 +49,28 @@ const SongActions = ({
     exportYargIni(song, currentUser, wipCollaborations);
     setShowActionsDropdown(false);
     window.showNotification("YARG song.ini file downloaded", "success");
+  };
+
+  const handleToggleVisibility = async () => {
+    setTogglingVisibility(true);
+    try {
+      const response = await apiPost(`/api/public-songs/songs/${song.id}/toggle-public`);
+      
+      if (onSongUpdate) {
+        onSongUpdate(song.id, { is_public: response.is_public });
+      }
+      
+      window.showNotification(
+        `Song ${response.is_public ? 'made public' : 'made private'}`,
+        "success"
+      );
+      setShowActionsDropdown(false);
+    } catch (error) {
+      console.error('Failed to toggle song visibility:', error);
+      window.showNotification('Failed to toggle song visibility', 'error');
+    } finally {
+      setTogglingVisibility(false);
+    }
   };
 
   const buttonStyle = {
@@ -234,6 +259,28 @@ const SongActions = ({
             }}
           >
             Export YARG .ini
+          </button>
+
+          <button
+            onClick={handleToggleVisibility}
+            disabled={togglingVisibility}
+            style={{
+              ...buttonStyle,
+              cursor: togglingVisibility ? "not-allowed" : "pointer",
+              color: togglingVisibility ? "#999" : (song.is_public ? "#28a745" : "#ffc107"),
+            }}
+            onMouseEnter={(e) => {
+              if (!togglingVisibility) {
+                e.target.style.backgroundColor = "#f8f9fa";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = "transparent";
+            }}
+          >
+            {togglingVisibility ? "⏳ Updating..." : (
+              song.is_public ? "🔓 Make Private" : "🔒 Make Public"
+            )}
           </button>
 
           <div

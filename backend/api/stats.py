@@ -338,3 +338,301 @@ def get_year_details(year: int, db: Session = Depends(get_db), current_user = De
         "top_artists": top_artists,
         "top_albums": top_albums
     }
+
+
+@router.get("/user/top_artists")
+def get_user_top_artists(limit: int = 5, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    included_statuses = [SongStatus.released]
+    
+    # Build base filter for songs the user has access to (owner OR collaborator)
+    song_access_filter = or_(
+        Song.user_id == current_user.id,
+        Song.id.in_(
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    top_artists_data = db.query(
+        Song.artist.label('name'),
+        func.count().label('count')
+    ).filter(
+        Song.status.in_(included_statuses),
+        Song.artist.isnot(None),
+        song_access_filter
+    ).group_by(
+        Song.artist
+    ).order_by(
+        func.count().desc()
+    ).limit(limit).all()
+    
+    # Get artist images for the top artists
+    artist_names = [artist.name for artist in top_artists_data]
+    artist_name_lowers = {name.lower() for name in artist_names}
+    artist_images = {
+        name.lower(): image_url
+        for name, image_url in db.query(Artist.name, Artist.image_url)
+            .filter(func.lower(Artist.name).in_(artist_name_lowers))
+            .all()
+    }
+    
+    return [
+        {
+            "name": artist.name, 
+            "count": artist.count,
+            "artist_image_url": artist_images.get(artist.name.lower())
+        } 
+        for artist in top_artists_data
+    ]
+
+
+@router.get("/user/top_albums")
+def get_user_top_albums(limit: int = 5, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    included_statuses = [SongStatus.released]
+    
+    song_access_filter = or_(
+        Song.user_id == current_user.id,
+        Song.id.in_(
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    top_albums_data = db.query(
+        Song.album.label('name'),
+        func.count().label('count'),
+        Song.album_cover.label('album_cover'),
+        Song.artist.label('artist_name')
+    ).filter(
+        Song.status.in_(included_statuses),
+        Song.album.isnot(None),
+        song_access_filter
+    ).group_by(
+        Song.album, Song.album_cover, Song.artist
+    ).order_by(
+        func.count().desc()
+    ).limit(limit).all()
+    
+    return [
+        {
+            "name": album.name,
+            "artist_name": album.artist_name,
+            "count": album.count,
+            "album_cover": album.album_cover
+        } 
+        for album in top_albums_data
+    ]
+
+
+@router.get("/user/top_years")
+def get_user_top_years(limit: int = 5, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    included_statuses = [SongStatus.released]
+    
+    song_access_filter = or_(
+        Song.user_id == current_user.id,
+        Song.id.in_(
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    top_years_data = db.query(
+        Song.year.label('year'),
+        func.count().label('count')
+    ).filter(
+        Song.status.in_(included_statuses),
+        Song.year.isnot(None),
+        song_access_filter
+    ).group_by(
+        Song.year
+    ).order_by(
+        func.count().desc()
+    ).limit(limit).all()
+    
+    result = []
+    for year in top_years_data:
+        # Get one song from this year to get an album cover
+        sample_song = db.query(Song).filter(
+            Song.year == year.year,
+            Song.status.in_(included_statuses),
+            song_access_filter,
+            Song.album_cover.isnot(None)
+        ).first()
+        
+        album_cover = None
+        album_name = None
+        if sample_song:
+            album_cover = sample_song.album_cover
+            album_name = sample_song.album
+        
+        result.append({
+            "name": str(year.year),
+            "count": year.count,
+            "album_cover": album_cover,
+            "album_name": album_name
+        })
+    
+    return result
+
+
+@router.get("/user/top_decades")
+def get_user_top_decades(limit: int = 5, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    included_statuses = [SongStatus.released]
+    
+    song_access_filter = or_(
+        Song.user_id == current_user.id,
+        Song.id.in_(
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    # Calculate decade: (year // 10) * 10
+    top_decades_data = db.query(
+        (func.floor(Song.year / 10) * 10).label('decade'),
+        func.count().label('count')
+    ).filter(
+        Song.status.in_(included_statuses),
+        Song.year.isnot(None),
+        song_access_filter
+    ).group_by(
+        func.floor(Song.year / 10) * 10
+    ).order_by(
+        func.count().desc()
+    ).limit(limit).all()
+    
+    result = []
+    for decade_row in top_decades_data:
+        decade = int(decade_row.decade)
+        # Get one song from this decade to get an album cover
+        sample_song = db.query(Song).filter(
+            Song.year >= decade,
+            Song.year < decade + 10,
+            Song.status.in_(included_statuses),
+            song_access_filter,
+            Song.album_cover.isnot(None)
+        ).first()
+        
+        album_cover = None
+        if sample_song:
+            album_cover = sample_song.album_cover
+        
+        result.append({
+            "name": f"{decade}s",
+            "count": decade_row.count,
+            "album_cover": album_cover
+        })
+    
+    return result
+
+
+@router.get("/user/top_packs")
+def get_user_top_packs(limit: int = 5, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    included_statuses = [SongStatus.released]
+    
+    song_access_filter = or_(
+        Song.user_id == current_user.id,
+        Song.id.in_(
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    top_packs_data = db.query(
+        Pack.name.label('name'),
+        func.count().label('count')
+    ).join(Song, Pack.id == Song.pack_id).filter(
+        Song.status.in_(included_statuses),
+        song_access_filter
+    ).group_by(
+        Pack.name
+    ).order_by(
+        func.count().desc()
+    ).limit(limit).all()
+    
+    result = []
+    for pack in top_packs_data:
+        # Get the most common artist from this pack
+        most_common_artist = db.query(
+            Song.artist,
+            func.count().label('artist_count')
+        ).join(Pack, Pack.id == Song.pack_id).filter(
+            Pack.name == pack.name,
+            Song.status.in_(included_statuses),
+            Song.artist.isnot(None),
+            song_access_filter
+        ).group_by(
+            Song.artist
+        ).order_by(
+            func.count().desc()
+        ).first()
+        
+        artist_image_url = None
+        artist_name = None
+        if most_common_artist and most_common_artist.artist:
+            # Get artist image for this artist
+            artist_data = db.query(Artist.image_url).filter(
+                func.lower(Artist.name) == most_common_artist.artist.lower()
+            ).first()
+            if artist_data:
+                artist_image_url = artist_data.image_url
+                artist_name = most_common_artist.artist
+        
+        result.append({
+            "name": pack.name,
+            "count": pack.count,
+            "artist_image_url": artist_image_url,
+            "artist_name": artist_name
+        })
+    
+    return result
+
+
+@router.get("/user/top_collaborators")
+def get_user_top_collaborators(limit: int = 5, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    song_access_filter = or_(
+        Song.user_id == current_user.id,
+        Song.id.in_(
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    top_collaborators = db.query(
+        User.username.label('name'),
+        func.count().label('count')
+    ).join(Collaboration).join(Song).filter(
+        song_access_filter,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+        User.username != current_user.username  # Exclude current user
+    ).group_by(
+        User.username
+    ).order_by(
+        func.count().desc()
+    ).limit(limit).all()
+    
+    return [{"name": collab.name, "count": collab.count} for collab in top_collaborators]

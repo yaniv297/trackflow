@@ -41,6 +41,7 @@ from api.achievements import router as achievements_router
 from api.notifications import router as notifications_router
 from api.public_songs import router as public_songs_router
 from api.collaboration_requests import router as collaboration_requests_router
+from api.community import router as community_router
 from database import engine, SQLALCHEMY_DATABASE_URL, get_db
 from models import Base
 
@@ -121,6 +122,7 @@ app.include_router(achievements_router)
 app.include_router(notifications_router, prefix="/notifications")
 app.include_router(public_songs_router, prefix="/api")
 app.include_router(collaboration_requests_router, prefix="/api")
+app.include_router(community_router)
 
 # Timeout middleware removed - was causing more problems than it solved
 

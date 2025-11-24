@@ -208,6 +208,7 @@ export default function WipSongCard({
             onShowMovePackModal={() => setShowMovePackModal(true)}
             onShowChangeAlbumArtModal={() => setShowChangeAlbumArtModal(true)}
             onDelete={handleDelete}
+            onSongUpdate={onSongUpdate}
             readOnly={readOnly}
           />
 

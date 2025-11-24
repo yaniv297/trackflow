@@ -8,3 +8,5 @@ export { default as TipsAndTricks } from './TipsAndTricks';
 export { default as LoginSection } from './LoginSection';
 export { default as QuickStats } from './QuickStats';
 export { default as UserDashboard } from './UserDashboard';
+export { default as YourStats } from './YourStats';
+export { default as CommunityWips } from './CommunityWips';

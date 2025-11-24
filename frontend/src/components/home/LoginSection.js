@@ -25,10 +25,10 @@ const LoginSection = () => {
     try {
       if (isLogin) {
         await login(credentials.username, credentials.password);
-        navigate('/wip');
+        navigate('/');
       } else {
         await register(credentials.username, email, credentials.password);
-        navigate('/wip');
+        navigate('/');
       }
     } catch (error) {
       setError(error.message);
@@ -120,15 +120,6 @@ const LoginSection = () => {
           </div>
         </form>
 
-        <div className="login-benefits">
-          <h3>Why join TrackFlow?</h3>
-          <ul>
-            <li>♦ Track your music projects and milestones</li>
-            <li>◈ Collaborate with other artists</li>
-            <li>★ Earn achievements and climb the leaderboard</li>
-            <li>▲ Get insights into your productivity</li>
-          </ul>
-        </div>
       </div>
     </section>
   );

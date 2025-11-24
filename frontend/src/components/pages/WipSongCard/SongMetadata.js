@@ -56,14 +56,26 @@ const SongMetadata = ({
 
   return (
     <div style={{ flex: 1 }}>
-      <div style={{ fontSize: "1.1rem", fontWeight: "600" }}>
-        {renderEditable("title")}
+      <div style={{ fontSize: "1.1rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          {renderEditable("title")}
+          {/* Visibility indicator */}
+          <span
+            title={song.is_public ? "Song is public" : "Song is private"}
+            style={{
+              fontSize: "0.9rem",
+              color: song.is_public ? "#28a745" : "#ffc107",
+              cursor: "help"
+            }}
+          >
+            {song.is_public ? "🔓" : "🔒"}
+          </span>
+        </div>
         <span
           style={{
             fontStyle: "italic",
             fontWeight: "400",
             color: "#555",
-            marginLeft: 6,
           }}
         >
           – {renderEditable("artist")}

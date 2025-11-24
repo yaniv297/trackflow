@@ -30,6 +30,8 @@
   grid-area: sidebar;
   display: grid;
   gap: 1.5rem;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* Authenticated users layout */

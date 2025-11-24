@@ -34,9 +34,9 @@ const QuickStats = () => {
           } catch (apiError) {
             // Mock data if endpoint doesn't exist
             statsData = {
-              totalSongs: 1250,
-              totalUsers: 89,
-              totalPacks: 340
+              totalSongs: 3200,
+              totalUsers: 450,
+              totalPacks: 180
             };
           }
         }
@@ -50,9 +50,9 @@ const QuickStats = () => {
         console.log('Stats not available:', apiError.message);
         // Fallback to mock data
         setStats({
-          totalSongs: 1250,
-          totalUsers: 89,
-          totalPacks: 340
+          totalSongs: 3200,
+          totalUsers: 450,
+          totalPacks: 180
         });
       }
     } catch (error) {

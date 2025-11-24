@@ -47,14 +47,23 @@ class SuggestionsService:
         # 4. Collaborator waiting songs
         self._apply_collaborator_waiting(suggestions, song_enriched, song_map, used_ids)
 
-        # 5. Packs near completion
+        # 5. Long time no work songs
+        long_time_suggestions = self._get_long_time_no_work_songs(
+            songs, song_enriched, used_ids
+        )
+        suggestions.extend(long_time_suggestions)
+        used_ids.update(s["id"] for s in long_time_suggestions)
+
+        # 6. Packs near completion
         pack_suggestions = self._get_pack_suggestions(used_ids)
         suggestions.extend(pack_suggestions)
 
         # Fill with fallback songs if we have fewer than requested
         remaining = max(0, limit - len(suggestions))
         if remaining > 0:
-            filler = self._get_fallback_songs(song_enriched, used_ids, remaining)
+            filler = self._get_fallback_songs(
+                song_enriched, used_ids, remaining, min_completion=70
+            )
             suggestions.extend(filler)
             used_ids.update(item["id"] for item in filler)
 
@@ -62,7 +71,9 @@ class SuggestionsService:
         target_pool_size = max(limit * 2, 10)
         if len(suggestions) < target_pool_size:
             extra_needed = target_pool_size - len(suggestions)
-            extra = self._get_fallback_songs(song_enriched, used_ids, extra_needed)
+            extra = self._get_fallback_songs(
+                song_enriched, used_ids, extra_needed, min_completion=70
+            )
             suggestions.extend(extra)
             used_ids.update(item["id"] for item in extra)
 
@@ -118,20 +129,36 @@ class SuggestionsService:
     def _get_last_worked_song(self, songs, song_enriched) -> Optional[Dict[str, Any]]:
         if not songs:
             return None
+
         sorted_songs = sorted(
             songs,
             key=lambda s: s.updated_at or s.created_at or datetime.min,
             reverse=True,
         )
+
+        # Prefer songs at 70%+ completion
+        primary = self._select_last_song(sorted_songs, song_enriched, min_completion=70)
+        if primary:
+            return primary
+
+        # Fallback to any in-progress song if nothing is that far along
+        return self._select_last_song(sorted_songs, song_enriched, min_completion=0)
+
+    def _select_last_song(
+        self, sorted_songs, song_enriched, min_completion: int
+    ) -> Optional[Dict[str, Any]]:
         for song in sorted_songs:
             enriched = song_enriched.get(song.id)
             if not enriched or enriched["completion"] >= 100:
                 continue
-            enriched = {**enriched}
-            enriched["tags"] = ["Continue working"]
-            enriched["priority"] = 10
-            enriched["message"] = self._message_for_song(enriched, include_recent=False)
-            return enriched
+            completion = enriched.get("completion") or 0
+            if completion < min_completion:
+                continue
+            cloned = {**enriched}
+            cloned["tags"] = ["Continue working"]
+            cloned["priority"] = 10 if completion >= 70 else 7
+            cloned["message"] = self._message_for_song(cloned, include_recent=False)
+            return cloned
         return None
 
     def _get_almost_done_songs(self, songs, song_enriched, used_ids):
@@ -180,7 +207,36 @@ class SuggestionsService:
             suggestions.append(enriched)
         return suggestions
 
-    def _get_fallback_songs(self, song_enriched, used_ids, needed):
+    def _get_long_time_no_work_songs(self, songs, song_enriched, used_ids):
+        """Find songs that have some progress but haven't been updated in a while."""
+        candidates = []
+        for song in songs:
+            enriched = song_enriched.get(song.id)
+            if not enriched:
+                continue
+            if f"song-{song.id}" in used_ids:
+                continue
+            completion = enriched.get("completion") or 0
+            # Must have started work (> 0%) but not finished (< 100%)
+            if completion <= 0 or completion >= 100:
+                continue
+            candidates.append((song, enriched))
+
+        # Sort by updated_at ascending (oldest first)
+        candidates.sort(
+            key=lambda x: x[0].updated_at or x[0].created_at or datetime.min
+        )
+
+        suggestions = []
+        for song, enriched in candidates[:3]:  # Limit to top 3 oldest
+            cloned = {**enriched}
+            cloned["tags"] = cloned.get("tags", []) + ["Long time no work"]
+            cloned["priority"] = 4
+            cloned["message"] = self._message_for_song(cloned, include_recent=False)
+            suggestions.append(cloned)
+        return suggestions
+
+    def _get_fallback_songs(self, song_enriched, used_ids, needed, min_completion=0):
         if needed <= 0:
             return []
 
@@ -189,6 +245,7 @@ class SuggestionsService:
             for data in song_enriched.values()
             if data["id"] not in used_ids
             and (data.get("completion") or 0) < 100
+            and (data.get("completion") or 0) >= min_completion
             and data.get("status") == "In Progress"
         ]
 

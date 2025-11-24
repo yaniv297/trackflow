@@ -162,7 +162,7 @@ const TipsAndTricks = () => {
         id: 21,
         title: "Export YARG ini Files",
         summary:
-          "Export ini files for YARG directly from WIP songs to quickly set up your YARG library with songs in progress.",
+          "Export ini files for YARG directly from WIP songs to quickly create necessary files for YARG.",
         category: "productivity",
       },
       {

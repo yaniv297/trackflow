@@ -22,6 +22,8 @@ import { useWipCollaborations } from "../../hooks/wip/useWipCollaborations";
 import { useSongProgress } from "../../hooks/workflows/useSongProgress";
 
 import { getSongProgressData } from "../../utils/progressUtils";
+import { apiPatch } from "../../utils/api";
+import { checkAndShowNewAchievements } from "../../utils/achievements";
 
 export default function WipSongCard({
   song,
@@ -98,6 +100,26 @@ export default function WipSongCard({
     }
   };
 
+  const saveNotes = async (songId, notes) => {
+    try {
+      const updated = await apiPatch(`/songs/${songId}`, { notes });
+      
+      // Update the song object for immediate UI reflection
+      if (onSongUpdate) {
+        onSongUpdate(songId, { ...song, notes: updated.notes || notes });
+      }
+      
+      // Check for achievements after successful update
+      await checkAndShowNewAchievements();
+      
+      window.showNotification("Notes saved successfully", "success");
+    } catch (error) {
+      console.error("Failed to save notes:", error);
+      window.showNotification("Failed to save notes", "error");
+      throw error; // Re-throw so the component knows it failed
+    }
+  };
+
   return (
     <div
       className="WipSongCard"
@@ -148,6 +170,7 @@ export default function WipSongCard({
             onStartEdit={startEdit}
             onSaveEdit={saveEdit}
             onEditValueChange={updateEditValue}
+            onSaveNotes={saveNotes}
             readOnly={readOnly}
             showPackName={showPackName}
           />

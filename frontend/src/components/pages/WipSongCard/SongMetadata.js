@@ -1,5 +1,6 @@
 import React from "react";
 import ExternalLinks from "./ExternalLinks";
+import SongNotes from "./SongNotes";
 
 /**
  * Component for displaying and editing song metadata (title, artist, album, year)
@@ -11,6 +12,7 @@ const SongMetadata = ({
   onStartEdit, 
   onSaveEdit, 
   onEditValueChange, 
+  onSaveNotes,
   readOnly = false,
   showPackName = false 
 }) => {
@@ -107,6 +109,14 @@ const SongMetadata = ({
           Pack: {song.pack_name}
         </div>
       )}
+
+      {/* Song Notes */}
+      <SongNotes 
+        song={song}
+        notes={song.notes}
+        onSaveNotes={onSaveNotes}
+        readOnly={readOnly}
+      />
     </div>
   );
 };

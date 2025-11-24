@@ -62,7 +62,7 @@ const NewDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
               borderBottom: "1px solid #eee",
               transition: "background 0.2s",
               cursor: "pointer",
-              fontSize: "inherit",
+              fontSize: "0.9rem",
             }}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}
@@ -79,7 +79,7 @@ const NewDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
               borderBottom: "1px solid #eee",
               transition: "background 0.2s",
               cursor: "pointer",
-              fontSize: "inherit",
+              fontSize: "0.9rem",
             }}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}
@@ -95,7 +95,7 @@ const NewDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
               color: "#333",
               transition: "background 0.2s",
               cursor: "pointer",
-              fontSize: "inherit",
+              fontSize: "0.9rem",
             }}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}

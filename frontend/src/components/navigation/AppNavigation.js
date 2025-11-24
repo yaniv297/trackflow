@@ -26,7 +26,7 @@ const AppNavigation = ({
       <div className="nav-left">
         <div
           className="nav-brand"
-          onClick={() => navigate("/wip")}
+          onClick={() => navigate("/")}
           style={{ cursor: "pointer" }}
         >
           TrackFlow

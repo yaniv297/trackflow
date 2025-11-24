@@ -1,22 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { apiGet } from '../../utils/api';
-import { useWorkflowData } from '../../hooks/workflows/useWorkflowData';
-import './UserDashboard.css';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { apiGet } from "../../utils/api";
+import { useWorkflowData } from "../../hooks/workflows/useWorkflowData";
+import "./UserDashboard.css";
 
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { authoringFields, getSongCompletionPercentage } = useWorkflowData(user);
+  const { authoringFields, getSongCompletionPercentage } =
+    useWorkflowData(user);
   const [dashboardData, setDashboardData] = useState({
-    lastWorkedSong: null,
-    recentParts: [],
-    songsCloseToCompletion: [],
-    packsCloseToCompletion: [],
+    suggestions: [],
     loading: true,
-    error: null
+    error: null,
   });
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const getCompletionPercentage = (song) => {
     if (!song) return 0;
@@ -24,53 +23,42 @@ const UserDashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    generateWorkSuggestions();
   }, []);
 
-  const fetchDashboardData = async () => {
+  const generateWorkSuggestions = async () => {
     try {
-      setDashboardData(prev => ({ ...prev, loading: true }));
+      setDashboardData((prev) => ({ ...prev, loading: true }));
 
       // Fetch all required data in parallel
       const results = await Promise.allSettled([
-        apiGet('/songs?status=In%20Progress&limit=100&order=created_at'), // Get more songs to find high completion ones
-        apiGet('/authoring/recent?limit=20'),
-        apiGet('/packs/near-completion?limit=3&threshold=70')
+        apiGet("/songs?status=In%20Progress&limit=100&order=created_at"),
+        apiGet("/authoring/recent?limit=20"),
+        apiGet("/packs/near-completion?limit=10&threshold=70"),
       ]);
 
-      // Extract values from Promise.allSettled results, defaulting to empty array on failure
-      const allSongs = results[0].status === 'fulfilled' ? results[0].value : [];
-      const recentParts = results[1].status === 'fulfilled' ? results[1].value : [];
-      const packs = results[2].status === 'fulfilled' ? results[2].value : [];
+      // Extract values from Promise.allSettled results
+      const allSongs =
+        results[0].status === "fulfilled" ? results[0].value : [];
+      const recentParts =
+        results[1].status === "fulfilled" ? results[1].value : [];
+      const packs = results[2].status === "fulfilled" ? results[2].value : [];
 
-      // Get the most recently updated song (last worked on)
-      // Sort by updated_at if available, otherwise use the first one
-      const lastWorkedSong = allSongs.length > 0 
-        ? allSongs.sort((a, b) => {
-            const dateA = new Date(a.updated_at || a.created_at || 0);
-            const dateB = new Date(b.updated_at || b.created_at || 0);
-            return dateB - dateA;
-          })[0]
-        : null;
-
-      // Calculate completion for all songs and filter for those >= 80%
-      // Songs API should include authoring data, but we may need to fetch it for some
-      // For efficiency, we'll only check the first 50 songs
-      const songsToCheck = allSongs.slice(0, 50);
+      // Process songs with completion data (use all songs we fetched)
+      const songsToCheck = allSongs;
       const songsWithCompletionPromises = songsToCheck.map(async (song) => {
         try {
-          // Fetch authoring data if not already included
           let authoringData = song.authoring;
           if (!authoringData || Object.keys(authoringData).length === 0) {
             try {
               const authoringResponse = await apiGet(`/authoring/${song.id}`);
-              // Authoring response might be in different formats
-              authoringData = authoringResponse.parts || authoringResponse || {};
+              authoringData =
+                authoringResponse.parts || authoringResponse || {};
             } catch {
               authoringData = {};
             }
           }
-          
+
           const songWithAuthoring = { ...song, authoring: authoringData };
           const percentage = getSongCompletionPercentage(songWithAuthoring);
           return { ...songWithAuthoring, completionPercentage: percentage };
@@ -80,25 +68,248 @@ const UserDashboard = () => {
       });
 
       const songsWithAuthoring = await Promise.all(songsWithCompletionPromises);
-      const songsWithCompletion = songsWithAuthoring
-        .filter(song => song.completionPercentage >= 80 && song.completionPercentage < 100)
-        .sort((a, b) => b.completionPercentage - a.completionPercentage)
-        .slice(0, 3);
+
+      const authoredSongMap = new Map();
+      songsWithAuthoring.forEach((song) => {
+        if (song?.id) {
+          authoredSongMap.set(song.id, song);
+        }
+      });
+
+      const allSongMap = new Map();
+      allSongs.forEach((song) => {
+        if (song?.id) {
+          allSongMap.set(song.id, song);
+        }
+      });
+
+      const getEnrichedSongData = (songInput) => {
+        const base =
+          typeof songInput === "number"
+            ? { id: songInput }
+            : { ...(songInput || {}) };
+        const authored = base.id ? authoredSongMap.get(base.id) : null;
+        const full = base.id ? allSongMap.get(base.id) : null;
+        const merged = {
+          ...(full || {}),
+          ...(authored || {}),
+          ...base,
+        };
+        merged.authoring =
+          merged.authoring || authored?.authoring || full?.authoring || {};
+        if (!merged.album_cover) {
+          merged.album_cover =
+            base.album_cover ||
+            authored?.album_cover ||
+            full?.album_cover ||
+            null;
+        }
+        if (authored?.completionPercentage !== undefined) {
+          merged.completionPercentage = authored.completionPercentage;
+        }
+        if (
+          (merged.completionPercentage === undefined ||
+            merged.completionPercentage === null) &&
+          merged.authoring &&
+          Object.keys(merged.authoring).length > 0
+        ) {
+          merged.completionPercentage = getSongCompletionPercentage(merged);
+        }
+        return merged;
+      };
+
+      const isSongComplete = (songData) => {
+        const completionValue =
+          songData?.completionPercentage ?? getCompletionPercentage(songData);
+        return completionValue !== null && completionValue >= 100;
+      };
+
+      // Generate unified suggestions
+      const suggestions = [];
+      const usedItems = new Set(); // To prevent duplicates
+
+      // 1. Last worked song
+      if (allSongs.length > 0) {
+        const lastWorkedSong = allSongs.sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0);
+          const dateB = new Date(b.updated_at || b.created_at || 0);
+          return dateB - dateA;
+        })[0];
+
+        if (lastWorkedSong) {
+          const enrichedSong = getEnrichedSongData(lastWorkedSong);
+          const completionValue = getSongCompletionPercentage(enrichedSong);
+          if (completionValue === null || completionValue < 100) {
+            suggestions.push({
+              id: `song-${enrichedSong.id}`,
+              type: "song",
+              data: enrichedSong,
+              tags: ["Continue working"],
+              priority: 10,
+              completion: completionValue,
+              lastActivity: enrichedSong.updated_at,
+            });
+            usedItems.add(`song-${enrichedSong.id}`);
+          }
+        }
+      }
+
+      // 2. Songs close to completion
+      const songsCloseToCompletion = songsWithAuthoring
+        .filter(
+          (song) =>
+            song.completionPercentage >= 80 && song.completionPercentage < 100
+        )
+        .sort((a, b) => b.completionPercentage - a.completionPercentage);
+
+      songsCloseToCompletion.forEach((song) => {
+        const itemKey = `song-${song.id}`;
+        if (!usedItems.has(itemKey)) {
+          const enrichedSong = getEnrichedSongData(song);
+          const completionValue = getSongCompletionPercentage(enrichedSong);
+          if (completionValue !== null && completionValue >= 100) {
+            return;
+          }
+          suggestions.push({
+            id: itemKey,
+            type: "song",
+            data: {
+              ...enrichedSong,
+              authoring: enrichedSong.authoring || {},
+            },
+            tags: ["Almost done"],
+            priority: 8 + ((completionValue || 0) / 100) * 2,
+            completion: completionValue,
+            lastActivity: enrichedSong.updated_at,
+          });
+          usedItems.add(itemKey);
+        } else {
+          // Add tag to existing suggestion
+          const existing = suggestions.find((s) => s.id === itemKey);
+          if (existing && !existing.tags.includes("Almost done")) {
+            existing.data = getEnrichedSongData(existing.data);
+            existing.tags.push("Almost done");
+            existing.priority += 2;
+            // Ensure authoring data is available
+            if (song.authoring && !existing.data.authoring) {
+              existing.data.authoring = song.authoring;
+            }
+            if (!existing.data.album_cover && song.album_cover) {
+              existing.data.album_cover = song.album_cover;
+            }
+            existing.completion = getSongCompletionPercentage(existing.data);
+          }
+        }
+      });
+
+      // 3. Recent parts completed (group by song)
+      const groupedParts = recentParts.reduce((acc, part) => {
+        const songKey = `song-${part.song_id}`;
+        if (!acc[songKey]) {
+          acc[songKey] = {
+            song_id: part.song_id,
+            song_title: part.song_title,
+            artist: part.artist,
+            album_cover: part.album_cover,
+            parts: [],
+            latest_time: part.completed_at,
+          };
+        }
+        const formatPartName = (partName) => {
+          return partName
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase());
+        };
+        acc[songKey].parts.push(formatPartName(part.part_name));
+        if (new Date(part.completed_at) > new Date(acc[songKey].latest_time)) {
+          acc[songKey].latest_time = part.completed_at;
+        }
+        return acc;
+      }, {});
+
+      Object.values(groupedParts).forEach((songGroup) => {
+        const itemKey = `song-${songGroup.song_id}`;
+        if (!usedItems.has(itemKey)) {
+          const enrichedSong = getEnrichedSongData({
+            id: songGroup.song_id,
+            title: songGroup.song_title,
+            artist: songGroup.artist,
+            album_cover: songGroup.album_cover,
+            updated_at: songGroup.latest_time,
+          });
+          if (isSongComplete(enrichedSong)) {
+            return;
+          }
+          suggestions.push({
+            id: itemKey,
+            type: "song",
+            data: enrichedSong,
+            tags: ["Recently worked on"],
+            priority: 6,
+            completion: getSongCompletionPercentage(enrichedSong),
+            lastActivity: songGroup.latest_time,
+            recentParts: songGroup.parts,
+          });
+          usedItems.add(itemKey);
+        } else {
+          // Add tag to existing suggestion
+          const existing = suggestions.find((s) => s.id === itemKey);
+          if (existing && !existing.tags.includes("Recently worked on")) {
+            existing.data = getEnrichedSongData(existing.data);
+            existing.tags.push("Recently worked on");
+            existing.priority += 1;
+            existing.recentParts = songGroup.parts;
+            // Try to add album cover if missing
+            if (!existing.data.album_cover) {
+              const enrichedSong = getEnrichedSongData(songGroup.song_id);
+              if (enrichedSong.album_cover) {
+                existing.data.album_cover = enrichedSong.album_cover;
+              }
+            }
+            existing.completion = getSongCompletionPercentage(existing.data);
+          }
+        }
+      });
+
+      // 4. Packs close to completion
+      packs.forEach((pack) => {
+        const itemKey = `pack-${pack.id}`;
+        const stats = getPackCompletionStats(pack);
+        suggestions.push({
+          id: itemKey,
+          type: "pack",
+          data: pack,
+          tags: ["Pack almost done"],
+          priority: 5 + (stats.percentage / 100) * 2,
+          completion: stats.percentage,
+          lastActivity: pack.updated_at,
+          packStats: stats,
+        });
+      });
+
+      // Sort by priority and add some randomization
+      suggestions.sort((a, b) => {
+        // Primary sort by priority
+        const priorityDiff = b.priority - a.priority;
+        if (Math.abs(priorityDiff) > 1) return priorityDiff;
+        // Secondary randomization for similar priorities
+        return Math.random() - 0.5;
+      });
+
+      // Take top 6 suggestions for 2x3 grid
+      const finalSuggestions = suggestions.slice(0, 6);
 
       setDashboardData({
-        lastWorkedSong: lastWorkedSong,
-        recentParts: recentParts || [],
-        songsCloseToCompletion: songsWithCompletion || [],
-        packsCloseToCompletion: packs || [],
+        suggestions: finalSuggestions,
         loading: false,
-        error: null
+        error: null,
       });
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      setDashboardData(prev => ({
+      console.error("Failed to fetch dashboard data:", error);
+      setDashboardData((prev) => ({
         ...prev,
         loading: false,
-        error: error.message || 'Failed to load dashboard'
+        error: error.message || "Failed to load dashboard",
       }));
     }
   };
@@ -110,32 +321,130 @@ const UserDashboard = () => {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffHours < 1) return 'Just now';
+    if (diffHours < 1) return "Just now";
     if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return '1 day ago';
+    if (diffDays === 1) return "1 day ago";
     if (diffDays < 7) return `${diffDays} days ago`;
-    
+
     return date.toLocaleDateString();
   };
 
   const getPackCompletionStats = (pack) => {
     // Use values from API if available (more accurate)
-    const totalSongs = pack.total_songs !== undefined ? pack.total_songs : (pack.songs?.length || 0);
-    const completedSongs = pack.completed_songs !== undefined ? pack.completed_songs : (pack.songs?.filter(song => song.status === 'Released').length || 0);
-    const wipSongs = pack.songs?.filter(song => song.status === 'In Progress').length || 0;
-    
+    const totalSongs =
+      pack.total_songs !== undefined
+        ? pack.total_songs
+        : pack.songs?.length || 0;
+    const completedSongs =
+      pack.completed_songs !== undefined
+        ? pack.completed_songs
+        : pack.songs?.filter((song) => song.status === "Released").length || 0;
+    const wipSongs =
+      pack.songs?.filter((song) => song.status === "In Progress").length || 0;
+
     // Use completion_percentage from API if available (matches WIP page calculation)
     // Otherwise fall back to released/total calculation
-    const percentage = pack.completion_percentage !== undefined 
-      ? pack.completion_percentage 
-      : (totalSongs > 0 ? Math.round((completedSongs / totalSongs) * 100) : 0);
-    
+    const percentage =
+      pack.completion_percentage !== undefined
+        ? pack.completion_percentage
+        : totalSongs > 0
+        ? Math.round((completedSongs / totalSongs) * 100)
+        : 0;
+
     return {
       totalSongs,
       completedSongs,
       wipSongs,
-      percentage
+      percentage,
     };
+  };
+
+  // Generate exciting contextual messages
+  const getSuggestionMessage = (suggestion) => {
+    if (suggestion.type === "pack" && suggestion.packStats) {
+      const remaining =
+        suggestion.packStats.totalSongs - suggestion.packStats.completedSongs;
+      if (remaining === 1) {
+        return "1 song left to finish this pack!";
+      } else if (remaining > 1) {
+        return `${remaining} songs left to finish this pack`;
+      }
+    }
+
+    if (suggestion.type === "song") {
+      // For songs with recent parts completed
+      if (suggestion.recentParts && suggestion.recentParts.length > 0) {
+        const formatPartName = (partName) =>
+          partName.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+        const completedParts = suggestion.recentParts.map(formatPartName);
+
+        // Try to find incomplete parts
+        if (suggestion.data.authoring && authoringFields.length > 0) {
+          const incompleteParts = authoringFields
+            .filter((field) => !suggestion.data.authoring[field])
+            .map((field) => {
+              // Format field name nicely
+              return field
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase());
+            })
+            .slice(0, 3); // Limit to 3 parts
+
+          if (incompleteParts.length > 0) {
+            const completedText = completedParts.slice(0, 2).join(", ");
+            const remainingText = incompleteParts.slice(0, 2).join(", ");
+            if (completedParts.length === 1) {
+              return `You recently completed ${completedText}, only ${remainingText} next!`;
+            } else {
+              return `You recently completed ${completedText}, only ${remainingText} next!`;
+            }
+          }
+        }
+
+        // Fallback if we can't determine remaining parts
+        const partsText = completedParts.slice(0, 2).join(", ");
+        return `You recently completed ${partsText}!`;
+      }
+
+      // For songs that are almost done
+      if (
+        suggestion.completion !== null &&
+        suggestion.completion >= 80 &&
+        suggestion.completion < 100
+      ) {
+        if (suggestion.data.authoring && authoringFields.length > 0) {
+          const incompleteParts = authoringFields
+            .filter((field) => !suggestion.data.authoring[field])
+            .map((field) => {
+              return field
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase());
+            })
+            .slice(0, 3);
+
+          if (incompleteParts.length > 0) {
+            if (incompleteParts.length === 1) {
+              return `Only ${incompleteParts[0]} to finish this song!`;
+            } else if (incompleteParts.length === 2) {
+              return `Only ${incompleteParts.join(
+                " and "
+              )} to finish this song!`;
+            } else {
+              return `Only ${incompleteParts.slice(0, 2).join(", ")} and ${
+                incompleteParts.length - 2
+              } more to finish this song!`;
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback to time ago
+    if (suggestion.lastActivity) {
+      return formatTimeAgo(suggestion.lastActivity);
+    }
+
+    return null;
   };
 
   if (dashboardData.loading) {
@@ -154,7 +463,7 @@ const UserDashboard = () => {
       <div className="user-dashboard">
         <div className="dashboard-error">
           <p>Unable to load your latest work</p>
-          <button onClick={fetchDashboardData} className="retry-btn">
+          <button onClick={generateWorkSuggestions} className="retry-btn">
             Try again
           </button>
         </div>
@@ -162,228 +471,113 @@ const UserDashboard = () => {
     );
   }
 
-  const { lastWorkedSong, recentParts, songsCloseToCompletion, packsCloseToCompletion } = dashboardData;
+  const { suggestions } = dashboardData;
 
   return (
     <div className="user-dashboard">
       <div className="dashboard-header">
-        <h2>Your Work</h2>
-        <p>Pick up where you left off</p>
+        <div className="header-content">
+          <h2>Pick up where you left off</h2>
+          <button
+            className="collapse-toggle"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            aria-label={
+              isCollapsed ? "Expand suggestions" : "Collapse suggestions"
+            }
+          >
+            {isCollapsed ? "▼" : "▲"}
+          </button>
+        </div>
       </div>
 
-      <div className="dashboard-grid">
-        {/* Continue Working */}
-        <div className="dashboard-card continue-work">
-          <div className="card-header">
-            <h3>Continue working on...</h3>
-          </div>
-          <div className="card-content">
-            {lastWorkedSong ? (
-              <div 
-                className="work-item featured"
-                onClick={() => navigate(`/wip?song=${lastWorkedSong.id}`)}
-              >
-                <div className="work-info">
-                  <h4>{lastWorkedSong.title}</h4>
-                  <p className="work-meta">
-                    {lastWorkedSong.artist} • {lastWorkedSong.pack_name}
-                  </p>
-                  <p className="work-time">
-                    Last worked: {formatTimeAgo(lastWorkedSong.updated_at)}
-                  </p>
-                </div>
-                <div className="work-progress">
-                  <div className="progress-circle">
-                    <span>{getCompletionPercentage(lastWorkedSong)}%</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>No songs in progress</p>
-                <button 
-                  onClick={() => navigate('/wip')} 
-                  className="cta-btn"
+      {!isCollapsed && (
+        <div className="suggestions-container">
+          {suggestions.length > 0 ? (
+            <div className="suggestions-list">
+              {suggestions.slice(0, 6).map((suggestion) => (
+                <div
+                  key={suggestion.id}
+                  className="suggestion-item"
+                  onClick={() => {
+                    if (suggestion.type === "song") {
+                      navigate(`/wip?song=${suggestion.data.id}`);
+                    } else if (suggestion.type === "pack") {
+                      navigate(`/wip?pack=${suggestion.data.id}`);
+                    }
+                  }}
                 >
-                  Start a new song
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Parts */}
-        <div className="dashboard-card recent-parts">
-          <div className="card-header">
-            <h3>Recent parts done</h3>
-          </div>
-          <div className="card-content">
-            {recentParts.length > 0 ? (
-              <div className="parts-list">
-                {(() => {
-                  // Function to format part names (capitalize and remove underscores)
-                  const formatPartName = (partName) => {
-                    return partName
-                      .replace(/_/g, ' ')
-                      .replace(/\b\w/g, l => l.toUpperCase());
-                  };
-
-                  // Group parts by song
-                  const groupedParts = recentParts.reduce((acc, part) => {
-                    const songKey = `${part.song_id}-${part.song_title}`;
-                    if (!acc[songKey]) {
-                      acc[songKey] = {
-                        song_id: part.song_id,
-                        song_title: part.song_title,
-                        artist: part.artist,
-                        album_cover: part.album_cover,
-                        parts: [],
-                        latest_time: part.completed_at
-                      };
-                    }
-                    acc[songKey].parts.push(formatPartName(part.part_name));
-                    // Keep the most recent completion time for this song
-                    if (new Date(part.completed_at) > new Date(acc[songKey].latest_time)) {
-                      acc[songKey].latest_time = part.completed_at;
-                    }
-                    return acc;
-                  }, {});
-
-                  // Convert to array and sort by latest completion time
-                  const songGroups = Object.values(groupedParts)
-                    .sort((a, b) => new Date(b.latest_time) - new Date(a.latest_time))
-                    .slice(0, 3); // Show top 3 songs
-
-                  return songGroups.map((songGroup, index) => (
-                    <div 
-                      key={index}
-                      className="part-item"
-                      onClick={() => navigate(`/wip?song=${songGroup.song_id}`)}
-                    >
-                      {songGroup.album_cover && (
-                        <img 
-                          src={songGroup.album_cover} 
-                          alt={`${songGroup.song_title} cover`}
-                          className="part-album-art"
-                        />
-                      )}
-                      <div className="part-icon">✓</div>
-                      <div className="part-info">
-                        <p className="part-name">{songGroup.parts.join(', ')}</p>
-                        <p className="part-song">{songGroup.song_title}</p>
-                        <p className="part-artist">{songGroup.artist}</p>
-                        <p className="part-time">{formatTimeAgo(songGroup.latest_time)}</p>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>No recent authoring activity</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Songs Close to Completion */}
-        <div className="dashboard-card close-songs">
-          <div className="card-header">
-            <h3>Songs almost done</h3>
-          </div>
-          <div className="card-content">
-            {songsCloseToCompletion.length > 0 ? (
-              <div className="completion-list">
-                {songsCloseToCompletion.map((song) => {
-                  const percentage = getCompletionPercentage(song);
-                  return (
-                    <div 
-                      key={song.id}
-                      className="completion-item"
-                      onClick={() => navigate(`/wip?song=${song.id}`)}
-                    >
-                      {song.album_cover && (
-                        <img 
-                          src={song.album_cover} 
-                          alt={`${song.title} cover`}
-                          className="completion-album-art"
-                        />
-                      )}
-                      <div className="completion-info">
-                        <h4>{song.title}</h4>
-                        <p className="completion-meta">{song.artist}</p>
-                      </div>
-                      <div className="completion-progress">
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill"
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="progress-text">{percentage}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>No songs near completion</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Packs Close to Completion */}
-        <div className="dashboard-card close-packs">
-          <div className="card-header">
-            <h3>Packs almost done</h3>
-          </div>
-          <div className="card-content">
-            {packsCloseToCompletion.length > 0 ? (
-              <div className="completion-list">
-                {packsCloseToCompletion.map((pack) => {
-                  const stats = getPackCompletionStats(pack);
-                  return (
-                    <div 
-                      key={pack.id}
-                      className="completion-item"
-                      onClick={() => navigate(`/wip?pack=${pack.id}`)}
-                    >
-                      {pack.album_cover && (
-                        <img 
-                          src={pack.album_cover} 
-                          alt={`${pack.display_name || pack.name} cover`}
-                          className="completion-album-art"
-                        />
-                      )}
-                      <div className="completion-info">
-                        <h4>{pack.display_name || pack.name}</h4>
-                        <p className="completion-meta">
-                          {stats.completedSongs}/{stats.totalSongs} songs done
+                  {suggestion.data.album_cover && (
+                    <img
+                      src={suggestion.data.album_cover}
+                      alt={`${
+                        suggestion.data.title ||
+                        suggestion.data.display_name ||
+                        suggestion.data.name
+                      } cover`}
+                      className="suggestion-album-art"
+                    />
+                  )}
+                  <div className="suggestion-content">
+                    <div className="suggestion-main">
+                      <h3
+                        className="suggestion-title"
+                        title={
+                          suggestion.data.title ||
+                          suggestion.data.display_name ||
+                          suggestion.data.name
+                        }
+                      >
+                        {suggestion.data.title ||
+                          suggestion.data.display_name ||
+                          suggestion.data.name}
+                      </h3>
+                      {suggestion.type === "song" && (
+                        <p className="suggestion-artist">
+                          {suggestion.data.artist}
                         </p>
+                      )}
+                      {suggestion.type === "pack" && suggestion.packStats && (
+                        <p className="suggestion-stats">
+                          {suggestion.packStats.completedSongs}/
+                          {suggestion.packStats.totalSongs} songs done
+                        </p>
+                      )}
+                      <div className="suggestion-tags">
+                        {suggestion.tags.map((tag, index) => (
+                          <span key={index} className="suggestion-tag">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
-                      <div className="completion-progress">
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill"
-                            style={{ width: `${stats.percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="progress-text">{stats.percentage}%</span>
+                      {(() => {
+                        const message = getSuggestionMessage(suggestion);
+                        if (message) {
+                          return <p className="suggestion-parts">{message}</p>;
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+                  {suggestion.completion !== null && (
+                    <div className="suggestion-progress">
+                      <div className="progress-circle-small">
+                        <span>{Math.round(suggestion.completion)}%</span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>No packs near completion</p>
-              </div>
-            )}
-          </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>No work suggestions available</p>
+              <button onClick={() => navigate("/wip")} className="cta-btn">
+                Start working
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

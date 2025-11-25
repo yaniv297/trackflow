@@ -268,11 +268,12 @@ def get_recently_authored_parts(
             JOIN users u ON s.user_id = u.id
             WHERE sp.is_completed = TRUE
               AND sp.completed_at IS NOT NULL
+              AND u.username != :exclude_username
             ORDER BY sp.completed_at DESC
             LIMIT :limit
             """
         ),
-        {"limit": limit},
+        {"limit": limit, "exclude_username": current_user.username},
     ).mappings().all()
     
     return [

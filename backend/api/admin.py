@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from database import get_db
 from auth import get_current_user
 from models import User, Song, Artist, ActivityLog
-from schemas import UserOut, ActivityLogOut
+from schemas import UserOut, ActivityLogOut, RecentlyAuthoredPartOut
 from typing import List, Optional
 from datetime import timedelta
 from .auth import create_access_token, clear_user_cache
@@ -241,3 +242,50 @@ def get_activity_feed(
         ))
     
     return result
+
+@router.get("/recently-authored-parts", response_model=List[RecentlyAuthoredPartOut])
+def get_recently_authored_parts(
+    limit: Optional[int] = Query(25, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Return the most recent song progress completions across the platform."""
+    rows = db.execute(
+        text(
+            """
+            SELECT
+                sp.id,
+                sp.song_id,
+                sp.step_name,
+                sp.completed_at,
+                s.title AS song_title,
+                s.artist AS song_artist,
+                s.album_cover AS album_cover,
+                u.id AS user_id,
+                u.username AS username
+            FROM song_progress sp
+            JOIN songs s ON sp.song_id = s.id
+            JOIN users u ON s.user_id = u.id
+            WHERE sp.is_completed = 1
+              AND sp.completed_at IS NOT NULL
+            ORDER BY sp.completed_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    ).mappings().all()
+    
+    return [
+        RecentlyAuthoredPartOut(
+            id=row["id"],
+            song_id=row["song_id"],
+            song_title=row["song_title"],
+            song_artist=row["song_artist"],
+            album_cover=row["album_cover"],
+            step_name=row["step_name"],
+            completed_at=row["completed_at"],
+            user_id=row["user_id"],
+            username=row["username"],
+        )
+        for row in rows
+    ]

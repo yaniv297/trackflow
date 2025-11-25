@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiGet, apiPatch, apiDelete, apiPost } from "./utils/api";
 import { useAuth } from "./contexts/AuthContext";
 import ActivityFeed from "./components/ActivityFeed";
+import RecentlyAuthoredParts from "./components/RecentlyAuthoredParts";
 import "./AdminPage.css";
 
 function AdminPage() {
@@ -19,6 +20,7 @@ function AdminPage() {
   const [showTools, setShowTools] = useState(false);
   const [showUsers, setShowUsers] = useState(false);
   const [showActivityFeed, setShowActivityFeed] = useState(false);
+  const [showRecentlyAuthored, setShowRecentlyAuthored] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
@@ -388,6 +390,45 @@ function AdminPage() {
             ))}
           </div>
         )}
+          </div>
+        )}
+      </div>
+
+      <div className="admin-tools-section" style={{ marginBottom: "1.5rem" }}>
+        <button
+          onClick={() => setShowRecentlyAuthored((prev) => !prev)}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            border: "none",
+            background: "transparent",
+            padding: "0.75rem 0",
+            marginBottom: "0.25rem",
+            cursor: "pointer",
+            color: "#172035",
+            fontSize: "1.1rem",
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            borderBottom: "1px solid #e5e9f0",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "1.1rem",
+              color: "#5a6a85",
+              width: "1.2rem",
+              display: "inline-block",
+            }}
+          >
+            {showRecentlyAuthored ? "▾" : "▸"}
+          </span>
+          <span>Recently Authored Parts</span>
+        </button>
+        {showRecentlyAuthored && (
+          <div style={{ padding: "0.5rem 0 1rem" }}>
+            <RecentlyAuthoredParts limit={15} />
           </div>
         )}
       </div>

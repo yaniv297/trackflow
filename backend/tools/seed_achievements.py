@@ -148,10 +148,7 @@ def seed_achievements():
         existing_count = db.query(Achievement).count()
         if existing_count > 0:
             print(f"⚠️  Achievements table already has {existing_count} entries.")
-            response = input("Do you want to continue and add missing achievements? (y/n): ")
-            if response.lower() != 'y':
-                print("Aborted.")
-                return
+            print("Continuing to add missing achievements...")
         
         added_count = 0
         skipped_count = 0

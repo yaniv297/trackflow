@@ -537,6 +537,11 @@ class SongService:
             check_status_achievements(self.db, current_user.id)
             if song.status == SongStatus.released:
                 check_wip_completion_achievements(self.db, current_user.id)
+            
+            # Check public WIP achievements when making a WIP song public
+            if song.status == SongStatus.wip and song.is_public:
+                from api.achievements import check_public_wip_achievements
+                check_public_wip_achievements(self.db, current_user.id)
         except Exception as ach_err:
             print(f"⚠️ Failed to check achievements: {ach_err}")
     

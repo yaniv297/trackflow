@@ -361,6 +361,18 @@ class AchievementsService:
     def check_bug_report_achievements(self, db: Session, user_id: int):
         """Check achievements for bug reports."""
         self.check_metric_based_achievements(db, user_id, "bug_reports")
+    
+    def check_public_wip_achievements(self, db: Session, user_id: int):
+        """Check achievements for public WIP songs."""
+        self.check_metric_based_achievements(db, user_id, "public_wips")
+    
+    def check_collaboration_request_achievements(self, db: Session, user_id: int):
+        """Check achievements for collaboration requests sent."""
+        self.check_metric_based_achievements(db, user_id, "collab_requests_sent")
+    
+    def check_social_collaboration_achievements(self, db: Session, user_id: int):
+        """Check achievements for total collaborations (both sending and receiving)."""
+        self.check_metric_based_achievements(db, user_id, "collaborations_total")
 
     # Legacy function that delegates to unified checker
     def check_all_achievements(self, db: Session, user_id: int) -> List[str]:
@@ -401,6 +413,15 @@ class AchievementsService:
             return self.repository.count_series_created(db, user_id)
         elif metric_type == "completed_series":
             return self.repository.count_completed_series(db, user_id)
+        elif metric_type == "public_wips":
+            return self.repository.count_public_wips(db, user_id)
+        elif metric_type == "collab_requests_sent":
+            return self.repository.count_collab_requests_sent(db, user_id)
+        elif metric_type == "collaborations_total":
+            # Count both being added as collaborator AND adding others
+            added = self.repository.count_collaborations_added(db, user_id)
+            sent = self.repository.count_user_collaborations(db, user_id)
+            return added + sent
         elif metric_type in ["unique_artists", "unique_years", "unique_decades"]:
             # Calculate diversity metrics
             released_songs = self.repository.get_released_songs_for_diversity(db, user_id)

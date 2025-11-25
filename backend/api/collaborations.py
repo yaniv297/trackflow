@@ -108,8 +108,9 @@ def add_pack_collaborator(
     
     # Check achievements
     try:
-        check_collaboration_achievements(db, current_user.id)  # For pack owner
-        check_social_achievements(db, request.user_id)  # For collaborator
+        from api.achievements import check_social_collaboration_achievements
+        check_social_collaboration_achievements(db, current_user.id)  # For pack owner (adding collaborator)
+        check_social_collaboration_achievements(db, request.user_id)  # For collaborator (being added)
     except Exception as ach_err:
         print(f"⚠️ Failed to check achievements: {ach_err}")
     
@@ -245,8 +246,9 @@ def add_song_collaborator(
     
     # Check achievements
     try:
-        check_collaboration_achievements(db, current_user.id)  # For song owner
-        check_social_achievements(db, request.user_id)  # For collaborator
+        from api.achievements import check_social_collaboration_achievements
+        check_social_collaboration_achievements(db, current_user.id)  # For song owner (adding collaborator)
+        check_social_collaboration_achievements(db, request.user_id)  # For collaborator (being added)
     except Exception as ach_err:
         print(f"⚠️ Failed to check achievements: {ach_err}")
     

@@ -397,3 +397,18 @@ class AchievementsRepository:
             print(f"❌ Error recalculating total points for user {user_id}: {e}")
             db.rollback()
             return 0
+    
+    def count_public_wips(self, db: Session, user_id: int) -> int:
+        """Count user's public WIP songs."""
+        return db.query(Song).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.wip,
+            Song.is_public == True
+        ).count()
+    
+    def count_collab_requests_sent(self, db: Session, user_id: int) -> int:
+        """Count collaboration requests sent by user."""
+        from models import CollaborationRequest
+        return db.query(CollaborationRequest).filter(
+            CollaborationRequest.requester_id == user_id
+        ).count()

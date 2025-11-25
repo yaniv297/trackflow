@@ -160,6 +160,13 @@ def create_collaboration_request(
     except Exception as log_err:
         print(f"⚠️ Failed to log activity: {log_err}")
     
+    # Check collaboration request achievements
+    try:
+        from api.achievements import check_collaboration_request_achievements
+        check_collaboration_request_achievements(db, current_user.id)
+    except Exception as ach_err:
+        print(f"⚠️ Failed to check achievements: {ach_err}")
+    
     # Get song owner info for response
     song_owner = db.query(User).filter(User.id == song.user_id).first()
     # Get full requester user object to access display_name
@@ -370,6 +377,15 @@ def respond_to_collaboration_request(
         )
     except Exception as log_err:
         print(f"⚠️ Failed to log response activity: {log_err}")
+    
+    # Check achievements if collaboration was accepted
+    if response.response == "accepted":
+        try:
+            from api.achievements import check_social_collaboration_achievements
+            check_social_collaboration_achievements(db, current_user.id)  # For song owner (adding collaborator)
+            check_social_collaboration_achievements(db, collab_request.requester_id)  # For collaborator (being added)
+        except Exception as ach_err:
+            print(f"⚠️ Failed to check achievements: {ach_err}")
     
     return {
         "request_id": request_id,

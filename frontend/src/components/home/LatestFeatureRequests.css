@@ -1,19 +1,22 @@
 .latest-feature-requests {
-  margin-bottom: 2rem;
+  background: white;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 1rem 0 1rem 0;
-  color: #333;
+.sidebar-area .section-title {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
 }
 
 .feature-requests-widget {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .feature-requests-list {

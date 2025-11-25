@@ -101,6 +101,18 @@ const LoginSection = () => {
             {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Sign Up')}
           </button>
 
+          {isLogin && (
+            <div className="forgot-password">
+              <button
+                type="button"
+                className="forgot-password-link"
+                onClick={() => navigate('/forgot-password')}
+              >
+                Forgot your password?
+              </button>
+            </div>
+          )}
+
           <div className="form-toggle">
             <span>
               {isLogin ? "Don't have an account?" : "Already have an account?"}

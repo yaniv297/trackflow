@@ -1,4 +1,6 @@
 import React from "react";
+import { useUserProfilePopup } from "../../../hooks/ui/useUserProfilePopup";
+import UserProfilePopup from "../../shared/UserProfilePopup";
 
 function CommentItem({
   comment,
@@ -15,10 +17,24 @@ function CommentItem({
   requestId,
   isReply = false,
 }) {
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
   const renderUsername = (username, isAdmin, fontSize = "0.9rem") => {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-        <strong style={{ fontSize, color: "#333" }}>{username}</strong>
+        <strong 
+          style={{ 
+            fontSize, 
+            color: "#333", 
+            cursor: "pointer",
+            transition: "color 0.2s ease"
+          }}
+          onClick={handleUsernameClick(username)}
+          onMouseEnter={(e) => e.target.style.color = "#667eea"}
+          onMouseLeave={(e) => e.target.style.color = "#333"}
+          title="Click to view profile"
+        >
+          {username}
+        </strong>
         {isAdmin && (
           <span
             style={{
@@ -67,7 +83,15 @@ function CommentItem({
               marginBottom: "0.25rem",
             }}
           >
-            Replying to <strong>{comment.parent_comment_username}</strong>:
+            Replying to <strong 
+              style={{ cursor: "pointer", transition: "color 0.2s ease" }}
+              onClick={handleUsernameClick(comment.parent_comment_username)}
+              onMouseEnter={(e) => e.target.style.color = "#667eea"}
+              onMouseLeave={(e) => e.target.style.color = "inherit"}
+              title="Click to view profile"
+            >
+              {comment.parent_comment_username}
+            </strong>:
           </div>
           <div
             style={{
@@ -252,6 +276,16 @@ function CommentItem({
         >
           {comment.comment}
         </p>
+      )}
+      
+      {/* User Profile Popup */}
+      {popupState.isVisible && (
+        <UserProfilePopup
+          username={popupState.username}
+          isVisible={popupState.isVisible}
+          position={popupState.position}
+          onClose={hidePopup}
+        />
       )}
     </div>
   );

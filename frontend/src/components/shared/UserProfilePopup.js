@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet } from "../../utils/api";
 
 const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
+  const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -262,6 +264,36 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
             </div>
           )}
 
+          {/* View Full Profile Button */}
+          <div style={{ marginTop: "12px" }}>
+            <button
+              onClick={() => {
+                navigate(`/profile/${username}`);
+                onClose();
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                backgroundColor: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "13px",
+                fontWeight: "500",
+                cursor: "pointer",
+                transition: "background-color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "#0056b3";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#007bff";
+              }}
+            >
+              View Full Profile
+            </button>
+          </div>
+
           {/* Member Since */}
           {userProfile.created_at && (
             <div
@@ -270,6 +302,7 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
                 color: "#666",
                 borderTop: "1px solid #eee",
                 paddingTop: "8px",
+                marginTop: "12px",
               }}
             >
               Member since{" "}

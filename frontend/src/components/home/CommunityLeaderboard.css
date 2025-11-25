@@ -92,6 +92,16 @@
   color: #333;
 }
 
+.username.clickable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.username.clickable:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
+
 .points {
   color: #ff8c00;
   font-weight: 700;

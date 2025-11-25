@@ -10,8 +10,8 @@ import {
   LoginSection,
   QuickStats,
   UserDashboard,
-  YourStats,
-  CommunityWips
+  CommunityWips,
+  IntroSection
 } from '../components/home';
 import './HomePage.css';
 
@@ -45,7 +45,6 @@ const HomePage = () => {
               <LatestUpdates limit={5} />
             </div>
             <div className="sidebar-area">
-              <YourStats />
               <CommunityWips />
               <CommunityLeaderboard limit={8} />
               <TipsAndTricks />
@@ -56,11 +55,13 @@ const HomePage = () => {
           // Layout for unauthenticated users
           <>
             <div className="main-content-area">
+              <IntroSection />
               <LatestReleases limit={6} />
               <LatestUpdates limit={6} />
             </div>
             <div className="sidebar-area">
               <LoginSection />
+              <CommunityWips />
               <CommunityLeaderboard limit={5} />
               <TipsAndTricks />
             </div>

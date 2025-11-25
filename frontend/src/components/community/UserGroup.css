@@ -1,0 +1,167 @@
+.user-group {
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%);
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.user-header:hover {
+  background: linear-gradient(135deg, #e8eaed 0%, #dadce0 100%);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-image-container {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.user-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-image-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.user-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-name .clickable-username {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.user-name .clickable-username:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
+
+.username-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  color: #6c757d;
+}
+
+.song-count {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.expand-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.expand-arrow {
+  font-size: 14px;
+  color: #6c757d;
+  transition: transform 0.2s;
+  user-select: none;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.user-songs {
+  background: white;
+}
+
+.songs-table-container {
+  padding: 0;
+}
+
+/* Override table styles for grouped view */
+.user-group .songs-table-container table {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.user-group .songs-table-container thead tr {
+  background: #f1f3f4 !important;
+}
+
+.user-group .songs-table-container tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .user-header {
+    padding: 12px 16px;
+  }
+  
+  .user-info {
+    gap: 12px;
+  }
+  
+  .user-image,
+  .user-image-placeholder {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .user-image-placeholder {
+    font-size: 16px;
+  }
+  
+  .user-name {
+    font-size: 16px;
+  }
+  
+  .username-subtitle {
+    font-size: 12px;
+  }
+  
+  .song-count {
+    font-size: 13px;
+  }
+}

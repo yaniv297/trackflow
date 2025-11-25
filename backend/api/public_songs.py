@@ -44,9 +44,7 @@ class PaginatedPublicSongsResponse(BaseModel):
 
 @router.get("/browse", response_model=PaginatedPublicSongsResponse)
 def browse_public_songs(
-    search: Optional[str] = Query(None, description="Search by song title or artist"),
-    artist: Optional[str] = Query(None, description="Filter by artist name"),
-    user: Optional[str] = Query(None, description="Filter by username"),
+    search: Optional[str] = Query(None, description="Search by song title, artist, or username"),
     status: Optional[str] = Query(None, description="Filter by status"),
     sort_by: Optional[str] = Query("updated_at", description="Sort field (title, artist, username, status, updated_at)"),
     sort_direction: Optional[str] = Query("desc", description="Sort direction (asc, desc)"),
@@ -73,12 +71,6 @@ def browse_public_songs(
                     User.username.ilike(search_term)
                 )
             )
-        
-        if artist:
-            artist_query = artist_query.filter(Song.artist.ilike(f"%{artist}%"))
-        
-        if user:
-            artist_query = artist_query.filter(User.username.ilike(f"%{user}%"))
             
         if status:
             artist_query = artist_query.filter(Song.status == status)
@@ -107,7 +99,7 @@ def browse_public_songs(
                 Song.artist.in_(artist_names)
             )
             
-            # Apply same filters to songs query (except artist filter since we're already filtering by artist names)
+            # Apply same filters to songs query
             if search:
                 search_term = f"%{search}%"
                 songs_query = songs_query.filter(
@@ -117,9 +109,6 @@ def browse_public_songs(
                         User.username.ilike(search_term)
                     )
                 )
-            
-            if user:
-                songs_query = songs_query.filter(User.username.ilike(f"%{user}%"))
                 
             if status:
                 songs_query = songs_query.filter(Song.status == status)
@@ -176,12 +165,6 @@ def browse_public_songs(
                     User.username.ilike(search_term)
                 )
             )
-        
-        if artist:
-            user_query = user_query.filter(Song.artist.ilike(f"%{artist}%"))
-        
-        if user:
-            user_query = user_query.filter(User.username.ilike(f"%{user}%"))
             
         if status:
             user_query = user_query.filter(Song.status == status)
@@ -210,7 +193,7 @@ def browse_public_songs(
                 Song.user_id.in_(user_ids)
             )
             
-            # Apply same filters to songs query (except user filter since we're already filtering by user IDs)
+            # Apply same filters to songs query
             if search:
                 search_term = f"%{search}%"
                 songs_query = songs_query.filter(
@@ -220,9 +203,6 @@ def browse_public_songs(
                         User.username.ilike(search_term)
                     )
                 )
-            
-            if artist:
-                songs_query = songs_query.filter(Song.artist.ilike(f"%{artist}%"))
                 
             if status:
                 songs_query = songs_query.filter(Song.status == status)
@@ -279,12 +259,6 @@ def browse_public_songs(
                     User.username.ilike(search_term)
                 )
             )
-        
-        if artist:
-            query = query.filter(Song.artist.ilike(f"%{artist}%"))
-        
-        if user:
-            query = query.filter(User.username.ilike(f"%{user}%"))
             
         if status:
             query = query.filter(Song.status == status)

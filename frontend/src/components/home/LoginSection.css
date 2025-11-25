@@ -1,12 +1,9 @@
 .login-section {
   background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  max-width: 400px;
-  margin: 0 auto;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0;
 }
 
 .login-container {
@@ -15,7 +12,7 @@
 
 .login-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .login-header h2 {
@@ -32,7 +29,7 @@
 }
 
 .login-form {
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 .form-group {
@@ -122,9 +119,28 @@
   color: #764ba2;
 }
 
+.forgot-password {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover {
+  color: #764ba2;
+}
+
 .login-benefits {
   border-top: 1px solid #eee;
-  padding-top: 1.5rem;
+  padding-top: 1rem;
 }
 
 .login-benefits h3 {

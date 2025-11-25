@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { apiGet, apiPatch, apiDelete, apiPost } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import ActivityFeed from "../components/shared/ActivityFeed";
+import RecentlyAuthoredParts from "../components/shared/RecentlyAuthoredParts";
 import "./AdminPage.css";
 
 function AdminPage() {
@@ -261,6 +262,12 @@ function AdminPage() {
         <div className="admin-card">
           <h3>Activity Feed</h3>
           <ActivityFeed limit={5} />
+        </div>
+
+        {/* Recently Authored Parts */}
+        <div className="admin-card">
+          <h3>Parts Recently Authored</h3>
+          <RecentlyAuthoredParts limit={12} />
         </div>
         
         {/* Quick Actions */}
@@ -537,22 +544,11 @@ function AdminPage() {
           <h4>Activity Feed</h4>
           <ActivityFeed limit={10} />
         </div>
-        
-        {/* Coming Soon Tools */}
+
+        {/* Recently Authored Parts */}
         <div className="admin-card">
-          <h4>Maintenance Tools</h4>
-          <div className="coming-soon" style={{
-            background: '#f8f9fa',
-            padding: '2rem',
-            borderRadius: '8px',
-            textAlign: 'center',
-            border: '2px dashed #dee2e6'
-          }}>
-            <div style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#6c757d' }}>UNDER CONSTRUCTION</div>
-            <p style={{ color: '#6c757d' }}>
-              Additional admin tools coming soon
-            </p>
-          </div>
+          <h4>Parts Recently Authored</h4>
+          <RecentlyAuthoredParts limit={15} />
         </div>
       </div>
     </div>

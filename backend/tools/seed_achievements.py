@@ -103,11 +103,11 @@ ACHIEVEMENTS = [
     ("three_complete_series", "Series Collector", "Complete 3 album series", "📀", "quality", 50, "rare", 3, "completed_series"),
     ("five_complete_series", "Series Legend", "Complete 5 album series", "🎪", "quality", 100, "epic", 5, "completed_series"),
     
-    # Social Achievements (Being added as collaborator)
-    ("first_collaboration_added", "Collaborative Spirit", "Be added as a collaborator on someone else's song", "🤝", "social", 10, "common", 1, "collaborations_added"),
-    ("five_collaborations_added", "Popular Collaborator", "Be added as a collaborator on 5 songs", "⭐", "social", 25, "uncommon", 5, "collaborations_added"),
-    ("ten_collaborations_added", "Sought After", "Be added as a collaborator on 10 songs", "🌟", "social", 50, "rare", 10, "collaborations_added"),
-    ("twenty_five_collaborations_added", "Community Favorite", "Be added as a collaborator on 25 songs", "💖", "social", 100, "epic", 25, "collaborations_added"),
+    # Social Achievements (Being added as collaborator OR adding others)
+    ("first_collaboration_added", "Collaborative Spirit", "Be added as a collaborator or add someone as a collaborator", "🤝", "social", 10, "common", 1, "collaborations_total"),
+    ("five_collaborations_added", "Popular Collaborator", "Be involved in 5 collaborations (added or adding)", "⭐", "social", 25, "uncommon", 5, "collaborations_total"),
+    ("ten_collaborations_added", "Sought After", "Be involved in 10 collaborations (added or adding)", "🌟", "social", 50, "rare", 10, "collaborations_total"),
+    ("twenty_five_collaborations_added", "Community Favorite", "Be involved in 25 collaborations (added or adding)", "💖", "social", 100, "epic", 25, "collaborations_total"),
     
     # Diversity Achievements - Artist Diversity
     ("five_different_artists", "Variety Seeker", "Complete songs from 5 different artists", "🎭", "diversity", 25, "uncommon", 5, "unique_artists"),
@@ -127,6 +127,17 @@ ACHIEVEMENTS = [
     ("three_different_decades", "Multi-Decade", "Complete songs from 3 different decades", "🎹", "diversity", 50, "rare", 3, "unique_decades"),
     ("four_different_decades", "Decade Master", "Complete songs from 4 different decades", "🎺", "diversity", 100, "epic", 4, "unique_decades"),
     ("five_different_decades", "Timeline Legend", "Complete songs from 5 different decades", "🎻", "diversity", 250, "legendary", 5, "unique_decades"),
+    
+    # Public WIP Achievements
+    ("first_public_wip", "Open Creator", "Make your first WIP song public", "🌐", "social", 10, "common", 1, "public_wips"),
+    ("five_public_wips", "Community Sharer", "Have 5 WIP songs public", "📢", "social", 25, "uncommon", 5, "public_wips"),
+    ("ten_public_wips", "Open Workshop", "Have 10 WIP songs public", "🏭", "social", 50, "rare", 10, "public_wips"),
+    ("twenty_five_public_wips", "Transparent Creator", "Have 25 WIP songs public", "💎", "social", 100, "epic", 25, "public_wips"),
+    
+    # Collaboration Request Achievements
+    ("first_collab_request", "Reach Out", "Make your first collaboration request", "🤲", "social", 10, "common", 1, "collab_requests_sent"),
+    ("five_collab_requests", "Active Networker", "Make 5 collaboration requests", "🕸️", "social", 25, "uncommon", 5, "collab_requests_sent"),
+    ("ten_collab_requests", "Collaboration Seeker", "Make 10 collaboration requests", "🔍", "social", 50, "rare", 10, "collab_requests_sent"),
 ]
 
 def seed_achievements():

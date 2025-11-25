@@ -35,8 +35,10 @@ function AppContent() {
   useAppEffects(isAuthenticated, user);
 
   const handleLogout = () => {
+    // Clear auth state first
     logout();
-    navigate("/");
+    // Use window.location for a hard navigation that bypasses React Router protected routes
+    window.location.href = "/";
   };
 
   const handleExitImpersonation = async () => {

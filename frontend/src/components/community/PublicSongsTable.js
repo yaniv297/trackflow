@@ -4,7 +4,31 @@ import PublicSongRow from './PublicSongRow';
 /**
  * Compact table view for displaying public songs
  */
-const PublicSongsTable = ({ songs, onCollaborationRequest, currentUserId }) => {
+const PublicSongsTable = ({ songs, onCollaborationRequest, currentUserId, onSort, sortConfig }) => {
+  
+  const getSortIcon = (field) => {
+    if (sortConfig?.field !== field) return '↕️';
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
+  };
+
+  const handleHeaderClick = (field) => {
+    if (onSort) {
+      const direction = sortConfig?.field === field && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+      onSort(field, direction);
+    }
+  };
+
+  const headerStyle = {
+    padding: '12px 8px', 
+    textAlign: 'left', 
+    fontSize: '12px', 
+    fontWeight: '600',
+    color: '#495057',
+    cursor: 'pointer',
+    userSelect: 'none',
+    borderBottom: '2px solid #dee2e6',
+  };
+
   return (
     <div style={{ overflowX: 'auto' }}>
       <table 
@@ -21,65 +45,50 @@ const PublicSongsTable = ({ songs, onCollaborationRequest, currentUserId }) => {
           <tr
             style={{
               backgroundColor: '#f8f9fa',
-              borderBottom: '2px solid #dee2e6',
             }}
           >
             <th style={{ 
-              padding: '12px 8px', 
-              textAlign: 'left', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              color: '#495057',
-              width: '50px'
+              ...headerStyle,
+              width: '50px',
+              cursor: 'default'
             }}>
               Cover
             </th>
             <th style={{ 
-              padding: '12px 8px', 
-              textAlign: 'left', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              color: '#495057'
-            }}>
-              Song
+              ...headerStyle,
+              width: '25%'
+            }} onClick={() => handleHeaderClick('title')}>
+              Song {getSortIcon('title')}
             </th>
             <th style={{ 
-              padding: '12px 8px', 
-              textAlign: 'left', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              color: '#495057',
+              ...headerStyle,
+              width: '25%'
+            }} onClick={() => handleHeaderClick('artist')}>
+              Artist {getSortIcon('artist')}
+            </th>
+            <th style={{ 
+              ...headerStyle,
               width: '120px'
-            }}>
-              Owner
+            }} onClick={() => handleHeaderClick('username')}>
+              Owner {getSortIcon('username')}
             </th>
             <th style={{ 
-              padding: '12px 8px', 
-              textAlign: 'left', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              color: '#495057',
+              ...headerStyle,
               width: '100px'
-            }}>
-              Status
+            }} onClick={() => handleHeaderClick('status')}>
+              Status {getSortIcon('status')}
             </th>
             <th style={{ 
-              padding: '12px 8px', 
-              textAlign: 'left', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              color: '#495057',
+              ...headerStyle,
               width: '100px'
-            }}>
-              Updated
+            }} onClick={() => handleHeaderClick('updated_at')}>
+              Updated {getSortIcon('updated_at')}
             </th>
             <th style={{ 
-              padding: '12px 8px', 
-              textAlign: 'center', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              color: '#495057',
-              width: '100px'
+              ...headerStyle,
+              textAlign: 'center',
+              width: '100px',
+              cursor: 'default'
             }}>
               Actions
             </th>

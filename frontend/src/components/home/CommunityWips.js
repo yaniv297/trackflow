@@ -39,11 +39,6 @@ const CommunityWips = () => {
     navigate('/community');
   };
 
-  const getCompletionColor = (percentage) => {
-    if (percentage >= 80) return '#4caf50';
-    if (percentage >= 50) return '#ff9800';
-    return '#2196f3';
-  };
 
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
@@ -108,20 +103,6 @@ const CommunityWips = () => {
                   )}
                 </div>
                 <div className="wip-meta">
-                  <div className="wip-progress">
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill"
-                        style={{ 
-                          width: `${wip.completion_percentage || 0}%`,
-                          backgroundColor: getCompletionColor(wip.completion_percentage || 0)
-                        }}
-                      />
-                    </div>
-                    <span className="progress-text">
-                      {wip.completion_percentage || 0}%
-                    </span>
-                  </div>
                   <div className="wip-details">
                     <span className="author">by {wip.author}</span>
                     <span className="time">{formatTimeAgo(wip.updated_at || wip.created_at)}</span>

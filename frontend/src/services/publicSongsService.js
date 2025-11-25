@@ -9,25 +9,33 @@ class PublicSongsService {
    */
   async browsePublicSongs({
     search = '',
-    artist = '',
-    user = '',
     status = '',
+    sort_by = 'updated_at',
+    sort_direction = 'desc',
+    group_by = null,
     limit = 50,
     offset = 0
   } = {}) {
     try {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
-      if (artist) params.append('artist', artist);
-      if (user) params.append('user', user);
       if (status) params.append('status', status);
+      if (sort_by) params.append('sort_by', sort_by);
+      if (sort_direction) params.append('sort_direction', sort_direction);
+      if (group_by) params.append('group_by', group_by);
       params.append('limit', limit.toString());
       params.append('offset', offset.toString());
 
       const response = await apiGet(`/api/public-songs/browse?${params}`);
       return {
         success: true,
-        data: response,
+        data: response.songs || response, // Handle both old and new response formats
+        pagination: response.songs ? {
+          total_count: response.total_count,
+          page: response.page,
+          per_page: response.per_page,
+          total_pages: response.total_pages
+        } : null,
       };
     } catch (error) {
       console.error('Error browsing public songs:', error);

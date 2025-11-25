@@ -25,6 +25,7 @@ import LatestReleasesPage from "../pages/LatestReleasesPage";
 import AchievementsPage from "../pages/AchievementsPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import CommunityPage from "../pages/CommunityPage";
+import ProfilePage from "../pages/ProfilePage";
 
 /**
  * All application routes
@@ -37,6 +38,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<LoginForm />} />
       <Route path="/register" element={<RegistrationWizard />} />
       <Route path="/releases" element={<LatestReleasesPage />} />
+      <Route path="/profile/:username" element={<ProfilePage />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 

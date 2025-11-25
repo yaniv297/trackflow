@@ -13,6 +13,8 @@ function UserSettings() {
     email: "",
     preferred_contact_method: "",
     discord_username: "",
+    profile_image_url: "",
+    website_url: "",
     auto_spotify_fetch_enabled: true,
     default_public_sharing: false,
   });
@@ -28,6 +30,8 @@ function UserSettings() {
         email: response.email || "",
         preferred_contact_method: response.preferred_contact_method || "",
         discord_username: response.discord_username || "",
+        profile_image_url: response.profile_image_url || "",
+        website_url: response.website_url || "",
         // Explicitly convert to boolean - handle false, 0, null, undefined
         auto_spotify_fetch_enabled:
           response.auto_spotify_fetch_enabled === true ||
@@ -204,6 +208,42 @@ function UserSettings() {
                       method.
                     </small>
                   )}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="profile_image_url">
+                    Profile Image URL
+                  </label>
+                  <input
+                    type="url"
+                    id="profile_image_url"
+                    name="profile_image_url"
+                    value={formData.profile_image_url}
+                    onChange={handleInputChange}
+                    className="form-control form-control-small"
+                    placeholder="https://example.com/your-image.jpg"
+                  />
+                  <small className="form-text">
+                    Optional. Enter a URL to an image you'd like to use as your profile picture.
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="website_url">
+                    Website / Profile Link
+                  </label>
+                  <input
+                    type="url"
+                    id="website_url"
+                    name="website_url"
+                    value={formData.website_url}
+                    onChange={handleInputChange}
+                    className="form-control form-control-small"
+                    placeholder="https://rhythmverse.co/profile/yourname"
+                  />
+                  <small className="form-text">
+                    Optional. Link to your RhythmVerse profile, personal website, or other music-related profile.
+                  </small>
                 </div>
 
                 <div className="form-group">

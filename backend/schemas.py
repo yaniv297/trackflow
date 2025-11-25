@@ -282,6 +282,20 @@ class ActivityLogOut(BaseModel):
     class Config:
         from_attributes = True
 
+class RecentlyAuthoredPartOut(BaseModel):
+    id: int
+    song_id: int
+    song_title: Optional[str] = None
+    song_artist: Optional[str] = None
+    album_cover: Optional[str] = None
+    step_name: str
+    completed_at: datetime
+    user_id: int
+    username: str
+    
+    class Config:
+        from_attributes = True
+
 class NotificationOut(BaseModel):
     id: int
     user_id: int

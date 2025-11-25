@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const useUserProfilePopup = () => {
+  const navigate = useNavigate();
   const [popupState, setPopupState] = useState({
     isVisible: false,
     username: null,
@@ -54,9 +56,18 @@ export const useUserProfilePopup = () => {
 
   const handleUsernameClick = useCallback(
     (username) => (event) => {
-      showPopup(username, event);
+      // Check if it's a right-click or ctrl+click - show popup for these
+      if (event.button === 2 || event.ctrlKey || event.metaKey) {
+        showPopup(username, event);
+        return;
+      }
+      
+      // For regular clicks, navigate directly to profile
+      event.preventDefault();
+      event.stopPropagation();
+      navigate(`/profile/${username}`);
     },
-    [showPopup]
+    [navigate, showPopup]
   );
 
   // Add global click handler to close popup when clicking outside

@@ -1,0 +1,144 @@
+.artist-group {
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.artist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.artist-header:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+}
+
+.artist-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.artist-image-container {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.artist-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.artist-image-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.artist-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artist-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.song-count {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.expand-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.expand-arrow {
+  font-size: 14px;
+  color: #6c757d;
+  transition: transform 0.2s;
+  user-select: none;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.artist-songs {
+  background: white;
+}
+
+.songs-table-container {
+  padding: 0;
+}
+
+/* Override table styles for grouped view */
+.artist-group .songs-table-container table {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.artist-group .songs-table-container thead tr {
+  background: #f1f3f4 !important;
+}
+
+.artist-group .songs-table-container tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .artist-header {
+    padding: 12px 16px;
+  }
+  
+  .artist-info {
+    gap: 12px;
+  }
+  
+  .artist-image,
+  .artist-image-placeholder {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .artist-image-placeholder {
+    font-size: 16px;
+  }
+  
+  .artist-name {
+    font-size: 16px;
+  }
+  
+  .song-count {
+    font-size: 13px;
+  }
+}

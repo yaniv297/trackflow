@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { apiGet, publicApiGet } from '../../utils/api';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
+import UserProfilePopup from '../shared/UserProfilePopup';
 import './CommunityLeaderboard.css';
 
 const CommunityLeaderboard = ({ limit = 10 }) => {
@@ -12,6 +14,7 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
   const [error, setError] = useState(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   useEffect(() => {
     fetchLeaderboard();
@@ -87,6 +90,7 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
                 entry={entry} 
                 isTopThree={index < 3}
                 getRankIcon={getRankIcon}
+                onUsernameClick={handleUsernameClick}
               />
             ))}
           </div>
@@ -104,14 +108,30 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
           </div>
         )}
       </div>
+      
+      {/* User Profile Popup */}
+      {popupState.isVisible && (
+        <UserProfilePopup
+          username={popupState.username}
+          isVisible={popupState.isVisible}
+          position={popupState.position}
+          onClose={hidePopup}
+        />
+      )}
     </section>
   );
 };
 
-const LeaderboardItem = ({ entry, isTopThree, getRankIcon }) => (
+const LeaderboardItem = ({ entry, isTopThree, getRankIcon, onUsernameClick }) => (
   <div className={`leaderboard-item ${isTopThree ? 'top-three' : ''}`}>
     <span className="rank">{getRankIcon(entry.rank)}</span>
-    <span className="username">{entry.username}</span>
+    <span 
+      className="username clickable" 
+      onClick={onUsernameClick(entry.username)}
+      title="Click to view profile"
+    >
+      {entry.username}
+    </span>
     <span className="points">{entry.total_points} pts</span>
   </div>
 );

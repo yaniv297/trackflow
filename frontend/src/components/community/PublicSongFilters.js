@@ -9,6 +9,7 @@ const PublicSongFilters = ({
   onFiltersChange,
   isLoading
 }) => {
+
   const handleInputChange = (field, value) => {
     onFiltersChange({
       ...filters,
@@ -19,13 +20,11 @@ const PublicSongFilters = ({
   const clearFilters = () => {
     onFiltersChange({
       search: '',
-      artist: '',
-      user: '',
       status: ''
     });
   };
 
-  const hasActiveFilters = filters.search || filters.artist || filters.user || filters.status;
+  const hasActiveFilters = filters.search || filters.status;
 
   return (
     <div className="public-song-filters">
@@ -49,37 +48,9 @@ const PublicSongFilters = ({
           <input
             id="search"
             type="text"
-            placeholder="Song title, artist, or user..."
+            placeholder="Search songs, artists, or authors..."
             value={filters.search}
             onChange={(e) => handleInputChange('search', e.target.value)}
-            disabled={isLoading}
-            className="filter-input"
-          />
-        </div>
-
-        {/* Artist */}
-        <div className="filter-group">
-          <label htmlFor="artist">Artist</label>
-          <input
-            id="artist"
-            type="text"
-            placeholder="Filter by artist..."
-            value={filters.artist}
-            onChange={(e) => handleInputChange('artist', e.target.value)}
-            disabled={isLoading}
-            className="filter-input"
-          />
-        </div>
-
-        {/* User */}
-        <div className="filter-group">
-          <label htmlFor="user">User</label>
-          <input
-            id="user"
-            type="text"
-            placeholder="Filter by username..."
-            value={filters.user}
-            onChange={(e) => handleInputChange('user', e.target.value)}
             disabled={isLoading}
             className="filter-input"
           />
@@ -111,30 +82,6 @@ const PublicSongFilters = ({
               Search: "{filters.search}"
               <button 
                 onClick={() => handleInputChange('search', '')}
-                className="remove-filter"
-                disabled={isLoading}
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {filters.artist && (
-            <span className="filter-tag">
-              Artist: "{filters.artist}"
-              <button 
-                onClick={() => handleInputChange('artist', '')}
-                className="remove-filter"
-                disabled={isLoading}
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {filters.user && (
-            <span className="filter-tag">
-              User: "{filters.user}"
-              <button 
-                onClick={() => handleInputChange('user', '')}
                 className="remove-filter"
                 disabled={isLoading}
               >

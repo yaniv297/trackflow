@@ -5,7 +5,7 @@ import UserProfilePopup from '../shared/UserProfilePopup';
 /**
  * Compact row component for displaying public songs in a table format
  */
-const PublicSongRow = ({ song, onCollaborationRequest, currentUserId }) => {
+const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtistColumn = false, hideUserColumn = false }) => {
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   const canCollaborate = currentUserId && song.user_id !== currentUserId && song.status !== 'Released';
@@ -57,14 +57,11 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId }) => {
           )}
         </td>
 
-        {/* Song Info */}
+        {/* Song Title */}
         <td style={{ padding: '8px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <div style={{ fontWeight: '600', fontSize: '14px', color: '#333' }}>
               {song.title}
-            </div>
-            <div style={{ fontSize: '13px', color: '#666' }}>
-              by {song.artist}
             </div>
             {song.album && (
               <div style={{ fontSize: '12px', color: '#888' }}>
@@ -74,25 +71,36 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId }) => {
           </div>
         </td>
 
+        {/* Artist */}
+        {!hideArtistColumn && (
+          <td style={{ padding: '8px' }}>
+            <div style={{ fontWeight: '500', fontSize: '14px', color: '#495057' }}>
+              {song.artist}
+            </div>
+          </td>
+        )}
+
         {/* Owner */}
-        <td style={{ padding: '8px', width: '120px' }}>
-          <span
-            onClick={handleUsernameClick(song.username)}
-            style={{
-              background: '#3498db',
-              color: 'white',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              display: 'inline-block',
-            }}
-            title="Click to view profile"
-          >
+        {!hideUserColumn && (
+          <td style={{ padding: '8px', width: '120px' }}>
+            <span
+              onClick={handleUsernameClick(song.username)}
+              style={{
+                background: '#3498db',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'inline-block',
+              }}
+              title="Click to view profile"
+            >
 {song.username}
-          </span>
-        </td>
+            </span>
+          </td>
+        )}
 
         {/* Status */}
         <td style={{ padding: '8px', width: '100px' }}>

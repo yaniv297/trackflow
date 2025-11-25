@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Song, SongStatus, User, Pack
 from sqlalchemy import func, text, desc
-from api.auth import get_current_active_user
+from api.auth import get_current_active_user, get_optional_user
 from typing import Optional
 
 router = APIRouter(prefix="/community", tags=["Community"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/community", tags=["Community"])
 def get_public_wips(
     limit: int = 20,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_active_user)
+    current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
     Get random public songs from Future Plans and WIP status.

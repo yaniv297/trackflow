@@ -80,9 +80,18 @@ class SuggestionsService:
         # Sort by priority to keep higher-signal items first
         suggestions.sort(key=lambda item: item["priority"], reverse=True)
 
+        # Deduplicate by ID to ensure no duplicate songs
+        seen_ids = set()
+        deduplicated = []
+        for item in suggestions:
+            item_id = item.get("id")
+            if item_id and item_id not in seen_ids:
+                seen_ids.add(item_id)
+                deduplicated.append(item)
+
         # Collect a candidate pool (up to 20) and shuffle to rotate entries
         pool_size = max(limit * 2, 10)
-        candidate_pool = suggestions[:pool_size]
+        candidate_pool = deduplicated[:pool_size]
         random.shuffle(candidate_pool)
 
         sample_size = min(limit, len(candidate_pool))
@@ -167,6 +176,9 @@ class SuggestionsService:
             enriched = song_enriched.get(song.id)
             if not enriched:
                 continue
+            # Skip if already used
+            if enriched["id"] in used_ids:
+                continue
             completion = enriched.get("completion")
             if completion is None or completion >= 100 or completion < 80:
                 continue
@@ -232,7 +244,26 @@ class SuggestionsService:
             cloned = {**enriched}
             cloned["tags"] = cloned.get("tags", []) + ["Long time no work"]
             cloned["priority"] = 4
-            cloned["message"] = self._message_for_song(cloned, include_recent=False)
+            
+            # Calculate days since last work
+            last_updated = song.updated_at or song.created_at
+            if last_updated:
+                # Database stores naive UTC datetimes, so compare with UTC now
+                now = datetime.utcnow()
+                # Ensure last_updated is naive for comparison
+                if last_updated.tzinfo is not None:
+                    last_updated = last_updated.replace(tzinfo=None)
+                days_ago = (now - last_updated).days
+                
+                if days_ago == 0:
+                    cloned["message"] = "It was today since you last worked on this song"
+                elif days_ago == 1:
+                    cloned["message"] = "It was 1 day since you last worked on this song"
+                else:
+                    cloned["message"] = f"It was {days_ago} days since you last worked on this song"
+            else:
+                cloned["message"] = self._message_for_song(cloned, include_recent=False)
+            
             suggestions.append(cloned)
         return suggestions
 

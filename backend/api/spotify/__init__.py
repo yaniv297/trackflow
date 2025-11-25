@@ -13,5 +13,13 @@ The module maintains backward compatibility with the original spotify.py API.
 from .routes.spotify_routes import router
 from .services.spotify_service import SpotifyService
 
+# Create a service instance for backward compatibility
+_service = SpotifyService()
+
+# Wrapper function for backward compatibility
+def auto_enhance_song(song_id: int, db, preserve_artist_album: bool = False) -> bool:
+    """Auto enhance song using Spotify data - backward compatibility wrapper"""
+    return _service.auto_enhance_song(song_id, db, preserve_artist_album)
+
 # Export the main components for external use
-__all__ = ["router", "SpotifyService"]
+__all__ = ["router", "SpotifyService", "auto_enhance_song"]

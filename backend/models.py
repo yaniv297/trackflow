@@ -35,6 +35,8 @@ class User(Base):
     display_name = Column(String, nullable=True)  # Optional display name (different from username)
     preferred_contact_method = Column(String, nullable=True)  # "email" or "discord"
     discord_username = Column(String, nullable=True)  # Discord username for contact
+    profile_image_url = Column(String, nullable=True)  # URL to profile image
+    website_url = Column(String, nullable=True)  # Personal website or profile URL (e.g., RhythmVerse)
     auto_spotify_fetch_enabled = Column(Boolean, default=True)  # Enable automatic Spotify metadata fetching
     default_public_sharing = Column(Boolean, default=False)  # Global public sharing setting
     

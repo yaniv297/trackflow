@@ -162,6 +162,8 @@ def create_collaboration_request(
     
     # Get song owner info for response
     song_owner = db.query(User).filter(User.id == song.user_id).first()
+    # Get full requester user object to access display_name
+    requester_user = db.query(User).filter(User.id == current_user.id).first()
     
     return CollaborationRequestResponse(
         id=collab_request.id,
@@ -171,7 +173,7 @@ def create_collaboration_request(
         song_status=song.status,
         requester_id=current_user.id,
         requester_username=current_user.username,
-        requester_display_name=current_user.display_name,
+        requester_display_name=requester_user.display_name if requester_user else None,
         owner_id=song.user_id,
         owner_username=song_owner.username,
         owner_display_name=song_owner.display_name,
@@ -203,6 +205,9 @@ def get_received_requests(
     
     results = query.order_by(CollaborationRequest.created_at.desc()).all()
     
+    # Get full current user object to access display_name
+    current_user_full = db.query(User).filter(User.id == current_user.id).first()
+    
     return [
         CollaborationRequestResponse(
             id=req.id,
@@ -215,7 +220,7 @@ def get_received_requests(
             requester_display_name=requester.display_name,
             owner_id=current_user.id,
             owner_username=current_user.username,
-            owner_display_name=current_user.display_name,
+            owner_display_name=current_user_full.display_name if current_user_full else None,
             message=req.message,
             requested_parts=json.loads(req.requested_parts) if req.requested_parts else None,
             status=req.status,
@@ -246,6 +251,9 @@ def get_sent_requests(
     
     results = query.order_by(CollaborationRequest.created_at.desc()).all()
     
+    # Get full current user object to access display_name
+    current_user_full = db.query(User).filter(User.id == current_user.id).first()
+    
     return [
         CollaborationRequestResponse(
             id=req.id,
@@ -255,7 +263,7 @@ def get_sent_requests(
             song_status=song.status,
             requester_id=current_user.id,
             requester_username=current_user.username,
-            requester_display_name=current_user.display_name,
+            requester_display_name=current_user_full.display_name if current_user_full else None,
             owner_id=req.owner_id,
             owner_username=owner.username,
             owner_display_name=owner.display_name,

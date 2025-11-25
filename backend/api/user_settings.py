@@ -13,6 +13,8 @@ class UserSettingsUpdate(BaseModel):
     email: Optional[str] = None
     preferred_contact_method: Optional[str] = None  # "email" or "discord"
     discord_username: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    website_url: Optional[str] = None
     auto_spotify_fetch_enabled: Optional[bool] = None
 
 class UserSettingsResponse(BaseModel):
@@ -21,6 +23,8 @@ class UserSettingsResponse(BaseModel):
     email: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    website_url: Optional[str] = None
     auto_spotify_fetch_enabled: Optional[bool] = None
     created_at: Optional[str] = None
 
@@ -58,6 +62,8 @@ def get_user_settings(
         "email": user.email,
         "preferred_contact_method": user.preferred_contact_method,
         "discord_username": user.discord_username,
+        "profile_image_url": user.profile_image_url,
+        "website_url": user.website_url,
         "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
@@ -121,6 +127,12 @@ def update_user_settings(
     if settings.discord_username is not None:
         user.discord_username = settings.discord_username
     
+    if settings.profile_image_url is not None:
+        user.profile_image_url = settings.profile_image_url
+    
+    if settings.website_url is not None:
+        user.website_url = settings.website_url
+    
     if settings.auto_spotify_fetch_enabled is not None:
         user.auto_spotify_fetch_enabled = settings.auto_spotify_fetch_enabled
     
@@ -142,6 +154,8 @@ def update_user_settings(
             "email": user.email,
             "preferred_contact_method": user.preferred_contact_method,
             "discord_username": user.discord_username,
+            "profile_image_url": user.profile_image_url,
+            "website_url": user.website_url,
             "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
             "created_at": user.created_at.isoformat() if user.created_at else None
         }

@@ -15,7 +15,27 @@ class UserOut(BaseModel):
     display_name: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     discord_username: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    website_url: Optional[str] = None
     song_count: Optional[int] = 0  # Total number of songs across all statuses
+    
+    class Config:
+        from_attributes = True
+
+class PublicUserProfileOut(BaseModel):
+    id: int
+    username: str
+    display_name: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+    discord_username: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    website_url: Optional[str] = None
+    created_at: datetime
+    achievement_score: Optional[int] = 0
+    released_songs: List[dict] = []  # Song info
+    released_packs: List[dict] = []  # Pack info with songs
+    public_wip_songs: List[dict] = []  # Song info
+    rarest_achievements: List[dict] = []  # Achievement info with rarity
     
     class Config:
         from_attributes = True
@@ -101,6 +121,7 @@ class SongOut(BaseModel):
     album_series_number: Optional[int] = None
     album_series_name: Optional[str] = None
     is_editable: Optional[bool] = None
+    is_public: Optional[bool] = None  # Whether song is publicly visible
     pack_collaboration: Optional[dict] = None
     released_at: Optional[datetime] = None  # When song was released
     release_description: Optional[str] = None  # Optional description for the release

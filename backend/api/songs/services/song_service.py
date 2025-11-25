@@ -386,6 +386,7 @@ class SongService:
         # Set basic fields
         song_dict["author"] = song.user.username if song.user else None
         song_dict["artist_image_url"] = song.artist_obj.image_url if song.artist_obj else None
+        song_dict["is_public"] = getattr(song, "is_public", False)
         
         # Add collaborations
         song_dict["collaborations"] = self._build_collaboration_data(song)

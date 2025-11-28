@@ -36,9 +36,34 @@ const CATEGORY_ORDER = [
   'special'
 ];
 
+// Progress bar component
+function ProgressBar({ current, target, percentage, style = {} }) {
+  const clampedPercentage = Math.min(percentage, 100);
+  
+  return (
+    <div style={{ 
+      width: "100%", 
+      height: "8px", 
+      backgroundColor: "#e9ecef", 
+      borderRadius: "4px", 
+      overflow: "hidden",
+      ...style 
+    }}>
+      <div 
+        style={{
+          height: "100%",
+          width: `${clampedPercentage}%`,
+          backgroundColor: clampedPercentage === 100 ? "#28a745" : "#007bff",
+          transition: "width 0.3s ease",
+          borderRadius: "4px"
+        }}
+      />
+    </div>
+  );
+}
+
 export default function AchievementsPage() {
-  const [achievements, setAchievements] = useState([]);
-  const [allAchievements, setAllAchievements] = useState([]);
+  const [achievementsWithProgress, setAchievementsWithProgress] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -55,22 +80,8 @@ export default function AchievementsPage() {
 
   const fetchAchievements = async () => {
     try {
-      const [userAchievements, allAchievementsList] = await Promise.all([
-        apiGet("/achievements/me"),
-        apiGet("/achievements/"),
-      ]);
-
-      const earnedCodes = new Set(
-        userAchievements.map((ua) => ua.achievement.code)
-      );
-
-      const achievementsWithStatus = allAchievementsList.map((ach) => ({
-        ...ach,
-        earned: earnedCodes.has(ach.code),
-      }));
-
-      setAchievements(userAchievements);
-      setAllAchievements(achievementsWithStatus);
+      const achievementsWithProgress = await apiGet("/achievements/with-progress");
+      setAchievementsWithProgress(achievementsWithProgress);
       setLoading(false);
     } catch (error) {
       console.error("Failed to load achievements:", error);
@@ -88,15 +99,15 @@ export default function AchievementsPage() {
   }
 
   // Calculate stats
-  const totalPoints = achievements.reduce(
-    (sum, ua) => sum + (ua.achievement?.points || 0),
+  const earnedAchievements = achievementsWithProgress.filter(ach => ach.earned);
+  const totalPoints = earnedAchievements.reduce(
+    (sum, ach) => sum + (ach.points || 0),
     0
   );
 
-
   // Group achievements by category and sort by points (difficulty)
   const achievementsByCategory = {};
-  allAchievements.forEach((ach) => {
+  achievementsWithProgress.forEach((ach) => {
     if (!achievementsByCategory[ach.category]) {
       achievementsByCategory[ach.category] = [];
     }
@@ -124,10 +135,10 @@ export default function AchievementsPage() {
         }}>
           <div>
             <span style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#007bff" }}>
-              {achievements.length}
+              {earnedAchievements.length}
             </span>
             <span style={{ color: "#666", marginLeft: "0.5rem" }}>
-              / {allAchievements.length} earned
+              / {achievementsWithProgress.length} earned
             </span>
           </div>
           <div style={{ height: "30px", width: "1px", background: "#dee2e6" }} />
@@ -262,12 +273,36 @@ export default function AchievementsPage() {
                           </span>
                         </div>
                         <p style={{ 
-                          margin: 0, 
+                          margin: "0 0 0.5rem 0", 
                           fontSize: "0.9rem", 
                           color: ach.earned ? "#6c757d" : "#adb5bd"
                         }}>
                           {ach.description}
                         </p>
+                        
+                        {/* Progress Bar for Unearned Achievements */}
+                        {!ach.earned && ach.progress && (
+                          <div style={{ marginTop: "0.5rem" }}>
+                            <div style={{ 
+                              display: "flex", 
+                              justifyContent: "space-between", 
+                              alignItems: "center", 
+                              marginBottom: "0.25rem" 
+                            }}>
+                              <span style={{ fontSize: "0.8rem", color: "#6c757d" }}>
+                                {ach.progress.current} / {ach.progress.target}
+                              </span>
+                              <span style={{ fontSize: "0.8rem", color: "#007bff", fontWeight: "bold" }}>
+                                {ach.progress.percentage}%
+                              </span>
+                            </div>
+                            <ProgressBar 
+                              current={ach.progress.current}
+                              target={ach.progress.target}
+                              percentage={ach.progress.percentage}
+                            />
+                          </div>
+                        )}
                       </div>
                       
                       {/* Points */}

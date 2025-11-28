@@ -8,10 +8,10 @@ import {
   LatestFeatureRequests,
   TipsAndTricks,
   LoginSection,
-  QuickStats,
   UserDashboard,
   CommunityWips,
-  IntroSection
+  IntroSection,
+  ClosestAchievements
 } from '../components/home';
 import './HomePage.css';
 
@@ -46,6 +46,7 @@ const HomePage = () => {
             </div>
             <div className="sidebar-area">
               <CommunityWips />
+              <ClosestAchievements limit={5} />
               <CommunityLeaderboard limit={8} />
               <TipsAndTricks />
               <LatestFeatureRequests limit={2} />

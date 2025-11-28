@@ -10,7 +10,8 @@ from ..repositories.achievements_repository import AchievementsRepository
 from ..validators.achievements_validators import (
     AchievementResponse, UserAchievementResponse, AchievementProgressSummary,
     UserStatsResponse, AchievementProgressResponse, AchievementProgressItem,
-    AchievementCheckResponse, LeaderboardResponse, LeaderboardEntry
+    AchievementCheckResponse, LeaderboardResponse, LeaderboardEntry,
+    AchievementWithProgress
 )
 from api.notifications.services.notification_service import NotificationService
 
@@ -36,6 +37,62 @@ class AchievementsService:
             )
             for a in achievements
         ]
+    
+    def get_all_achievements_with_progress(self, db: Session, user_id: int) -> List[AchievementWithProgress]:
+        """Get all achievements with progress data for the user."""
+        try:
+            # Get all achievements
+            all_achievements = self.repository.get_all_achievements(db)
+            
+            # Get user's earned achievements
+            earned_achievements = self.repository.get_user_achievements(db, user_id)
+            earned_codes = {ua.achievement.code: ua for ua in earned_achievements}
+            
+            # Get user stats for progress calculation
+            stats = self.update_user_stats(db, user_id)
+            
+            result = []
+            for achievement in all_achievements:
+                is_earned = achievement.code in earned_codes
+                
+                # Calculate progress for unearned achievements with target values
+                progress = None
+                if not is_earned and achievement.target_value and achievement.metric_type:
+                    current_value = self._calculate_metric_value(achievement.metric_type, stats, db, user_id)
+                    percentage = min((current_value / achievement.target_value) * 100, 100)
+                    progress = AchievementProgressItem(
+                        current=current_value,
+                        target=achievement.target_value,
+                        percentage=round(percentage, 1)
+                    )
+                
+                # Get earned date if applicable
+                earned_at = None
+                if is_earned:
+                    user_achievement = earned_codes[achievement.code]
+                    earned_at = user_achievement.earned_at.isoformat() if user_achievement.earned_at else None
+                
+                result.append(AchievementWithProgress(
+                    id=achievement.id,
+                    code=achievement.code,
+                    name=achievement.name,
+                    description=achievement.description,
+                    icon=achievement.icon,
+                    category=achievement.category,
+                    points=achievement.points,
+                    rarity=achievement.rarity,
+                    target_value=achievement.target_value,
+                    metric_type=achievement.metric_type,
+                    earned=is_earned,
+                    earned_at=earned_at,
+                    progress=progress
+                ))
+            
+            return result
+            
+        except Exception as e:
+            print(f"❌ Error getting achievements with progress: {e}")
+            raise Exception("Failed to get achievements with progress")
 
     def get_user_achievements(self, db: Session, user_id: int) -> List[UserAchievementResponse]:
         """Get user's earned achievements."""

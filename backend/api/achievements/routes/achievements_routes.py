@@ -11,7 +11,7 @@ from api.auth import get_current_active_user, get_optional_user
 from ..services.achievements_service import AchievementsService
 from ..validators.achievements_validators import (
     AchievementResponse, UserAchievementResponse, AchievementProgressSummary,
-    AchievementCheckResponse, LeaderboardResponse
+    AchievementCheckResponse, LeaderboardResponse, AchievementWithProgress
 )
 
 
@@ -53,6 +53,19 @@ def get_my_achievement_progress(
     except Exception as e:
         print(f"❌ Error getting achievement progress: {e}")
         raise HTTPException(status_code=500, detail="Failed to get achievement progress")
+
+
+@router.get("/with-progress", response_model=List[AchievementWithProgress])
+def get_achievements_with_progress(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get all achievements with progress data for current user."""
+    try:
+        return achievements_service.get_all_achievements_with_progress(db, current_user.id)
+    except Exception as e:
+        print(f"❌ Error getting achievements with progress: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get achievements with progress")
 
 
 @router.post("/check", response_model=AchievementCheckResponse)

@@ -31,17 +31,13 @@ ACHIEVEMENTS = [
     ("dedicated_creator", "Dedicated Creator", "Start 10 WIP songs", "🎨", "milestone_wip", 25, "uncommon", 10, "total_wip"),
     ("busy_bee", "Busy Bee", "Start 25 WIP songs", "🐝", "milestone_wip", 25, "uncommon", 25, "total_wip"),
     ("workhorse", "Workhorse", "Start 50 WIP songs", "🐴", "milestone_wip", 50, "rare", 50, "total_wip"),
-    ("productivity_master", "Productivity Master", "Start 100 WIP songs", "⚡", "milestone_wip", 100, "epic", 100, "total_wip"),
-    ("work_legend", "Work Legend", "Start 250 WIP songs", "🔨", "milestone_wip", 100, "epic", 250, "total_wip"),
     
     # WIP Completions (Finishing Work)
     ("first_finish", "First Finish", "Complete your first WIP (move to Released)", "🎉", "milestone_wip", 10, "common", 1, "wip_completions"),
     ("finisher", "Finisher", "Complete 5 WIP songs", "✅", "milestone_wip", 10, "common", 5, "wip_completions"),
     ("wip_master", "WIP Master", "Complete 10 WIP songs", "🏁", "milestone_wip", 25, "uncommon", 10, "wip_completions"),
     ("finishing_touch", "Finishing Touch", "Complete 25 WIP songs", "✨", "milestone_wip", 50, "rare", 25, "wip_completions"),
-    ("master_finisher", "Master Finisher", "Complete 50 WIP songs", "🎊", "milestone_wip", 50, "rare", 50, "wip_completions"),
-    ("completion_legend", "Completion Legend", "Complete 100 WIP songs", "🎆", "milestone_wip", 100, "epic", 100, "wip_completions"),
-    ("fireworks_master", "Fireworks Master", "Complete 250 WIP songs", "🎇", "milestone_wip", 100, "epic", 250, "wip_completions"),
+    ("fireworks_master", "Fireworks Master", "Complete 50 WIP songs", "🎇", "milestone_wip", 100, "epic", 50, "wip_completions"),
     
     # Released Songs (Celebration)
     ("first_release", "First Release", "Release your first song", "✨", "milestone_released", 10, "common", 1, "total_released"),

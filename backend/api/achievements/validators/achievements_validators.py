@@ -16,6 +16,8 @@ class AchievementResponse(BaseModel):
     category: str
     points: int
     rarity: str
+    target_value: Optional[int] = None
+    metric_type: Optional[str] = None
 
 
 class UserAchievementResponse(BaseModel):
@@ -27,10 +29,27 @@ class UserAchievementResponse(BaseModel):
 class AchievementProgressItem(BaseModel):
     current: int
     target: int
+    percentage: float
 
 
 class AchievementProgressResponse(BaseModel):
     earned: bool
+    progress: Optional[AchievementProgressItem] = None
+
+
+class AchievementWithProgress(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: str
+    icon: str
+    category: str
+    points: int
+    rarity: str
+    target_value: Optional[int] = None
+    metric_type: Optional[str] = None
+    earned: bool
+    earned_at: Optional[str] = None
     progress: Optional[AchievementProgressItem] = None
 
 

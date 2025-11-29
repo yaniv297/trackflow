@@ -40,6 +40,7 @@ def is_email_configured() -> bool:
 def send_password_reset_email_inline(email: str, token: str, username: str) -> bool:
     """Send password reset email to user (inline version)"""
     if not is_email_configured():
+        print(f"Email not configured: USERNAME={bool(EMAIL_USERNAME)}, PASSWORD={bool(EMAIL_PASSWORD)}, SERVER={bool(EMAIL_SERVER)}")
         return False
     
     reset_url = f"{FRONTEND_URL}/reset-password?token={token}"
@@ -87,7 +88,10 @@ def send_password_reset_email_inline(email: str, token: str, username: str) -> b
         
         return True
         
-    except Exception:
+    except Exception as e:
+        print(f"Email sending failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -626,11 +630,17 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     except Exception as e:
         # Clean up token if something went wrong
         try:
-            if 'reset_token' in locals():
+            if 'reset_token' in locals() and reset_token.id:
                 db.delete(reset_token)
                 db.commit()
         except Exception:
             pass
+        
+        # Log the actual error for debugging
+        print(f"Password reset email error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send password reset email. Please try again later."

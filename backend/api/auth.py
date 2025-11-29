@@ -552,7 +552,7 @@ def refresh_token(current_user: UserResponse = Depends(get_current_active_user))
             username=current_user.username,
             email=current_user.email,
             is_active=current_user.is_active,
-            created_at=current_user.created_at.isoformat()
+            created_at=current_user.created_at
         )
     }
 
@@ -585,7 +585,7 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
     expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
     
     # Save token to database (invalidate any existing tokens for this email)
-    db.query(PasswordResetToken).filter(PasswordResetToken.email == email).delete()
+    db.query(PasswordResetToken).filter(PasswordResetToken.email == email).delete(synchronize_session=False)
     
     reset_token = PasswordResetToken(
         email=email,
@@ -703,7 +703,7 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     db.query(PasswordResetToken).filter(
         PasswordResetToken.email == reset_token.email,
         PasswordResetToken.id != reset_token.id
-    ).delete()
+    ).delete(synchronize_session=False)
     db.commit()
     
     # Log activity

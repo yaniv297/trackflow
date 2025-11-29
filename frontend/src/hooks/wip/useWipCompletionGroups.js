@@ -37,14 +37,29 @@ export const useWipCompletionGroups = (
       );
       const isComplete = isSongComplete(song, authoringFields);
 
-      if (!isOwner) {
-        // Songs by collaborators - only show if they have collaboration access
+      // Check if user is a direct collaborator on this song
+      const isDirectCollaborator = song.collaborations && song.collaborations.some(
+        collab => collab.user_id === user?.id && 
+        (collab.collaboration_type === 'SONG_EDIT' || collab.collaboration_type === 'song_edit')
+      );
+
+      if (isDirectCollaborator && !isOwner) {
+        // Songs where user IS a collaborator (should be editable) - these go in "Collaboration songs"
+        if (song.optional) {
+          optional.push({ ...song, completionPercent });
+        } else if (isComplete) {
+          completed.push({ ...song, completionPercent });
+        } else {
+          inProgress.push({ ...song, completionPercent });
+        }
+      } else if (!isOwner && !isDirectCollaborator) {
+        // Songs by collaborators - user has access but is NOT a collaborator (read-only)
         if (song.optional) {
           optionalCollaboratorSongs.push({ ...song, completionPercent });
         } else {
           collaboratorSongs.push({ ...song, completionPercent });
         }
-      } else {
+      } else if (isOwner) {
         // Songs owned by current user
         if (song.optional) {
           // Optional songs by current user

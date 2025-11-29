@@ -252,12 +252,25 @@ export const useWipData = (user) => {
 
       // Categorize songs within the pack by ownership and completion
       const ownedSongs = coreSongs.filter((song) => song.user_id === user?.id);
-      const collaboratorSongs = coreSongs.filter(
-        (song) => song.user_id !== user?.id
-      );
-      const collaboratorOptionalSongs = optionalSongs.filter(
-        (song) => song.user_id !== user?.id
-      );
+      
+      // Only include songs where user is NOT a direct collaborator
+      const collaboratorSongs = coreSongs.filter((song) => {
+        const isOwner = song.user_id === user?.id;
+        const isDirectCollaborator = song.collaborations && song.collaborations.some(
+          collab => collab.user_id === user?.id && 
+          (collab.collaboration_type === 'SONG_EDIT' || collab.collaboration_type === 'song_edit')
+        );
+        return !isOwner && !isDirectCollaborator;
+      });
+      
+      const collaboratorOptionalSongs = optionalSongs.filter((song) => {
+        const isOwner = song.user_id === user?.id;
+        const isDirectCollaborator = song.collaborations && song.collaborations.some(
+          collab => collab.user_id === user?.id && 
+          (collab.collaboration_type === 'SONG_EDIT' || collab.collaboration_type === 'song_edit')
+        );
+        return !isOwner && !isDirectCollaborator;
+      });
 
       const completedSongs = ownedSongs.filter((song) => {
         const songOwnerFields = song.songOwnerFields || authoringFields;

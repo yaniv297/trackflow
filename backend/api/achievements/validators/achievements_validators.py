@@ -30,6 +30,7 @@ class AchievementProgressItem(BaseModel):
     current: int
     target: int
     percentage: float
+    details: Optional[dict] = None  # For additional achievement-specific info
 
 
 class AchievementProgressResponse(BaseModel):

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../../utils/api';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
+import UserProfilePopup from '../shared/UserProfilePopup';
 import './LatestReleases.css';
 
 const LatestReleases = ({ limit = 5 }) => {
@@ -11,6 +13,7 @@ const LatestReleases = ({ limit = 5 }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalReleases, setTotalReleases] = useState(0);
   const navigate = useNavigate();
+  const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
   useEffect(() => {
     fetchReleases();
@@ -165,13 +168,29 @@ const LatestReleases = ({ limit = 5 }) => {
         {packReleases.length > 0 ? (
           <div className="releases-list">
             {packReleases.map((pack, index) => (
-              <PackReleaseItem key={pack.pack_id || `single-${index}`} pack={pack} />
+              <PackReleaseItem 
+                key={pack.pack_id || `single-${index}`} 
+                pack={pack} 
+                onUsernameClick={handleUsernameClick}
+                onUsernameHover={handleUsernameHover}
+                onUsernameLeave={delayedHidePopup}
+              />
             ))}
           </div>
         ) : (
           <EmptyReleases onExplore={handleExploreMusic} />
         )}
       </div>
+      
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+        onMouseEnter={cancelHideTimeout}
+        onMouseLeave={delayedHidePopup}
+      />
     </section>
   );
 };
@@ -192,7 +211,7 @@ const getYouTubeVideoId = (url) => {
   return null;
 };
 
-const PackReleaseItem = ({ pack }) => {
+const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLeave }) => {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -222,7 +241,19 @@ const PackReleaseItem = ({ pack }) => {
             <h3 className="pack-name">{pack.pack_name || pack.album}</h3>
             <div className="pack-credits">
               <span className="pack-artist">{pack.artist}</span>
-              <span className="pack-author-highlight">by {pack.author}</span>
+              <span className="pack-author-highlight">by <span 
+                onClick={onUsernameClick ? onUsernameClick(pack.author) : undefined}
+                onMouseEnter={onUsernameHover ? onUsernameHover(pack.author) : undefined}
+                onMouseLeave={onUsernameLeave}
+                style={onUsernameClick ? { 
+                  cursor: 'pointer', 
+                  color: '#667eea',
+                  transition: 'opacity 0.2s ease'
+                } : {}}
+                title={onUsernameClick ? "Hover for quick info, click to view full profile" : undefined}
+              >
+                {pack.author}
+              </span></span>
             </div>
           </div>
           <div className="pack-meta">

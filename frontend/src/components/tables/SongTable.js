@@ -270,6 +270,8 @@ const SongTable = ({
           onDeletePack={onDeletePack}
           onUpdatePackPriority={onUpdatePackPriority}
           packPriority={packPriority}
+          groupBy={groupBy}
+          visibleColumns={visibleColumns}
         />
         {!collapsedGroups[packName] &&
           renderRowsForGroup(packName, validSongsInPack)}

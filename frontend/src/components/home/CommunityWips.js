@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../../utils/api';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
+import UserProfilePopup from '../shared/UserProfilePopup';
 import './CommunityWips.css';
 
 const CommunityWips = () => {
@@ -9,6 +11,7 @@ const CommunityWips = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
   useEffect(() => {
     fetchRandomWips();
@@ -104,7 +107,19 @@ const CommunityWips = () => {
                 </div>
                 <div className="wip-meta">
                   <div className="wip-details">
-                    <span className="author">by {wip.author}</span>
+                    <span className="author">by <span 
+                      onClick={handleUsernameClick(wip.author)}
+                      onMouseEnter={handleUsernameHover(wip.author)}
+                      onMouseLeave={delayedHidePopup}
+                      style={{ 
+                        cursor: 'pointer', 
+                        color: '#667eea',
+                        transition: 'opacity 0.2s ease'
+                      }}
+                      title="Hover for quick info, click to view full profile"
+                    >
+                      {wip.author}
+                    </span></span>
                     <span className="time">{formatTimeAgo(wip.updated_at || wip.created_at)}</span>
                   </div>
                 </div>
@@ -124,6 +139,16 @@ const CommunityWips = () => {
           </button>
         </div>
       </div>
+      
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+        onMouseEnter={cancelHideTimeout}
+        onMouseLeave={delayedHidePopup}
+      />
     </section>
   );
 };

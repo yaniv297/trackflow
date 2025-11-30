@@ -60,10 +60,24 @@ class AchievementsService:
                 if not is_earned and achievement.target_value and achievement.metric_type:
                     current_value = self._calculate_metric_value(achievement.metric_type, stats, db, user_id)
                     percentage = min((current_value / achievement.target_value) * 100, 100)
+                    
+                    # Add special details for alphabet collector achievement
+                    details = None
+                    if achievement.code == 'alphabet_collector':
+                        try:
+                            alphabet_details = self.repository.get_alphabet_coverage_details(db, user_id)
+                            details = {
+                                'missing_letters': alphabet_details['missing_letters'],
+                                'found_letters': alphabet_details['found_letters']
+                            }
+                        except Exception as e:
+                            print(f"⚠️ Error getting alphabet details: {e}")
+                    
                     progress = AchievementProgressItem(
                         current=current_value,
                         target=achievement.target_value,
-                        percentage=round(percentage, 1)
+                        percentage=round(percentage, 1),
+                        details=details
                     )
                 
                 # Get earned date if applicable
@@ -401,6 +415,7 @@ class AchievementsService:
         self.check_metric_based_achievements(db, user_id, "unique_artists")
         self.check_metric_based_achievements(db, user_id, "unique_years")
         self.check_metric_based_achievements(db, user_id, "unique_decades")
+        self.check_metric_based_achievements(db, user_id, "alphabet_coverage")
 
     def check_quality_achievements(self, db: Session, user_id: int):
         """Check quality achievements (song completion, pack completion)."""
@@ -476,8 +491,11 @@ class AchievementsService:
             added = self.repository.count_collaborations_added(db, user_id)
             sent = self.repository.count_user_collaborations(db, user_id)
             return added + sent
-        elif metric_type in ["unique_artists", "unique_years", "unique_decades"]:
+        elif metric_type in ["unique_artists", "unique_years", "unique_decades", "alphabet_coverage"]:
             # Calculate diversity metrics
+            if metric_type == "alphabet_coverage":
+                return self.repository.count_alphabet_coverage(db, user_id)
+            
             released_songs = self.repository.get_released_songs_for_diversity(db, user_id)
             
             if metric_type == "unique_artists":
@@ -514,15 +532,32 @@ class AchievementsService:
             for achievement in achievements_with_targets:
                 try:
                     current_value = self._calculate_metric_value(achievement.metric_type, stats, db, user_id)
+                    percentage = min((current_value / achievement.target_value) * 100, 100) if achievement.target_value > 0 else 0
+                    
+                    # Add special details for alphabet collector achievement
+                    details = None
+                    if achievement.code == 'alphabet_collector':
+                        try:
+                            alphabet_details = self.repository.get_alphabet_coverage_details(db, user_id)
+                            details = {
+                                'missing_letters': alphabet_details['missing_letters'],
+                                'found_letters': alphabet_details['found_letters']
+                            }
+                        except Exception as e:
+                            print(f"⚠️ Error getting alphabet details: {e}")
+                    
                     progress_data[achievement.code] = AchievementProgressItem(
                         current=current_value,
-                        target=achievement.target_value
+                        target=achievement.target_value,
+                        percentage=round(percentage, 1),
+                        details=details
                     )
                 except Exception as e:
                     print(f"⚠️ Error calculating progress for {achievement.code}: {e}")
                     progress_data[achievement.code] = AchievementProgressItem(
                         current=0,
-                        target=achievement.target_value or 1
+                        target=achievement.target_value or 1,
+                        percentage=0.0
                     )
             
             return progress_data

@@ -63,7 +63,7 @@ function SongPage({ status }) {
   const [sortDirection, setSortDirection] = useState("asc");
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [groupBy, setGroupBy] = useState("pack");
-  const [packSortBy, setPackSortBy] = useState("priority");
+  const [packSortBy, setPackSortBy] = useState(status === "Released" ? "alphabetical" : "priority");
   const [visibleColumns, setVisibleColumns] = useState({});
 
   const handleSort = (key) => {

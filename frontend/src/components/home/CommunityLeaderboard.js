@@ -14,7 +14,7 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
   const [error, setError] = useState(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
+  const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
   useEffect(() => {
     fetchLeaderboard();
@@ -91,6 +91,8 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
                 isTopThree={index < 3}
                 getRankIcon={getRankIcon}
                 onUsernameClick={handleUsernameClick}
+                onUsernameHover={handleUsernameHover}
+                onUsernameLeave={delayedHidePopup}
               />
             ))}
           </div>
@@ -116,19 +118,23 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
           isVisible={popupState.isVisible}
           position={popupState.position}
           onClose={hidePopup}
+          onMouseEnter={cancelHideTimeout}
+          onMouseLeave={delayedHidePopup}
         />
       )}
     </section>
   );
 };
 
-const LeaderboardItem = ({ entry, isTopThree, getRankIcon, onUsernameClick }) => (
+const LeaderboardItem = ({ entry, isTopThree, getRankIcon, onUsernameClick, onUsernameHover, onUsernameLeave }) => (
   <div className={`leaderboard-item ${isTopThree ? 'top-three' : ''}`}>
     <span className="rank">{getRankIcon(entry.rank)}</span>
     <span 
       className="username clickable" 
       onClick={onUsernameClick(entry.username)}
-      title="Click to view profile"
+      onMouseEnter={onUsernameHover(entry.username)}
+      onMouseLeave={onUsernameLeave}
+      title="Hover for quick info, click to view full profile"
     >
       {entry.username}
     </span>

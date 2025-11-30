@@ -406,3 +406,45 @@ class AchievementsRepository:
         return db.query(CollaborationRequest).filter(
             CollaborationRequest.requester_id == user_id
         ).count()
+    
+    def count_alphabet_coverage(self, db: Session, user_id: int) -> int:
+        """Count unique first letters of released song titles (A-Z)."""
+        from sqlalchemy import func
+        # Get distinct first letters of released song titles, converting to uppercase
+        distinct_letters = db.query(
+            func.distinct(func.upper(func.substr(Song.title, 1, 1)))
+        ).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.released,
+            Song.title.isnot(None),
+            Song.title != ""
+        ).all()
+        
+        # Count how many are actual letters A-Z
+        alphabet_letters = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+        found_letters = {letter[0] for letter in distinct_letters if letter[0] in alphabet_letters}
+        return len(found_letters)
+    
+    def get_alphabet_coverage_details(self, db: Session, user_id: int) -> dict:
+        """Get detailed alphabet coverage info including missing letters."""
+        from sqlalchemy import func
+        # Get distinct first letters of released song titles, converting to uppercase
+        distinct_letters = db.query(
+            func.distinct(func.upper(func.substr(Song.title, 1, 1)))
+        ).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.released,
+            Song.title.isnot(None),
+            Song.title != ""
+        ).all()
+        
+        alphabet_letters = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+        found_letters = {letter[0] for letter in distinct_letters if letter[0] in alphabet_letters}
+        missing_letters = alphabet_letters - found_letters
+        
+        return {
+            'found_letters': sorted(found_letters),
+            'missing_letters': sorted(missing_letters),
+            'total_found': len(found_letters),
+            'total_missing': len(missing_letters)
+        }

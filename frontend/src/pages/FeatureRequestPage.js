@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { apiGet, apiPost, apiPatch, apiDelete } from "../utils/api";
 import FeatureRequestCard from "../components/pages/FeatureRequestCard";
@@ -9,6 +10,7 @@ import CustomAlert from "../components/ui/CustomAlert";
 import CustomPrompt from "../components/ui/CustomPrompt";
 
 function FeatureRequestPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [featureRequests, setFeatureRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -683,7 +685,19 @@ function FeatureRequestPage() {
                                 margin: "0.25rem 0 0 0",
                               }}
                             >
-                              by {request.username} •{" "}
+                              by <span 
+                                onClick={() => navigate(`/profile/${request.username}`)}
+                                style={{ 
+                                  cursor: 'pointer', 
+                                  color: '#667eea',
+                                  transition: 'opacity 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                                onMouseLeave={(e) => e.target.style.opacity = '1'}
+                                title="Click to view profile"
+                              >
+                                {request.username}
+                              </span> •{" "}
                               {new Date(
                                 request.created_at
                               ).toLocaleDateString()}
@@ -850,7 +864,19 @@ function FeatureRequestPage() {
                                 margin: "0.25rem 0 0 0",
                               }}
                             >
-                              by {request.username} •{" "}
+                              by <span 
+                                onClick={() => navigate(`/profile/${request.username}`)}
+                                style={{ 
+                                  cursor: 'pointer', 
+                                  color: '#667eea',
+                                  transition: 'opacity 0.2s ease'
+                                }}
+                                onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                                onMouseLeave={(e) => e.target.style.opacity = '1'}
+                                title="Click to view profile"
+                              >
+                                {request.username}
+                              </span> •{" "}
                               {new Date(
                                 request.created_at
                               ).toLocaleDateString()}

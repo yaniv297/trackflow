@@ -52,19 +52,39 @@ const CommunityPage = () => {
       setIsLoading(true);
       setError(null);
 
+      // When grouping is enabled, fetch more songs to ensure proper sorting across groups
+      const isGrouping = groupBy !== 'none';
+      const fetchLimit = isGrouping ? 1000 : SONGS_PER_PAGE;
+      const fetchOffset = isGrouping ? 0 : (page - 1) * SONGS_PER_PAGE;
+
       const result = await publicSongsService.browsePublicSongs({
         search: newFilters.search,
         status: newFilters.status,
         sort_by: newSortConfig.field,
         sort_direction: newSortConfig.direction,
-        group_by: groupBy === 'none' ? null : groupBy,
-        limit: SONGS_PER_PAGE,
-        offset: (page - 1) * SONGS_PER_PAGE
+        group_by: null, // Let frontend handle grouping for better sorting
+        limit: fetchLimit,
+        offset: fetchOffset
       });
 
       if (result.success) {
-        setSongs(result.data);
-        setPagination(result.pagination);
+        if (isGrouping) {
+          // For grouped view, implement frontend pagination
+          const startIndex = (page - 1) * SONGS_PER_PAGE;
+          const endIndex = startIndex + SONGS_PER_PAGE;
+          const paginatedSongs = result.data.slice(startIndex, endIndex);
+          
+          setSongs(paginatedSongs);
+          setPagination({
+            total_count: result.data.length,
+            page: page,
+            per_page: SONGS_PER_PAGE,
+            total_pages: Math.ceil(result.data.length / SONGS_PER_PAGE)
+          });
+        } else {
+          setSongs(result.data);
+          setPagination(result.pagination);
+        }
         setCurrentPage(page);
       } else {
         setError(result.error);
@@ -81,10 +101,10 @@ const CommunityPage = () => {
     }
   }, [filters, sortConfig, groupBy]);
 
-  // Initial load
+  // Initial load and when groupBy changes
   useEffect(() => {
     loadSongs();
-  }, []);
+  }, [loadSongs, groupBy]);
 
   // Handle filter changes with debouncing
   const handleFiltersChange = useCallback((newFilters) => {
@@ -132,7 +152,33 @@ const CommunityPage = () => {
   }, []);
 
   const groupSongsByArtist = useCallback((songs) => {
-    const grouped = songs.reduce((acc, song) => {
+    // First sort all songs according to current sort config
+    const sortedSongs = [...songs].sort((a, b) => {
+      const { field, direction } = sortConfig;
+      let aVal = a[field] || '';
+      let bVal = b[field] || '';
+      
+      // Handle date fields
+      if (field === 'updated_at' || field === 'created_at') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+      
+      // Handle string comparisons
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (direction === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+
+    // Then group the sorted songs
+    const grouped = sortedSongs.reduce((acc, song) => {
       const artist = song.artist;
       if (!acc[artist]) {
         acc[artist] = [];
@@ -141,10 +187,36 @@ const CommunityPage = () => {
       return acc;
     }, {});
     return grouped;
-  }, []);
+  }, [sortConfig]);
 
   const groupSongsByUser = useCallback((songs) => {
-    const grouped = songs.reduce((acc, song) => {
+    // First sort all songs according to current sort config
+    const sortedSongs = [...songs].sort((a, b) => {
+      const { field, direction } = sortConfig;
+      let aVal = a[field] || '';
+      let bVal = b[field] || '';
+      
+      // Handle date fields
+      if (field === 'updated_at' || field === 'created_at') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+      
+      // Handle string comparisons
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (direction === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+
+    // Then group the sorted songs
+    const grouped = sortedSongs.reduce((acc, song) => {
       const username = song.username;
       if (!acc[username]) {
         acc[username] = [];
@@ -153,7 +225,7 @@ const CommunityPage = () => {
       return acc;
     }, {});
     return grouped;
-  }, []);
+  }, [sortConfig]);
 
   // Handle group by change
   const handleGroupByChange = useCallback((newGroupBy) => {
@@ -178,7 +250,9 @@ const CommunityPage = () => {
   // Handle successful collaboration request
   const handleCollaborationSuccess = () => {
     handleCloseCollaborationModal();
-    // Could show a success toast here
+    // Trigger a re-render of components by updating the key or refreshing data
+    // This will cause components to re-check collaboration status
+    loadSongs();
   };
 
   // Cleanup timeout on unmount

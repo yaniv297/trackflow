@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiGet } from '../utils/api';
 
 const Leaderboard = () => {
+  const navigate = useNavigate();
   const [leaderboard, setLeaderboard] = useState([]);
   const [currentUserRank, setCurrentUserRank] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -92,7 +94,19 @@ const Leaderboard = () => {
                   {getRankIcon(entry.rank)}
                 </span>
               </div>
-              <div className="row-username">{entry.username}</div>
+              <div 
+                className="row-username"
+                onClick={() => navigate(`/profile/${entry.username}`)}
+                style={{ 
+                  cursor: 'pointer',
+                  transition: 'color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#667eea'}
+                onMouseLeave={(e) => e.target.style.color = '#333'}
+                title="Click to view profile"
+              >
+                {entry.username}
+              </div>
               <div className="row-achievements">{entry.total_achievements}</div>
               <div className="row-points">{entry.total_points}</div>
             </div>

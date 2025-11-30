@@ -103,7 +103,7 @@ const PageHeader = ({
               }}
             >
               <option value="alphabetical">Sort: A-Z</option>
-              <option value="priority">Sort: Priority</option>
+              {status !== "Released" && <option value="priority">Sort: Priority</option>}
               {status === "In Progress" && <option value="completion">Sort: Completion</option>}
             </select>
           </div>

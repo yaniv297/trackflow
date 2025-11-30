@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../../utils/api";
 
-const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
+const UserProfilePopup = ({ username, isVisible, position, onClose, onMouseEnter, onMouseLeave }) => {
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiGet(`/user-settings/users/${username}/profile`);
+      const response = await apiGet(`/profiles/${username}`);
       setUserProfile(response);
     } catch (err) {
       console.error("Error fetching user profile:", err);
@@ -115,6 +115,8 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
   return (
     <div
       data-popup="user-profile"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={{
         position: "fixed",
         top: position.y,
@@ -125,8 +127,8 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
         borderRadius: "8px",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
         padding: "16px",
-        minWidth: "250px",
-        maxWidth: "300px",
+        minWidth: "300px",
+        maxWidth: "320px",
         fontSize: "14px",
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -177,8 +179,107 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
 
       {userProfile && !loading && (
         <div>
+          {/* Profile Image and Basic Info */}
+          <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+            {userProfile.profile_image_url && (
+              <img
+                src={userProfile.profile_image_url}
+                alt={`${username}'s profile`}
+                style={{
+                  width: "50px",
+                  height: "50px",
+                  borderRadius: "8px",
+                  objectFit: "cover",
+                  border: "1px solid #e9ecef",
+                }}
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              {userProfile.display_name && userProfile.display_name !== username && (
+                <div style={{
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "#333",
+                  marginBottom: "2px",
+                }}>
+                  {userProfile.display_name}
+                </div>
+              )}
+              {userProfile.website_url && (
+                <a
+                  href={userProfile.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: "12px",
+                    color: "#007bff",
+                    textDecoration: "none",
+                    display: "block",
+                  }}
+                >
+                  🔗 Website
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "8px",
+              fontSize: "12px",
+            }}>
+              <div style={{
+                padding: "6px 8px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontWeight: "600", color: "#007bff" }}>
+                  {userProfile.achievement_score || 0}
+                </div>
+                <div style={{ color: "#666" }}>Achievement Score</div>
+              </div>
+              <div style={{
+                padding: "6px 8px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontWeight: "600", color: "#28a745" }}>
+                  #{userProfile.leaderboard_rank || "N/A"}
+                </div>
+                <div style={{ color: "#666" }}>Leaderboard Rank</div>
+              </div>
+              <div style={{
+                padding: "6px 8px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontWeight: "600", color: "#6f42c1" }}>
+                  {userProfile.released_songs ? userProfile.released_songs.length : 0}
+                </div>
+                <div style={{ color: "#666" }}>Released Songs</div>
+              </div>
+              <div style={{
+                padding: "6px 8px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontWeight: "600", color: "#fd7e14" }}>
+                  {userProfile.public_wip_songs ? userProfile.public_wip_songs.length : 0}
+                </div>
+                <div style={{ color: "#666" }}>Public WIPs</div>
+              </div>
+            </div>
+          </div>
+
           {/* Contact Information */}
-          {contactInfo ? (
+          {contactInfo && (
             <div style={{ marginBottom: "12px" }}>
               <div
                 style={{
@@ -188,79 +289,48 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
                   fontWeight: "500",
                 }}
               >
-                Preferred Contact Method
+                Contact
               </div>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "8px",
-                  backgroundColor: contactInfo.isClickable
-                    ? "#f8f9fa"
-                    : "#f8f9fa",
+                  gap: "6px",
+                  padding: "6px 8px",
+                  backgroundColor: "#f8f9fa",
                   borderRadius: "4px",
-                  fontSize: "13px",
+                  fontSize: "12px",
                   cursor: contactInfo.isClickable ? "pointer" : "default",
-                  transition: contactInfo.isClickable
-                    ? "background-color 0.2s"
-                    : "none",
-                  border: contactInfo.isClickable
-                    ? "1px solid #e9ecef"
-                    : "1px solid transparent",
+                  transition: "background-color 0.2s",
+                  border: "1px solid #e9ecef",
                 }}
                 onClick={() =>
                   contactInfo.isClickable && handleContactClick(contactInfo)
                 }
                 onMouseEnter={(e) => {
                   if (contactInfo.isClickable) {
-                    e.target.style.backgroundColor = "#e9ecef";
+                    e.currentTarget.style.backgroundColor = "#e9ecef";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (contactInfo.isClickable) {
-                    e.target.style.backgroundColor = "#f8f9fa";
+                    e.currentTarget.style.backgroundColor = "#f8f9fa";
                   }
                 }}
                 title={
                   contactInfo.isClickable
                     ? `Click to open ${contactInfo.method}`
-                    : undefined
+                    : contactInfo.method
                 }
               >
                 <span>{contactInfo.icon}</span>
-                <span style={{ fontWeight: "500" }}>{contactInfo.method}:</span>
-                <span
-                  style={{
-                    color: contactInfo.isClickable ? "#007bff" : "#007bff",
-                    textDecoration: contactInfo.isClickable
-                      ? "underline"
-                      : "none",
-                  }}
-                >
+                <span style={{
+                  color: contactInfo.isClickable ? "#007bff" : "#333",
+                  textDecoration: "none",
+                }}>
                   {contactInfo.value}
                 </span>
-                {contactInfo.isClickable && (
-                  <span style={{ fontSize: "10px", color: "#666" }}>
-                    (click to open)
-                  </span>
-                )}
               </div>
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: "8px",
-                backgroundColor: "#f8f9fa",
-                borderRadius: "4px",
-                fontSize: "13px",
-                color: "#666",
-                textAlign: "center",
-              }}
-            >
-              {userProfile.preferred_contact_method
-                ? "No contact information available"
-                : "No preferred contact method set"}
             </div>
           )}
 
@@ -278,7 +348,7 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
-                fontSize: "13px",
+                fontSize: "12px",
                 fontWeight: "500",
                 cursor: "pointer",
                 transition: "background-color 0.2s",
@@ -298,11 +368,12 @@ const UserProfilePopup = ({ username, isVisible, position, onClose }) => {
           {userProfile.created_at && (
             <div
               style={{
-                fontSize: "12px",
+                fontSize: "11px",
                 color: "#666",
                 borderTop: "1px solid #eee",
                 paddingTop: "8px",
                 marginTop: "12px",
+                textAlign: "center",
               }}
             >
               Member since{" "}

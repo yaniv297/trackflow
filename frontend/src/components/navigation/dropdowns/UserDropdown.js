@@ -10,10 +10,14 @@ const UserDropdown = ({
   position,
   onNavigate,
   onLogout,
+  isImpersonating,
+  onExitImpersonation,
 }) => {
   const handleClick = (path) => {
     if (path === "logout") {
       onLogout();
+    } else if (path === "stop-impersonation") {
+      onExitImpersonation();
     } else {
       onNavigate(path);
     }
@@ -121,15 +125,15 @@ const UserDropdown = ({
             Help
           </div>
           <div
-            onClick={() => handleClick("logout")}
+            onClick={() => handleClick(isImpersonating ? "stop-impersonation" : "logout")}
             style={{
               ...dropdownItemStyle,
-              color: "#dc3545",
+              color: isImpersonating ? "#ff6b35" : "#dc3545",
             }}
-            onMouseEnter={(e) => (e.target.style.background = "#fff5f5")}
+            onMouseEnter={(e) => (e.target.style.background = isImpersonating ? "#fff0ed" : "#fff5f5")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}
           >
-            Logout
+            {isImpersonating ? "Stop Impersonating" : "Logout"}
           </div>
         </div>
       )}

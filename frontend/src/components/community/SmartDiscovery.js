@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import publicSongsService from '../../services/publicSongsService';
 import './SmartDiscovery.css';
 
@@ -6,6 +7,7 @@ import './SmartDiscovery.css';
  * Smart Discovery component that shows shared connections with other users
  */
 const SmartDiscovery = () => {
+  const navigate = useNavigate();
   const [connections, setConnections] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -79,7 +81,19 @@ const SmartDiscovery = () => {
                     <strong>{item.title}</strong> by {item.artist}
                   </div>
                   <div className="shared-user">
-                    with @{item.username}
+                    with <span 
+                      onClick={() => navigate(`/profile/${item.username}`)}
+                      style={{ 
+                        cursor: 'pointer', 
+                        color: '#667eea',
+                        transition: 'opacity 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                      onMouseLeave={(e) => e.target.style.opacity = '1'}
+                      title="Click to view profile"
+                    >
+                      @{item.username}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -103,7 +117,19 @@ const SmartDiscovery = () => {
                     <span className="song-count">({item.song_count} songs)</span>
                   </div>
                   <div className="shared-user">
-                    with @{item.username}
+                    with <span 
+                      onClick={() => navigate(`/profile/${item.username}`)}
+                      style={{ 
+                        cursor: 'pointer', 
+                        color: '#667eea',
+                        transition: 'opacity 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                      onMouseLeave={(e) => e.target.style.opacity = '1'}
+                      title="Click to view profile"
+                    >
+                      @{item.username}
+                    </span>
                   </div>
                 </div>
               ))}

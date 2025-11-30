@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiGet } from '../../utils/api';
+import { apiGet, apiPost } from '../../utils/api';
+import FeatureRequestVoteButtons from '../shared/FeatureRequestVoteButtons';
 import LoadingSpinner from '../ui/LoadingSpinner';
+import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
+import UserProfilePopup from '../shared/UserProfilePopup';
 import './LatestFeatureRequests.css';
 
 const LatestFeatureRequests = ({ limit = 5 }) => {
@@ -11,6 +14,7 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
   const [error, setError] = useState(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -36,6 +40,24 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVote = async (requestId, voteType) => {
+    try {
+      const updated = await apiPost(`/feature-requests/${requestId}/vote`, {
+        vote_type: voteType,
+      });
+      setFeatureRequests((prev) =>
+        prev.map((fr) => (fr.id === requestId ? updated : fr))
+      );
+    } catch (error) {
+      console.error('Failed to vote:', error);
+      window.showNotification && window.showNotification('Failed to vote. Please try again.', 'error');
+    }
+  };
+
+  const getNetVotes = (request) => {
+    return Math.max(0, request.upvotes - request.downvotes);
   };
 
   const handleViewAll = () => {
@@ -132,20 +154,40 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
           <div className="feature-requests-list">
             {featureRequests.map((request) => (
               <div key={request.id} className="feature-request-item">
-                <div className="request-header">
-                  <span 
-                    className="status-icon"
-                    style={{ color: getStatusColor(request.status) }}
-                  >
-                    {getStatusIcon(request.status)}
-                  </span>
-                  <h4 className="request-title">{request.title}</h4>
+                <div className="voting-section">
+                  <FeatureRequestVoteButtons
+                    request={request}
+                    onVote={handleVote}
+                    getNetVotes={getNetVotes}
+                  />
                 </div>
-                <p className="request-meta">
-                  <span className="votes">👍 {request.upvotes || 0}</span>
-                  <span className="author">by {request.author_name}</span>
-                  <span className="time">{formatTimeAgo(request.created_at)}</span>
-                </p>
+                <div className="request-content">
+                  <div className="request-header">
+                    <span 
+                      className="status-icon"
+                      style={{ color: getStatusColor(request.status) }}
+                    >
+                      {getStatusIcon(request.status)}
+                    </span>
+                    <h4 className="request-title">{request.title}</h4>
+                  </div>
+                  <p className="request-meta">
+                    <span className="author">by <span 
+                      onClick={handleUsernameClick(request.username)}
+                      onMouseEnter={handleUsernameHover(request.username)}
+                      onMouseLeave={delayedHidePopup}
+                      style={{ 
+                        cursor: 'pointer', 
+                        color: '#667eea',
+                        transition: 'opacity 0.2s ease'
+                      }}
+                      title="Click to view profile"
+                    >
+                      {request.username}
+                    </span></span>
+                    <span className="time">{formatTimeAgo(request.created_at)}</span>
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -163,6 +205,16 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
           </button>
         </div>
       </div>
+      
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+        onMouseEnter={cancelHideTimeout}
+        onMouseLeave={delayedHidePopup}
+      />
     </section>
   );
 };

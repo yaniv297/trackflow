@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiGet } from "../../utils/api";
 
 const formatTimeAgo = (timestamp) => {
@@ -27,6 +28,7 @@ const formatTimeAgo = (timestamp) => {
 };
 
 function RecentlyAuthoredParts({ limit = 15 }) {
+  const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -163,7 +165,19 @@ function RecentlyAuthoredParts({ limit = 15 }) {
                 <span style={{ padding: "0.1rem 0.4rem", background: "#eef2ff", borderRadius: "4px", color: "#4c51bf", fontWeight: 600 }}>
                   {entry.step_name}
                 </span>
-                <span>by {entry.username}</span>
+                <span>by <span 
+                  onClick={() => navigate(`/profile/${entry.username}`)}
+                  style={{ 
+                    cursor: 'pointer', 
+                    color: '#667eea',
+                    transition: 'opacity 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.target.style.opacity = '1'}
+                  title="Click to view profile"
+                >
+                  {entry.username}
+                </span></span>
                 <span style={{ fontStyle: "italic" }}>
                   {formatTimeAgo(entry.completed_at)}
                 </span>

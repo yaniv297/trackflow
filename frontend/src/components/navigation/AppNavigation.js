@@ -17,6 +17,8 @@ const AppNavigation = ({
   achievementPoints,
   onlineUsers,
   onLogout,
+  isImpersonating,
+  onExitImpersonation,
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -110,7 +112,19 @@ const AppNavigation = ({
       <div className="nav-right">
         {/* User info */}
         <div className="nav-user-info">
-          <span className="nav-username">{user?.username}</span>
+          <span 
+            className="nav-username"
+            onClick={() => navigate(`/profile/${user?.username}`)}
+            style={{
+              cursor: 'pointer',
+              transition: 'opacity 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+            onMouseLeave={(e) => e.target.style.opacity = '1'}
+            title="View your profile"
+          >
+            {user?.username}
+          </span>
           
           {user?.is_admin && (
             <OnlineUsersTooltip
@@ -159,6 +173,8 @@ const AppNavigation = ({
           position={dropdowns.userDropdownPos}
           onNavigate={navigate}
           onLogout={onLogout}
+          isImpersonating={isImpersonating}
+          onExitImpersonation={onExitImpersonation}
         />
       </div>
     </nav>

@@ -146,15 +146,15 @@
 }
 
 .collaborate-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #3498db;
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: background 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -163,12 +163,142 @@
 }
 
 .collaborate-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #2980b9;
 }
 
 .collaborate-btn:active {
   transform: translateY(0);
+}
+
+.collaborate-btn.sent {
+  background: #f39c12;
+  color: white;
+}
+
+.collaborate-btn.sent:hover {
+  background: #e67e22;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(243, 156, 18, 0.2);
+}
+
+.collaborate-btn.accepted {
+  background: #27ae60;
+  color: white;
+}
+
+.collaborate-btn.accepted:hover {
+  background: #229954;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
+}
+
+.collaborate-btn.declined {
+  background: #95a5a6;
+  color: white;
+  cursor: not-allowed;
+}
+
+.collaborate-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.collaborate-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Status Popup Styles */
+.status-popup-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.status-popup {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  max-width: 350px;
+  width: 90%;
+}
+
+.status-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.status-popup-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.status-popup-content {
+  padding: 1rem;
+}
+
+.status-popup-content p {
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
+  font-size: 0.9rem;
+}
+
+.status-popup-content p:last-child {
+  margin-bottom: 0;
+}
+
+.status-popup-content strong {
+  color: #333;
+}
+
+.status-popup-actions {
+  padding: 1rem;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.close-popup-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.close-popup-btn:hover {
+  background: #5a6268;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #333;
 }
 
 .own-song-indicator {

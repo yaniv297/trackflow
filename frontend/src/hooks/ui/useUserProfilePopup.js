@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const useUserProfilePopup = () => {
   const navigate = useNavigate();
+  const hideTimeout = useRef(null);
   const [popupState, setPopupState] = useState({
     isVisible: false,
     username: null,
@@ -10,9 +11,11 @@ export const useUserProfilePopup = () => {
   });
 
   const showPopup = useCallback((username, event) => {
-    // Prevent default to avoid any unwanted behavior
-    event.preventDefault();
-    event.stopPropagation();
+    // Clear any pending hide timeout
+    if (hideTimeout.current) {
+      clearTimeout(hideTimeout.current);
+      hideTimeout.current = null;
+    }
 
     // Calculate position relative to the clicked element
     const rect = event.currentTarget.getBoundingClientRect();
@@ -20,8 +23,8 @@ export const useUserProfilePopup = () => {
     const y = rect.bottom + 8; // 8px below the element
 
     // Adjust position to keep popup within viewport
-    const popupWidth = 250; // Approximate popup width
-    const popupHeight = 150; // Approximate popup height
+    const popupWidth = 320; // Updated popup width
+    const popupHeight = 300; // Updated popup height
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -54,6 +57,19 @@ export const useUserProfilePopup = () => {
     }));
   }, []);
 
+  const delayedHidePopup = useCallback(() => {
+    hideTimeout.current = setTimeout(() => {
+      hidePopup();
+    }, 300); // 300ms delay before hiding
+  }, [hidePopup]);
+
+  const cancelHideTimeout = useCallback(() => {
+    if (hideTimeout.current) {
+      clearTimeout(hideTimeout.current);
+      hideTimeout.current = null;
+    }
+  }, []);
+
   const handleUsernameClick = useCallback(
     (username) => (event) => {
       // Check if it's a right-click or ctrl+click - show popup for these
@@ -68,6 +84,13 @@ export const useUserProfilePopup = () => {
       navigate(`/profile/${username}`);
     },
     [navigate, showPopup]
+  );
+
+  const handleUsernameHover = useCallback(
+    (username) => (event) => {
+      showPopup(username, event);
+    },
+    [showPopup]
   );
 
   // Add global click handler to close popup when clicking outside
@@ -99,6 +122,9 @@ export const useUserProfilePopup = () => {
     popupState,
     showPopup,
     hidePopup,
+    delayedHidePopup,
+    cancelHideTimeout,
     handleUsernameClick,
+    handleUsernameHover,
   };
 };

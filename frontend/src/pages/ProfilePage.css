@@ -73,29 +73,36 @@
   margin: 0 0 1rem 0;
 }
 
-.profile-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+.profile-details {
   margin-bottom: 1.5rem;
 }
 
-.stat-item {
+.detail-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f1f3f4;
 }
 
-.stat-label {
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
   font-size: 0.875rem;
   color: #6c757d;
-  font-weight: 500;
+  font-weight: 600;
+  min-width: 140px;
+  flex-shrink: 0;
 }
 
-.stat-value {
-  font-size: 1.125rem;
+.detail-value {
+  font-size: 0.875rem;
   color: #212529;
-  font-weight: 600;
+  font-weight: 500;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .website-link {
@@ -107,6 +114,21 @@
 .website-link:hover {
   color: #495057;
   text-decoration: underline;
+}
+
+.discord-link {
+  color: #5865f2;
+  text-decoration: none;
+  transition: all 0.2s;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.discord-link:hover {
+  color: #4752c4;
+  background-color: rgba(88, 101, 242, 0.1);
+  text-decoration: none;
 }
 
 .edit-profile-btn {
@@ -299,6 +321,198 @@
 /* Songs Table */
 .songs-section {
   padding: 0;
+}
+
+/* Section Header Improvements */
+.section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: white;
+  color: #6c757d;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.group-toggle.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.group-toggle:hover {
+  background: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.group-toggle.active:hover {
+  background: #5a67d8;
+}
+
+.toggle-icon {
+  font-size: 0.9rem;
+}
+
+/* Artist Grouped View */
+.artists-grouped-view {
+  padding: 1.5rem;
+}
+
+.artist-group {
+  margin-bottom: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.artist-group:last-child {
+  margin-bottom: 0;
+}
+
+.artist-header {
+  padding: 1rem 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.artist-header:hover {
+  background: #e9ecef;
+}
+
+.artist-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.collapse-icon {
+  color: #6c757d;
+  font-size: 0.875rem;
+  font-weight: bold;
+  width: 1rem;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.artist-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0;
+}
+
+.song-count {
+  font-size: 0.875rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Artist Songs */
+.artist-songs {
+  padding: 1rem;
+  background: white;
+}
+
+.song-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.song-item:hover {
+  background: #f8f9fa;
+  border-color: #e9ecef;
+}
+
+/* Album Artwork */
+.song-artwork {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  position: relative;
+}
+
+.album-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid #e9ecef;
+}
+
+.album-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #6c757d;
+  border: 1px solid #e9ecef;
+}
+
+/* Song Details */
+.song-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.song-item .song-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #212529;
+  margin: 0 0 0.25rem 0;
+  line-height: 1.3;
+}
+
+.song-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+  flex-wrap: wrap;
+}
+
+.album-name {
+  font-weight: 500;
+}
+
+.pack-name {
+  font-style: italic;
+}
+
+/* Status Badge in Grouped View */
+.song-item .status-badge {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
 }
 
 .songs-table-wrapper {
@@ -509,8 +723,64 @@
     font-size: 1.75rem;
   }
   
-  .profile-stats {
-    grid-template-columns: 1fr 1fr;
+  .detail-row {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem 0;
+  }
+  
+  .detail-label {
+    min-width: auto;
+    font-size: 0.8rem;
+  }
+  
+  .detail-value {
+    font-size: 0.9rem;
+  }
+  
+  .section-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+  
+  .group-toggle {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .artists-grouped-view {
+    padding: 1rem;
+  }
+  
+  .artist-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .artist-name {
+    font-size: 1rem;
+  }
+  
+  .song-count {
+    font-size: 0.75rem;
+  }
+  
+  .song-item {
+    gap: 0.75rem;
+    padding: 0.5rem;
+  }
+  
+  .song-artwork {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .song-item .song-title {
+    font-size: 0.9rem;
+  }
+  
+  .song-meta {
+    font-size: 0.75rem;
   }
   
   .achievements-grid {

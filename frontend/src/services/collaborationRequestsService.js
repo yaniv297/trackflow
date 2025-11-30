@@ -115,6 +115,26 @@ class CollaborationRequestsService {
   }
 
   /**
+   * Reopen a rejected collaboration request (only by song owner)
+   */
+  async reopenRequest(requestId) {
+    try {
+      const response = await apiPut(`/api/collaboration-requests/${requestId}/reopen`, {});
+      
+      return {
+        success: true,
+        data: response,
+      };
+    } catch (error) {
+      console.error('Error reopening collaboration request:', error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to reopen request',
+      };
+    }
+  }
+
+  /**
    * Get available authoring parts for a WIP song
    */
   async getAvailableParts(songId) {

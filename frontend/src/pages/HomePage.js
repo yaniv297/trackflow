@@ -11,7 +11,8 @@ import {
   UserDashboard,
   CommunityWips,
   IntroSection,
-  ClosestAchievements
+  ClosestAchievements,
+  CollaborationInvites
 } from '../components/home';
 import './HomePage.css';
 
@@ -45,8 +46,9 @@ const HomePage = () => {
               <LatestUpdates limit={5} />
             </div>
             <div className="sidebar-area">
+              <CollaborationInvites />
               <CommunityWips />
-              <ClosestAchievements limit={5} />
+              <ClosestAchievements limit={3} />
               <CommunityLeaderboard limit={8} />
               <TipsAndTricks />
               <LatestFeatureRequests limit={2} />

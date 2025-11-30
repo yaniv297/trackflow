@@ -32,6 +32,7 @@ class PublicUserProfileOut(BaseModel):
     website_url: Optional[str] = None
     created_at: datetime
     achievement_score: Optional[int] = 0
+    leaderboard_rank: Optional[int] = None
     released_songs: List[dict] = []  # Song info
     released_packs: List[dict] = []  # Pack info with songs
     public_wip_songs: List[dict] = []  # Song info

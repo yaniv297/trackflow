@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import collaborationRequestsService from '../../services/collaborationRequestsService';
 import './CollaborationRequestModal.css';
 
@@ -6,6 +7,7 @@ import './CollaborationRequestModal.css';
  * Modal for creating collaboration requests
  */
 const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
+  const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [selectedParts, setSelectedParts] = useState([]);
   const [availableParts, setAvailableParts] = useState([]);
@@ -150,7 +152,19 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
               <div className="song-status">
                 <span className="status-icon">{getStatusIcon(song.status)}</span>
                 <span className="status-text">{song.status}</span>
-                <span className="owner">by @{song.username}</span>
+                <span className="owner">by <span 
+                  onClick={() => navigate(`/profile/${song.username}`)}
+                  style={{ 
+                    cursor: 'pointer', 
+                    color: '#667eea',
+                    transition: 'opacity 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.target.style.opacity = '1'}
+                  title="Click to view profile"
+                >
+                  @{song.username}
+                </span></span>
               </div>
             </div>
           </div>

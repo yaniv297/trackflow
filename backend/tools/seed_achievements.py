@@ -121,6 +121,9 @@ ACHIEVEMENTS = [
     ("four_different_decades", "Decade Master", "Complete songs from 4 different decades", "🎺", "diversity", 100, "epic", 4, "unique_decades"),
     ("five_different_decades", "Timeline Legend", "Complete songs from 5 different decades", "🎻", "diversity", 250, "legendary", 5, "unique_decades"),
     
+    # Diversity Achievements - Alphabet Diversity
+    ("alphabet_collector", "Alphabet Collector", "Release songs starting with every letter A-Z", "🔤", "diversity", 250, "legendary", 26, "alphabet_coverage"),
+    
     # Public Songs Achievements (Future Plans and WIP available for collaboration)
     ("first_public_wip", "Open Creator", "Make your first song public for collaboration", "🌐", "social", 10, "common", 1, "public_wips"),
     ("five_public_wips", "Community Sharer", "Have 5 songs public for collaboration", "📢", "social", 25, "uncommon", 5, "public_wips"),

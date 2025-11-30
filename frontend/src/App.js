@@ -71,6 +71,8 @@ function AppContent() {
             achievementPoints={achievementPoints}
             onlineUsers={onlineUsers}
             onLogout={handleLogout}
+            isImpersonating={isImpersonating}
+            onExitImpersonation={handleExitImpersonation}
           />
         )}
 

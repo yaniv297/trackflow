@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import FeatureRequestVoteButtons from "../shared/FeatureRequestVoteButtons";
 import FeatureRequestForm from "../forms/FeatureRequestForm";
 import CommentSection from "../features/comments/CommentSection";
@@ -35,6 +36,7 @@ function FeatureRequestCard({
   onDeleteRequest,
   organizeComments,
 }) {
+  const navigate = useNavigate();
   const isInactive = request.is_done || request.is_rejected;
   const statusPrefix = request.is_rejected ? "🚫 " : request.is_done ? "✅ " : "";
 
@@ -118,7 +120,19 @@ function FeatureRequestCard({
                       marginBottom: "0.5rem",
                     }}
                   >
-                    by {request.username} •{" "}
+                    by <span 
+                      onClick={() => navigate(`/profile/${request.username}`)}
+                      style={{ 
+                        cursor: 'pointer', 
+                        color: '#667eea',
+                        transition: 'opacity 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                      onMouseLeave={(e) => e.target.style.opacity = '1'}
+                      title="Click to view profile"
+                    >
+                      {request.username}
+                    </span> •{" "}
                     {new Date(request.created_at).toLocaleDateString()}
                   </p>
                   {request.is_rejected && (

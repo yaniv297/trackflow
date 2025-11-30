@@ -20,6 +20,10 @@ const ProfilePage = () => {
   const [releasedSongsPage, setReleasedSongsPage] = useState(1);
   const [wipSongsPage, setWipSongsPage] = useState(1);
   
+  // Artist grouping states
+  const [groupByArtist, setGroupByArtist] = useState(true);
+  const [collapsedArtists, setCollapsedArtists] = useState(new Set());
+  
   useEffect(() => {
     const fetchProfile = async () => {
       if (!username) {
@@ -57,6 +61,178 @@ const ProfilePage = () => {
     });
   };
   
+  // Group songs by artist and sort by song count (most to least)
+  const groupSongsByArtist = (songs) => {
+    const grouped = songs.reduce((acc, song) => {
+      const artist = song.artist || 'Unknown Artist';
+      if (!acc[artist]) {
+        acc[artist] = [];
+      }
+      acc[artist].push(song);
+      return acc;
+    }, {});
+    
+    // Convert to array and sort by song count (descending)
+    return Object.entries(grouped)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([artist, songs]) => ({
+        artist,
+        songs: songs.sort((a, b) => a.title.localeCompare(b.title)), // Sort songs alphabetically within artist
+        songCount: songs.length
+      }));
+  };
+  
+  // Toggle artist collapse state
+  const toggleArtistCollapse = (artist) => {
+    const newCollapsed = new Set(collapsedArtists);
+    if (newCollapsed.has(artist)) {
+      newCollapsed.delete(artist);
+    } else {
+      newCollapsed.add(artist);
+    }
+    setCollapsedArtists(newCollapsed);
+  };
+  
+  // Reusable Songs Section Component
+  const SongsSection = ({ title, songs, paginatedData, onPageChange, showStatus = false }) => {
+    if (!songs || songs.length === 0) return null;
+    
+    const groupedArtists = groupSongsByArtist(paginatedData.items);
+    
+    return (
+      <div className="profile-section">
+        <div className="section-header">
+          <div className="section-title-group">
+            <h3 className="section-title">{title}</h3>
+            <span className="section-count">{songs.length}</span>
+          </div>
+          <div className="section-controls">
+            <button
+              onClick={() => setGroupByArtist(!groupByArtist)}
+              className={`group-toggle ${groupByArtist ? 'active' : ''}`}
+              title="Toggle artist grouping"
+            >
+              <span className="toggle-icon">👥</span>
+              Group by Artist
+            </button>
+          </div>
+        </div>
+        
+        <div className="section-content songs-section">
+          {groupByArtist ? (
+            // Artist-grouped view
+            <div className="artists-grouped-view">
+              {groupedArtists.map(({ artist, songs: artistSongs, songCount }, index) => {
+                const isCollapsed = collapsedArtists.has(artist);
+                // By default, all artists start collapsed except the first one with most songs
+                const shouldBeCollapsed = index > 0 || isCollapsed;
+                
+                return (
+                  <div key={artist} className="artist-group">
+                    <div 
+                      className="artist-header"
+                      onClick={() => toggleArtistCollapse(artist)}
+                    >
+                      <div className="artist-info">
+                        <span className="collapse-icon">
+                          {shouldBeCollapsed ? '▶' : '▼'}
+                        </span>
+                        <h4 className="artist-name">{artist}</h4>
+                        <span className="song-count">({songCount} song{songCount !== 1 ? 's' : ''})</span>
+                      </div>
+                    </div>
+                    
+                    {!shouldBeCollapsed && (
+                      <div className="artist-songs">
+                        {artistSongs.map((song) => (
+                          <div key={song.id} className="song-item">
+                            <div className="song-artwork">
+                              {song.album_cover ? (
+                                <img 
+                                  src={song.album_cover} 
+                                  alt={`${song.album || 'Album'} cover`}
+                                  className="album-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextElementSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div 
+                                className="album-cover-placeholder"
+                                style={{ display: song.album_cover ? 'none' : 'flex' }}
+                              >
+                                ♪
+                              </div>
+                            </div>
+                            
+                            <div className="song-details">
+                              <div className="song-title">{song.title}</div>
+                              <div className="song-meta">
+                                <span className="album-name">{song.album || 'No Album'}</span>
+                                {song.pack_name && (
+                                  <span className="pack-name"> • {song.pack_name}</span>
+                                )}
+                                {showStatus && (
+                                  <span className={`status-badge ${song.status?.toLowerCase().replace(' ', '-')}`}>
+                                    {song.status}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            // Table view (original)
+            <div className="songs-table-wrapper">
+              <table className="songs-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th>Pack</th>
+                    {showStatus && <th>Status</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedData.items.map((song) => (
+                    <tr key={song.id}>
+                      <td className="song-title">{song.title}</td>
+                      <td>{song.artist}</td>
+                      <td>{song.album || 'N/A'}</td>
+                      <td>{song.pack_name || 'Individual'}</td>
+                      {showStatus && (
+                        <td>
+                          <span className={`status-badge ${song.status?.toLowerCase().replace(' ', '-')}`}>
+                            {song.status}
+                          </span>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          {renderPagination(
+            paginatedData.totalPages, 
+            paginatedData.currentPage, 
+            onPageChange,
+            'songs'
+          )}
+        </div>
+      </div>
+    );
+  };
+  
   const getRarityColor = (rarity) => {
     const colors = {
       legendary: '#ff6b35',
@@ -70,11 +246,21 @@ const ProfilePage = () => {
   
   const getContactMethodDisplay = (method, discordUsername) => {
     if (method === 'discord' && discordUsername) {
-      return `Discord: ${discordUsername}`;
+      return {
+        type: 'discord',
+        username: discordUsername,
+        display: `Discord: ${discordUsername}`
+      };
     } else if (method === 'email') {
-      return 'Email (via admin)';
+      return {
+        type: 'email',
+        display: 'Email (via admin)'
+      };
     }
-    return 'Not specified';
+    return {
+      type: 'none',
+      display: 'Not specified'
+    };
   };
   
   // Pagination helpers
@@ -226,27 +412,50 @@ const ProfilePage = () => {
                 <h2 className="profile-display-name">{profile.display_name}</h2>
               )}
               
-              <div className="profile-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Achievement Score</span>
-                  <span className="stat-value">{profile.achievement_score}</span>
+              <div className="profile-details">
+                <div className="detail-row">
+                  <strong className="detail-label">Achievement Score:</strong>
+                  <span className="detail-value">{profile.achievement_score}</span>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-label">Member since</span>
-                  <span className="stat-value">{formatDate(profile.created_at)}</span>
-                </div>
-                {profile.preferred_contact_method && (
-                  <div className="stat-item">
-                    <span className="stat-label">Contact</span>
-                    <span className="stat-value">
-                      {getContactMethodDisplay(profile.preferred_contact_method, profile.discord_username)}
-                    </span>
+                {profile.leaderboard_rank && (
+                  <div className="detail-row">
+                    <strong className="detail-label">Leaderboard Position:</strong>
+                    <span className="detail-value">#{profile.leaderboard_rank}</span>
                   </div>
                 )}
+                <div className="detail-row">
+                  <strong className="detail-label">Member since:</strong>
+                  <span className="detail-value">{formatDate(profile.created_at)}</span>
+                </div>
+                {profile.preferred_contact_method && (() => {
+                  const contactInfo = getContactMethodDisplay(profile.preferred_contact_method, profile.discord_username);
+                  return (
+                    <div className="detail-row">
+                      <strong className="detail-label">Contact:</strong>
+                      <span className="detail-value">
+                        {contactInfo.type === 'discord' ? (
+                          <>
+                            Discord: <a 
+                              href={`https://discord.com/users/${contactInfo.username}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="discord-link"
+                              title="Open Discord to message user"
+                            >
+                              {contactInfo.username}
+                            </a>
+                          </>
+                        ) : (
+                          contactInfo.display
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {profile.website_url && (
-                  <div className="stat-item">
-                    <span className="stat-label">Website</span>
-                    <span className="stat-value">
+                  <div className="detail-row">
+                    <strong className="detail-label">Website:</strong>
+                    <span className="detail-value">
                       <a 
                         href={profile.website_url} 
                         target="_blank" 
@@ -354,92 +563,22 @@ const ProfilePage = () => {
           )}
           
           {/* Released Songs */}
-          {profile.released_songs && profile.released_songs.length > 0 && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h3 className="section-title">Released Songs</h3>
-                <span className="section-count">{profile.released_songs.length}</span>
-              </div>
-              <div className="section-content songs-section">
-                <div className="songs-table-wrapper">
-                  <table className="songs-table">
-                    <thead>
-                      <tr>
-                        <th>Title</th>
-                        <th>Artist</th>
-                        <th>Album</th>
-                        <th>Pack</th>
-                        <th>Released</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {releasedSongsData.items.map((song) => (
-                        <tr key={song.id}>
-                          <td className="song-title">{song.title}</td>
-                          <td>{song.artist}</td>
-                          <td>{song.album || 'N/A'}</td>
-                          <td>{song.pack_name || 'Individual'}</td>
-                          <td>{formatDate(song.released_at)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {renderPagination(
-                  releasedSongsData.totalPages, 
-                  releasedSongsData.currentPage, 
-                  setReleasedSongsPage,
-                  'songs'
-                )}
-              </div>
-            </div>
-          )}
+          <SongsSection
+            title="Released Songs"
+            songs={profile.released_songs}
+            paginatedData={releasedSongsData}
+            onPageChange={setReleasedSongsPage}
+            showStatus={false}
+          />
           
           {/* Public WIP Songs */}
-          {profile.public_wip_songs && profile.public_wip_songs.length > 0 && (
-            <div className="profile-section">
-              <div className="section-header">
-                <h3 className="section-title">Public WIP Songs</h3>
-                <span className="section-count">{profile.public_wip_songs.length}</span>
-              </div>
-              <div className="section-content songs-section">
-                <div className="songs-table-wrapper">
-                  <table className="songs-table">
-                    <thead>
-                      <tr>
-                        <th>Title</th>
-                        <th>Artist</th>
-                        <th>Album</th>
-                        <th>Status</th>
-                        <th>Last Updated</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {wipSongsData.items.map((song) => (
-                        <tr key={song.id}>
-                          <td className="song-title">{song.title}</td>
-                          <td>{song.artist}</td>
-                          <td>{song.album || 'N/A'}</td>
-                          <td>
-                            <span className={`status-badge ${song.status.toLowerCase().replace(' ', '-')}`}>
-                              {song.status}
-                            </span>
-                          </td>
-                          <td>{formatDate(song.created_at)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {renderPagination(
-                  wipSongsData.totalPages, 
-                  wipSongsData.currentPage, 
-                  setWipSongsPage,
-                  'wip-songs'
-                )}
-              </div>
-            </div>
-          )}
+          <SongsSection
+            title="Public WIP Songs"
+            songs={profile.public_wip_songs}
+            paginatedData={wipSongsData}
+            onPageChange={setWipSongsPage}
+            showStatus={true}
+          />
           
           {/* Empty state if no content */}
           {(!profile.released_songs || profile.released_songs.length === 0) &&

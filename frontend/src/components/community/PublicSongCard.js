@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
+import UserProfilePopup from '../shared/UserProfilePopup';
+import collaborationRequestsService from '../../services/collaborationRequestsService';
 import './PublicSongCard.css';
 
 /**
@@ -9,6 +12,10 @@ const PublicSongCard = ({
   onCollaborationRequest,
   currentUserId 
 }) => {
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
+  const [collaborationStatus, setCollaborationStatus] = useState(null); // null, 'pending', 'accepted', 'declined'
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [showStatusPopup, setShowStatusPopup] = useState(false);
   const getStatusIcon = (status) => {
     switch (status) {
       case 'Future Plans':
@@ -44,11 +51,68 @@ const PublicSongCard = ({
     });
   };
 
+  const isOwnSong = song.user_id === currentUserId;
+
+  // Check collaboration status when component mounts
+  useEffect(() => {
+    const checkCollaborationStatus = async () => {
+      if (isOwnSong || !currentUserId) return;
+      
+      setIsCheckingStatus(true);
+      try {
+        const result = await collaborationRequestsService.getSentRequests();
+        if (result.success) {
+          const existingRequest = result.data.find(req => req.song_id === song.id);
+          setCollaborationStatus(existingRequest ? existingRequest.status : null);
+        }
+      } catch (error) {
+        console.error('Failed to check collaboration status:', error);
+      } finally {
+        setIsCheckingStatus(false);
+      }
+    };
+
+    checkCollaborationStatus();
+  }, [song.id, currentUserId, isOwnSong]);
+
   const handleCollaborationClick = () => {
-    onCollaborationRequest(song);
+    if (collaborationStatus === 'pending') {
+      setShowStatusPopup(true);
+    } else {
+      onCollaborationRequest(song);
+    }
   };
 
-  const isOwnSong = song.user_id === currentUserId;
+  const handleCollaborationSuccess = () => {
+    setCollaborationStatus('pending');
+  };
+
+  const getCollaborationButtonText = () => {
+    switch (collaborationStatus) {
+      case 'pending':
+        return 'Request Sent';
+      case 'accepted':
+        return 'Accepted';
+      case 'declined':
+        return 'Declined';
+      default:
+        return 'Collaborate';
+    }
+  };
+
+  const getCollaborationButtonClass = () => {
+    const baseClass = 'collaborate-btn';
+    switch (collaborationStatus) {
+      case 'pending':
+        return `${baseClass} sent`;
+      case 'accepted':
+        return `${baseClass} accepted`;
+      case 'declined':
+        return `${baseClass} declined`;
+      default:
+        return baseClass;
+    }
+  };
 
   return (
     <div className="public-song-card">
@@ -95,7 +159,17 @@ const PublicSongCard = ({
         {/* User Info */}
         <div className="song-user">
           <span className="user-label">by</span>
-          <span className="username" title={song.display_name || song.username}>
+          <span 
+            className="username" 
+            title={song.display_name || song.username}
+            onClick={handleUsernameClick(song.username)}
+            style={{ 
+              cursor: 'pointer',
+              transition: 'color 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.color = '#667eea'}
+            onMouseLeave={(e) => e.target.style.color = 'inherit'}
+          >
             @{song.username}
             {song.display_name && song.display_name !== song.username && (
               <span className="display-name">({song.display_name})</span>
@@ -121,11 +195,12 @@ const PublicSongCard = ({
       <div className="song-actions">
         {!isOwnSong && (
           <button 
-            className="collaborate-btn"
+            className={getCollaborationButtonClass()}
             onClick={handleCollaborationClick}
-            title="Suggest Collaboration"
+            title={collaborationStatus === 'pending' ? "View collaboration request status" : "Suggest Collaboration"}
+            disabled={isCheckingStatus || collaborationStatus === 'declined'}
           >
-            🤝 Collaborate
+            {isCheckingStatus ? '⏳ Checking...' : getCollaborationButtonText()}
           </button>
         )}
         {isOwnSong && (
@@ -134,6 +209,36 @@ const PublicSongCard = ({
           </div>
         )}
       </div>
+
+      {/* Collaboration Status Popup */}
+      {showStatusPopup && collaborationStatus === 'pending' && (
+        <div className="status-popup-backdrop" onClick={() => setShowStatusPopup(false)}>
+          <div className="status-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="status-popup-header">
+              <h4>Collaboration Request</h4>
+              <button onClick={() => setShowStatusPopup(false)} className="close-btn">×</button>
+            </div>
+            <div className="status-popup-content">
+              <p><strong>Song:</strong> {song.title} by {song.artist}</p>
+              <p><strong>Status:</strong> Pending</p>
+              <p>Your collaboration request has been sent and is waiting for a response from @{song.username}.</p>
+            </div>
+            <div className="status-popup-actions">
+              <button onClick={() => setShowStatusPopup(false)} className="close-popup-btn">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+      />
     </div>
   );
 };

@@ -40,6 +40,7 @@ class CollaborationRequestResponse(BaseModel):
     song_title: str
     song_artist: str
     song_status: str
+    song_album_cover: Optional[str]
     requester_id: int
     requester_username: str
     requester_display_name: Optional[str]
@@ -178,6 +179,7 @@ def create_collaboration_request(
         song_title=song.title,
         song_artist=song.artist,
         song_status=song.status,
+        song_album_cover=song.album_cover,
         requester_id=current_user.id,
         requester_username=current_user.username,
         requester_display_name=requester_user.display_name if requester_user else None,
@@ -222,6 +224,7 @@ def get_received_requests(
             song_title=song.title,
             song_artist=song.artist,
             song_status=song.status,
+            song_album_cover=song.album_cover,
             requester_id=req.requester_id,
             requester_username=requester.username,
             requester_display_name=requester.display_name,
@@ -268,6 +271,7 @@ def get_sent_requests(
             song_title=song.title,
             song_artist=song.artist,
             song_status=song.status,
+            song_album_cover=song.album_cover,
             requester_id=current_user.id,
             requester_username=current_user.username,
             requester_display_name=current_user_full.display_name if current_user_full else None,
@@ -391,6 +395,57 @@ def respond_to_collaboration_request(
         "request_id": request_id,
         "status": response.response,
         "message": f"Collaboration request {response.response}"
+    }
+
+@router.put("/{request_id}/reopen")
+def reopen_collaboration_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Reopen a rejected collaboration request (only by song owner)"""
+    
+    collab_request = db.query(CollaborationRequest).filter(
+        CollaborationRequest.id == request_id,
+        CollaborationRequest.owner_id == current_user.id,
+        CollaborationRequest.status == "rejected"
+    ).first()
+    
+    if not collab_request:
+        raise HTTPException(status_code=404, detail="Collaboration request not found or cannot be reopened")
+    
+    # Reset the request to pending status
+    collab_request.status = "pending"
+    collab_request.owner_response = None
+    collab_request.responded_at = None
+    collab_request.assigned_parts = None
+    
+    db.commit()
+    
+    # Get song and requester for notification
+    song = db.query(Song).filter(Song.id == collab_request.song_id).first()
+    
+    # Create notification for requester
+    try:
+        create_notification(
+            db=db,
+            user_id=collab_request.requester_id,
+            notification_type="collaboration_reopened",
+            title="Collaboration Request Reopened",
+            message=f"{current_user.username} has reopened your collaboration request for '{song.title}'",
+            metadata={
+                "collaboration_request_id": collab_request.id,
+                "song_id": song.id,
+                "owner_id": current_user.id
+            }
+        )
+    except Exception as notif_err:
+        print(f"⚠️ Failed to create reopened notification: {notif_err}")
+    
+    return {
+        "request_id": request_id,
+        "status": "pending",
+        "message": "Collaboration request reopened successfully"
     }
 
 @router.delete("/{request_id}")

@@ -45,6 +45,10 @@ const NotificationDropdown = ({
       }
     } else if (notification.type === 'pack_release') {
       navigate('/releases');
+    } else if (notification.type === 'collaboration_request') {
+      navigate('/collaboration-requests');
+    } else if (notification.type === 'collaboration_response') {
+      navigate('/collaboration-requests');
     }
 
     onClose();
@@ -60,6 +64,10 @@ const NotificationDropdown = ({
         return '📋';
       case 'pack_release':
         return '🎵';
+      case 'collaboration_request':
+        return '🤝';
+      case 'collaboration_response':
+        return '🤝';
       default:
         return '🔔';
     }

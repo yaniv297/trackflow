@@ -79,38 +79,19 @@ function ClosestAchievements({ limit = 5 }) {
 
   return (
     <div className="closest-achievements-widget">
-      <h3>🎯 Almost There!</h3>
+      <h3>Almost There!</h3>
       <div className="achievements-list">
         {closestAchievements.map((achievement) => (
           <div key={achievement.id} className="achievement-item">
-            <div className="achievement-header">
-              <div className="achievement-info">
-                <div className="achievement-icon">{achievement.icon}</div>
-                <div className="achievement-details">
-                  <h4>{achievement.name}</h4>
-                  <span 
-                    className="rarity-badge"
-                    style={{ backgroundColor: RARITY_COLORS[achievement.rarity] }}
-                  >
-                    {achievement.rarity}
-                  </span>
-                </div>
-              </div>
-              <div className="achievement-points">+{achievement.points}</div>
-            </div>
-            
-            <div className="progress-section">
-              <div className="progress-text">
-                <span className="current-target">
+            <div className="achievement-content">
+              <div className="achievement-name">{achievement.name}</div>
+              <div className="achievement-description">{achievement.description}</div>
+              <div className="achievement-meta">
+                <span className="progress-text">
                   {achievement.progress.current} / {achievement.progress.target}
                 </span>
                 <span className="percentage">{achievement.progress.percentage}%</span>
-              </div>
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill"
-                  style={{ width: `${Math.min(achievement.progress.percentage, 100)}%` }}
-                />
+                <span className="points">+{achievement.points}</span>
               </div>
             </div>
           </div>
@@ -118,7 +99,7 @@ function ClosestAchievements({ limit = 5 }) {
       </div>
       
       <div className="view-all-link">
-        <a href="/achievements">View all achievements →</a>
+        <a href="/achievements">View all →</a>
       </div>
     </div>
   );

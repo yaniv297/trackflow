@@ -45,6 +45,8 @@ const PackHeader = ({
   onDeletePack,
   onUpdatePackPriority,
   packPriority,
+  groupBy = "pack",
+  visibleColumns = {},
 }) => {
   const [showAddSongModal, setShowAddSongModal] = useState(false);
   const [showPackActions, setShowPackActions] = useState(false);
@@ -65,6 +67,32 @@ const PackHeader = ({
       console.error("Rename failed", e);
       setRenameModalOpen(false);
     }
+  };
+
+  // Helper function to check if a column should be displayed
+  const shouldShowColumn = (columnKey) => {
+    if (!visibleColumns[columnKey]) return true; // Default to showing if not specified
+    return visibleColumns[columnKey].enabled && !visibleColumns[columnKey].groupHidden;
+  };
+
+  // Calculate the number of columns for colspan
+  const calculateColspan = () => {
+    let count = 0;
+    
+    // Add columns based on what's shown in ColumnHeaders
+    if (shouldShowColumn("cover")) count++;
+    if (shouldShowColumn("title")) count++;
+    if (groupBy !== "artist" && shouldShowColumn("artist")) count++;
+    if (shouldShowColumn("album")) count++;
+    if (groupBy !== "pack" && shouldShowColumn("pack")) count++;
+    if (shouldShowColumn("author")) count++;
+    if (shouldShowColumn("year")) count++;
+    if (shouldShowColumn("notes")) count++;
+    if (shouldShowColumn("collaborations")) count++;
+    if (shouldShowColumn("visibility")) count++;
+    if (shouldShowColumn("actions")) count++;
+    
+    return count;
   };
 
 
@@ -94,7 +122,7 @@ const PackHeader = ({
 
         {/* Second column: expand/collapse, pack name, dropdown actions */}
         <td
-          colSpan="8"
+          colSpan={calculateColspan()}
           style={{
             background: "#f5f5f5",
             fontWeight: "bold",

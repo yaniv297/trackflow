@@ -1,0 +1,208 @@
+.collaboration-invites {
+  background: white;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 2rem;
+}
+
+.sidebar-area .collaboration-invites-widget h2 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.collaboration-invites-widget {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.invites-list {
+  padding: 0;
+}
+
+.invite-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+}
+
+.invite-item:last-child {
+  border-bottom: none;
+}
+
+.invite-item:hover {
+  background-color: #f8f9fa;
+}
+
+.invite-content {
+  margin-bottom: 0.75rem;
+}
+
+.invite-header {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0.25rem;
+  gap: 0.75rem;
+}
+
+.invite-artwork {
+  flex-shrink: 0;
+}
+
+.invite-album-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.invite-album-cover-placeholder {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  font-size: 1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.invite-song-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-song-info .song-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.time {
+  font-size: 0.75rem;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.invite-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.requester {
+  color: #888;
+}
+
+.invite-message {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #555;
+  font-style: italic;
+  line-height: 1.3;
+  margin-top: 0.25rem;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.accept-btn,
+.reject-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 60px;
+}
+
+.accept-btn {
+  background: #28a745;
+  color: white;
+}
+
+.accept-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.reject-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.reject-btn:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.accept-btn:disabled,
+.reject-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.section-footer {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.view-all-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.view-all-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .invite-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .song-title {
+    margin-right: 0;
+    margin-bottom: 0.25rem;
+  }
+  
+  .invite-actions {
+    justify-content: flex-start;
+  }
+  
+  .accept-btn,
+  .reject-btn {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+  }
+}

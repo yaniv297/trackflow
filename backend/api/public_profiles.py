@@ -16,6 +16,31 @@ def get_user_achievement_score(db: Session, user_id: int) -> int:
     ).filter(UserAchievement.user_id == user_id).scalar()
     return result or 0
 
+def get_user_leaderboard_rank(db: Session, user_id: int) -> Optional[int]:
+    """Calculate user's rank on the leaderboard"""
+    try:
+        # Get all users with their cached total points, sorted like the leaderboard
+        users_query = db.query(
+            User.id,
+            User.username,
+            func.coalesce(UserStats.total_points, 0).label('total_points')
+        ).outerjoin(
+            UserStats, User.id == UserStats.user_id
+        ).filter(User.is_active == True).all()
+        
+        # Sort by points (descending), then by username (ascending) - same logic as leaderboard
+        sorted_users = sorted(users_query, key=lambda x: (-x.total_points, x.username))
+        
+        # Find the user's rank
+        for i, user_data in enumerate(sorted_users, 1):
+            if user_data.id == user_id:
+                return i
+        
+        return None  # User not found
+    except Exception as e:
+        print(f"Error calculating leaderboard rank for user {user_id}: {e}")
+        return None
+
 def get_user_rarest_achievements(db: Session, user_id: int, limit: int = 3) -> List[Dict]:
     """Get user's rarest achievements by rarity order"""
     rarity_order = {'legendary': 5, 'epic': 4, 'rare': 3, 'uncommon': 2, 'common': 1}
@@ -116,6 +141,9 @@ def get_public_user_profile(
     # Get achievement score
     achievement_score = get_user_achievement_score(db, user.id)
     
+    # Get leaderboard rank
+    leaderboard_rank = get_user_leaderboard_rank(db, user.id)
+    
     # Get released songs (individual songs not in packs or released from packs)
     released_songs_query = db.query(Song).filter(
         Song.user_id == user.id,
@@ -155,6 +183,7 @@ def get_public_user_profile(
         website_url=user.website_url,
         created_at=user.created_at,
         achievement_score=achievement_score,
+        leaderboard_rank=leaderboard_rank,
         released_songs=released_songs,
         released_packs=released_packs,
         public_wip_songs=public_wip_songs,

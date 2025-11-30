@@ -1,4 +1,6 @@
 import React from "react";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
+import UserProfilePopup from "../shared/UserProfilePopup";
 
 /**
  * Component for displaying online users tooltip (admin only)
@@ -11,6 +13,7 @@ const OnlineUsersTooltip = ({
   tooltipRef,
   tooltipPos,
 }) => {
+  const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
   return (
     <span
       ref={tooltipRef}
@@ -62,11 +65,32 @@ const OnlineUsersTooltip = ({
             }}
           >
             {onlineUsers.map((username, idx) => (
-              <div key={idx}>{username}</div>
+              <div 
+                key={idx}
+                onClick={handleUsernameClick(username)}
+                style={{ 
+                  cursor: 'pointer',
+                  padding: '2px 0',
+                  transition: 'color 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#667eea'}
+                onMouseLeave={(e) => e.target.style.color = '#666'}
+                title="Click to view profile"
+              >
+                {username}
+              </div>
             ))}
           </div>
         </div>
       )}
+      
+      {/* User Profile Popup */}
+      <UserProfilePopup
+        username={popupState.username}
+        isVisible={popupState.isVisible}
+        position={popupState.position}
+        onClose={hidePopup}
+      />
     </span>
   );
 };

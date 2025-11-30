@@ -25,6 +25,7 @@ import LatestReleasesPage from "../pages/LatestReleasesPage";
 import AchievementsPage from "../pages/AchievementsPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import CommunityPage from "../pages/CommunityPage";
+import CollaborationRequestsPage from "../pages/CollaborationRequestsPage";
 import ProfilePage from "../pages/ProfilePage";
 
 /**
@@ -136,6 +137,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <CommunityPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/collaboration-requests"
+        element={
+          <ProtectedRoute>
+            <CollaborationRequestsPage />
           </ProtectedRoute>
         }
       />

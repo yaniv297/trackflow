@@ -11,3 +11,4 @@ export { default as UserDashboard } from './UserDashboard';
 export { default as CommunityWips } from './CommunityWips';
 export { default as IntroSection } from './IntroSection';
 export { default as ClosestAchievements } from './ClosestAchievements';
+export { default as CollaborationInvites } from './CollaborationInvites';

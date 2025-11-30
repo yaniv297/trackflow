@@ -214,12 +214,6 @@ class AchievementsRepository:
             Collaboration.collaboration_type == CollaborationType.SONG_EDIT
         ).count()
     
-    def count_bug_reports(self, db: Session, user_id: int) -> int:
-        """Count user bug reports."""
-        return db.query(ActivityLog).filter(
-            ActivityLog.user_id == user_id,
-            ActivityLog.activity_type == "create_bug_report"
-        ).count()
     
     def count_series_created(self, db: Session, user_id: int) -> int:
         """Count album series created by user."""
@@ -399,10 +393,10 @@ class AchievementsRepository:
             return 0
     
     def count_public_wips(self, db: Session, user_id: int) -> int:
-        """Count user's public WIP songs."""
+        """Count user's public songs available for collaboration (Future Plans and WIP)."""
         return db.query(Song).filter(
             Song.user_id == user_id,
-            Song.status == SongStatus.wip,
+            Song.status.in_([SongStatus.future, SongStatus.wip]),
             Song.is_public == True
         ).count()
     

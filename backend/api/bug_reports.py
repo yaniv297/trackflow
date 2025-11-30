@@ -93,13 +93,6 @@ def submit_bug_report(
         
         print(f"✅ Bug report sent to Discord from {current_user.username}: {report.subject}")
         
-        # Check achievements
-        try:
-            from api.achievements import check_bug_report_achievements
-            check_bug_report_achievements(db, current_user.id)
-        except Exception as ach_err:
-            print(f"⚠️ Failed to check achievements: {ach_err}")
-        
         return {
             "message": "Bug report sent successfully! We'll look into it soon.",
             "status": "sent"
@@ -111,13 +104,6 @@ def submit_bug_report(
         print(f"Bug report from {current_user.username}:")
         print(f"Subject: {report.subject}")
         print(f"Description: {report.description}")
-        
-        # Check achievements even if Discord failed
-        try:
-            from api.achievements import check_bug_report_achievements
-            check_bug_report_achievements(db, current_user.id)
-        except Exception as ach_err:
-            print(f"⚠️ Failed to check achievements: {ach_err}")
         
         # Still return success to user, but log the error
         return {

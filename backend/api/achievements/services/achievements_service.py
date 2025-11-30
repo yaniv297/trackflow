@@ -415,9 +415,6 @@ class AchievementsService:
         self.check_metric_based_achievements(db, user_id, "series_created")
         self.check_metric_based_achievements(db, user_id, "completed_series")
 
-    def check_bug_report_achievements(self, db: Session, user_id: int):
-        """Check achievements for bug reports."""
-        self.check_metric_based_achievements(db, user_id, "bug_reports")
     
     def check_public_wip_achievements(self, db: Session, user_id: int):
         """Check achievements for public WIP songs."""

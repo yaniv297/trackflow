@@ -410,6 +410,14 @@ def toggle_song_public(
     except Exception as log_err:
         print(f"⚠️ Failed to log song public toggle: {log_err}")
     
+    # Check public WIP achievements if song was made public
+    if song.is_public:
+        try:
+            from api.achievements import check_public_wip_achievements
+            check_public_wip_achievements(db, current_user.id)
+        except Exception as ach_err:
+            print(f"⚠️ Failed to check public WIP achievements: {ach_err}")
+    
     return {
         "song_id": song_id,
         "is_public": song.is_public,

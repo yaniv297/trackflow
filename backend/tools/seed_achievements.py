@@ -78,9 +78,6 @@ ACHIEVEMENTS = [
     # Community Contribution
     ("first_feature_request", "Idea Generator", "Submit your first feature request", "💡", "activity", 10, "common", 1, "total_feature_requests"),
     ("five_feature_requests", "Innovator", "Submit 5 feature requests", "🚀", "activity", 25, "uncommon", 5, "total_feature_requests"),
-    ("ten_feature_requests", "Community Voice", "Submit 10 feature requests", "📢", "activity", 50, "rare", 10, "total_feature_requests"),
-    ("first_bug_report", "Bug Hunter", "Report your first bug", "🐛", "activity", 10, "common", 1, "bug_reports"),
-    ("five_bug_reports", "Quality Guardian", "Report 5 bugs", "🛡️", "activity", 25, "uncommon", 5, "bug_reports"),
     
     # Quality Achievements - Song Completion
     ("first_complete_song", "Perfectionist", "Complete all authoring fields for a song", "✨", "quality", 10, "common", 1, "completed_songs"),
@@ -124,11 +121,11 @@ ACHIEVEMENTS = [
     ("four_different_decades", "Decade Master", "Complete songs from 4 different decades", "🎺", "diversity", 100, "epic", 4, "unique_decades"),
     ("five_different_decades", "Timeline Legend", "Complete songs from 5 different decades", "🎻", "diversity", 250, "legendary", 5, "unique_decades"),
     
-    # Public WIP Achievements
-    ("first_public_wip", "Open Creator", "Make your first WIP song public", "🌐", "social", 10, "common", 1, "public_wips"),
-    ("five_public_wips", "Community Sharer", "Have 5 WIP songs public", "📢", "social", 25, "uncommon", 5, "public_wips"),
-    ("ten_public_wips", "Open Workshop", "Have 10 WIP songs public", "🏭", "social", 50, "rare", 10, "public_wips"),
-    ("twenty_five_public_wips", "Transparent Creator", "Have 25 WIP songs public", "💎", "social", 100, "epic", 25, "public_wips"),
+    # Public Songs Achievements (Future Plans and WIP available for collaboration)
+    ("first_public_wip", "Open Creator", "Make your first song public for collaboration", "🌐", "social", 10, "common", 1, "public_wips"),
+    ("five_public_wips", "Community Sharer", "Have 5 songs public for collaboration", "📢", "social", 25, "uncommon", 5, "public_wips"),
+    ("ten_public_wips", "Open Workshop", "Have 10 songs public for collaboration", "🏭", "social", 50, "rare", 10, "public_wips"),
+    ("twenty_five_public_wips", "Transparent Creator", "Have 25 songs public for collaboration", "💎", "social", 100, "epic", 25, "public_wips"),
     
     # Collaboration Request Achievements
     ("first_collab_request", "Reach Out", "Make your first collaboration request", "🤲", "social", 10, "common", 1, "collab_requests_sent"),

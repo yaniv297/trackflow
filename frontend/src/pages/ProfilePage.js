@@ -21,8 +21,8 @@ const ProfilePage = () => {
   const [wipSongsPage, setWipSongsPage] = useState(1);
   
   // Artist grouping states
-  const [groupByArtist, setGroupByArtist] = useState(true);
-  const [collapsedArtists, setCollapsedArtists] = useState(new Set());
+  const [groupByArtist, setGroupByArtist] = useState(false);
+  const [expandedArtists, setExpandedArtists] = useState(new Set());
   
   useEffect(() => {
     const fetchProfile = async () => {
@@ -82,22 +82,43 @@ const ProfilePage = () => {
       }));
   };
   
-  // Toggle artist collapse state
-  const toggleArtistCollapse = (artist) => {
-    const newCollapsed = new Set(collapsedArtists);
-    if (newCollapsed.has(artist)) {
-      newCollapsed.delete(artist);
-    } else {
-      newCollapsed.add(artist);
+  // Shuffle array using Fisher-Yates algorithm
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    setCollapsedArtists(newCollapsed);
+    return shuffled;
+  };
+  
+  // Toggle artist expand state
+  const toggleArtistCollapse = (artist) => {
+    const newExpanded = new Set(expandedArtists);
+    if (newExpanded.has(artist)) {
+      newExpanded.delete(artist);
+    } else {
+      newExpanded.add(artist);
+    }
+    setExpandedArtists(newExpanded);
   };
   
   // Reusable Songs Section Component
-  const SongsSection = ({ title, songs, paginatedData, onPageChange, showStatus = false }) => {
+  const SongsSection = ({ title, songs, currentPage, onPageChange, showStatus = false }) => {
     if (!songs || songs.length === 0) return null;
     
-    const groupedArtists = groupSongsByArtist(paginatedData.items);
+    let paginatedData;
+    let groupedArtists;
+    
+    if (groupByArtist) {
+      // When grouping by artist, group first, then paginate
+      groupedArtists = groupSongsByArtist(songs);
+      paginatedData = paginate(groupedArtists, currentPage);
+    } else {
+      // When showing table view, randomize order then paginate
+      const shuffledSongs = shuffleArray(songs);
+      paginatedData = paginate(shuffledSongs, currentPage);
+    }
     
     return (
       <div className="profile-section">
@@ -122,10 +143,9 @@ const ProfilePage = () => {
           {groupByArtist ? (
             // Artist-grouped view
             <div className="artists-grouped-view">
-              {groupedArtists.map(({ artist, songs: artistSongs, songCount }, index) => {
-                const isCollapsed = collapsedArtists.has(artist);
-                // By default, all artists start collapsed except the first one with most songs
-                const shouldBeCollapsed = index > 0 || isCollapsed;
+              {paginatedData.items.map(({ artist, songs: artistSongs, songCount }, index) => {
+                // Artists are collapsed by default, expanded only if explicitly expanded
+                const isCollapsed = !expandedArtists.has(artist);
                 
                 return (
                   <div key={artist} className="artist-group">
@@ -135,14 +155,14 @@ const ProfilePage = () => {
                     >
                       <div className="artist-info">
                         <span className="collapse-icon">
-                          {shouldBeCollapsed ? '▶' : '▼'}
+                          {isCollapsed ? '▶' : '▼'}
                         </span>
                         <h4 className="artist-name">{artist}</h4>
                         <span className="song-count">({songCount} song{songCount !== 1 ? 's' : ''})</span>
                       </div>
                     </div>
                     
-                    {!shouldBeCollapsed && (
+                    {!isCollapsed && (
                       <div className="artist-songs">
                         {artistSongs.map((song) => (
                           <div key={song.id} className="song-item">
@@ -189,11 +209,12 @@ const ProfilePage = () => {
               })}
             </div>
           ) : (
-            // Table view (original)
+            // Table view with album art
             <div className="songs-table-wrapper">
               <table className="songs-table">
                 <thead>
                   <tr>
+                    <th className="artwork-col"></th>
                     <th>Title</th>
                     <th>Artist</th>
                     <th>Album</th>
@@ -204,6 +225,27 @@ const ProfilePage = () => {
                 <tbody>
                   {paginatedData.items.map((song) => (
                     <tr key={song.id}>
+                      <td className="artwork-col">
+                        <div className="table-artwork">
+                          {song.album_cover ? (
+                            <img 
+                              src={song.album_cover} 
+                              alt={`${song.album || 'Album'} cover`}
+                              className="table-album-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextElementSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className="table-album-cover-placeholder"
+                            style={{ display: song.album_cover ? 'none' : 'flex' }}
+                          >
+                            ♪
+                          </div>
+                        </div>
+                      </td>
                       <td className="song-title">{song.title}</td>
                       <td>{song.artist}</td>
                       <td>{song.album || 'N/A'}</td>
@@ -377,10 +419,6 @@ const ProfilePage = () => {
   }
   
   const isOwnProfile = currentUser?.username === profile.username;
-  
-  // Paginated data
-  const releasedSongsData = paginate(profile.released_songs || [], releasedSongsPage);
-  const wipSongsData = paginate(profile.public_wip_songs || [], wipSongsPage);
   
   return (
     <div className="profile-page">
@@ -566,7 +604,7 @@ const ProfilePage = () => {
           <SongsSection
             title="Released Songs"
             songs={profile.released_songs}
-            paginatedData={releasedSongsData}
+            currentPage={releasedSongsPage}
             onPageChange={setReleasedSongsPage}
             showStatus={false}
           />
@@ -575,7 +613,7 @@ const ProfilePage = () => {
           <SongsSection
             title="Public WIP Songs"
             songs={profile.public_wip_songs}
-            paginatedData={wipSongsData}
+            currentPage={wipSongsPage}
             onPageChange={setWipSongsPage}
             showStatus={true}
           />

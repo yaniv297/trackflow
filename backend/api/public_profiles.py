@@ -1,13 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import User, Song, Pack, UserStats, Achievement, UserAchievement, SongStatus
+from models import User, Song, Pack, UserStats, Achievement, UserAchievement, SongStatus, Artist
 from schemas import PublicUserProfileOut, SongOut
 from api.auth import get_optional_user
 from typing import Optional, Dict, List
 from sqlalchemy import desc, func
 
 router = APIRouter(prefix="/profiles", tags=["Public Profiles"])
+
+def get_artist_images_batch(db: Session, artist_names: List[str]) -> Dict[str, str]:
+    """Get artist image URLs for multiple artist names using case-insensitive batch lookup"""
+    if not artist_names:
+        return {}
+    
+    artist_name_lowers = {name.lower() for name in artist_names if name}
+    artist_images = {
+        name.lower(): image_url
+        for name, image_url in db.query(Artist.name, Artist.image_url)
+            .filter(func.lower(Artist.name).in_(artist_name_lowers))
+            .all()
+    }
+    return artist_images
 
 def get_user_achievement_score(db: Session, user_id: int) -> int:
     """Calculate total achievement score for a user"""
@@ -68,20 +82,24 @@ def get_user_rarest_achievements(db: Session, user_id: int, limit: int = 3) -> L
         for a in sorted_achievements[:limit]
     ]
 
-def format_song_for_profile(song) -> Dict:
-    """Format song data for profile response"""
-    return {
-        "id": song.id,
-        "title": song.title,
-        "artist": song.artist,
-        "album": song.album,
-        "year": song.year,
-        "status": song.status,
-        "album_cover": song.album_cover,
-        "pack_name": song.pack_obj.name if song.pack_obj else None,
-        "created_at": song.created_at,
-        "released_at": song.released_at
-    }
+def format_songs_for_profile(songs, artist_images: Dict[str, str]) -> List[Dict]:
+    """Format multiple songs for profile response using batch artist images"""
+    return [
+        {
+            "id": song.id,
+            "title": song.title,
+            "artist": song.artist,
+            "album": song.album,
+            "year": song.year,
+            "status": song.status,
+            "album_cover": song.album_cover,
+            "artist_image_url": artist_images.get(song.artist.lower()) if song.artist else None,
+            "pack_name": song.pack_obj.name if song.pack_obj else None,
+            "created_at": song.created_at,
+            "released_at": song.released_at
+        }
+        for song in songs
+    ]
 
 def get_user_released_packs(db: Session, user_id: int) -> List[Dict]:
     """Get user's released packs with their songs"""
@@ -92,12 +110,15 @@ def get_user_released_packs(db: Session, user_id: int) -> List[Dict]:
     
     pack_list = []
     for pack in packs:
-        released_songs = [
-            format_song_for_profile(song) 
-            for song in pack.songs 
-            if song.status == SongStatus.released
-        ]
-        if released_songs:  # Only include packs that have released songs
+        released_songs_objs = [song for song in pack.songs if song.status == SongStatus.released]
+        
+        if released_songs_objs:  # Only include packs that have released songs
+            # Get artist images for this pack's songs
+            pack_artist_names = [song.artist for song in released_songs_objs if song.artist]
+            pack_artist_images = get_artist_images_batch(db, pack_artist_names)
+            
+            released_songs = format_songs_for_profile(released_songs_objs, pack_artist_images)
+            
             pack_list.append({
                 "id": pack.id,
                 "name": pack.name,
@@ -145,30 +166,32 @@ def get_public_user_profile(
     leaderboard_rank = get_user_leaderboard_rank(db, user.id)
     
     # Get released songs (individual songs not in packs or released from packs)
-    released_songs_query = db.query(Song).filter(
+    released_songs_objs = db.query(Song).filter(
         Song.user_id == user.id,
         Song.status == SongStatus.released
-    ).options(joinedload(Song.pack_obj))
+    ).options(joinedload(Song.pack_obj)).order_by(desc(Song.released_at)).all()
     
-    released_songs = [
-        format_song_for_profile(song) 
-        for song in released_songs_query.order_by(desc(Song.released_at)).all()
-    ]
+    # Get artist images for released songs
+    released_artist_names = [song.artist for song in released_songs_objs if song.artist]
+    released_artist_images = get_artist_images_batch(db, released_artist_names)
+    
+    released_songs = format_songs_for_profile(released_songs_objs, released_artist_images)
     
     # Get released packs
     released_packs = get_user_released_packs(db, user.id)
     
     # Get public WIP songs
-    public_wip_songs_query = db.query(Song).filter(
+    public_wip_songs_objs = db.query(Song).filter(
         Song.user_id == user.id,
         Song.status.in_([SongStatus.wip, SongStatus.future]),
         Song.is_public == True
-    ).options(joinedload(Song.pack_obj))
+    ).options(joinedload(Song.pack_obj)).order_by(desc(Song.updated_at)).all()
     
-    public_wip_songs = [
-        format_song_for_profile(song)
-        for song in public_wip_songs_query.order_by(desc(Song.updated_at)).all()
-    ]
+    # Get artist images for public WIP songs
+    wip_artist_names = [song.artist for song in public_wip_songs_objs if song.artist]
+    wip_artist_images = get_artist_images_batch(db, wip_artist_names)
+    
+    public_wip_songs = format_songs_for_profile(public_wip_songs_objs, wip_artist_images)
     
     # Get rarest achievements
     rarest_achievements = get_user_rarest_achievements(db, user.id, limit=3)

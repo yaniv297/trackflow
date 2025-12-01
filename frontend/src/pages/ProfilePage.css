@@ -481,6 +481,16 @@
 .song-details {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.song-title-block {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .song-item .song-title {
@@ -515,6 +525,11 @@
   margin-left: 0.5rem;
   padding: 0.2rem 0.6rem;
   font-size: 0.75rem;
+}
+
+/* In artist-grouped songs on the profile page, push the pack name pill to the far right */
+.artist-songs .pack-name {
+  margin-left: auto;
 }
 
 .songs-table-wrapper {

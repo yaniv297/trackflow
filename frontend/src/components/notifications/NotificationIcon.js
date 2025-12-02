@@ -117,11 +117,11 @@ const NotificationIcon = () => {
       setHasLoadedOnce(false);
       fetchNotifications();
       
-      // Automatically mark all notifications as read when opening the dropdown
+      // Mark all unread notifications as read when opening dropdown
       if (unreadCount > 0) {
-        setTimeout(() => {
-          markAllAsRead();
-        }, 200); // Small delay to ensure notifications are fetched first
+        await markAllAsRead();
+        // Refetch notifications to show updated read state
+        fetchNotifications();
       }
     }
     setShowDropdown(!showDropdown);

@@ -94,18 +94,34 @@ function UserSettings() {
     setSaving(true);
 
     try {
-      // Ensure auto_spotify_fetch_enabled and default_public_sharing are always included (even if false)
-      const payload = {
-        ...formData,
-        auto_spotify_fetch_enabled:
-          formData.auto_spotify_fetch_enabled !== undefined
-            ? formData.auto_spotify_fetch_enabled
-            : true,
-        default_public_sharing:
-          formData.default_public_sharing !== undefined
-            ? formData.default_public_sharing
-            : false,
-      };
+      // Create a clean payload, only including fields that have values
+      const payload = {};
+      
+      // Always include these boolean fields
+      payload.auto_spotify_fetch_enabled = formData.auto_spotify_fetch_enabled !== undefined 
+        ? formData.auto_spotify_fetch_enabled 
+        : true;
+      payload.default_public_sharing = formData.default_public_sharing !== undefined 
+        ? formData.default_public_sharing 
+        : false;
+      
+      // Always include profile fields to trigger achievement checks
+      payload.profile_image_url = formData.profile_image_url || "";
+      payload.website_url = formData.website_url || "";
+      
+      // Only include other fields if they have meaningful values
+      if (formData.email && formData.email.trim()) {
+        payload.email = formData.email.trim();
+      }
+      
+      if (formData.preferred_contact_method && formData.preferred_contact_method.trim()) {
+        payload.preferred_contact_method = formData.preferred_contact_method.trim();
+      }
+      
+      if (formData.discord_username && formData.discord_username.trim()) {
+        payload.discord_username = formData.discord_username.trim();
+      }
+      
       const response = await apiPut("/user-settings/me", payload);
 
       // Update the user context with new data

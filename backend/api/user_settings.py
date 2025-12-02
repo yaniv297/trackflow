@@ -77,6 +77,8 @@ def update_user_settings(
     db: Session = Depends(get_db)
 ):
     """Update current user's settings"""
+    print(f"📝 User settings update called for user {current_user.id} ({current_user.username})")
+    print(f"📝 Settings payload: {settings.model_dump()}")
     
     # Reload user from current session to ensure it's attached
     # This is necessary because current_user might come from cache
@@ -105,13 +107,14 @@ def update_user_settings(
     
     # Update other fields
     if settings.preferred_contact_method is not None:
-        if settings.preferred_contact_method not in ["email", "discord"]:
+        # Allow empty string to clear the contact method
+        if settings.preferred_contact_method != "" and settings.preferred_contact_method not in ["email", "discord"]:
             raise HTTPException(
                 status_code=400,
                 detail="preferred_contact_method must be 'email' or 'discord'"
             )
         
-        # Validate that required fields are provided based on contact method
+        # Validate that required fields are provided based on contact method (only if not empty)
         if settings.preferred_contact_method == "email" and not user.email:
             raise HTTPException(
                 status_code=400,
@@ -143,10 +146,14 @@ def update_user_settings(
         
         # Check for customization achievements after successful update
         try:
+            print(f"🔍 Checking customization achievements for user {user.id}")
             achievements_service = AchievementsService()
             achievements_service.check_customization_achievements(db, user.id)
+            print(f"✅ Customization achievement check completed for user {user.id}")
         except Exception as e:
-            print(f"Error checking customization achievements for user {user.id}: {e}")
+            print(f"❌ Error checking customization achievements for user {user.id}: {e}")
+            import traceback
+            traceback.print_exc()
             # Don't fail the user settings update if achievement check fails
         
         # Convert datetime to string for created_at

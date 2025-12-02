@@ -22,11 +22,14 @@ class PublicSongResponse(BaseModel):
     user_id: int
     username: str
     display_name: Optional[str] = None
+    profile_image_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     
     class Config:
         from_attributes = True
+        # Ensure None values are included in JSON
+        exclude_none = False
 
 class SharedConnectionsResponse(BaseModel):
     shared_songs: List[dict]
@@ -57,14 +60,13 @@ def browse_public_songs(
     """Browse all public songs with optional filtering and search"""
     
     if group_by == "artist":
-        # When grouping by artist, we need to handle pagination differently
-        # First, get unique artists with filtering
-        artist_query = db.query(Song.artist.distinct().label('artist')).join(User, Song.user_id == User.id).filter(Song.is_public == True)
+        # When grouping by artist, get ALL songs first, then group and paginate
+        songs_query = db.query(Song, User).join(User, Song.user_id == User.id).filter(Song.is_public == True)
         
-        # Apply filters to artist query
+        # Apply filters to song query
         if search:
             search_term = f"%{search}%"
-            artist_query = artist_query.filter(
+            songs_query = songs_query.filter(
                 or_(
                     Song.title.ilike(search_term),
                     Song.artist.ilike(search_term),
@@ -73,58 +75,32 @@ def browse_public_songs(
             )
             
         if status:
-            artist_query = artist_query.filter(Song.status == status)
+            songs_query = songs_query.filter(Song.status == status)
         
-        # Sort artists
-        if sort_by == 'artist':
-            if sort_direction.lower() == 'asc':
-                artist_query = artist_query.order_by(Song.artist.asc())
-            else:
-                artist_query = artist_query.order_by(Song.artist.desc())
+        # Apply sorting - this happens BEFORE grouping and pagination
+        sort_field_map = {
+            'title': Song.title,
+            'artist': Song.artist,
+            'username': User.username,
+            'status': Song.status,
+            'updated_at': Song.updated_at
+        }
+        
+        if sort_by not in sort_field_map:
+            sort_by = 'updated_at'  # Default fallback
+        
+        sort_field = sort_field_map[sort_by]
+        
+        if sort_direction.lower() == 'asc':
+            songs_query = songs_query.order_by(sort_field.asc())
         else:
-            # For other sort fields, we'll sort by artist for now
-            artist_query = artist_query.order_by(Song.artist.asc())
+            songs_query = songs_query.order_by(sort_field.desc())
         
-        # Get total artist count
-        total_artists = artist_query.count()
+        # Get all filtered and sorted results
+        all_results = songs_query.all()
         
-        # Apply pagination to artists
-        paginated_artists = artist_query.offset(offset).limit(limit).all()
-        artist_names = [row.artist for row in paginated_artists]
-        
-        # Now get all songs for these artists
-        if artist_names:
-            songs_query = db.query(Song, User).join(User, Song.user_id == User.id).filter(
-                Song.is_public == True,
-                Song.artist.in_(artist_names)
-            )
-            
-            # Apply same filters to songs query
-            if search:
-                search_term = f"%{search}%"
-                songs_query = songs_query.filter(
-                    or_(
-                        Song.title.ilike(search_term),
-                        Song.artist.ilike(search_term),
-                        User.username.ilike(search_term)
-                    )
-                )
-                
-            if status:
-                songs_query = songs_query.filter(Song.status == status)
-            
-            # Sort songs within each artist group
-            songs_query = songs_query.order_by(Song.artist.asc(), Song.updated_at.desc())
-            
-            results = songs_query.all()
-        else:
-            results = []
-        
-        # Calculate pagination info
-        page = (offset // limit) + 1
-        total_pages = (total_artists + limit - 1) // limit
-        
-        songs = [
+        # Build response objects
+        all_songs = [
             PublicSongResponse(
                 id=song.id,
                 title=song.title,
@@ -136,29 +112,39 @@ def browse_public_songs(
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
+                profile_image_url=user.profile_image_url,
                 created_at=song.created_at,
                 updated_at=song.updated_at
             )
-            for song, user in results
+            for song, user in all_results
         ]
         
+        # Apply pagination to the final sorted list
+        total_count = len(all_songs)
+        start_index = offset
+        end_index = offset + limit
+        paginated_songs = all_songs[start_index:end_index]
+        
+        # Calculate pagination info
+        page = (offset // limit) + 1
+        total_pages = (total_count + limit - 1) // limit
+        
         return PaginatedPublicSongsResponse(
-            songs=songs,
-            total_count=total_artists,  # Total count is number of artists, not songs
+            songs=paginated_songs,
+            total_count=total_count,
             page=page,
             per_page=limit,
             total_pages=total_pages
         )
     
     elif group_by == "user":
-        # When grouping by user, we need to handle pagination differently
-        # First, get unique users with filtering
-        user_query = db.query(User.id, User.username, User.display_name, User.profile_image_url).join(Song, User.id == Song.user_id).filter(Song.is_public == True).distinct()
+        # When grouping by user, get ALL songs first, then group and paginate
+        songs_query = db.query(Song, User).join(User, Song.user_id == User.id).filter(Song.is_public == True)
         
-        # Apply filters to user query
+        # Apply filters to song query
         if search:
             search_term = f"%{search}%"
-            user_query = user_query.filter(
+            songs_query = songs_query.filter(
                 or_(
                     Song.title.ilike(search_term),
                     Song.artist.ilike(search_term),
@@ -167,59 +153,37 @@ def browse_public_songs(
             )
             
         if status:
-            user_query = user_query.filter(Song.status == status)
+            songs_query = songs_query.filter(Song.status == status)
         
-        # Sort users
-        if sort_by == 'username':
-            if sort_direction.lower() == 'asc':
-                user_query = user_query.order_by(User.username.asc())
-            else:
-                user_query = user_query.order_by(User.username.desc())
+        # Apply sorting - this happens BEFORE grouping and pagination
+        sort_field_map = {
+            'title': Song.title,
+            'artist': Song.artist,
+            'username': User.username,
+            'status': Song.status,
+            'updated_at': Song.updated_at
+        }
+        
+        if sort_by not in sort_field_map:
+            sort_by = 'updated_at'  # Default fallback
+        
+        sort_field = sort_field_map[sort_by]
+        
+        if sort_direction.lower() == 'asc':
+            songs_query = songs_query.order_by(sort_field.asc())
         else:
-            # For other sort fields, we'll sort by username for now
-            user_query = user_query.order_by(User.username.asc())
+            songs_query = songs_query.order_by(sort_field.desc())
         
-        # Get total user count
-        total_users = user_query.count()
+        # Get all filtered and sorted results
+        all_results = songs_query.all()
         
-        # Apply pagination to users
-        paginated_users = user_query.offset(offset).limit(limit).all()
-        user_ids = [row.id for row in paginated_users]
-        
-        # Now get all songs for these users
-        if user_ids:
-            songs_query = db.query(Song, User).join(User, Song.user_id == User.id).filter(
-                Song.is_public == True,
-                Song.user_id.in_(user_ids)
-            )
+        # Build response objects
+        all_songs = []
+        for song, user in all_results:
+            # Debug: Print user info
+            print(f"DEBUG User: {user.username} - profile_image_url: {user.profile_image_url} - display_name: {user.display_name}")
             
-            # Apply same filters to songs query
-            if search:
-                search_term = f"%{search}%"
-                songs_query = songs_query.filter(
-                    or_(
-                        Song.title.ilike(search_term),
-                        Song.artist.ilike(search_term),
-                        User.username.ilike(search_term)
-                    )
-                )
-                
-            if status:
-                songs_query = songs_query.filter(Song.status == status)
-            
-            # Sort songs within each user group
-            songs_query = songs_query.order_by(User.username.asc(), Song.updated_at.desc())
-            
-            results = songs_query.all()
-        else:
-            results = []
-        
-        # Calculate pagination info
-        page = (offset // limit) + 1
-        total_pages = (total_users + limit - 1) // limit
-        
-        songs = [
-            PublicSongResponse(
+            song_response = PublicSongResponse(
                 id=song.id,
                 title=song.title,
                 artist=song.artist,
@@ -230,15 +194,25 @@ def browse_public_songs(
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
+                profile_image_url=user.profile_image_url,
                 created_at=song.created_at,
                 updated_at=song.updated_at
             )
-            for song, user in results
-        ]
+            all_songs.append(song_response)
+        
+        # Apply pagination to the final sorted list
+        total_count = len(all_songs)
+        start_index = offset
+        end_index = offset + limit
+        paginated_songs = all_songs[start_index:end_index]
+        
+        # Calculate pagination info
+        page = (offset // limit) + 1
+        total_pages = (total_count + limit - 1) // limit
         
         return PaginatedPublicSongsResponse(
-            songs=songs,
-            total_count=total_users,  # Total count is number of users, not songs
+            songs=paginated_songs,
+            total_count=total_count,
             page=page,
             per_page=limit,
             total_pages=total_pages
@@ -304,6 +278,7 @@ def browse_public_songs(
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
+                profile_image_url=user.profile_image_url,
                 created_at=song.created_at,
                 updated_at=song.updated_at
             )

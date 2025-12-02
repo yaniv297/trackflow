@@ -35,8 +35,8 @@ const CommunityPage = () => {
   
   // Sorting state
   const [sortConfig, setSortConfig] = useState({
-    field: 'updated_at',
-    direction: 'desc'
+    field: 'title',
+    direction: 'asc'
   });
   
   // Pagination
@@ -52,39 +52,19 @@ const CommunityPage = () => {
       setIsLoading(true);
       setError(null);
 
-      // When grouping is enabled, fetch more songs to ensure proper sorting across groups
-      const isGrouping = groupBy !== 'none';
-      const fetchLimit = isGrouping ? 1000 : SONGS_PER_PAGE;
-      const fetchOffset = isGrouping ? 0 : (page - 1) * SONGS_PER_PAGE;
-
       const result = await publicSongsService.browsePublicSongs({
         search: newFilters.search,
         status: newFilters.status,
         sort_by: newSortConfig.field,
         sort_direction: newSortConfig.direction,
-        group_by: null, // Let frontend handle grouping for better sorting
-        limit: fetchLimit,
-        offset: fetchOffset
+        group_by: groupBy !== 'none' ? groupBy : null, // Pass grouping to backend
+        limit: SONGS_PER_PAGE,
+        offset: (page - 1) * SONGS_PER_PAGE
       });
 
       if (result.success) {
-        if (isGrouping) {
-          // For grouped view, implement frontend pagination
-          const startIndex = (page - 1) * SONGS_PER_PAGE;
-          const endIndex = startIndex + SONGS_PER_PAGE;
-          const paginatedSongs = result.data.slice(startIndex, endIndex);
-          
-          setSongs(paginatedSongs);
-          setPagination({
-            total_count: result.data.length,
-            page: page,
-            per_page: SONGS_PER_PAGE,
-            total_pages: Math.ceil(result.data.length / SONGS_PER_PAGE)
-          });
-        } else {
-          setSongs(result.data);
-          setPagination(result.pagination);
-        }
+        setSongs(result.data);
+        setPagination(result.pagination);
         setCurrentPage(page);
       } else {
         setError(result.error);
@@ -152,33 +132,8 @@ const CommunityPage = () => {
   }, []);
 
   const groupSongsByArtist = useCallback((songs) => {
-    // First sort all songs according to current sort config
-    const sortedSongs = [...songs].sort((a, b) => {
-      const { field, direction } = sortConfig;
-      let aVal = a[field] || '';
-      let bVal = b[field] || '';
-      
-      // Handle date fields
-      if (field === 'updated_at' || field === 'created_at') {
-        aVal = new Date(aVal).getTime();
-        bVal = new Date(bVal).getTime();
-      }
-      
-      // Handle string comparisons
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (direction === 'asc') {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      }
-    });
-
-    // Then group the sorted songs
-    const grouped = sortedSongs.reduce((acc, song) => {
+    // Group the songs (backend already sorted them)
+    const grouped = songs.reduce((acc, song) => {
       const artist = song.artist;
       if (!acc[artist]) {
         acc[artist] = [];
@@ -186,37 +141,40 @@ const CommunityPage = () => {
       acc[artist].push(song);
       return acc;
     }, {});
+    
+    // Sort songs within each artist group based on current sort config
+    Object.keys(grouped).forEach(artist => {
+      grouped[artist].sort((a, b) => {
+        const { field, direction } = sortConfig;
+        let aVal = a[field] || '';
+        let bVal = b[field] || '';
+        
+        // Handle date fields
+        if (field === 'updated_at' || field === 'created_at') {
+          aVal = new Date(aVal).getTime();
+          bVal = new Date(bVal).getTime();
+        }
+        
+        // Handle string comparisons
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          aVal = aVal.toLowerCase();
+          bVal = bVal.toLowerCase();
+        }
+        
+        if (direction === 'asc') {
+          return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        } else {
+          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+      });
+    });
+    
     return grouped;
   }, [sortConfig]);
 
   const groupSongsByUser = useCallback((songs) => {
-    // First sort all songs according to current sort config
-    const sortedSongs = [...songs].sort((a, b) => {
-      const { field, direction } = sortConfig;
-      let aVal = a[field] || '';
-      let bVal = b[field] || '';
-      
-      // Handle date fields
-      if (field === 'updated_at' || field === 'created_at') {
-        aVal = new Date(aVal).getTime();
-        bVal = new Date(bVal).getTime();
-      }
-      
-      // Handle string comparisons
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (direction === 'asc') {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      }
-    });
-
-    // Then group the sorted songs
-    const grouped = sortedSongs.reduce((acc, song) => {
+    // Group the songs (backend already sorted them)
+    const grouped = songs.reduce((acc, song) => {
       const username = song.username;
       if (!acc[username]) {
         acc[username] = [];
@@ -224,6 +182,34 @@ const CommunityPage = () => {
       acc[username].push(song);
       return acc;
     }, {});
+    
+    // Sort songs within each user group based on current sort config
+    Object.keys(grouped).forEach(username => {
+      grouped[username].sort((a, b) => {
+        const { field, direction } = sortConfig;
+        let aVal = a[field] || '';
+        let bVal = b[field] || '';
+        
+        // Handle date fields
+        if (field === 'updated_at' || field === 'created_at') {
+          aVal = new Date(aVal).getTime();
+          bVal = new Date(bVal).getTime();
+        }
+        
+        // Handle string comparisons
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          aVal = aVal.toLowerCase();
+          bVal = bVal.toLowerCase();
+        }
+        
+        if (direction === 'asc') {
+          return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        } else {
+          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+      });
+    });
+    
     return grouped;
   }, [sortConfig]);
 
@@ -303,55 +289,26 @@ const CommunityPage = () => {
                 fontWeight: '500',
                 color: '#495057'
               }}>
-                <span style={{ marginRight: '8px' }}>Group by:</span>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  cursor: 'pointer'
-                }}>
-                  <input
-                    type="radio"
-                    name="groupBy"
-                    value="none"
-                    checked={groupBy === 'none'}
-                    onChange={(e) => handleGroupByChange('none')}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  None
-                </label>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  cursor: 'pointer'
-                }}>
-                  <input
-                    type="radio"
-                    name="groupBy"
-                    value="artist"
-                    checked={groupBy === 'artist'}
-                    onChange={(e) => handleGroupByChange('artist')}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  Artist
-                </label>
-                <label style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  cursor: 'pointer'
-                }}>
-                  <input
-                    type="radio"
-                    name="groupBy"
-                    value="user"
-                    checked={groupBy === 'user'}
-                    onChange={(e) => handleGroupByChange('user')}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  User
-                </label>
+                <label htmlFor="groupBy" style={{ marginRight: '8px' }}>Group by:</label>
+                <select
+                  id="groupBy"
+                  value={groupBy}
+                  onChange={(e) => handleGroupByChange(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    border: '1px solid #ced4da',
+                    borderRadius: '4px',
+                    backgroundColor: 'white',
+                    fontSize: '14px',
+                    color: '#495057',
+                    cursor: 'pointer',
+                    minWidth: '120px'
+                  }}
+                >
+                  <option value="none">None</option>
+                  <option value="artist">Artist</option>
+                  <option value="user">User</option>
+                </select>
               </div>
             </div>
             <div style={{ fontSize: '14px', color: '#6c757d' }}>
@@ -401,7 +358,9 @@ const CommunityPage = () => {
               {groupBy === 'artist' ? (
                 // Grouped view by artist
                 <div className="grouped-results">
-                  {Object.entries(groupSongsByArtist(songs)).map(([artist, artistSongs]) => (
+                  {Object.entries(groupSongsByArtist(songs))
+                  .sort(([a], [b]) => a.localeCompare(b)) // Sort artists alphabetically
+                  .map(([artist, artistSongs]) => (
                     <ArtistGroup
                       key={artist}
                       artist={artist}
@@ -416,7 +375,9 @@ const CommunityPage = () => {
               ) : groupBy === 'user' ? (
                 // Grouped view by user
                 <div className="grouped-results">
-                  {Object.entries(groupSongsByUser(songs)).map(([username, userSongs]) => (
+                  {Object.entries(groupSongsByUser(songs))
+                  .sort(([a], [b]) => a.localeCompare(b)) // Sort users alphabetically
+                  .map(([username, userSongs]) => (
                     <UserGroup
                       key={username}
                       user={username}

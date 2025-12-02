@@ -6,7 +6,7 @@
 export const authoringResources = [
   {
     title: "Complete Authoring Book",
-    description: "Full instructions on how to create songs - written by DOA",
+    description: "Comprehensive PDF guide covering everything from basic charting to advanced techniques. The definitive resource for learning Rock Band authoring from start to finish.",
     url: "https://keepitfishy.com/doa/CustomsBookv1.pdf",
     type: "PDF Guide",
     icon: "📚",
@@ -14,35 +14,35 @@ export const authoringResources = [
   },
   {
     title: "RhythmVerse",
-    description: "Platform to download custom songs",
+    description: "The definitive platform for discovering and downloading thousands of custom Rock Band and other rhythm games.",
     url: "https://rhythmverse.co/",
     type: "Website",
     icon: "🎵"
   },
   {
     title: "Magma",
-    description: "For compiling songs",
+    description: "Compiler that converts your authored songs into playable .con files for Rock Band 3. Required for finalizing any custom song project.",
     url: "https://rhythmgamingworld.com/wp-content/uploads/2024/05/MagmaC3v335.zip",
     type: "Software",
     icon: "🔧"
   },
   {
     title: "REAPER v4.22 (32-bit)",
-    description: "Version 4.22 is the recommended version for authoring",
+    description: "The standard DAW for Rock Band authoring. This specific version offers perfect compatibility with authoring templates and automation tools.",
     url: "https://www.reaper.fm/download-old.php?ver=4x",
     type: "DAW",
     icon: "🎛️"
   },
   {
     title: "C3 Automation Tools (CAT)",
-    description: "A collection of scripts that automate tasks in REAPER",
+    description: "Powerful REAPER scripts that automate repetitive authoring tasks like automatic reductions, animation generation and more. Massive time-saver for authors.",
     url: "https://github.com/abefacciazzi/CAT/releases/",
     type: "Scripts",
     icon: "🤖"
   },
   {
     title: "Nautilus",
-    description: "A collection of tools for handling customs",
+    description: "Swiss army knife for custom song management. Convert between formats, batch process files, and countless other tools.",
     url: "https://nemosnautilus.com/nautilus/",
     type: "Tools",
     icon: "⚓",
@@ -50,56 +50,56 @@ export const authoringResources = [
   },
   {
     title: "Onyx",
-    description: "Toolkit for Rock Band, Guitar Hero, Clone Hero, and other similar rhythm games",
+    description: "Cross-platform toolkit supporting multiple rhythm games. Convert songs between Rock Band, Guitar Hero, Clone Hero formats and generate practice tracks.",
     url: "https://github.com/mtolly/onyx",
     type: "Toolkit",
     icon: "💎"
   },
   {
     title: "MVSEP",
-    description: "Recommended for stem separation",
+    description: "AI-powered stem separation service that isolates vocals, drums, bass, and other instruments from mixed audio tracks. Essential for creating multitracks from stereo sources.",
     url: "https://mvsep.com/",
     type: "Online Tool",
     icon: "🎚️"
   },
   {
     title: "Lyric Hyphenator",
-    description: "Tool for properly hyphenating lyrics for Rock Band authoring",
+    description: "Specialized tool that properly formats and hyphenates lyrics according to Rock Band standards.",
     url: "https://endlessrenovation.com/rb/hyph",
     type: "Online Tool",
     icon: "✍️"
   },
   {
     title: "cPlayer",
-    description: "Preview custom song files",
+    description: "Lightweight preview application for playing custom songs. Use your custom songs as entertainment or test your songs.",
     url: "https://bit.ly/nemoCPLAYER",
     type: "Software",
     icon: "▶️"
   },
   {
     title: "Venuegen",
-    description: "Venue authoring tool (Requires Python 2.x)",
+    description: "Specialized tool for creating custom venue lighting and camera movements. Add visual flair to your songs with synchronized stage effects (Requires Python 2.x).",
     url: "https://github.com/kueller/venuegen",
     type: "Software",
     icon: "🏟️"
   },
   {
     title: "YARG",
-    description: "YARG (a.k.a. Yet Another Rhythm Game) is a free, open-source, plastic guitar game that is still in development. It supports Guitar (five fret), Drums (plastic or e-kit), Vocals, Pro Keys, and more!",
+    description: "Free, open-source, still-in-development rhythm game supporting Guitar, Bass, Drums, Vocals, and Pro Keys. Enjoy playing songs!",
     url: "https://yarg.in/",
     type: "Game",
     icon: "🎸"
   },
   {
     title: "Rock Band 3 Deluxe",
-    description: "The biggest rhythm game mod of all time, a big update to rock band 3",
+    description: "Massive community mod that enhances Rock Band 3 with new features, improved gameplay, expanded customization, and more.",
     url: "https://rb3dx.milohax.org/",
     type: "Game Mod",
     icon: "🎮"
   },
   {
     title: "Rhythm Gaming World",
-    description: "A blog for releases and updates in the customs world (currently inactive)",
+    description: "Community blog featuring custom song releases, authoring tutorials, and rhythm gaming news. Archive of valuable resources and community discussions (currently inactive).",
     url: "https://rhythmgamingworld.com/",
     type: "Blog",
     icon: "📰"

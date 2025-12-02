@@ -31,7 +31,7 @@ const NotificationDropdown = ({
   };
 
   const handleNotificationClick = (notification) => {
-    // Navigate based on notification type
+    // Navigate based on notification type (notifications are already marked as read when dropdown opens)
     if (notification.type === 'achievement_earned') {
       navigate('/achievements');
     } else if (notification.type === 'comment_reply' || notification.type === 'feature_request_update') {
@@ -145,15 +145,16 @@ const NotificationDropdown = ({
                 padding: '0.75rem 1rem',
                 borderBottom: '1px solid #f0f0f0',
                 cursor: 'pointer',
-                backgroundColor: 'white',
+                backgroundColor: notification.is_read ? 'white' : '#f8f9ff',
                 transition: 'background-color 0.2s',
-                position: 'relative'
+                position: 'relative',
+                borderLeft: notification.is_read ? 'none' : '3px solid #007bff'
               }}
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#f8f9fa';
+                e.target.style.backgroundColor = '#f0f4ff';
               }}
               onMouseLeave={(e) => {
-                e.target.style.backgroundColor = 'white';
+                e.target.style.backgroundColor = notification.is_read ? 'white' : '#f8f9ff';
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -200,10 +201,30 @@ const NotificationDropdown = ({
           style={{
             padding: '0.75rem',
             borderTop: '1px solid #eee',
-            textAlign: 'center',
-            background: '#f8f9fa'
+            background: '#f8f9fa',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem'
           }}
         >
+          {unreadCount > 0 && (
+            <button
+              onClick={() => {
+                onMarkAllAsRead();
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6c757d',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                textDecoration: 'underline'
+              }}
+            >
+              Mark all read
+            </button>
+          )}
           <button
             onClick={() => {
               navigate('/notifications'); // Go to the full notifications page
@@ -215,10 +236,11 @@ const NotificationDropdown = ({
               color: '#007bff',
               cursor: 'pointer',
               fontSize: '0.9rem',
-              textDecoration: 'underline'
+              textDecoration: 'underline',
+              marginLeft: 'auto'
             }}
           >
-            View all notifications ({totalCount})
+            View all ({totalCount})
           </button>
         </div>
       )}

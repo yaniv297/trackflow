@@ -100,7 +100,7 @@ class NotificationService:
             user_id=user_id,
             type=NotificationType.WELCOME,
             title="🎉 Welcome to TrackFlow!",
-            message="Click ⚙️ → Help & FAQ to learn about features and get started. Check out the Stats section to view your progress and achievements!"
+            message="Click Help in the navigation bar to learn about features and get started. Start creating by clicking 'Add Song' to begin your first track!"
         )
         
         return self._format_notification_out(notification)

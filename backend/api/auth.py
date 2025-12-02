@@ -420,6 +420,23 @@ def claim_existing_user(
                 """), {"wid": workflow_id, "step_name": step["step_name"], "display_name": step["display_name"], "order_index": i})
         db.commit()
     
+    # Award account creation achievement and create welcome notification for claimed user
+    try:
+        from api.achievements.services.achievements_service import AchievementsService
+        from api.notifications.services.notification_service import NotificationService
+        
+        # Award the welcome achievement
+        achievements_service = AchievementsService()
+        achievements_service.award_achievement(db, user.id, "account_created")
+        
+        # Create welcome notification
+        notification_service = NotificationService(db)
+        notification_service.create_welcome_notification(user.id)
+        
+    except Exception as e:
+        print(f"Warning: Failed to award welcome achievement or create notification for user {user.id}: {e}")
+        # Don't fail claim process if achievement/notification fails
+    
     # Create access token
     access_token_expires = timedelta(minutes=1440)
     access_token = create_access_token(
@@ -524,6 +541,23 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
                     VALUES (:wid, :step_name, :display_name, :order_index)
                 """), {"wid": workflow_id, "step_name": step["step_name"], "display_name": step["display_name"], "order_index": i})
         db.commit()
+    
+    # Award account creation achievement and create welcome notification
+    try:
+        from api.achievements.services.achievements_service import AchievementsService
+        from api.notifications.services.notification_service import NotificationService
+        
+        # Award the welcome achievement
+        achievements_service = AchievementsService()
+        achievements_service.award_achievement(db, db_user.id, "account_created")
+        
+        # Create welcome notification
+        notification_service = NotificationService(db)
+        notification_service.create_welcome_notification(db_user.id)
+        
+    except Exception as e:
+        print(f"Warning: Failed to award welcome achievement or create notification for user {db_user.id}: {e}")
+        # Don't fail registration if achievement/notification fails
     
     # Create access token
     access_token_expires = timedelta(minutes=1440)  # 24 hours

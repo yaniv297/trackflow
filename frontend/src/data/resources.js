@@ -82,6 +82,27 @@ export const authoringResources = [
     url: "https://github.com/kueller/venuegen",
     type: "Software",
     icon: "🏟️"
+  },
+  {
+    title: "YARG",
+    description: "YARG (a.k.a. Yet Another Rhythm Game) is a free, open-source, plastic guitar game that is still in development. It supports Guitar (five fret), Drums (plastic or e-kit), Vocals, Pro Keys, and more!",
+    url: "https://yarg.in/",
+    type: "Game",
+    icon: "🎸"
+  },
+  {
+    title: "Rock Band 3 Deluxe",
+    description: "The biggest rhythm game mod of all time, a big update to rock band 3",
+    url: "https://rb3dx.milohax.org/",
+    type: "Game Mod",
+    icon: "🎮"
+  },
+  {
+    title: "Rhythm Gaming World",
+    description: "A blog for releases and updates in the customs world (currently inactive)",
+    url: "https://rhythmgamingworld.com/",
+    type: "Blog",
+    icon: "📰"
   }
 ];
 

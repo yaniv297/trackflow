@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const NEW_FEATURES_PROMO_END = new Date("2025-12-15T00:00:00Z").getTime();
 
 /**
  * Hook for managing various app-level effects
@@ -70,29 +69,5 @@ export const useAppEffects = (isAuthenticated, user) => {
     };
   }, [navigate]);
 
-  // One-time popup to announce new features
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-    const now = Date.now();
-    if (now > NEW_FEATURES_PROMO_END) {
-      return;
-    }
-    const key = `tf_new_features_popup_shown_${user.id || user.username}`;
-    if (!localStorage.getItem(key)) {
-      if (
-        typeof window !== "undefined" &&
-        typeof window.showNotification === "function"
-      ) {
-        window.showNotification(
-          <span>
-            🎉 <strong>New Features:</strong> Added song notes, column
-            selection, forgot password, and various bug fixes!
-          </span>,
-          "success"
-        );
-      }
-      localStorage.setItem(key, "true");
-    }
-  }, [isAuthenticated, user]);
 };
 

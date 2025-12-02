@@ -31,11 +31,6 @@ const NotificationDropdown = ({
   };
 
   const handleNotificationClick = (notification) => {
-    // Mark as read if not already read
-    if (!notification.is_read) {
-      onMarkAsRead(notification.id);
-    }
-
     // Navigate based on notification type
     if (notification.type === 'achievement_earned') {
       navigate('/achievements');
@@ -106,32 +101,16 @@ const NotificationDropdown = ({
       >
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>
           Notifications
-          {unreadCount > 0 && (
+          {totalCount > 0 && (
             <span style={{ 
               marginLeft: '0.5rem', 
-              color: '#007bff',
+              color: '#666',
               fontSize: '0.9rem' 
             }}>
-              ({unreadCount} new)
+              ({totalCount})
             </span>
           )}
         </h3>
-        
-        {unreadCount > 0 && (
-          <button
-            onClick={onMarkAllAsRead}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#007bff',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              textDecoration: 'underline'
-            }}
-          >
-            Mark all read
-          </button>
-        )}
       </div>
 
       {/* Loading state */}
@@ -166,15 +145,15 @@ const NotificationDropdown = ({
                 padding: '0.75rem 1rem',
                 borderBottom: '1px solid #f0f0f0',
                 cursor: 'pointer',
-                backgroundColor: notification.is_read ? 'white' : '#f8f9ff',
+                backgroundColor: 'white',
                 transition: 'background-color 0.2s',
                 position: 'relative'
               }}
               onMouseEnter={(e) => {
-                e.target.style.backgroundColor = notification.is_read ? '#f8f9fa' : '#f0f4ff';
+                e.target.style.backgroundColor = '#f8f9fa';
               }}
               onMouseLeave={(e) => {
-                e.target.style.backgroundColor = notification.is_read ? 'white' : '#f8f9ff';
+                e.target.style.backgroundColor = 'white';
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -184,7 +163,7 @@ const NotificationDropdown = ({
                 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ 
-                    fontWeight: notification.is_read ? 'normal' : 'bold',
+                    fontWeight: 'normal',
                     fontSize: '0.9rem',
                     color: '#333',
                     marginBottom: '0.25rem'
@@ -203,22 +182,9 @@ const NotificationDropdown = ({
                   
                   <div style={{ 
                     fontSize: '0.7rem',
-                    color: '#999',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
+                    color: '#999'
                   }}>
                     <span>{formatTimeAgo(notification.created_at)}</span>
-                    
-                    {!notification.is_read && (
-                      <span style={{
-                        width: '8px',
-                        height: '8px',
-                        backgroundColor: '#007bff',
-                        borderRadius: '50%',
-                        flexShrink: 0
-                      }} />
-                    )}
                   </div>
                 </div>
 

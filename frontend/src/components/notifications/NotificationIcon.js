@@ -28,7 +28,7 @@ const NotificationIcon = () => {
 
   // Fetch full notifications list when dropdown opens
   const fetchNotifications = async () => {
-    if (loading || hasLoadedOnce) return;
+    if (loading) return;
     
     console.log('📋 Fetching notifications...');
     setLoading(true);
@@ -111,9 +111,18 @@ const NotificationIcon = () => {
   };
 
   // Toggle dropdown
-  const toggleDropdown = () => {
+  const toggleDropdown = async () => {
     if (!showDropdown) {
+      // Reset hasLoadedOnce to ensure fresh fetch
+      setHasLoadedOnce(false);
       fetchNotifications();
+      
+      // Automatically mark all notifications as read when opening the dropdown
+      if (unreadCount > 0) {
+        setTimeout(() => {
+          markAllAsRead();
+        }, 200); // Small delay to ensure notifications are fetched first
+      }
     }
     setShowDropdown(!showDropdown);
   };

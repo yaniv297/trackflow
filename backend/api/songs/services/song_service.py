@@ -11,6 +11,8 @@ from api.achievements import (
     check_status_achievements, check_wip_completion_achievements,
     check_diversity_achievements, check_collaboration_achievements
 )
+from api.achievements.repositories.achievements_repository import AchievementsRepository
+from api.notifications.services.notification_service import NotificationService
 
 from ..repositories.song_repository import SongRepository
 from ..repositories.collaboration_repository import CollaborationRepository
@@ -25,6 +27,8 @@ class SongService:
         self.song_repo = SongRepository(db)
         self.collab_repo = CollaborationRepository(db)
         self.pack_repo = PackRepository(db)
+        self.achievements_repo = AchievementsRepository()
+        self.notification_service = NotificationService(db)
     
     def create_song(self, song_data: SongCreate, current_user: User) -> SongOut:
         """Create a new song with pack handling and achievements."""
@@ -116,6 +120,21 @@ class SongService:
                 if old_status != "Released" and old_status != SongStatus.released:
                     song.released_at = datetime.utcnow()
                     print(f"🚀 Set released_at for song {song.id} '{song.title}' - status change from {old_status} to {new_status}")
+                    
+                    # Award 10 points for releasing a song
+                    try:
+                        self.achievements_repo.update_user_total_points(self.db, current_user.id, 10, commit=False)
+                        print(f"🎯 Awarded 10 points to user {current_user.id} for releasing song '{song.title}'")
+                        
+                        # Create notification for the user
+                        self.notification_service.create_general_notification(
+                            user_id=current_user.id,
+                            title="🎯 Song Released!",
+                            message=f"You earned 10 points for releasing '{song.title}'"
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Failed to award release points: {e}")
+                        
             # Clear released_at if moving away from Released
             elif song.released_at is not None:
                 if old_status == "Released" or old_status == SongStatus.released:
@@ -601,8 +620,44 @@ class SongService:
     
     def _release_completed_songs(self, completed_songs: List[Song]):
         """Release completed songs by changing their status."""
+        points_awarded = 0
+        released_songs = []
+        
         for song in completed_songs:
+            old_status = song.status
             song.status = SongStatus.released
+            song.released_at = datetime.utcnow()
+            
+            # Award 10 points for releasing a song
+            if old_status != SongStatus.released:
+                try:
+                    self.achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
+                    print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}'")
+                    points_awarded += 10
+                    released_songs.append(song.title)
+                except Exception as e:
+                    print(f"⚠️ Failed to award release points: {e}")
+        
+        # Create summary notification for pack release if points were awarded
+        if points_awarded > 0 and released_songs:
+            try:
+                # Get the user_id from the first song (all songs should belong to the same user for pack release)
+                user_id = completed_songs[0].user_id
+                song_count = len(released_songs)
+                
+                if song_count == 1:
+                    message = f"You earned {points_awarded} points for releasing '{released_songs[0]}'"
+                else:
+                    message = f"You earned {points_awarded} points for releasing {song_count} songs"
+                    
+                self.notification_service.create_general_notification(
+                    user_id=user_id,
+                    title="🎉 Pack Released!",
+                    message=message
+                )
+            except Exception as e:
+                print(f"⚠️ Failed to create pack release notification: {e}")
+                
         self.db.commit()
     
     def _handle_optional_songs(self, optional_songs: List[Song], pack: Pack, current_user: User) -> int:

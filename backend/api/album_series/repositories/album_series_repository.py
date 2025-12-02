@@ -335,8 +335,34 @@ class SongRepository:
     
     def update_songs_status(self, songs: List[Song], status: SongStatus) -> None:
         """Update status for multiple songs."""
+        from api.achievements.repositories.achievements_repository import AchievementsRepository
+        from datetime import datetime
+        
+        achievements_repo = AchievementsRepository()
+        
         for song in songs:
+            old_status = song.status
             song.status = status
+            
+            # If releasing a song, set released_at and award points
+            if status == SongStatus.released and old_status != SongStatus.released:
+                song.released_at = datetime.utcnow()
+                
+                # Award 10 points for releasing a song
+                try:
+                    achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
+                    print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (album series)")
+                    
+                    # Create notification
+                    from api.notifications.services.notification_service import NotificationService
+                    notification_service = NotificationService(self.db)
+                    notification_service.create_general_notification(
+                        user_id=song.user_id,
+                        title="🎯 Song Released!",
+                        message=f"You earned 10 points for releasing '{song.title}' (album series)"
+                    )
+                except Exception as e:
+                    print(f"⚠️ Failed to award release points: {e}")
     
     def get_user_songs_in_series(self, series_id: int, user_id: int) -> List[Song]:
         """Get user's songs in a specific series."""

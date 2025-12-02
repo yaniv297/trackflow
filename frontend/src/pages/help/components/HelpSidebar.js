@@ -52,7 +52,7 @@ const HelpSidebar = ({ sections, activeSection, onSectionChange }) => {
             }}
           >
             {section.icon}{" "}
-            {section.title.replace(/^🚀|🎵|📋|🤝|🎧|⚡|📀|🔧|❓ /, "")}
+            {section.title.split(" ").slice(1).join(" ")}
           </button>
         ))}
       </nav>

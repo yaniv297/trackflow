@@ -174,6 +174,11 @@ const renderSubSection = (subSection, textStyle, listStyle) => {
           )}
           {subSection.content.subsections?.map((sub, idx) => (
             <div key={idx} style={{ marginTop: "1rem" }}>
+              {sub.title && (
+                <h4 style={{ color: "#333", marginTop: idx > 0 ? "1rem" : 0 }}>
+                  {sub.title}
+                </h4>
+              )}
               {renderSubSection(sub, textStyle, listStyle)}
             </div>
           ))}

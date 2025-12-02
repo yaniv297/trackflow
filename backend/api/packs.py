@@ -354,6 +354,7 @@ class PackStatusUpdate(BaseModel):
     status: str
 
 class PackReleaseData(BaseModel):
+    title: Optional[str] = None
     description: Optional[str] = None
     download_link: Optional[str] = None
     youtube_url: Optional[str] = None
@@ -368,6 +369,7 @@ class PackResponse(BaseModel):
     created_at: str
     updated_at: str
     released_at: Optional[str] = None  # When pack was released
+    release_title: Optional[str] = None  # Optional title for the release post
     release_description: Optional[str] = None  # Optional description for the release
     release_download_link: Optional[str] = None  # Download link for the pack
     release_youtube_url: Optional[str] = None  # YouTube video URL for the release
@@ -551,6 +553,26 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
             if old_status != SongStatus.released and old_status != "Released":
                 song.released_at = release_timestamp
                 print(f"🚀 Pack Release: Set released_at for song {song.id} '{song.title}' - status change from {old_status} to Released")
+                
+                # Award 10 points for releasing a song
+                try:
+                    from api.achievements.repositories.achievements_repository import AchievementsRepository
+                    from api.notifications.services.notification_service import NotificationService
+                    
+                    achievements_repo = AchievementsRepository()
+                    achievements_repo.update_user_total_points(db, song.user_id, 10, commit=False)
+                    print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (bulk pack release)")
+                    
+                    # Create notification
+                    notification_service = NotificationService(db)
+                    notification_service.create_general_notification(
+                        user_id=song.user_id,
+                        title="🎯 Song Released!",
+                        message=f"You earned 10 points for releasing '{song.title}'"
+                    )
+                except Exception as e:
+                    print(f"⚠️ Failed to award release points: {e}")
+                    
             elif song.released_at is None:
                 # Edge case: song is already Released but has no timestamp
                 song.released_at = release_timestamp
@@ -634,6 +656,7 @@ def release_pack_with_metadata(
     # Check if pack is already released - if so, just update metadata
     if pack.released_at:
         # Pack already released, just update the metadata
+        pack.release_title = release_data.title
         pack.release_description = release_data.description
         pack.release_download_link = release_data.download_link 
         pack.release_youtube_url = release_data.youtube_url
@@ -644,6 +667,7 @@ def release_pack_with_metadata(
     # Only set released_at if not hiding from homepage
     if not release_data.hide_from_homepage:
         pack.released_at = datetime.utcnow()
+    pack.release_title = release_data.title
     pack.release_description = release_data.description
     pack.release_download_link = release_data.download_link 
     pack.release_youtube_url = release_data.youtube_url

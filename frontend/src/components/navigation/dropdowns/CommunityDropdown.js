@@ -79,6 +79,14 @@ const CommunityDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) 
             Collaboration Requests
           </div>
           <div
+            onClick={() => handleClick("/releases")}
+            style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
+            onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
+          >
+            Latest Releases
+          </div>
+          <div
             onClick={() => handleClick("/album-series")}
             style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}

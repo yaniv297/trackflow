@@ -321,12 +321,16 @@
   margin-bottom: 1rem;
 }
 
-.pack-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-  color: #333;
-  line-height: 1.3;
+.pack-title-section .pack-name {
+  font-size: 1.6rem !important;
+  font-weight: 700 !important;
+  color: #1a1a1a !important;
+  margin: 0 0 0.75rem 0 !important;
+  line-height: 1.3 !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  letter-spacing: -0.01em;
 }
 
 .pack-credits {
@@ -592,6 +596,10 @@
   
   .pack-details {
     padding: 1rem;
+  }
+  
+  .pack-title-section .pack-name {
+    font-size: 1.4rem !important;
   }
   
   .release-actions {

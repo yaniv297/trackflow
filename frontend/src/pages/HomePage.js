@@ -14,6 +14,7 @@ import {
   ClosestAchievements,
   CollaborationInvites
 } from '../components/home';
+import RandomResourceWidget from '../components/widgets/RandomResourceWidget';
 import './HomePage.css';
 
 const HomePage = () => {
@@ -52,6 +53,7 @@ const HomePage = () => {
               <CommunityLeaderboard limit={8} />
               <TipsAndTricks />
               <LatestFeatureRequests limit={2} />
+              <RandomResourceWidget />
             </div>
           </>
         ) : (
@@ -67,6 +69,7 @@ const HomePage = () => {
               <CommunityWips />
               <CommunityLeaderboard limit={5} />
               <TipsAndTricks />
+              <RandomResourceWidget />
             </div>
           </>
         )}

@@ -27,6 +27,7 @@ import NotificationsPage from "../pages/NotificationsPage";
 import CommunityPage from "../pages/CommunityPage";
 import CollaborationRequestsPage from "../pages/CollaborationRequestsPage";
 import ProfilePage from "../pages/ProfilePage";
+import ResourcesPage from "../pages/ResourcesPage";
 
 /**
  * All application routes
@@ -145,6 +146,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <CollaborationRequestsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/resources"
+        element={
+          <ProtectedRoute>
+            <ResourcesPage />
           </ProtectedRoute>
         }
       />

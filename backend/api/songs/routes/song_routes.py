@@ -220,6 +220,7 @@ def get_recent_pack_releases(
             "pack_owner_username": pack.user.username if pack.user else "Unknown",
             "pack_priority": pack.priority,
             "released_at": pack_released_at,
+            "release_title": pack.release_title if hasattr(pack, 'release_title') else None,
             "release_description": pack.release_description,
             "release_download_link": pack.release_download_link,
             "release_youtube_url": pack.release_youtube_url,

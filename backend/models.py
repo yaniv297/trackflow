@@ -56,6 +56,7 @@ class Pack(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)  # When pack was released
+    release_title = Column(String, nullable=True)  # Optional title for the release post
     release_description = Column(Text, nullable=True)  # Optional description for the release
     release_download_link = Column(String, nullable=True)  # Download link for the pack
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release

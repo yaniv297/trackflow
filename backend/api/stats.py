@@ -247,6 +247,12 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         "authoring_progress": authoring_percent,
         "fully_ready_wips": fully_ready_wips,
         "year_distribution": year_distribution,
+        "point_system": {
+            "release_bonus": {
+                "points": 10,
+                "description": "Points earned per song released"
+            }
+        }
     }
 
 @router.get("/year/{year}/details")

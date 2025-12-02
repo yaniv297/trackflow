@@ -105,3 +105,26 @@ def get_leaderboard(
     except Exception as e:
         print(f"❌ Error getting leaderboard: {e}")
         raise HTTPException(status_code=500, detail="Failed to get leaderboard")
+
+
+@router.get("/info")
+def get_achievement_info():
+    """Get general information about the achievement and points system."""
+    return {
+        "point_system": {
+            "achievements": {
+                "description": "Earn points by unlocking achievements",
+                "categories": ["milestone_released", "milestone_future", "milestone_wip", "quality", "social", "diversity"]
+            },
+            "release_bonus": {
+                "points": 10,
+                "description": "Earn 10 points for every song you release",
+                "note": "Immediate reward on song release, regardless of achievements"
+            }
+        },
+        "tips": [
+            "Release more songs to earn points faster",
+            "Unlock achievements for bonus points",
+            "Check your progress in the Stats section"
+        ]
+    }

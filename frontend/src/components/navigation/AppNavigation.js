@@ -5,6 +5,7 @@ import NotificationIcon from "../notifications/NotificationIcon";
 import NewDropdown from "./dropdowns/NewDropdown";
 import StatsDropdown from "./dropdowns/StatsDropdown";
 import CommunityDropdown from "./dropdowns/CommunityDropdown";
+import HelpDropdown from "./dropdowns/HelpDropdown";
 import AdminDropdown from "./dropdowns/AdminDropdown";
 import UserDropdown from "./dropdowns/UserDropdown";
 import OnlineUsersTooltip from "./OnlineUsersTooltip";
@@ -55,6 +56,7 @@ const AppNavigation = ({
               dropdowns.setShowNewDropdown(!dropdowns.showNewDropdown);
               dropdowns.setShowAnalyticsDropdown(false);
               dropdowns.setShowCommunityDropdown(false);
+              dropdowns.setShowHelpDropdown(false);
               dropdowns.setShowAdminDropdown(false);
             }}
             buttonRef={dropdowns.newDropdownRef}
@@ -69,6 +71,7 @@ const AppNavigation = ({
               dropdowns.setShowAnalyticsDropdown(!dropdowns.showAnalyticsDropdown);
               dropdowns.setShowNewDropdown(false);
               dropdowns.setShowCommunityDropdown(false);
+              dropdowns.setShowHelpDropdown(false);
               dropdowns.setShowAdminDropdown(false);
             }}
             buttonRef={dropdowns.analyticsDropdownRef}
@@ -83,10 +86,26 @@ const AppNavigation = ({
               dropdowns.setShowCommunityDropdown(!dropdowns.showCommunityDropdown);
               dropdowns.setShowNewDropdown(false);
               dropdowns.setShowAnalyticsDropdown(false);
+              dropdowns.setShowHelpDropdown(false);
               dropdowns.setShowAdminDropdown(false);
             }}
             buttonRef={dropdowns.communityDropdownRef}
             position={dropdowns.communityDropdownPos}
+            onNavigate={navigate}
+          />
+
+          {/* Help Dropdown */}
+          <HelpDropdown
+            show={dropdowns.showHelpDropdown}
+            onToggle={() => {
+              dropdowns.setShowHelpDropdown(!dropdowns.showHelpDropdown);
+              dropdowns.setShowNewDropdown(false);
+              dropdowns.setShowAnalyticsDropdown(false);
+              dropdowns.setShowCommunityDropdown(false);
+              dropdowns.setShowAdminDropdown(false);
+            }}
+            buttonRef={dropdowns.helpDropdownRef}
+            position={dropdowns.helpDropdownPos}
             onNavigate={navigate}
           />
 
@@ -99,6 +118,7 @@ const AppNavigation = ({
                 dropdowns.setShowNewDropdown(false);
                 dropdowns.setShowAnalyticsDropdown(false);
                 dropdowns.setShowCommunityDropdown(false);
+                dropdowns.setShowHelpDropdown(false);
               }}
               buttonRef={dropdowns.adminDropdownRef}
               position={dropdowns.adminDropdownPos}
@@ -167,6 +187,7 @@ const AppNavigation = ({
             dropdowns.setShowNewDropdown(false);
             dropdowns.setShowAnalyticsDropdown(false);
             dropdowns.setShowCommunityDropdown(false);
+            dropdowns.setShowHelpDropdown(false);
             dropdowns.setShowAdminDropdown(false);
           }}
           buttonRef={dropdowns.userDropdownRef}

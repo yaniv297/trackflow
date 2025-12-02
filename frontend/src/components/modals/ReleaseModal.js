@@ -13,6 +13,7 @@ const ReleaseModal = ({
   packSongs = [] // Songs in the pack (for pack releases)
 }) => {
   const [releaseData, setReleaseData] = useState({
+    title: '',
     description: '',
     download_link: '',
     youtube_url: ''
@@ -26,6 +27,7 @@ const ReleaseModal = ({
   useEffect(() => {
     if (isOpen) {
       setReleaseData({
+        title: '',
         description: '',
         download_link: '',
         youtube_url: ''
@@ -169,6 +171,24 @@ const ReleaseModal = ({
           <div className="release-modal-body">
             {errors.general && (
               <div className="error-message">{errors.general}</div>
+            )}
+            
+            {type === 'pack' && (
+              <div className="form-group">
+                <label htmlFor="title">
+                  Release Post Title (Optional)
+                  <span className="field-hint">Title that will appear on the homepage blog post</span>
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  value={releaseData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  placeholder={`e.g., "New Album Release: ${itemName}"`}
+                  className="form-input"
+                  maxLength={200}
+                />
+              </div>
             )}
             
             <div className="form-group">

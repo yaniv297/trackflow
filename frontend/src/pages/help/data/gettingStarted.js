@@ -36,7 +36,7 @@ export const gettingStartedContent = {
             title: "Released",
             color: "#28a745",
             description:
-              "Completed songs that are finished and published. These represent your completed work and achievements.",
+              "Completed songs that are finished and published. You earn 10 points for every song you release! These represent your completed work and achievements.",
           },
         ],
       },
@@ -109,12 +109,20 @@ export const gettingStartedContent = {
           text: "Manage complete album collections",
         },
         {
+          label: "Achievements:",
+          text: "Track your progress, view unlocked achievements, and see your leaderboard rank",
+        },
+        {
+          label: "Community:",
+          text: "Discover public songs, find collaborators, and connect with other users",
+        },
+        {
           label: "Stats:",
-          text: "View your progress analytics and completion rates",
+          text: "View your progress analytics, completion rates, and points breakdown",
         },
         {
           label: "Settings:",
-          text: "Customize your workflow and profile",
+          text: "Customize your workflow, profile, and help documentation",
         },
       ],
     },

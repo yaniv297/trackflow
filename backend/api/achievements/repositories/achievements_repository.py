@@ -4,7 +4,7 @@ Achievements repository - handles data access for achievement operations.
 
 from typing import List, Optional, Set, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text, distinct
+from sqlalchemy import func, text, distinct, or_
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
@@ -233,8 +233,12 @@ class AchievementsRepository:
         user_series = db.query(AlbumSeries).filter(AlbumSeries.pack_id.in_(pack_ids)).all()
         completed_series = 0
         for series in user_series:
-            series_songs = db.query(Song).filter(Song.album_series_id == series.id).all()
-            if series_songs and all(song.status == SongStatus.released for song in series_songs):
+            # Only count non-optional songs for completion
+            core_songs = db.query(Song).filter(
+                Song.album_series_id == series.id,
+                or_(Song.optional.is_(False), Song.optional.is_(None))
+            ).all()
+            if core_songs and all(song.status == SongStatus.released for song in core_songs):
                 completed_series += 1
         return completed_series
     
@@ -344,6 +348,28 @@ class AchievementsRepository:
                 completed_packs += 1
         
         return completed_packs
+    
+    def get_user_workflow_steps(self, db: Session, user_id: int) -> List[str]:
+        """Get the list of workflow steps for a user."""
+        rows = db.execute(
+            text("""
+                SELECT uws.step_name
+                FROM user_workflows uw
+                JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+                WHERE uw.user_id = :user_id
+                ORDER BY uws.order_index
+            """),
+            {"user_id": user_id}
+        ).fetchall()
+        
+        return [row[0] for row in rows]
+    
+    def get_released_songs_for_diversity(self, db: Session, user_id: int):
+        """Get released songs for diversity calculations (artist, year, decade metrics)."""
+        return db.query(Song).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.released
+        ).all()
     
     def update_user_total_points(self, db: Session, user_id: int, points_to_add: int, commit: bool = True) -> None:
         """Update user's cached total points by adding the given points.

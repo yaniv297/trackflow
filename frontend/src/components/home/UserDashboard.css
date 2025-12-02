@@ -8,8 +8,8 @@
 
 .dashboard-header {
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: white;
+  color: #333;
 }
 
 .header-content {
@@ -21,7 +21,7 @@
 .collapse-toggle {
   background: none;
   border: none;
-  color: white;
+  color: #666;
   font-size: 1.2rem;
   cursor: pointer;
   padding: 0.5rem;
@@ -30,7 +30,7 @@
 }
 
 .collapse-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-header h2 {
@@ -41,7 +41,7 @@
 
 .dashboard-header p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(51, 51, 51, 0.7);
   font-size: 0.95rem;
 }
 

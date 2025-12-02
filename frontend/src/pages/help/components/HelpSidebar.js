@@ -51,8 +51,7 @@ const HelpSidebar = ({ sections, activeSection, onSectionChange }) => {
               }
             }}
           >
-            {section.icon}{" "}
-            {section.title.split(" ").slice(1).join(" ")}
+            {section.icon} {section.title.split(" ").slice(1).join(" ")}
           </button>
         ))}
       </nav>
@@ -61,4 +60,3 @@ const HelpSidebar = ({ sections, activeSection, onSectionChange }) => {
 };
 
 export default HelpSidebar;
-

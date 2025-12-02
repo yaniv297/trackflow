@@ -124,6 +124,7 @@
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+  background: transparent !important;
 }
 
 .pack-info {
@@ -131,13 +132,22 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  background: transparent !important;
 }
 
 .pack-title-section {
   margin-bottom: 0.5rem;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.pack-title-section .pack-name {
+.pack-title-section .pack-name,
+.pack-title-section h3.pack-name,
+.pack-info .pack-title-section .pack-name,
+.pack-header .pack-info .pack-title-section .pack-name {
   font-size: 1.6rem !important;
   font-weight: 700 !important;
   color: #1a1a1a !important;
@@ -147,6 +157,11 @@
   overflow-wrap: break-word;
   hyphens: auto;
   letter-spacing: -0.01em;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .pack-credits {

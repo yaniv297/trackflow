@@ -319,6 +319,9 @@
 
 .pack-title-section {
   margin-bottom: 1rem;
+  background: transparent !important;
+  padding: 0;
+  border: none;
 }
 
 .pack-title-section .pack-name {
@@ -331,6 +334,9 @@
   overflow-wrap: break-word;
   hyphens: auto;
   letter-spacing: -0.01em;
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
 }
 
 .pack-credits {

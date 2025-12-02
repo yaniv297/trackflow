@@ -356,6 +356,12 @@ class AchievementsService:
                     print(f"⚠️ Error checking {metric_type} achievements for user {user_id}: {e}")
                     continue
             
+            # Also check customization achievements (they might not be in metric_types)
+            try:
+                self.check_customization_achievements(db, user_id)
+            except Exception as e:
+                print(f"⚠️ Error checking customization achievements for user {user_id}: {e}")
+            
             # Get newly awarded achievements
             try:
                 new_achievements = self.repository.get_user_achievement_codes(db, user_id)
@@ -442,6 +448,12 @@ class AchievementsService:
     def check_social_collaboration_achievements(self, db: Session, user_id: int):
         """Check achievements for total collaborations (both sending and receiving)."""
         self.check_metric_based_achievements(db, user_id, "collaborations_total")
+    
+    def check_customization_achievements(self, db: Session, user_id: int):
+        """Check achievements for customizing user profile."""
+        self.check_metric_based_achievements(db, user_id, "profile_pic")
+        self.check_metric_based_achievements(db, user_id, "personal_link")
+        self.check_metric_based_achievements(db, user_id, "contact_method")
 
     # Legacy function that delegates to unified checker
     def check_all_achievements(self, db: Session, user_id: int) -> List[str]:
@@ -517,6 +529,15 @@ class AchievementsService:
                         decade = (song.year // 10) * 10
                         decades.add(decade)
                 return len(decades)
+        elif metric_type == "profile_pic":
+            # Check if user has profile picture set
+            return self.repository.has_profile_pic(db, user_id)
+        elif metric_type == "personal_link":
+            # Check if user has personal website/link set
+            return self.repository.has_personal_link(db, user_id)
+        elif metric_type == "contact_method":
+            # Check if user has contact method set
+            return self.repository.has_contact_method(db, user_id)
         
         # Unknown metric type
         print(f"⚠️ Unknown metric type: {metric_type}")

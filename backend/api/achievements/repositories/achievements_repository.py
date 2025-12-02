@@ -474,3 +474,24 @@ class AchievementsRepository:
             'total_found': len(found_letters),
             'total_missing': len(missing_letters)
         }
+    
+    def has_profile_pic(self, db: Session, user_id: int) -> int:
+        """Check if user has a profile picture set. Returns 1 if yes, 0 if no."""
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.profile_image_url:
+            return 1
+        return 0
+    
+    def has_personal_link(self, db: Session, user_id: int) -> int:
+        """Check if user has a personal website/link set. Returns 1 if yes, 0 if no."""
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.website_url:
+            return 1
+        return 0
+    
+    def has_contact_method(self, db: Session, user_id: int) -> int:
+        """Check if user has a preferred contact method set. Returns 1 if yes, 0 if no."""
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.preferred_contact_method:
+            return 1
+        return 0

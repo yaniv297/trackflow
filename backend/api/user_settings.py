@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from api.auth import get_current_active_user
+from api.achievements.services.achievements_service import AchievementsService
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -139,6 +140,14 @@ def update_user_settings(
     try:
         db.commit()
         db.refresh(user)
+        
+        # Check for customization achievements after successful update
+        try:
+            achievements_service = AchievementsService()
+            achievements_service.check_customization_achievements(db, user.id)
+        except Exception as e:
+            print(f"Error checking customization achievements for user {user.id}: {e}")
+            # Don't fail the user settings update if achievement check fails
         
         # Convert datetime to string for created_at
         # Ensure auto_spotify_fetch_enabled is always a boolean

@@ -75,7 +75,8 @@ function AdminPage() {
       );
     } catch (err) {
       console.error("Failed to toggle admin status:", err);
-      alert("Failed to toggle admin status");
+      const errorMessage = err.response?.data?.detail || err.message || "Network error occurred";
+      alert(`Failed to toggle admin status: ${errorMessage}`);
     }
   };
 
@@ -93,7 +94,8 @@ function AdminPage() {
       setUsers(users.filter((user) => user.id !== userId));
     } catch (err) {
       console.error("Failed to delete user:", err);
-      alert("Failed to delete user");
+      const errorMessage = err.response?.data?.detail || err.message || "Network error occurred";
+      alert(`Failed to delete user: ${errorMessage}`);
     }
   };
 
@@ -117,7 +119,8 @@ function AdminPage() {
       navigate("/wip");
     } catch (err) {
       console.error("Failed to impersonate user:", err);
-      alert("Failed to impersonate user");
+      const errorMessage = err.response?.data?.detail || err.message || "Network error occurred";
+      alert(`Failed to impersonate user: ${errorMessage}`);
     }
   };
 
@@ -140,7 +143,8 @@ function AdminPage() {
       setShowBroadcastForm(false);
     } catch (err) {
       console.error("Failed to send broadcast:", err);
-      alert("Failed to send broadcast notification");
+      const errorMessage = err.response?.data?.detail || err.message || "Network error occurred";
+      alert(`Failed to send broadcast notification: ${errorMessage}`);
     } finally {
       setSendingBroadcast(false);
     }

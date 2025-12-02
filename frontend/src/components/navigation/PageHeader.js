@@ -17,6 +17,7 @@ const PageHeader = ({
   selectedSongs,
   onBulkTogglePublic,
   onMakeAllPublic,
+  allFuturePlansPublic,
 }) => {
   return (
     <div>
@@ -109,7 +110,7 @@ const PageHeader = ({
           </div>
         )}
 
-        {/* Future Plans: Make All Public Button OR Public/Private Filter for other pages */}
+        {/* Future Plans: Make All Public/Private Toggle Button OR Public/Private Filter for other pages */}
         {status === "Future Plans" && onMakeAllPublic ? (
           <button
             onClick={onMakeAllPublic}
@@ -136,9 +137,13 @@ const PageHeader = ({
               e.target.style.backgroundColor = "#28a745";
               e.target.style.borderColor = "#28a745";
             }}
-            title="Make all Future Plans songs public"
+            title={
+              allFuturePlansPublic
+                ? "Make all Future Plans songs private"
+                : "Make all Future Plans songs public"
+            }
           >
-            🌐 Make All Public
+            {allFuturePlansPublic ? "🔒 Make All Private" : "🌐 Make All Public"}
           </button>
         ) : (
           <div style={{ position: "relative" }}>

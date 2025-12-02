@@ -1,6 +1,6 @@
 # backend/database.py
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.orm import sessionmaker
 from models import Base
 import os
@@ -54,102 +54,6 @@ def _safe_migration(migration_name: str, migration_func):
 
 # Migrations moved to main.py startup event - not running on every import
 
-
-# Ensure achievements tables exist
-try:
-    with engine.begin() as conn:
-        # Check if achievements table exists
-        table_exists = conn.exec_driver_sql(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='achievements'"
-        ).fetchone()
-        
-        if not table_exists:
-            # Create achievements table
-            conn.exec_driver_sql(
-                """
-                CREATE TABLE IF NOT EXISTS achievements (
-                    id INTEGER PRIMARY KEY,
-                    code VARCHAR UNIQUE NOT NULL,
-                    name VARCHAR NOT NULL,
-                    description TEXT NOT NULL,
-                    icon VARCHAR NOT NULL,
-                    category VARCHAR NOT NULL,
-                    points INTEGER NOT NULL DEFAULT 10,
-                    rarity VARCHAR NOT NULL DEFAULT 'common',
-                    created_at DATETIME
-                )
-                """
-            )
-            # Indexes
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_achievement_code ON achievements(code)")
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_achievement_category ON achievements(category)")
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_achievement_rarity ON achievements(rarity)")
-            print("✅ Created achievements table")
-        
-        # Check if user_achievements table exists
-        table_exists = conn.exec_driver_sql(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_achievements'"
-        ).fetchone()
-        
-        if not table_exists:
-            # Create user_achievements table
-            conn.exec_driver_sql(
-                """
-                CREATE TABLE IF NOT EXISTS user_achievements (
-                    id INTEGER PRIMARY KEY,
-                    user_id INTEGER NOT NULL,
-                    achievement_id INTEGER NOT NULL,
-                    earned_at DATETIME,
-                    notified BOOLEAN DEFAULT 0,
-                    is_public BOOLEAN DEFAULT 1,
-                    FOREIGN KEY (user_id) REFERENCES users(id),
-                    FOREIGN KEY (achievement_id) REFERENCES achievements(id),
-                    UNIQUE(user_id, achievement_id)
-                )
-                """
-            )
-            # Indexes
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_user_achievement_user ON user_achievements(user_id)")
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_user_achievement_achievement ON user_achievements(achievement_id)")
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS idx_user_achievement_earned ON user_achievements(earned_at)")
-            print("✅ Created user_achievements table")
-        
-        # Check if user_stats table exists
-        table_exists = conn.exec_driver_sql(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_stats'"
-        ).fetchone()
-        
-        if not table_exists:
-            # Create user_stats table
-            conn.exec_driver_sql(
-                """
-                CREATE TABLE IF NOT EXISTS user_stats (
-                    user_id INTEGER PRIMARY KEY,
-                    total_songs INTEGER DEFAULT 0,
-                    total_released INTEGER DEFAULT 0,
-                    total_future INTEGER DEFAULT 0,
-                    total_wip INTEGER DEFAULT 0,
-                    total_packs INTEGER DEFAULT 0,
-                    total_collaborations INTEGER DEFAULT 0,
-                    total_spotify_imports INTEGER DEFAULT 0,
-                    total_feature_requests INTEGER DEFAULT 0,
-                    login_streak INTEGER DEFAULT 0,
-                    last_login_date DATETIME,
-                    updated_at DATETIME,
-                    FOREIGN KEY (user_id) REFERENCES users(id)
-                )
-                """
-            )
-            # Add missing columns if table exists but columns don't
-            cols = conn.exec_driver_sql("PRAGMA table_info(user_stats)").fetchall()
-            col_names = {row[1] for row in cols}
-            if "total_future" not in col_names:
-                conn.exec_driver_sql("ALTER TABLE user_stats ADD COLUMN total_future INTEGER DEFAULT 0")
-            if "total_wip" not in col_names:
-                conn.exec_driver_sql("ALTER TABLE user_stats ADD COLUMN total_wip INTEGER DEFAULT 0")
-            print("✅ Created user_stats table")
-except Exception as e:
-    print(f"⚠️ Achievements tables migration skipped or failed: {e}")
 
 
 # Temporarily disabled connection monitoring to reduce overhead

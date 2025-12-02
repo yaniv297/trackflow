@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from fastapi import HTTPException
 from datetime import datetime
 
@@ -586,7 +586,7 @@ class SongService:
         
         return pack
     
-    def _separate_songs_by_optional(self, songs: List[Song]) -> tuple[List[Song], List[Song]]:
+    def _separate_songs_by_optional(self, songs: List[Song]) -> Tuple[List[Song], List[Song]]:
         """Separate songs into completed and optional lists."""
         completed_songs = []
         optional_songs = []

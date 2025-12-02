@@ -30,6 +30,27 @@ def get_user_achievement_score(db: Session, user_id: int) -> int:
     ).filter(UserAchievement.user_id == user_id).scalar()
     return result or 0
 
+def get_user_achievement_scores_batch(db: Session, user_ids: List[int]) -> Dict[int, int]:
+    """Calculate total achievement scores for multiple users in a batch query"""
+    if not user_ids:
+        return {}
+    
+    results = db.query(
+        UserAchievement.user_id,
+        func.sum(Achievement.points).label('total_points')
+    ).join(
+        Achievement, Achievement.id == UserAchievement.achievement_id
+    ).filter(
+        UserAchievement.user_id.in_(user_ids)
+    ).group_by(UserAchievement.user_id).all()
+    
+    # Create a dictionary with default score of 0 for users with no achievements
+    user_scores = {user_id: 0 for user_id in user_ids}
+    for user_id, total_points in results:
+        user_scores[user_id] = total_points or 0
+    
+    return user_scores
+
 def get_user_leaderboard_rank(db: Session, user_id: int) -> Optional[int]:
     """Calculate user's rank on the leaderboard"""
     try:
@@ -227,18 +248,22 @@ def list_public_users(
     
     # Get users ordered by total achievement points or creation date
     users_query = db.query(User).filter(User.is_active == True)
+    users = users_query.offset(offset).limit(limit).all()
     
-    # Get users with their achievement scores for ordering
+    # Batch fetch achievement scores for all users
+    user_ids = [user.id for user in users]
+    user_scores = get_user_achievement_scores_batch(db, user_ids)
+    
+    # Build users with their achievement scores
     users_with_scores = []
-    for user in users_query.offset(offset).limit(limit).all():
-        score = get_user_achievement_score(db, user.id)
+    for user in users:
         users_with_scores.append({
             "id": user.id,
             "username": user.username,
             "display_name": user.display_name,
             "profile_image_url": user.profile_image_url,
             "created_at": user.created_at,
-            "achievement_score": score
+            "achievement_score": user_scores.get(user.id, 0)
         })
     
     # Sort by achievement score (highest first), then by username

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func, text
-from typing import List, Optional, Set, Dict, Any
+from typing import List, Optional, Set, Dict, Any, Tuple
 from models import Song, SongStatus, User, Pack, Collaboration, CollaborationType, Artist, AlbumSeries
 from schemas import SongCreate
 
@@ -326,7 +326,7 @@ class SongRepository:
         ).all()
         return {c.song_id for c in user_song_collaborations}
     
-    def _get_user_pack_collaboration_ids(self, user_id: int) -> tuple[Set[int], Set[int]]:
+    def _get_user_pack_collaboration_ids(self, user_id: int) -> Tuple[Set[int], Set[int]]:
         """Get pack IDs where user has pack-level collaboration."""
         user_pack_collaborations = self.db.query(Collaboration.pack_id, Collaboration.collaboration_type).filter(
             Collaboration.user_id == user_id,

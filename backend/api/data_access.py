@@ -134,11 +134,15 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
                 print(f"Checking for post-enhancement duplicates: '{db_song.title}' by {db_song.artist}")
                 
                 # Look for other songs with the same title/artist (excluding this one)
-                duplicate_song = db.query(Song).filter(
-                    Song.title.ilike(db_song.title),
-                    Song.artist.ilike(db_song.artist),
-                    Song.id != db_song.id  # Exclude the current song
-                ).first()
+                # Protect against None values that could cause crashes
+                if db_song.title and db_song.artist:
+                    duplicate_song = db.query(Song).filter(
+                        Song.title.ilike(db_song.title),
+                        Song.artist.ilike(db_song.artist),
+                        Song.id != db_song.id  # Exclude the current song
+                    ).first()
+                else:
+                    duplicate_song = None
                 
                 if duplicate_song:
                     # Check if user owns or collaborates on the duplicate
@@ -155,16 +159,21 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
                             user_has_access = True
                     
                     if user_has_access:
-                        # Delete the newly created song to prevent duplicate
+                        # Delete the newly created song to prevent duplicate using proper cleanup
                         print(f"Deleting duplicate song {db_song.id} created by Spotify enhancement")
-                        db.delete(db_song)
-                        if auto_commit:
-                            db.commit()
+                        song_id_to_delete = db_song.id
+                        song_title = db_song.title
+                        song_artist = db_song.artist
+                        
+                        # Use the proper deletion function that handles related records
+                        if delete_song_from_db(db, song_id_to_delete):
+                            print(f"Successfully deleted duplicate song {song_id_to_delete}")
                         else:
-                            db.flush()
+                            print(f"Failed to delete duplicate song {song_id_to_delete}")
+                        
                         raise HTTPException(
                             status_code=400,
-                            detail=f"Song '{db_song.title}' by {db_song.artist} already exists in your database (detected after Spotify enhancement)"
+                            detail=f"Song '{song_title}' by {song_artist} already exists in your database (detected after Spotify enhancement)"
                         )
                 
                 # Auto-clean remaster tags after enhancement
@@ -256,6 +265,10 @@ def check_song_duplicate_for_user(db: Session, title: str, artist: str, current_
     Returns True if the user already has access to this song, False otherwise.
     Uses case-insensitive matching to prevent duplicates with different capitalization.
     """
+    # Protect against None values that could cause crashes
+    if not title or not artist:
+        return False
+    
     # Check if user owns this song (case-insensitive)
     existing_song = db.query(Song).filter(
         Song.title.ilike(title),

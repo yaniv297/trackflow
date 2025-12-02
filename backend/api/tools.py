@@ -122,14 +122,14 @@ def titles_similar(a: str, b: str, threshold: float = 0.9) -> bool:
 
 def bulk_clean_remaster_tags_function(song_ids: list[int], db: Session, current_user_id: int):
     """Standalone function for bulk cleaning remaster tags"""
+    # Batch fetch all songs belonging to the current user
+    songs = db.query(Song).filter(
+        Song.id.in_(song_ids),
+        Song.user_id == current_user_id
+    ).all()
+    
     updated = []
-
-    for song_id in song_ids:
-        # Check if the song belongs to the current user
-        song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user_id).first()
-        if not song:
-            continue
-
+    for song in songs:
         cleaned_title = clean_string(song.title)
         cleaned_album = clean_string(song.album or "")
 
@@ -146,14 +146,14 @@ def bulk_clean_remaster_tags_function(song_ids: list[int], db: Session, current_
 
 @router.post("/bulk-clean", response_model=list[SongOut])
 def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    # Batch fetch all songs belonging to the current user
+    songs = db.query(Song).filter(
+        Song.id.in_(song_ids),
+        Song.user_id == current_user.id
+    ).all()
+    
     updated = []
-
-    for song_id in song_ids:
-        # Check if the song belongs to the current user
-        song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user.id).first()
-        if not song:
-            continue
-
+    for song in songs:
         cleaned_title = clean_string(song.title)
         cleaned_album = clean_string(song.album or "")
 
@@ -195,9 +195,17 @@ def bulk_enhance_songs(song_ids: list[int] = Body(...), db: Session = Depends(ge
 
     print(f"Starting bulk enhance for {len(song_ids)} songs in production")
 
+    # Batch fetch all songs belonging to the current user
+    songs = db.query(Song).filter(
+        Song.id.in_(song_ids),
+        Song.user_id == current_user.id
+    ).all()
+    
+    # Create a mapping of song_id to song for easy lookup
+    songs_by_id = {song.id: song for song in songs}
+    
     for i, song_id in enumerate(song_ids):
-        # Check if the song belongs to the current user
-        song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user.id).first()
+        song = songs_by_id.get(song_id)
         if not song:
             print(f"Song {song_id} not found or not owned by user {current_user.id}")
             failed.append(song_id)
@@ -293,9 +301,17 @@ async def bulk_enhance_songs_stream(song_ids: list[int] = Body(...), db: Session
         enhanced_songs = []
         failed = []
         
+        # Batch fetch all songs belonging to the current user
+        songs = db.query(Song).filter(
+            Song.id.in_(song_ids),
+            Song.user_id == current_user.id
+        ).all()
+        
+        # Create a mapping of song_id to song for easy lookup
+        songs_by_id = {song.id: song for song in songs}
+        
         for i, song_id in enumerate(song_ids):
-            # Check if the song belongs to the current user
-            song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user.id).first()
+            song = songs_by_id.get(song_id)
             
             if not song:
                 failed.append(song_id)

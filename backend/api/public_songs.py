@@ -486,3 +486,90 @@ def get_my_public_songs(
         )
         for song in songs
     ]
+
+class BulkTogglePublicRequest(BaseModel):
+    song_ids: List[int]
+    make_public: bool
+
+class BulkTogglePublicResponse(BaseModel):
+    success_count: int
+    failed_count: int
+    total_count: int
+    failed_song_ids: List[int]
+    message: str
+
+@router.post("/songs/bulk-toggle-public", response_model=BulkTogglePublicResponse)
+def bulk_toggle_songs_public(
+    request: BulkTogglePublicRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Bulk toggle public status of multiple songs"""
+    
+    if not request.song_ids:
+        raise HTTPException(status_code=400, detail="No song IDs provided")
+    
+    success_count = 0
+    failed_count = 0
+    failed_song_ids = []
+    
+    # Process each song
+    for song_id in request.song_ids:
+        try:
+            # Check if song exists and user owns it
+            song = db.query(Song).filter(Song.id == song_id, Song.user_id == current_user.id).first()
+            if not song:
+                failed_count += 1
+                failed_song_ids.append(song_id)
+                continue
+            
+            # Only update if the status is different
+            if song.is_public != request.make_public:
+                song.is_public = request.make_public
+                success_count += 1
+                
+                # Log the activity for significant changes
+                try:
+                    log_activity(
+                        db=db,
+                        user_id=current_user.id,
+                        activity_type="bulk_toggle_song_public",
+                        description=f"{'Made public' if request.make_public else 'Made private'}: {song.title} by {song.artist}",
+                        metadata={
+                            "song_id": song_id,
+                            "is_public": request.make_public,
+                            "bulk_operation": True
+                        }
+                    )
+                except Exception as log_err:
+                    print(f"⚠️ Failed to log bulk song public toggle for song {song_id}: {log_err}")
+            
+        except Exception as e:
+            print(f"⚠️ Error processing song {song_id}: {e}")
+            failed_count += 1
+            failed_song_ids.append(song_id)
+    
+    # Commit all changes at once
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to save changes: {str(e)}")
+    
+    # Check public WIP achievements if any songs were made public
+    if request.make_public and success_count > 0:
+        try:
+            from api.achievements import check_public_wip_achievements
+            check_public_wip_achievements(db, current_user.id)
+        except Exception as ach_err:
+            print(f"⚠️ Failed to check public WIP achievements after bulk operation: {ach_err}")
+    
+    total_count = len(request.song_ids)
+    
+    return BulkTogglePublicResponse(
+        success_count=success_count,
+        failed_count=failed_count,
+        total_count=total_count,
+        failed_song_ids=failed_song_ids,
+        message=f"Successfully updated {success_count} out of {total_count} songs"
+    )

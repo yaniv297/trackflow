@@ -121,6 +121,28 @@ class PublicSongsService {
       };
     }
   }
+
+  /**
+   * Bulk toggle public status of multiple songs
+   */
+  async bulkToggleSongsPublic(songIds, makePublic) {
+    try {
+      const response = await apiPost('/api/public-songs/songs/bulk-toggle-public', {
+        song_ids: songIds,
+        make_public: makePublic
+      });
+      return {
+        success: true,
+        data: response,
+      };
+    } catch (error) {
+      console.error('Error bulk toggling songs public status:', error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || 'Failed to bulk toggle songs public status',
+      };
+    }
+  }
 }
 
 export default new PublicSongsService();

@@ -17,10 +17,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from .user_activity import record_activity
+from auth import SECRET_KEY as GLOBAL_SECRET_KEY, ALGORITHM as GLOBAL_ALGORITHM
 
-# Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
-ALGORITHM = "HS256"
+# Use the same JWT configuration as the core auth module to ensure tokens are compatible
+SECRET_KEY = GLOBAL_SECRET_KEY
+ALGORITHM = GLOBAL_ALGORITHM
+
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 # Email configuration (inline to avoid import issues)
@@ -92,13 +94,16 @@ def send_password_reset_email_inline(email: str, token: str, username: str) -> b
 
 
 # Simple user cache with TTL
+import threading
 _user_cache = {}
+_cache_lock = threading.RLock()  # Re-entrant lock for nested access
 CACHE_TTL = 300  # 5 minutes
 
 def clear_user_cache():
     """Clear the entire user cache - useful for impersonation"""
-    global _user_cache
-    _user_cache.clear()
+    with _cache_lock:
+        global _user_cache
+        _user_cache.clear()
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -134,13 +139,14 @@ def verify_token(token: str) -> Optional[dict]:
 
 def _get_cached_user_data(username: str) -> Optional[dict]:
     """Get user data from cache if not expired"""
-    if username in _user_cache:
-        user_data, timestamp = _user_cache[username]
-        if time.time() - timestamp < CACHE_TTL:
-            return user_data
-        else:
-            del _user_cache[username]
-    return None
+    with _cache_lock:
+        if username in _user_cache:
+            user_data, timestamp = _user_cache[username]
+            if time.time() - timestamp < CACHE_TTL:
+                return user_data
+            else:
+                del _user_cache[username]
+        return None
 
 def _cache_user_data(username: str, user: User):
     """Cache user data as dictionary with timestamp"""
@@ -152,7 +158,8 @@ def _cache_user_data(username: str, user: User):
         'is_admin': user.is_admin,
         'created_at': user.created_at.isoformat()
     }
-    _user_cache[username] = (user_data, time.time())
+    with _cache_lock:
+        _user_cache[username] = (user_data, time.time())
 
 # Will be defined after UserResponse class
 
@@ -227,9 +234,9 @@ def get_current_user(
         # Record user activity for online tracking
         try:
             record_activity(user.id)
-        except Exception:
-            # Don't fail the request if activity tracking fails
-            pass
+        except Exception as e:
+            # Don't fail the request if activity tracking fails, but log the error
+            print(f"Warning: Failed to record activity for user {user.id}: {e}")
         return user
     
     # Cache miss - query database
@@ -243,9 +250,9 @@ def get_current_user(
     # Record user activity for online tracking
     try:
         record_activity(db_user.id)
-    except Exception:
-        # Don't fail the request if activity tracking fails
-        pass
+    except Exception as e:
+        # Don't fail the request if activity tracking fails, but log the error
+        print(f"Warning: Failed to record activity for user {db_user.id}: {e}")
     
     # Return Pydantic model
     return UserResponse(
@@ -538,9 +545,25 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
     }
 
 @router.post("/login", response_model=Token)
-def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
+def login(user_credentials: UserLogin, request: Request, db: Session = Depends(get_db)):
+    # Import rate limiting functions from main auth module
+    from auth import check_rate_limit, record_login_attempt
+    
+    # Get client IP address
+    client_ip = request.client.host
+    
+    # Check rate limiting
+    if not check_rate_limit(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please try again in 5 minutes.",
+            headers={"Retry-After": "300"},
+        )
+    
     user = authenticate_user(db, user_credentials.username, user_credentials.password)
     if not user:
+        # Record failed login attempt for rate limiting
+        record_login_attempt(client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -639,7 +662,8 @@ def refresh_token(current_user: UserResponse = Depends(get_current_active_user))
             username=current_user.username,
             email=current_user.email,
             is_active=current_user.is_active,
-            created_at=current_user.created_at.isoformat()
+            # created_at is already stored as an ISO-formatted string in UserResponse
+            created_at=current_user.created_at
         )
     }
 
@@ -707,8 +731,8 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
                 activity_type="password_reset_requested",
                 description=f"{user.username} requested a password reset"
             )
-        except Exception:
-            pass  # Don't fail if logging fails
+        except Exception as e:
+            print(f"Warning: Failed to log password reset request activity: {e}")  # Don't fail if logging fails
             
     except Exception as e:
         # Clean up token if something went wrong
@@ -802,8 +826,8 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
             activity_type="password_reset_completed",
             description=f"{user.username} successfully reset their password"
         )
-    except Exception:
-        pass  # Don't fail if logging fails
+    except Exception as e:
+        print(f"Warning: Failed to log password reset completion activity: {e}")  # Don't fail if logging fails
     
     return {"message": "Password has been reset successfully. You can now login with your new password."}
 

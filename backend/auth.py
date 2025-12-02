@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -8,9 +8,20 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 import os
+import time
+from collections import defaultdict
 
 # Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+import secrets
+
+# Generate a cryptographically secure random secret key if not provided
+DEFAULT_SECRET_KEY = secrets.token_urlsafe(32)  # 256-bit key
+SECRET_KEY = os.getenv("SECRET_KEY", DEFAULT_SECRET_KEY)
+
+# Warn if using default secret in production
+if SECRET_KEY == DEFAULT_SECRET_KEY and os.getenv("RAILWAY_ENVIRONMENT") == "production":
+    print("WARNING: Using auto-generated JWT secret. Set SECRET_KEY environment variable for production!")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
@@ -19,6 +30,29 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Security scheme
 security = HTTPBearer()
+
+# Rate limiting for authentication attempts
+login_attempts = defaultdict(list)
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = 300  # 5 minutes
+
+def check_rate_limit(ip_address: str) -> bool:
+    """Check if IP address has exceeded login attempt rate limit"""
+    now = time.time()
+    # Clean old attempts
+    login_attempts[ip_address] = [
+        attempt for attempt in login_attempts[ip_address] 
+        if now - attempt < LOCKOUT_DURATION
+    ]
+    
+    # Check if under limit
+    if len(login_attempts[ip_address]) >= MAX_LOGIN_ATTEMPTS:
+        return False
+    return True
+
+def record_login_attempt(ip_address: str):
+    """Record a failed login attempt"""
+    login_attempts[ip_address].append(time.time())
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)

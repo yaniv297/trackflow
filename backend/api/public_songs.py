@@ -178,12 +178,8 @@ def browse_public_songs(
         all_results = songs_query.all()
         
         # Build response objects
-        all_songs = []
-        for song, user in all_results:
-            # Debug: Print user info
-            print(f"DEBUG User: {user.username} - profile_image_url: {user.profile_image_url} - display_name: {user.display_name}")
-            
-            song_response = PublicSongResponse(
+        all_songs = [
+            PublicSongResponse(
                 id=song.id,
                 title=song.title,
                 artist=song.artist,
@@ -198,7 +194,8 @@ def browse_public_songs(
                 created_at=song.created_at,
                 updated_at=song.updated_at
             )
-            all_songs.append(song_response)
+            for song, user in all_results
+        ]
         
         # Apply pagination to the final sorted list
         total_count = len(all_songs)

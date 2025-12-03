@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiGet, apiPut } from "../utils/api";
+import { checkAndShowNewAchievements } from "../utils/achievements";
 import "./UserSettings.css";
 
 function UserSettings() {
@@ -136,6 +137,14 @@ function UserSettings() {
           "success",
           3000
         );
+      }
+
+      // Check for newly earned achievements (profile picture, website, contact method)
+      try {
+        await checkAndShowNewAchievements();
+      } catch (achievementError) {
+        console.error("Error checking achievements:", achievementError);
+        // Don't show error to user since achievements are non-critical
       }
     } catch (error) {
       console.error("Error saving user settings:", error);

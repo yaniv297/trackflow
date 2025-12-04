@@ -35,7 +35,6 @@ class SongRepository:
         user_song_collab_ids = self._get_user_song_collaboration_ids(user_id)
         user_pack_collab_ids, user_pack_edit_ids = self._get_user_pack_collaboration_ids(user_id)
         user_owned_pack_ids = self._get_user_owned_pack_ids(user_id)
-        songs_in_collab_pack_ids = self._get_songs_in_collaborative_pack_ids(user_id)
         
         # Build base query
         q = self.db.query(Song).options(
@@ -52,7 +51,6 @@ class SongRepository:
                 Song.user_id == user_id,
                 Song.id.in_(user_song_collab_ids),
                 Song.pack_id.in_(user_pack_collab_ids),
-                Song.pack_id.in_(songs_in_collab_pack_ids),
                 Song.pack_id.in_(user_owned_pack_ids)
             )
         )
@@ -343,13 +341,3 @@ class SongRepository:
         user_owned_packs = self.db.query(Pack.id).filter(Pack.user_id == user_id).all()
         return {p.id for p in user_owned_packs}
     
-    def _get_songs_in_collaborative_pack_ids(self, user_id: int) -> Set[int]:
-        """Get pack IDs where user has song-level collaboration."""
-        songs_in_collab_packs = self.db.query(Song.pack_id).join(
-            Collaboration, Song.id == Collaboration.song_id
-        ).filter(
-            Collaboration.user_id == user_id,
-            Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
-            Song.pack_id.isnot(None)
-        ).distinct().all()
-        return {s.pack_id for s in songs_in_collab_packs if s.pack_id}

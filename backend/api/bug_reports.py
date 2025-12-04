@@ -42,6 +42,19 @@ def submit_bug_report(
     except Exception as log_err:
         print(f"⚠️ Failed to log bug report activity: {log_err}")
     
+    # Check for Bug Reporter achievement
+    try:
+        from api.achievements.services.achievements_service import AchievementsService
+        achievements_service = AchievementsService()
+        awarded = achievements_service.award_achievement(db, current_user.id, "bug_reporter")
+        if awarded:
+            print(f"🏆 Awarded Bug Reporter achievement to user {current_user.id}")
+        else:
+            print(f"🏆 Bug Reporter achievement already earned by user {current_user.id}")
+    except Exception as achievement_err:
+        print(f"⚠️ Failed to check Bug Reporter achievement: {achievement_err}")
+        # Don't fail the bug report if achievement checking fails
+    
     DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
     
     # If no Discord webhook, just log and return success (for dev)

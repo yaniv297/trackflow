@@ -29,8 +29,8 @@ const BulkActions = ({
     if (selectedSongs.length === 0) {
       setAlertConfig({
         isOpen: true,
-        title: "No Songs Selected",
-        message: "Please select at least one song to perform bulk actions.",
+        title: "Select Songs First",
+        message: "Please select one or more songs before using bulk operations. Use the checkboxes next to song titles to select them.",
         onConfirm: () => {},
         type: "info",
         confirmText: "OK",

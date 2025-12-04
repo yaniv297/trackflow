@@ -78,7 +78,6 @@ export const useSongProgress = (song, fields, onAuthoringUpdate) => {
         });
       }
 
-      window.showNotification("All parts marked as complete!", "success");
       
       // Check for achievements after marking all parts complete
       await checkAndShowNewAchievements();

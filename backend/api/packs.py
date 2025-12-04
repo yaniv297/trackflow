@@ -437,8 +437,26 @@ def create_pack(pack: PackCreate, db: Session = Depends(get_db), current_user = 
 
 @router.get("/", response_model=List[PackResponse])
 def get_packs(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    """Get all packs for the current user"""
-    packs = db.query(Pack).filter(Pack.user_id == current_user.id).all()
+    """Get all packs for the current user (owned + collaborated)"""
+    from models import Collaboration, CollaborationType
+    
+    # Get packs the user owns OR has song-level collaborations on
+    packs = db.query(Pack).filter(
+        or_(
+            Pack.user_id == current_user.id,  # Owned packs
+            Pack.id.in_(  # Packs with song-level collaborations
+                db.query(Song.pack_id)
+                .join(Collaboration, Collaboration.song_id == Song.id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+                    Song.pack_id.isnot(None)
+                )
+                .distinct()
+            )
+        )
+    ).all()
+    
     return [
         PackResponse(
             id=pack.id,
@@ -460,15 +478,26 @@ def get_pack(pack_id: int, db: Session = Depends(get_db), current_user = Depends
     
     # Check if user has access to this pack
     if pack.user_id != current_user.id:
-        # Check if user is a collaborator on this pack
+        # Check if user is a collaborator on this pack OR has song-level collaborations
         from models import Collaboration, CollaborationType
-        collaboration = db.query(Collaboration).filter(
+        
+        # Check for pack-level collaboration
+        pack_collaboration = db.query(Collaboration).filter(
             Collaboration.pack_id == pack_id,
             Collaboration.user_id == current_user.id,
             Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
         ).first()
         
-        if not collaboration:
+        # Check for song-level collaboration
+        song_collaboration = db.query(Collaboration).filter(
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+            Collaboration.song_id.in_(
+                db.query(Song.id).filter(Song.pack_id == pack_id)
+            )
+        ).first()
+        
+        if not pack_collaboration and not song_collaboration:
             raise HTTPException(status_code=403, detail="Access denied")
     
     return PackResponse(
@@ -672,24 +701,41 @@ def release_pack_with_metadata(
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
     
+    print(f"🐛 DEBUG: Pack '{pack.name}' release - Initial released_at: {pack.released_at}")
+    print(f"🐛 DEBUG: hide_from_homepage setting: {release_data.hide_from_homepage}")
+    
     # Check if pack is already released - if so, just update metadata
     if pack.released_at:
-        # Pack already released, just update the metadata
+        print(f"🐛 DEBUG: Pack already has released_at, going to metadata update path")
+        # Pack already released, update metadata and handle homepage visibility
         pack.release_title = release_data.title
         pack.release_description = release_data.description
         pack.release_download_link = release_data.download_link 
         pack.release_youtube_url = release_data.youtube_url
+        
+        # Handle homepage visibility toggle for already-released packs
+        if release_data.hide_from_homepage:
+            pack.released_at = None  # Hide from homepage
+        # Note: if hide_from_homepage=False, keep existing released_at timestamp
+            
         db.commit()
-        return {"message": f"Pack '{pack.name}' metadata updated successfully", "pack_id": pack_id}
+        visibility_msg = "hidden from homepage" if release_data.hide_from_homepage else "shown on homepage"
+        return {"message": f"Pack '{pack.name}' metadata updated and {visibility_msg}", "pack_id": pack_id}
     
     # Update pack with release metadata
-    # Only set released_at if not hiding from homepage
-    if not release_data.hide_from_homepage:
-        pack.released_at = datetime.utcnow()
     pack.release_title = release_data.title
     pack.release_description = release_data.description
     pack.release_download_link = release_data.download_link 
     pack.release_youtube_url = release_data.youtube_url
+    
+    print(f"🐛 DEBUG: Pack is new release, setting released_at based on hide_from_homepage")
+    # Only set released_at if not hiding from homepage
+    if not release_data.hide_from_homepage:
+        pack.released_at = datetime.utcnow()
+        print(f"🐛 DEBUG: Set pack.released_at = {pack.released_at}")
+    else:
+        print(f"🐛 DEBUG: Keeping pack.released_at = None (hide from homepage)")
+    # Note: if hide_from_homepage=True, pack.released_at stays None
     
     # Get all songs in the pack
     songs = db.query(Song).filter(Song.pack_id == pack_id).all()
@@ -747,25 +793,6 @@ def release_pack_with_metadata(
             
             released_count += 1
     
-    # Check pack achievements
-    try:
-        check_pack_achievements(current_user.id, db)
-    except Exception as e:
-        print(f"Warning: Failed to check pack achievements: {e}")
-    
-    # Send notifications to all users if not hidden from homepage
-    if not release_data.hide_from_homepage:
-        try:
-            from api.notifications.services.notification_service import NotificationService
-            notification_service = NotificationService(db)
-            notification_result = notification_service.broadcast_pack_release_notification(
-                pack_name=pack.name,
-                pack_owner_username=current_user.username
-            )
-            print(f"🔔 Pack release notifications: {notification_result}")
-        except Exception as e:
-            print(f"Warning: Failed to send pack release notifications: {e}")
-    
     # Add activity log entries for WIP completions so they get counted by achievements
     if wip_completed_songs:
         try:
@@ -777,6 +804,7 @@ def release_pack_with_metadata(
                 activity_log = ActivityLog(
                     user_id=current_user.id,
                     activity_type="change_status",
+                    description=f"Released '{song.title}' by {song.artist} as part of pack '{pack.name}'",
                     metadata_json=json.dumps({
                         "song_id": song.id,
                         "song_title": song.title,
@@ -795,22 +823,48 @@ def release_pack_with_metadata(
         except Exception as e:
             print(f"Warning: Failed to create activity log entries for WIP completions: {e}")
     
-    db.commit()
+    # Commit all database changes first
+    try:
+        db.commit()
+        print(f"✅ Pack release database changes committed successfully")
+    except Exception as e:
+        print(f"❌ Failed to commit pack release changes: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to release pack: {e}")
     
-    # Check WIP completion achievements after creating activity logs
+    # Now do post-commit operations that can fail without affecting the release
+    
+    # Check pack achievements (after commit)
+    try:
+        check_pack_achievements(current_user.id, db)
+    except Exception as e:
+        print(f"Warning: Failed to check pack achievements: {e}")
+    
+    # Check WIP completion achievements (after commit)
     if wip_completed_songs:
         try:
             from api.achievements.services.achievements_service import AchievementsService
             achievements_service = AchievementsService()
             achievements_service.check_wip_completion_achievements(db, current_user.id)
             print(f"🏆 Checked WIP completion achievements for user {current_user.id}")
-            
         except Exception as e:
             print(f"Warning: Failed to check WIP completion achievements: {e}")
+    
+    # Send notifications to all users if not hidden from homepage (after commit)
+    if not release_data.hide_from_homepage:
+        try:
+            from api.notifications.services.notification_service import NotificationService
+            notification_service = NotificationService(db)
+            notification_result = notification_service.broadcast_pack_release_notification(
+                pack_name=pack.name,
+                pack_owner_username=current_user.username
+            )
+            print(f"🔔 Pack release notifications: {notification_result}")
+        except Exception as e:
+            print(f"Warning: Failed to send pack release notifications: {e}")
     
     message = f"Pack '{pack.name}' released successfully with {released_count} songs"
     if moved_count > 0:
         message += f" ({moved_count} optional songs moved to future plans)"
     
-    return {"message": message, "pack_id": pack_id} 
     return {"message": message, "pack_id": pack_id} 

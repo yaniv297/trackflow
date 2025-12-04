@@ -213,7 +213,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
 
             // Run clean remaster tags after enhancement
             try {
-              await apiPost("/tools/bulk-clean/", selectedSongs);
+              await apiPost("/tools/bulk-clean", selectedSongs);
               setProgress({
                 current: selectedSongs.length,
                 total: selectedSongs.length,
@@ -260,7 +260,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
             message: "Cleaning remaster tags...",
           });
           try {
-            await apiPost("/tools/bulk-clean/", selectedSongs);
+            await apiPost("/tools/bulk-clean", selectedSongs);
             setProgress({
               current: selectedSongs.length,
               total: selectedSongs.length,

@@ -245,6 +245,21 @@ function SongPage({ status }) {
     );
   };
 
+  // Handle bulk edit modal opening with validation
+  const handleBulkEdit = () => {
+    if (selectedSongs.length === 0) {
+      if (window.showNotification) {
+        window.showNotification(
+          "Please select one or more songs before using bulk operations. Use the checkboxes next to song titles to select them.",
+          'info',
+          4000
+        );
+      }
+      return;
+    }
+    setShowBulkModal(true);
+  };
+
   // Handle bulk public status toggle
   const handleBulkTogglePublic = async (makePublic) => {
     try {
@@ -308,14 +323,6 @@ function SongPage({ status }) {
           }
         });
 
-        // Show success notification
-        if (window.showNotification) {
-          window.showNotification(
-            `Successfully made ${success_count} songs ${makePublic ? 'public' : 'private'}${failed_count > 0 ? ` (${failed_count} failed)` : ''}`,
-            failed_count > 0 ? 'warning' : 'success',
-            3000
-          );
-        }
 
         // Clear selection
         setSelectedSongs([]);
@@ -434,16 +441,6 @@ function SongPage({ status }) {
           }
         });
 
-        // Show success notification
-        if (window.showNotification) {
-          window.showNotification(
-            `Successfully made ${success_count} Future Plans songs ${
-              targetMakePublic ? "public" : "private"
-            }!${failed_count > 0 ? ` ${failed_count} songs failed to update.` : ''}`,
-            failed_count > 0 ? 'warning' : 'success',
-            4000
-          );
-        }
       } else {
         // Handle API error
         setBulkProgressModal(prev => ({
@@ -541,7 +538,7 @@ function SongPage({ status }) {
           setSelectedItemForCollaboration={setSelectedItemForCollaboration}
           setCollaborationType={setCollaborationType}
           status={status}
-          onBulkEdit={() => setShowBulkModal(true)}
+          onBulkEdit={handleBulkEdit}
           onStartWork={handleStartWork}
           onBulkDelete={() => {}} // Placeholder for now
           onBulkEnhance={() => {}} // Placeholder for now

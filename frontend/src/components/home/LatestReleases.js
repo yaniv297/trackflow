@@ -4,9 +4,10 @@ import { apiGet } from '../../utils/api';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../shared/UserProfilePopup';
+import { useAuth } from '../../contexts/AuthContext';
 import './LatestReleases.css';
 
-const LatestReleases = ({ limit = 5, isAuthenticated = true }) => {
+const LatestReleases = ({ limit = 5, isAuthenticated = true, onEditRelease }) => {
   const [releases, setReleases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,6 +15,7 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true }) => {
   const [currentReleaseIndex, setCurrentReleaseIndex] = useState(0);
   const [totalReleases, setTotalReleases] = useState(0);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
   useEffect(() => {
@@ -70,6 +72,12 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true }) => {
 
   const handleExploreMusic = () => {
     navigate('/');
+  };
+
+  const handleEditRelease = (pack) => {
+    if (onEditRelease) {
+      onEditRelease(pack, fetchReleases);
+    }
   };
 
   if (loading) {
@@ -209,6 +217,8 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true }) => {
               onUsernameClick={handleUsernameClick}
               onUsernameHover={handleUsernameHover}
               onUsernameLeave={delayedHidePopup}
+              currentUser={user}
+              onEditRelease={handleEditRelease}
             />
           </div>
         ) : (
@@ -225,6 +235,7 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true }) => {
         onMouseEnter={cancelHideTimeout}
         onMouseLeave={delayedHidePopup}
       />
+
     </section>
   );
 };
@@ -360,7 +371,7 @@ const AlbumCoverCarousel = ({ covers }) => {
   );
 };
 
-const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLeave }) => {
+const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLeave, currentUser, onEditRelease }) => {
   const [songsPage, setSongsPage] = useState(0);
   const SONGS_PER_PAGE = 10;
   
@@ -397,6 +408,22 @@ const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLea
   // Get release description (pack level or single song)
   const releaseDescription = pack.release_description || (pack.songs.length === 1 ? pack.songs[0].release_description : null);
 
+  // Check if current user can edit this pack's release
+  const canEditRelease = () => {
+    if (!currentUser || !pack.songs) return false;
+    
+    // Check if user owns any songs in this pack or is pack owner
+    const userOwnedSongs = pack.songs.filter(song => song.user_id === currentUser.id);
+    const isPackOwner = userOwnedSongs.length > 0;
+    
+    // Check if user has pack edit collaboration permission
+    const hasPackEditPermission = pack.songs.some(
+      song => song.pack_collaboration && song.pack_collaboration.can_edit === true
+    );
+    
+    return isPackOwner || hasPackEditPermission;
+  };
+
   return (
     <article className="pack-release">
       <div className="pack-header">
@@ -424,6 +451,15 @@ const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLea
             <span className="song-count">{pack.songs.length} song{pack.songs.length !== 1 ? 's' : ''}</span>
             <span className="release-date">{formatDate(pack.released_at)}</span>
           </div>
+          {canEditRelease() && (
+            <button 
+              className="edit-release-btn"
+              onClick={() => onEditRelease && onEditRelease(pack)}
+              title="Edit release information"
+            >
+              ✏️ Edit Release
+            </button>
+          )}
         </div>
       </div>
 

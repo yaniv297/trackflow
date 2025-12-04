@@ -1171,3 +1171,29 @@
     gap: 0.5rem;
   }
 }
+
+/* Edit Release Button */
+.edit-release-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.edit-release-btn:hover {
+  background: #5a6fd8;
+  transform: translateY(-1px);
+}
+
+.edit-release-btn:active {
+  transform: translateY(0);
+}

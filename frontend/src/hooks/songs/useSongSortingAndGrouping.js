@@ -58,7 +58,22 @@ export const useSongSortingAndGrouping = (
         });
       });
 
-      return grouped;
+      // Sort artists alphabetically and create sorted result
+      const sortedGrouped = {};
+      Object.keys(grouped)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+        .forEach((artist) => {
+          // Sort albums within each artist alphabetically
+          const sortedAlbums = {};
+          Object.keys(grouped[artist])
+            .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+            .forEach((album) => {
+              sortedAlbums[album] = grouped[artist][album];
+            });
+          sortedGrouped[artist] = sortedAlbums;
+        });
+
+      return sortedGrouped;
     } else {
       const grouped = filteredSongs.reduce((acc, song) => {
         if (!song || typeof song !== "object") return acc;

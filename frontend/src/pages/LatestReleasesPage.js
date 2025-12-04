@@ -4,6 +4,8 @@ import { apiGet } from '../utils/api';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useUserProfilePopup } from '../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../components/shared/UserProfilePopup';
+import { useAuth } from '../contexts/AuthContext';
+import ReleaseModal from '../components/modals/ReleaseModal';
 import '../components/home/LatestReleases.css';
 import './LatestReleasesPage.css';
 
@@ -13,7 +15,10 @@ const LatestReleasesPage = () => {
   const [error, setError] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [totalReleases, setTotalReleases] = useState(0);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [packToEdit, setPackToEdit] = useState(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
   
   const currentPage = parseInt(searchParams.get('page') || '1') - 1; // Convert to 0-based
@@ -56,6 +61,16 @@ const LatestReleasesPage = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleEditRelease = (pack) => {
+    setPackToEdit(pack);
+    setEditModalOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    // Refresh releases after successful edit
+    fetchReleases();
   };
 
   // The API already returns grouped pack data, so we just need to format it
@@ -153,6 +168,8 @@ const LatestReleasesPage = () => {
               onUsernameClick={handleUsernameClick}
               onUsernameHover={handleUsernameHover}
               onUsernameLeave={delayedHidePopup}
+              currentUser={user}
+              onEditRelease={handleEditRelease}
             />
           ))
         ) : (
@@ -186,6 +203,20 @@ const LatestReleasesPage = () => {
         onClose={hidePopup}
         onMouseEnter={cancelHideTimeout}
         onMouseLeave={delayedHidePopup}
+      />
+
+      {/* Edit Release Modal */}
+      <ReleaseModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Edit Release"
+        type="pack"
+        itemId={packToEdit?.pack_id}
+        itemName={packToEdit?.pack_name}
+        onReleaseComplete={handleEditSuccess}
+        packSongs={packToEdit?.songs || []}
+        editMode={true}
+        initialData={packToEdit}
       />
     </div>
   );
@@ -394,7 +425,7 @@ const AlbumCoverCarousel = ({ covers }) => {
   );
 };
 
-const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, onUsernameLeave }) => {
+const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, onUsernameLeave, currentUser, onEditRelease }) => {
   const [songsPage, setSongsPage] = useState(0);
   const SONGS_PER_PAGE = 10;
   
@@ -423,6 +454,22 @@ const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, o
   // Get release description (pack level or single song)
   const releaseDescription = pack.release_description || (pack.songs.length === 1 ? pack.songs[0].release_description : null);
 
+  // Check if current user can edit this pack's release
+  const canEditRelease = () => {
+    if (!currentUser || !pack.songs) return false;
+    
+    // Check if user owns any songs in this pack or is pack owner
+    const userOwnedSongs = pack.songs.filter(song => song.user_id === currentUser.id);
+    const isPackOwner = userOwnedSongs.length > 0;
+    
+    // Check if user has pack edit collaboration permission
+    const hasPackEditPermission = pack.songs.some(
+      song => song.pack_collaboration && song.pack_collaboration.can_edit === true
+    );
+    
+    return isPackOwner || hasPackEditPermission;
+  };
+
   return (
     <article className="pack-release">
       <div className="pack-header">
@@ -450,6 +497,15 @@ const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, o
             <span className="song-count">{pack.songs.length} song{pack.songs.length !== 1 ? 's' : ''}</span>
             <span className="release-date">{formatDate(pack.released_at)}</span>
           </div>
+          {canEditRelease() && (
+            <button 
+              className="edit-release-btn"
+              onClick={() => onEditRelease && onEditRelease(pack)}
+              title="Edit release information"
+            >
+              ✏️ Edit Release
+            </button>
+          )}
         </div>
       </div>
 

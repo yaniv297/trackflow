@@ -118,12 +118,6 @@ export const useWipSongOperations = (
           )
         );
 
-        if (window.showNotification) {
-          window.showNotification(
-            `Song marked as ${newOptionalValue ? "optional" : "required"}`,
-            "success"
-          );
-        }
       } catch (error) {
         console.error("Failed to update optional status:", error);
         // Revert the UI change on error

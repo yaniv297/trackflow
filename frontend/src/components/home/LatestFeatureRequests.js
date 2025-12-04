@@ -65,7 +65,7 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
   };
 
   const handleLogin = () => {
-    navigate('/login');
+    navigate('/');
   };
 
   const getStatusIcon = (status) => {

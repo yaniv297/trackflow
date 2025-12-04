@@ -29,6 +29,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
       "edit_cover_art",
       "edit_collaborations",
       "edit_owner",
+      "edit_visibility",
     ];
 
     if (actionsNeedingInput.includes(selectedAction) && !inputValue) {
@@ -138,6 +139,32 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           }
           break;
 
+        case "edit_visibility":
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: "Updating visibility...",
+          });
+          for (let i = 0; i < selectedSongs.length; i++) {
+            const id = selectedSongs[i];
+            try {
+              const makePublic = inputValue === "public";
+              // Use the same bulk API endpoint that was used in handleBulkTogglePublic
+              await apiPost('/api/public-songs/songs/bulk-toggle-public', {
+                song_ids: [id],
+                make_public: makePublic,
+              });
+              setProgress({
+                current: i + 1,
+                total: selectedSongs.length,
+                message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
+              });
+            } catch {
+              failed++;
+            }
+          }
+          break;
+
         case "bulk_enhance":
           setProgress({
             current: 0,
@@ -170,18 +197,38 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
             // Clear the progress interval
             clearInterval(progressInterval);
 
-
             if (response && response.total_enhanced !== undefined) {
               setProgress({
                 current: selectedSongs.length,
                 total: selectedSongs.length,
-                message: `Enhancement complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed`,
+                message: `Enhancement complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Running cleanup...`,
               });
             } else {
               setProgress({
                 current: selectedSongs.length,
                 total: selectedSongs.length,
-                message: "Enhancement complete!",
+                message: "Enhancement complete! Running cleanup...",
+              });
+            }
+
+            // Run clean remaster tags after enhancement
+            try {
+              await apiPost("/tools/bulk-clean/", selectedSongs);
+              setProgress({
+                current: selectedSongs.length,
+                total: selectedSongs.length,
+                message: response && response.total_enhanced !== undefined
+                  ? `Complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Cleanup finished.`
+                  : "Enhancement and cleanup complete!",
+              });
+            } catch (cleanupError) {
+              console.error("Cleanup error after enhancement:", cleanupError);
+              setProgress({
+                current: selectedSongs.length,
+                total: selectedSongs.length,
+                message: response && response.total_enhanced !== undefined
+                  ? `Enhancement complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Cleanup failed.`
+                  : "Enhancement complete! Cleanup failed.",
               });
             }
 
@@ -331,6 +378,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           <option value="edit_cover_art">Edit Cover Art</option>
           <option value="edit_collaborations">Edit Collaborations</option>
           <option value="edit_owner">Edit Owner</option>
+          <option value="edit_visibility">Edit Visibility</option>
           <option value="bulk_enhance">Bulk Enhance</option>
           <option value="bulk_delete">Bulk Delete</option>
           <option value="clean_remaster_tags">Clean Remaster Tags</option>
@@ -344,6 +392,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           "edit_cover_art",
           "edit_collaborations",
           "edit_owner",
+          "edit_visibility",
         ].includes(selectedAction) && (
           <div style={{ marginTop: "1rem" }}>
             {selectedAction === "edit_artist" && (
@@ -386,6 +435,24 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 placeholder="Select or add username"
                 includeCurrentUser={true}
               />
+            )}
+            {selectedAction === "edit_visibility" && (
+              <select
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "8px",
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+              >
+                <option value="">-- Select Visibility --</option>
+                <option value="public">🌐 Public</option>
+                <option value="private">🔒 Private</option>
+              </select>
             )}
             {(selectedAction === "edit_year" ||
               selectedAction === "edit_cover_art") && (

@@ -15,6 +15,11 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
   const [error, setError] = useState(null);
   const [loadingParts, setLoadingParts] = useState(false);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('CollaborationRequestModal received song:', song);
+  }, [song]);
+
   // Load available parts for WIP songs
   useEffect(() => {
     if (song.status === 'In Progress') {
@@ -128,17 +133,18 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
         {/* Song Info */}
         <div className="song-info-section">
           <div className="song-details">
-            {song.album_cover && (
+            {song.album_cover ? (
               <img 
                 src={song.album_cover} 
                 alt="Album cover"
                 className="song-thumbnail"
                 onError={(e) => {
                   e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
+                  const placeholder = e.target.parentElement.querySelector('.song-thumbnail.placeholder');
+                  if (placeholder) placeholder.style.display = 'flex';
                 }}
               />
-            )}
+            ) : null}
             <div 
               className="song-thumbnail placeholder"
               style={{ display: song.album_cover ? 'none' : 'flex' }}
@@ -148,23 +154,35 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
             <div className="song-text">
               <h3>{song.title}</h3>
               <p className="artist">by {song.artist}</p>
-              <p className="album">{song.album} ({song.year})</p>
+              {(song.album || song.year) && (
+                <p className="album">
+                  {song.album || ''}
+                  {song.album && song.year && ' '}
+                  {song.year && `(${song.year})`}
+                </p>
+              )}
               <div className="song-status">
-                <span className="status-icon">{getStatusIcon(song.status)}</span>
-                <span className="status-text">{song.status}</span>
-                <span className="owner">by <span 
-                  onClick={() => navigate(`/profile/${song.username}`)}
-                  style={{ 
-                    cursor: 'pointer', 
-                    color: '#667eea',
-                    transition: 'opacity 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.target.style.opacity = '0.8'}
-                  onMouseLeave={(e) => e.target.style.opacity = '1'}
-                  title="Click to view profile"
-                >
-                  @{song.username}
-                </span></span>
+                {song.status && (
+                  <>
+                    <span className="status-icon">{getStatusIcon(song.status)}</span>
+                    <span className="status-text">{song.status}</span>
+                  </>
+                )}
+                {song.username && (
+                  <span className="owner">by <span 
+                    onClick={() => navigate(`/profile/${song.username}`)}
+                    style={{ 
+                      cursor: 'pointer', 
+                      color: '#667eea',
+                      transition: 'opacity 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                    onMouseLeave={(e) => e.target.style.opacity = '1'}
+                    title="Click to view profile"
+                  >
+                    @{song.username}
+                  </span></span>
+                )}
               </div>
             </div>
           </div>

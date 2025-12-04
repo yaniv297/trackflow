@@ -157,7 +157,9 @@ class AchievementsService:
                     total_songs=stats.total_songs,
                     total_released=stats.total_released,
                     total_future=stats.total_future,
+                    total_future_created=stats.total_future_created,
                     total_wip=stats.total_wip,
+                    total_wip_created=stats.total_wip_created,
                     total_packs=stats.total_packs,
                     total_collaborations=stats.total_collaborations,
                     total_spotify_imports=stats.total_spotify_imports,
@@ -384,13 +386,18 @@ class AchievementsService:
     
     def check_status_achievements(self, db: Session, user_id: int):
         """Check achievements based on song status counts."""
-        self.check_metric_based_achievements(db, user_id, "total_future")
-        self.check_metric_based_achievements(db, user_id, "total_wip") 
+        self.check_metric_based_achievements(db, user_id, "total_future_created")
+        # Changed: Use lifetime WIP creations instead of concurrent WIPs
+        self.check_metric_based_achievements(db, user_id, "wip_creations") 
         self.check_metric_based_achievements(db, user_id, "total_released")
 
     def check_wip_completion_achievements(self, db: Session, user_id: int):
         """Check achievements for completing WIP songs."""
         self.check_metric_based_achievements(db, user_id, "wip_completions")
+    
+    def check_wip_creation_achievements(self, db: Session, user_id: int):
+        """Check achievements for starting WIP songs (lifetime count)."""
+        self.check_metric_based_achievements(db, user_id, "wip_creations")
 
     def check_pack_achievements(self, db: Session, user_id: int):
         """Check achievements based on pack counts."""
@@ -464,8 +471,8 @@ class AchievementsService:
 
     def _calculate_metric_value(self, metric_type: str, stats: UserStats, db: Session, user_id: int) -> int:
         """Calculate the current value for a specific metric type."""
-        if metric_type == "total_future":
-            return stats.total_future
+        if metric_type == "total_future_created":
+            return stats.total_future_created
         elif metric_type == "total_wip":
             return stats.total_wip
         elif metric_type == "total_released":
@@ -482,6 +489,8 @@ class AchievementsService:
             return stats.login_streak
         elif metric_type == "wip_completions":
             return self.repository.get_wip_completion_count(db, user_id)
+        elif metric_type == "wip_creations":
+            return self.repository.get_wip_creation_count(db, user_id)
         elif metric_type == "completed_songs":
             return self.repository.get_completed_songs_optimized(db, user_id)
         elif metric_type == "completed_packs":

@@ -15,7 +15,6 @@ const PageHeader = ({
   publicFilter,
   setPublicFilter,
   selectedSongs,
-  onBulkTogglePublic,
   onMakeAllPublic,
   allFuturePlansPublic,
 }) => {
@@ -176,51 +175,6 @@ const PageHeader = ({
           </div>
         )}
 
-        {/* Bulk Public Actions - only show when songs are selected */}
-        {selectedSongs && selectedSongs.length > 0 && onBulkTogglePublic && (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              onClick={() => onBulkTogglePublic(true)}
-              style={{
-                padding: "0.5rem 0.75rem",
-                borderRadius: "999px",
-                border: "1px solid #28a745",
-                backgroundColor: "#28a745",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-                fontWeight: "500",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-              }}
-              title={`Make ${selectedSongs.length} selected songs public`}
-            >
-              🌐 Make Public ({selectedSongs.length})
-            </button>
-            <button
-              onClick={() => onBulkTogglePublic(false)}
-              style={{
-                padding: "0.5rem 0.75rem",
-                borderRadius: "999px",
-                border: "1px solid #6c757d",
-                backgroundColor: "#6c757d",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-                fontWeight: "500",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-              }}
-              title={`Make ${selectedSongs.length} selected songs private`}
-            >
-              🔒 Make Private ({selectedSongs.length})
-            </button>
-          </div>
-        )}
 
         {/* Collapse Toggle */}
         <button

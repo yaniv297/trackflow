@@ -11,7 +11,7 @@ const HeroSection = () => {
     if (isAuthenticated) {
       navigate('/wip');
     } else {
-      navigate('/login');
+      navigate('/');
     }
   };
 

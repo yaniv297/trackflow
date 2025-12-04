@@ -14,9 +14,9 @@ const NotificationManager = ({ children }) => {
     []
   );
 
-  const showAchievementToast = useCallback((achievement) => {
+  const showAchievementToast = useCallback((achievement, currentScore = null) => {
     const id = Date.now() + Math.random();
-    setAchievementToasts((prev) => [...prev, { id, achievement }]);
+    setAchievementToasts((prev) => [...prev, { id, achievement, currentScore }]);
   }, []);
 
   const removeNotification = useCallback((id) => {
@@ -61,6 +61,7 @@ const NotificationManager = ({ children }) => {
         >
           <AchievementToast
             achievement={toast.achievement}
+            currentScore={toast.currentScore}
             onClose={() => removeAchievementToast(toast.id)}
             duration={6000}
           />

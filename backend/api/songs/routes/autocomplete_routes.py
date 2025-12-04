@@ -76,7 +76,7 @@ def get_packs_autocomplete(
     current_user: User = Depends(get_current_active_user)
 ):
     """Get pack autocomplete suggestions."""
-    if query:
+    if query and query.strip():
         SongValidator.validate_autocomplete_query(query)
     
     service = SongService(db)

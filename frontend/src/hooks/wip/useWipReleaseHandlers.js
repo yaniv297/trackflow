@@ -11,10 +11,10 @@ export const useWipReleaseHandlers = (
   const releasePack = useCallback(
     (pack) => {
       // Find the pack ID for the new API
-      const packSongs = songs.filter(
+      const allPackSongs = songs.filter(
         (s) => (s.pack_name || "(no pack)") === pack
       );
-      const packId = packSongs[0]?.pack_id;
+      const packId = allPackSongs[0]?.pack_id;
 
       if (!packId) {
         if (window.showNotification) {
@@ -22,6 +22,9 @@ export const useWipReleaseHandlers = (
         }
         return;
       }
+
+      // Filter out optional songs from individual download links
+      const packSongs = allPackSongs.filter((s) => !s.optional);
 
       // Set up release modal data
       setReleaseModalData({

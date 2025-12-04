@@ -66,11 +66,13 @@ function ProgressBar({ current, target, percentage, style = {} }) {
 
 export default function AchievementsPage() {
   const [achievementsWithProgress, setAchievementsWithProgress] = useState([]);
+  const [pointsBreakdown, setPointsBreakdown] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState({});
 
   useEffect(() => {
     fetchAchievements();
+    fetchPointsBreakdown();
   }, []);
 
   const toggleCategory = (category) => {
@@ -91,6 +93,16 @@ export default function AchievementsPage() {
     }
   };
 
+  const fetchPointsBreakdown = async () => {
+    try {
+      const breakdown = await apiGet("/achievements/points-breakdown");
+      console.log("Points breakdown received:", breakdown);
+      setPointsBreakdown(breakdown);
+    } catch (error) {
+      console.error("Failed to load points breakdown:", error);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -102,10 +114,22 @@ export default function AchievementsPage() {
 
   // Calculate stats
   const earnedAchievements = achievementsWithProgress.filter(ach => ach.earned);
-  const totalPoints = earnedAchievements.reduce(
+  const achievementPoints = earnedAchievements.reduce(
     (sum, ach) => sum + (ach.points || 0),
     0
   );
+  
+  // Use breakdown data if available, otherwise fall back to achievement points only
+  const totalPoints = pointsBreakdown ? pointsBreakdown.total_points : achievementPoints;
+  const releasePoints = pointsBreakdown ? pointsBreakdown.release_points : 0;
+  
+  // Debug logging
+  console.log("Current state:", { 
+    pointsBreakdown, 
+    achievementPoints, 
+    totalPoints, 
+    releasePoints 
+  });
 
   // Group achievements by category and sort by points (difficulty)
   const achievementsByCategory = {};
@@ -127,28 +151,62 @@ export default function AchievementsPage() {
       <div style={{ marginBottom: "2rem" }}>
         <h2 style={{ marginBottom: "1rem", color: "#333" }}>🏆 Achievements</h2>
         <div style={{ 
-          display: "flex", 
-          gap: "2rem", 
-          alignItems: "center",
           padding: "1rem",
           background: "#f8f9fa",
           borderRadius: "8px",
           border: "1px solid #e9ecef"
         }}>
-          <div>
-            <span style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#007bff" }}>
-              {earnedAchievements.length}
-            </span>
-            <span style={{ color: "#666", marginLeft: "0.5rem" }}>
-              / {achievementsWithProgress.length} earned
-            </span>
+          {/* Achievements Progress */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <div>
+              <span style={{ fontSize: "1.1rem", fontWeight: "600", color: "#333" }}>Achievements</span>
+              <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#007bff", marginTop: "0.25rem" }}>
+                {earnedAchievements.length} / {achievementsWithProgress.length}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontSize: "1.1rem", fontWeight: "600", color: "#333" }}>Achievement Points</span>
+              <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#28a745", marginTop: "0.25rem" }}>
+                +{achievementPoints}
+              </div>
+            </div>
           </div>
-          <div style={{ height: "30px", width: "1px", background: "#dee2e6" }} />
-          <div>
-            <span style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#28a745" }}>
-              {totalPoints}
-            </span>
-            <span style={{ color: "#666", marginLeft: "0.5rem" }}>points</span>
+
+          {/* Released Songs Points */}
+          {pointsBreakdown && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div>
+                <span style={{ fontSize: "1.1rem", fontWeight: "600", color: "#333" }}>Released Songs</span>
+                <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#6f42c1", marginTop: "0.25rem" }}>
+                  {pointsBreakdown.released_songs_count}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span style={{ fontSize: "1.1rem", fontWeight: "600", color: "#333" }}>Release Points</span>
+                <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#6f42c1", marginTop: "0.25rem" }}>
+                  +{releasePoints}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Total Points */}
+          <div style={{ 
+            borderTop: "2px solid #dee2e6", 
+            paddingTop: "1rem", 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center" 
+          }}>
+            <div>
+              <span style={{ fontSize: "1.2rem", fontWeight: "600", color: "#333" }}>Total Score</span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "2rem", fontWeight: "bold", color: "#dc3545" }}>
+                {totalPoints}
+              </div>
+              <div style={{ fontSize: "0.9rem", color: "#666" }}>points</div>
+            </div>
           </div>
         </div>
       </div>

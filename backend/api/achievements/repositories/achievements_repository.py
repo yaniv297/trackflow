@@ -207,6 +207,37 @@ class AchievementsRepository:
         
         return wip_completion_count
     
+    def get_wip_creation_count(self, db: Session, user_id: int) -> int:
+        """Get count of lifetime WIP creations from user stats."""
+        stats = self.get_user_stats(db, user_id)
+        if not stats:
+            return 0
+        return stats.total_wip_created or 0
+    
+    def increment_wip_creation_count(self, db: Session, user_id: int, increment: int = 1, commit: bool = True) -> None:
+        """Increment the WIP creation counter."""
+        stats = self.get_user_stats(db, user_id)
+        if not stats:
+            stats = self.create_user_stats(db, user_id, commit=False)
+        
+        current_count = stats.total_wip_created or 0
+        stats.total_wip_created = current_count + increment
+        
+        if commit:
+            db.commit()
+    
+    def increment_future_creation_count(self, db: Session, user_id: int, increment: int = 1, commit: bool = True) -> None:
+        """Increment the Future Plans creation counter."""
+        stats = self.get_user_stats(db, user_id)
+        if not stats:
+            stats = self.create_user_stats(db, user_id, commit=False)
+        
+        current_count = stats.total_future_created or 0
+        stats.total_future_created = current_count + increment
+        
+        if commit:
+            db.commit()
+    
     def count_collaborations_added(self, db: Session, user_id: int) -> int:
         """Count times user was added as collaborator."""
         return db.query(Collaboration).filter(

@@ -8,7 +8,7 @@ const RARITY_COLORS = {
   legendary: "#f39c12",
 };
 
-export default function AchievementToast({ achievement, onClose, duration = 5000 }) {
+export default function AchievementToast({ achievement, onClose, duration = 5000, currentScore = null }) {
   const [isVisible, setIsVisible] = useState(true);
   const [isAnimating, setIsAnimating] = useState(true);
 
@@ -118,9 +118,6 @@ export default function AchievementToast({ achievement, onClose, duration = 5000
         </div>
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
             fontSize: "0.85rem",
             color: "#888",
             marginTop: "0.75rem",
@@ -128,10 +125,31 @@ export default function AchievementToast({ achievement, onClose, duration = 5000
             borderTop: "1px solid #eee",
           }}
         >
-          <span>
-            <strong style={{ color: rarityColor }}>{achievement.points}</strong> points
-          </span>
-          <span style={{ textTransform: "capitalize" }}>{achievement.rarity}</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: currentScore !== null ? "0.5rem" : "0",
+            }}
+          >
+            <span>
+              <strong style={{ color: rarityColor }}>+{achievement.points}</strong> points
+            </span>
+            <span style={{ textTransform: "capitalize" }}>{achievement.rarity}</span>
+          </div>
+          {currentScore !== null && (
+            <div
+              style={{
+                fontSize: "0.8rem",
+                color: "#666",
+                textAlign: "center",
+                fontWeight: "500",
+              }}
+            >
+              Current Score: <strong style={{ color: "#333" }}>{currentScore}</strong>
+            </div>
+          )}
         </div>
       </div>
 

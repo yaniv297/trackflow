@@ -506,7 +506,6 @@ function SongPage({ status }) {
         publicFilter={publicFilter}
         setPublicFilter={setPublicFilter}
         selectedSongs={selectedSongs}
-        onBulkTogglePublic={handleBulkTogglePublic}
         onMakeAllPublic={status === "Future Plans" ? handleMakeAllPublic : undefined}
         allFuturePlansPublic={status === "Future Plans" ? allFuturePlansPublic : undefined}
       />

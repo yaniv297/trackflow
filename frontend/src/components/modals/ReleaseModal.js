@@ -20,6 +20,7 @@ const ReleaseModal = ({
   });
   const [songDownloadLinks, setSongDownloadLinks] = useState({});
   const [hideFromHomepage, setHideFromHomepage] = useState(false);
+  const [showIndividualLinks, setShowIndividualLinks] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -34,6 +35,7 @@ const ReleaseModal = ({
       });
       setSongDownloadLinks({});
       setHideFromHomepage(false);
+      setShowIndividualLinks(false);
       setErrors({});
     }
   }, [isOpen]);
@@ -176,7 +178,7 @@ const ReleaseModal = ({
             {type === 'pack' && (
               <div className="form-group">
                 <label htmlFor="title">
-                  Release Post Title (Optional)
+                  Release Post Title
                   <span className="field-hint">Title that will appear on the homepage blog post</span>
                 </label>
                 <input
@@ -193,7 +195,7 @@ const ReleaseModal = ({
             
             <div className="form-group">
               <label htmlFor="description">
-                Description (Optional)
+                Description
                 <span className="field-hint">Tell people about your {type}</span>
               </label>
               <textarea
@@ -201,15 +203,15 @@ const ReleaseModal = ({
                 value={releaseData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder={`Describe your ${type}...`}
-                rows={4}
+                rows={3}
                 className="form-textarea"
               />
             </div>
             
             <div className="form-group">
               <label htmlFor="download_link">
-                Download Link (Optional)
-                <span className="field-hint">Link to download the {type}</span>
+                Download Link
+                <span className="field-hint">Link to download the {type} - it's possible to link individual songs below (optional)</span>
               </label>
               <input
                 type="url"
@@ -226,8 +228,8 @@ const ReleaseModal = ({
             
             <div className="form-group">
               <label htmlFor="youtube_url">
-                YouTube Video (Optional)
-                <span className="field-hint">YouTube link for your {type}</span>
+                YouTube Video
+                <span className="field-hint">YouTube link for trailer or preview to your {type} (optional)</span>
               </label>
               <input
                 type="url"
@@ -243,17 +245,16 @@ const ReleaseModal = ({
             </div>
 
             {/* Hide from Homepage Option */}
-            <div className="form-group">
-              <label className="checkbox-container">
+            <div className="form-group simple-form-group">
+              <label className="simple-checkbox">
                 <input
                   type="checkbox"
                   checked={hideFromHomepage}
                   onChange={(e) => setHideFromHomepage(e.target.checked)}
-                  className="form-checkbox"
                 />
-                <span className="checkbox-label">
+                <span className="checkbox-text">
                   Don't show on TrackFlow homepage
-                  <span className="field-hint">Release privately without appearing on the main page</span>
+                  <span className="field-hint">Your release will appear on the TrackFlow homepage unless you check this option to release privately.</span>
                 </span>
               </label>
             </div>
@@ -261,30 +262,41 @@ const ReleaseModal = ({
             {/* Individual Song Download Links (only for pack releases) */}
             {type === 'pack' && packSongs.length > 0 && (
               <div className="form-section">
-                <h3 className="section-title">Individual Song Download Links (Optional)</h3>
-                <p className="section-description">
-                  Add specific download links for individual songs in this pack
-                </p>
+                <button
+                  type="button"
+                  className="section-toggle"
+                  onClick={() => setShowIndividualLinks(!showIndividualLinks)}
+                >
+                  {showIndividualLinks ? '▼' : '▶'} Individual Song Download Links ({packSongs.length} songs)
+                </button>
                 
-                {packSongs.map((song, index) => (
-                  <div key={song.id} className="form-group">
-                    <label htmlFor={`song-download-${song.id}`}>
-                      {index + 1}. {song.title}
-                      <span className="field-hint">Download link for this song</span>
-                    </label>
-                    <input
-                      type="url"
-                      id={`song-download-${song.id}`}
-                      value={songDownloadLinks[song.id] || ''}
-                      onChange={(e) => handleSongDownloadLinkChange(song.id, e.target.value)}
-                      placeholder="https://example.com/download"
-                      className={`form-input ${errors[`song_${song.id}`] ? 'error' : ''}`}
-                    />
-                    {errors[`song_${song.id}`] && (
-                      <span className="field-error">{errors[`song_${song.id}`]}</span>
-                    )}
-                  </div>
-                ))}
+                {showIndividualLinks && (
+                  <>
+                    <p className="section-description">
+                      Add specific download links for individual songs in this pack
+                    </p>
+                    
+                    {packSongs.map((song, index) => (
+                      <div key={song.id} className="form-group">
+                        <label htmlFor={`song-download-${song.id}`}>
+                          {index + 1}. {song.title}
+                          <span className="field-hint">Download link for this song</span>
+                        </label>
+                        <input
+                          type="url"
+                          id={`song-download-${song.id}`}
+                          value={songDownloadLinks[song.id] || ''}
+                          onChange={(e) => handleSongDownloadLinkChange(song.id, e.target.value)}
+                          placeholder="https://example.com/download"
+                          className={`form-input ${errors[`song_${song.id}`] ? 'error' : ''}`}
+                        />
+                        {errors[`song_${song.id}`] && (
+                          <span className="field-error">{errors[`song_${song.id}`]}</span>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             )}
           </div>

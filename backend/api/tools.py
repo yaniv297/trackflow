@@ -25,7 +25,7 @@ CLEANUP_PATTERNS = [
 def clean_string(title: str) -> str:
     # 1. Remove edition/version-related tags in parentheses
     title = re.sub(
-        r"\s*\((Deluxe( (Edition|Version))?|Super Deluxe Edition|Expanded( (Edition|Version))?|Extended Edition|10( Year)? Anniversary Edition|40( Year)? Anniversary Edition|The Ultimate Collection|Re-?Master(ed)?(\s*\d{4})?|Remastered\s+\d{4}|Special Edition|[12][0-9]{3}( Version| Remaster(ed)?| Mix)?)\)",
+        r"\s*\((Deluxe( (Edition|Version))?|Super Deluxe( Edition)?|Remastered Deluxe Box Set|Expanded( (Edition|Version))?|Extended Edition|10( Year)? Anniversary Edition|40( Year)? Anniversary Edition|The Ultimate Collection|Re-?Master(ed)?(\s*\d{4})?|Remastered\s+\d{4}|Special Edition|[12][0-9]{3}( Version| Remaster(ed)?| Mix)?)\)",
         "",
         title,
         flags=re.IGNORECASE,

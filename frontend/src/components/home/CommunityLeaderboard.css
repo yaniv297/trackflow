@@ -79,6 +79,33 @@
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.2));
 }
 
+.leaderboard-item.current-user {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15)) !important;
+  border-left: 3px solid #667eea !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+}
+
+.leaderboard-item.current-user.top-three {
+  border-left: 3px solid #667eea !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2)) !important;
+}
+
+.leaderboard-item.current-user:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.25)) !important;
+  box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+}
+
+.leaderboard-item.current-user .current-user-name {
+  color: #667eea !important;
+  font-weight: 700;
+}
+
+.leaderboard-item.current-user .current-user-name::before {
+  content: "👤 ";
+  margin-right: 4px;
+}
+
 .rank {
   font-weight: bold;
   font-size: 1.1rem;

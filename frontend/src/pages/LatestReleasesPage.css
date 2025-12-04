@@ -400,17 +400,35 @@
 }
 
 .song-download-link {
-  color: #28a745;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   text-decoration: none;
-  font-size: 1.1rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
   transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
 }
 
 .song-download-link:hover {
-  background: #e7f5e7;
-  transform: scale(1.2);
+  background: linear-gradient(135deg, #218838 0%, #1a9870 100%);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.song-download-link .download-icon {
+  font-size: 1rem;
+}
+
+.song-download-link .download-text {
+  white-space: nowrap;
 }
 
 /* Release metadata */

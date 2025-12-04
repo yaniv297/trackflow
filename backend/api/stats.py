@@ -73,20 +73,20 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         for row in top_artists_data
     ]
 
-    # Get top albums - filter by user access
+    # Get top albums - filter by user access, group by album and artist only
     top_albums = [
         {"album": album, "count": count, "album_cover": album_cover, "artist": artist}
         for album, count, album_cover, artist in db.query(
             Song.album, 
             func.count(), 
-            Song.album_cover, 
+            func.max(Song.album_cover),  # Pick any album cover for the album
             Song.artist
         ).filter(
             Song.status.in_(included_statuses),
             Song.album.isnot(None),
             song_access_filter
         ).group_by(
-            Song.album, Song.album_cover, Song.artist
+            Song.album, Song.artist  # Group by album and artist only, ignoring cover differences
         ).order_by(
             func.count().desc()
         ).limit(50).all()
@@ -313,27 +313,27 @@ def get_year_details(year: int, db: Session = Depends(get_db), current_user = De
         for row in top_artists_data
     ]
     
-    # Get top albums with optimized query
+    # Get top albums with optimized query, group by album only
     top_albums_data = db.query(
         Song.album,
         func.count().label('count'),
-        Song.album_cover
+        func.max(Song.album_cover)  # Pick any album cover for the album
     ).filter(
         Song.year == year,
         Song.status.in_(included_statuses),
         Song.album.isnot(None),
         song_access_filter
     ).group_by(
-        Song.album, Song.album_cover
+        Song.album  # Group by album only, ignoring cover differences
     ).order_by(
         func.count().desc()
     ).limit(5).all()
     
     top_albums = [
         {
-            "album": row.album, 
-            "count": row.count, 
-            "album_cover": row.album_cover
+            "album": row[0],  # album
+            "count": row[1],  # count
+            "album_cover": row[2]  # func.max(Song.album_cover)
         }
         for row in top_albums_data
     ]
@@ -415,14 +415,14 @@ def get_user_top_albums(limit: int = 5, db: Session = Depends(get_db), current_u
     top_albums_data = db.query(
         Song.album.label('name'),
         func.count().label('count'),
-        Song.album_cover.label('album_cover'),
+        func.max(Song.album_cover).label('album_cover'),  # Pick any album cover for the album
         Song.artist.label('artist_name')
     ).filter(
         Song.status.in_(included_statuses),
         Song.album.isnot(None),
         song_access_filter
     ).group_by(
-        Song.album, Song.album_cover, Song.artist
+        Song.album, Song.artist  # Group by album and artist only, ignoring cover differences
     ).order_by(
         func.count().desc()
     ).limit(limit).all()

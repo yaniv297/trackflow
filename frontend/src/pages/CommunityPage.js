@@ -2,12 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import SmartDiscovery from '../components/community/SmartDiscovery';
 import PublicSongFilters from '../components/community/PublicSongFilters';
-import PublicSongsTable from '../components/community/PublicSongsTable';
-import ArtistGroup from '../components/community/ArtistGroup';
-import UserGroup from '../components/community/UserGroup';
+import PublicSongsTableNew from '../components/community/PublicSongsTableNew';
 import CollaborationRequestModal from '../components/community/CollaborationRequestModal';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import Pagination from '../components/ui/Pagination';
 import publicSongsService from '../services/publicSongsService';
 import './CommunityPage.css';
 
@@ -21,70 +18,93 @@ const CommunityPage = () => {
   const [songs, setSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState(null);
   const [selectedSong, setSelectedSong] = useState(null);
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
-  const [groupBy, setGroupBy] = useState('artist'); // 'none', 'artist', or 'user'
+  const [groupBy, setGroupBy] = useState('none'); // 'none', 'artist', or 'user'
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   
   // Filters state
   const [filters, setFilters] = useState({
-    search: '',
-    status: ''
+    search: ''
   });
   
-  // Sorting state
-  const [sortConfig, setSortConfig] = useState({
-    field: 'title',
-    direction: 'asc'
-  });
-  
-  // Pagination
+  // Pagination - handled by component now
   const [currentPage, setCurrentPage] = useState(1);
   const SONGS_PER_PAGE = 20;
 
   // Debounced filter loading
   const [filterTimeout, setFilterTimeout] = useState(null);
 
-  // Load songs function
-  const loadSongs = useCallback(async (newFilters = filters, page = 1, newSortConfig = sortConfig) => {
+  // Load songs function - fetches all songs in batches
+  const loadSongs = useCallback(async (newFilters = filters) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const result = await publicSongsService.browsePublicSongs({
-        search: newFilters.search,
-        status: newFilters.status,
-        sort_by: newSortConfig.field,
-        sort_direction: newSortConfig.direction,
-        group_by: groupBy !== 'none' ? groupBy : null, // Pass grouping to backend
-        limit: SONGS_PER_PAGE,
-        offset: (page - 1) * SONGS_PER_PAGE
-      });
+      const allSongs = [];
+      const limit = 100; // Max allowed by API
+      let offset = 0;
+      let hasMore = true;
 
-      if (result.success) {
-        setSongs(result.data);
-        setPagination(result.pagination);
-        setCurrentPage(page);
-      } else {
-        setError(result.error);
-        setSongs([]);
-        setPagination(null);
+      // Fetch all songs in batches
+      while (hasMore) {
+        const result = await publicSongsService.browsePublicSongs({
+          search: newFilters.search,
+          sort_by: 'updated_at',
+          sort_direction: 'desc',
+          group_by: null, // Frontend handles grouping now
+          limit: limit,
+          offset: offset
+        });
+
+        if (result.success) {
+          const songs = result.data || [];
+          allSongs.push(...songs);
+          
+          // Check if there are more songs to fetch
+          if (result.pagination) {
+            const totalPages = result.pagination.total_pages;
+            const currentPage = result.pagination.page;
+            hasMore = currentPage < totalPages;
+            offset = allSongs.length;
+          } else {
+            // If no pagination info, check if we got fewer than limit
+            hasMore = songs.length === limit;
+            offset += limit;
+          }
+        } else {
+          setError(result.error);
+          setSongs([]);
+          return;
+        }
+      }
+
+      setSongs(allSongs);
+      
+      // Debug: Log first song to check for artist_image_url
+      if (allSongs.length > 0) {
+        console.log('Sample song from API:', {
+          id: allSongs[0].id,
+          title: allSongs[0].title,
+          artist: allSongs[0].artist,
+          hasArtistImageUrl: !!allSongs[0].artist_image_url,
+          artistImageUrl: allSongs[0].artist_image_url,
+          allFields: Object.keys(allSongs[0])
+        });
       }
     } catch (err) {
       console.error('Error loading songs:', err);
       setError('Failed to load songs');
       setSongs([]);
-      setPagination(null);
     } finally {
       setIsLoading(false);
     }
-  }, [filters, sortConfig, groupBy]);
+  }, [filters]);
 
-  // Initial load and when groupBy changes
+  // Initial load
   useEffect(() => {
     loadSongs();
-  }, [loadSongs, groupBy]);
+  }, [loadSongs]);
 
   // Handle filter changes with debouncing
   const handleFiltersChange = useCallback((newFilters) => {
@@ -98,128 +118,11 @@ const CommunityPage = () => {
     // Set new timeout for debounced search
     const timeout = setTimeout(() => {
       setCurrentPage(1);
-      loadSongs(newFilters, 1);
+      loadSongs(newFilters);
     }, 500);
     
     setFilterTimeout(timeout);
   }, [filterTimeout, loadSongs]);
-
-  // Handle sorting
-  const handleSort = useCallback((field, direction) => {
-    const newSortConfig = { field, direction };
-    setSortConfig(newSortConfig);
-    setCurrentPage(1);
-    loadSongs(filters, 1, newSortConfig);
-  }, [filters, loadSongs]);
-
-  // Handle page change
-  const handlePageChange = useCallback((page) => {
-    setCurrentPage(page);
-    loadSongs(filters, page);
-  }, [filters, loadSongs]);
-
-  // Group toggling functions
-  const toggleGroup = useCallback((groupKey) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupKey)) {
-        newSet.delete(groupKey);
-      } else {
-        newSet.add(groupKey);
-      }
-      return newSet;
-    });
-  }, []);
-
-  const groupSongsByArtist = useCallback((songs) => {
-    // Group the songs (backend already sorted them)
-    const grouped = songs.reduce((acc, song) => {
-      const artist = song.artist;
-      if (!acc[artist]) {
-        acc[artist] = [];
-      }
-      acc[artist].push(song);
-      return acc;
-    }, {});
-    
-    // Sort songs within each artist group based on current sort config
-    Object.keys(grouped).forEach(artist => {
-      grouped[artist].sort((a, b) => {
-        const { field, direction } = sortConfig;
-        let aVal = a[field] || '';
-        let bVal = b[field] || '';
-        
-        // Handle date fields
-        if (field === 'updated_at' || field === 'created_at') {
-          aVal = new Date(aVal).getTime();
-          bVal = new Date(bVal).getTime();
-        }
-        
-        // Handle string comparisons
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
-        }
-        
-        if (direction === 'asc') {
-          return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-        } else {
-          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-        }
-      });
-    });
-    
-    return grouped;
-  }, [sortConfig]);
-
-  const groupSongsByUser = useCallback((songs) => {
-    // Group the songs (backend already sorted them)
-    const grouped = songs.reduce((acc, song) => {
-      const username = song.username;
-      if (!acc[username]) {
-        acc[username] = [];
-      }
-      acc[username].push(song);
-      return acc;
-    }, {});
-    
-    // Sort songs within each user group based on current sort config
-    Object.keys(grouped).forEach(username => {
-      grouped[username].sort((a, b) => {
-        const { field, direction } = sortConfig;
-        let aVal = a[field] || '';
-        let bVal = b[field] || '';
-        
-        // Handle date fields
-        if (field === 'updated_at' || field === 'created_at') {
-          aVal = new Date(aVal).getTime();
-          bVal = new Date(bVal).getTime();
-        }
-        
-        // Handle string comparisons
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          aVal = aVal.toLowerCase();
-          bVal = bVal.toLowerCase();
-        }
-        
-        if (direction === 'asc') {
-          return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-        } else {
-          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-        }
-      });
-    });
-    
-    return grouped;
-  }, [sortConfig]);
-
-  // Handle group by change
-  const handleGroupByChange = useCallback((newGroupBy) => {
-    setGroupBy(newGroupBy);
-    setCurrentPage(1);
-    setExpandedGroups(new Set()); // Reset expanded groups
-    // loadSongs will be called automatically due to dependency change
-  }, []);
 
   // Handle collaboration request
   const handleCollaborationRequest = (song) => {
@@ -268,63 +171,6 @@ const CommunityPage = () => {
           isLoading={isLoading}
         />
 
-        {/* View Options */}
-        {songs.length > 0 && (
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            padding: '16px 20px',
-            backgroundColor: '#f8f9fa',
-            border: '1px solid #dee2e6',
-            borderRadius: '8px',
-            marginBottom: '20px'
-          }}>
-            <div>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '16px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#495057'
-              }}>
-                <label htmlFor="groupBy" style={{ marginRight: '8px' }}>Group by:</label>
-                <select
-                  id="groupBy"
-                  value={groupBy}
-                  onChange={(e) => handleGroupByChange(e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    border: '1px solid #ced4da',
-                    borderRadius: '4px',
-                    backgroundColor: 'white',
-                    fontSize: '14px',
-                    color: '#495057',
-                    cursor: 'pointer',
-                    minWidth: '120px'
-                  }}
-                >
-                  <option value="none">None</option>
-                  <option value="artist">Artist</option>
-                  <option value="user">User</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>
-              {pagination && (
-                <span>
-                  {(currentPage - 1) * SONGS_PER_PAGE + 1}-{Math.min(currentPage * SONGS_PER_PAGE, pagination.total_count)} of {pagination.total_count} {
-                    groupBy === 'artist' ? 'artists' : 
-                    groupBy === 'user' ? 'users' : 
-                    'songs'
-                  }
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Results Section */}
         <div className="results-section">
           {error && (
@@ -353,64 +199,19 @@ const CommunityPage = () => {
             </div>
           )}
 
-          {songs.length > 0 && (
-            <>
-              {groupBy === 'artist' ? (
-                // Grouped view by artist
-                <div className="grouped-results">
-                  {Object.entries(groupSongsByArtist(songs))
-                  .sort(([a], [b]) => a.localeCompare(b)) // Sort artists alphabetically
-                  .map(([artist, artistSongs]) => (
-                    <ArtistGroup
-                      key={artist}
-                      artist={artist}
-                      songs={artistSongs}
-                      isExpanded={expandedGroups.has(artist)}
-                      onToggle={() => toggleGroup(artist)}
-                      onCollaborationRequest={handleCollaborationRequest}
-                      currentUserId={user?.id}
-                    />
-                  ))}
-                </div>
-              ) : groupBy === 'user' ? (
-                // Grouped view by user
-                <div className="grouped-results">
-                  {Object.entries(groupSongsByUser(songs))
-                  .sort(([a], [b]) => a.localeCompare(b)) // Sort users alphabetically
-                  .map(([username, userSongs]) => (
-                    <UserGroup
-                      key={username}
-                      user={username}
-                      songs={userSongs}
-                      isExpanded={expandedGroups.has(username)}
-                      onToggle={() => toggleGroup(username)}
-                      onCollaborationRequest={handleCollaborationRequest}
-                      currentUserId={user?.id}
-                    />
-                  ))}
-                </div>
-              ) : (
-                // Table view
-                <PublicSongsTable
-                  songs={songs}
-                  onCollaborationRequest={handleCollaborationRequest}
-                  currentUserId={user?.id}
-                  onSort={handleSort}
-                  sortConfig={sortConfig}
-                />
-              )}
-
-              {/* Pagination */}
-              {pagination && pagination.total_pages > 1 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={pagination.total_pages}
-                  onPageChange={handlePageChange}
-                  totalCount={pagination.total_count}
-                  perPage={SONGS_PER_PAGE}
-                />
-              )}
-            </>
+          {!isLoading && songs.length > 0 && (
+            <PublicSongsTableNew
+              songs={songs}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onCollaborationRequest={handleCollaborationRequest}
+              currentUserId={user?.id}
+              groupBy={groupBy}
+              setGroupBy={setGroupBy}
+              expandedGroups={expandedGroups}
+              setExpandedGroups={setExpandedGroups}
+              itemsPerPage={SONGS_PER_PAGE}
+            />
           )}
 
           {/* Loading Spinner */}

@@ -5,6 +5,7 @@ from database import get_db
 from models import Song, User, Artist, CollaborationRequest
 from api.auth import get_current_active_user
 from api.activity_logger import log_activity
+from api.public_profiles import get_artist_images_batch
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -19,6 +20,7 @@ class PublicSongResponse(BaseModel):
     year: Optional[int] = None
     status: str
     album_cover: Optional[str] = None
+    artist_image_url: Optional[str] = None
     user_id: int
     username: str
     display_name: Optional[str] = None
@@ -99,6 +101,10 @@ def browse_public_songs(
         # Get all filtered and sorted results
         all_results = songs_query.all()
         
+        # Get artist images for all songs in batch
+        artist_names = [song.artist for song, _ in all_results if song.artist]
+        artist_images = get_artist_images_batch(db, artist_names)
+        
         # Build response objects
         all_songs = [
             PublicSongResponse(
@@ -109,6 +115,7 @@ def browse_public_songs(
                 year=song.year,
                 status=song.status,
                 album_cover=song.album_cover,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
@@ -177,6 +184,10 @@ def browse_public_songs(
         # Get all filtered and sorted results
         all_results = songs_query.all()
         
+        # Get artist images for all songs in batch
+        artist_names = [song.artist for song, _ in all_results if song.artist]
+        artist_images = get_artist_images_batch(db, artist_names)
+        
         # Build response objects
         all_songs = [
             PublicSongResponse(
@@ -187,6 +198,7 @@ def browse_public_songs(
                 year=song.year,
                 status=song.status,
                 album_cover=song.album_cover,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
@@ -263,6 +275,10 @@ def browse_public_songs(
         page = (offset // limit) + 1
         total_pages = (total_count + limit - 1) // limit  # Ceiling division
         
+        # Get artist images for all songs in batch
+        artist_names = [song.artist for song, _ in results if song.artist]
+        artist_images = get_artist_images_batch(db, artist_names)
+        
         songs = [
             PublicSongResponse(
                 id=song.id,
@@ -272,6 +288,7 @@ def browse_public_songs(
                 year=song.year,
                 status=song.status,
                 album_cover=song.album_cover,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
@@ -300,18 +317,31 @@ def get_shared_connections(
     # Get current user's songs for comparison
     my_songs = db.query(Song.title, Song.artist).filter(Song.user_id == current_user.id).subquery()
     
-    # Find shared songs (same title + artist)
-    shared_songs = db.query(
+    # Find shared songs (same title + artist) - get song_id, album_cover, status, album, year
+    shared_songs_query = db.query(
         User.username,
+        Song.id,
         Song.title,
-        Song.artist
+        Song.artist,
+        Song.album_cover,
+        Song.status,
+        Song.album,
+        Song.year
     ).select_from(Song)\
     .join(User, Song.user_id == User.id)\
     .join(my_songs, and_(Song.title == my_songs.c.title, Song.artist == my_songs.c.artist))\
     .filter(
         Song.user_id != current_user.id,
         Song.is_public == True
-    ).distinct().limit(10).all()
+    ).distinct().limit(10)
+    
+    shared_songs_results = shared_songs_query.all()
+    
+    # Debug: Print first result to see what we're getting
+    if shared_songs_results:
+        print(f"DEBUG: First shared song result: {shared_songs_results[0]}")
+        print(f"DEBUG: Result type: {type(shared_songs_results[0])}")
+        print(f"DEBUG: Result length: {len(shared_songs_results[0]) if hasattr(shared_songs_results[0], '__len__') else 'N/A'}")
     
     # Get current user's artists for comparison
     my_artists = db.query(Song.artist).filter(Song.user_id == current_user.id).distinct().subquery()
@@ -331,15 +361,36 @@ def get_shared_connections(
     .order_by(func.count(Song.id).desc())\
     .limit(10).all()
     
+    # Build response with proper field mapping - always include all fields
+    shared_songs_list = []
+    for result in shared_songs_results:
+        # Access by index since SQLAlchemy returns tuples for multi-column queries
+        username = result[0] if len(result) > 0 else None
+        song_id = result[1] if len(result) > 1 else None
+        title = result[2] if len(result) > 2 else None
+        artist = result[3] if len(result) > 3 else None
+        album_cover = result[4] if len(result) > 4 else None
+        status = result[5] if len(result) > 5 else None
+        album = result[6] if len(result) > 6 else None
+        year = result[7] if len(result) > 7 else None
+        
+        shared_songs_list.append({
+            "song_id": song_id,
+            "username": username,
+            "title": title,
+            "artist": artist,
+            "album_cover": album_cover,
+            "status": status,
+            "album": album,
+            "year": year
+        })
+    
+    # Debug: Print the first item in the list
+    if shared_songs_list:
+        print(f"DEBUG: First shared song dict: {shared_songs_list[0]}")
+    
     return SharedConnectionsResponse(
-        shared_songs=[
-            {
-                "username": username,
-                "title": title,
-                "artist": artist
-            }
-            for username, title, artist in shared_songs
-        ],
+        shared_songs=shared_songs_list,
         shared_artists=[
             {
                 "username": username,
@@ -545,3 +596,53 @@ def bulk_toggle_songs_public(
         failed_song_ids=failed_song_ids,
         message=f"Successfully updated {success_count} out of {total_count} songs"
     )
+
+@router.get("/check-duplicates")
+def check_song_duplicates(
+    title: str = Query(..., description="Song title to check"),
+    artist: str = Query(..., description="Artist name to check"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Check if a song already exists by other users for duplicate warnings."""
+    
+    if not title or not artist:
+        return {"matches": []}
+    
+    # Query for exact matches (case-insensitive)
+    # For Released songs: always visible regardless of is_public flag
+    # For WIP/Future Plans: only if is_public is True
+    # Exclude current user's songs
+    query = db.query(Song, User).join(User, Song.user_id == User.id).filter(
+        Song.title.ilike(title.strip()),
+        Song.artist.ilike(artist.strip()),
+        Song.user_id != current_user.id  # Exclude current user's songs
+    ).filter(
+        or_(
+            Song.status == "Released",  # Released songs are always visible
+            and_(
+                Song.is_public == True,  # WIP/Future Plans only if public
+                Song.status.in_(["In Progress", "Future Plans"])
+            )
+        )
+    )
+    
+    results = query.all()
+    
+    matches = [
+        {
+            "id": song.id,
+            "title": song.title,
+            "artist": song.artist,
+            "status": song.status,
+            "user_id": song.user_id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "profile_image_url": user.profile_image_url,
+            "created_at": song.created_at,
+            "updated_at": song.updated_at
+        }
+        for song, user in results
+    ]
+    
+    return {"matches": matches}

@@ -49,6 +49,10 @@ def check_wip_completion_achievements(db, user_id):
     """Legacy function for backward compatibility."""
     return service.check_wip_completion_achievements(db, user_id)
 
+def check_wip_creation_achievements(db, user_id):
+    """Legacy function for backward compatibility."""
+    return service.check_wip_creation_achievements(db, user_id)
+
 def check_diversity_achievements(db, user_id):
     """Legacy function for backward compatibility."""
     return service.check_diversity_achievements(db, user_id)
@@ -89,9 +93,9 @@ __all__ = [
     "check_all_achievements", "check_status_achievements", "check_pack_achievements",
     "check_collaboration_achievements", "check_social_achievements", 
     "check_spotify_achievements", "check_feature_request_achievements",
-    "check_wip_completion_achievements", "check_diversity_achievements",
-    "check_quality_achievements", "check_album_series_achievements", 
-    "check_login_streak_achievements",
+    "check_wip_completion_achievements", "check_wip_creation_achievements", 
+    "check_diversity_achievements", "check_quality_achievements", 
+    "check_album_series_achievements", "check_login_streak_achievements",
     "check_public_wip_achievements", "check_collaboration_request_achievements",
     "check_social_collaboration_achievements",
     "get_or_create_user_stats"

@@ -440,6 +440,35 @@
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
+.explore-button.primary {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+}
+
+.explore-button.primary:hover {
+  background: linear-gradient(135deg, #0056b3, #004085);
+  color: white;
+}
+
+.explore-button.secondary {
+  background: linear-gradient(135deg, #6c757d, #5a6268);
+  color: white;
+}
+
+.explore-button.secondary:hover {
+  background: linear-gradient(135deg, #5a6268, #495057);
+  color: white;
+}
+
+.empty-state-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
 /* Error State */
 .error-state {
   text-align: center;
@@ -612,24 +641,6 @@
   font-size: 0.9rem;
 }
 
-/* Song download link */
-.song-download-link {
-  margin-left: auto;
-  color: #6c757d;
-  text-decoration: none;
-  font-size: 0.85rem;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  transition: all 0.15s;
-  opacity: 0.7;
-}
-
-.song-download-link:hover {
-  background: #e9ecef;
-  color: #28a745;
-  opacity: 1;
-}
-
 .song-item {
   display: flex;
   align-items: center;
@@ -647,6 +658,11 @@
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border-radius: 12px;
   border: 1px solid #dee2e6;
+}
+
+.releases-navigation.round-robin {
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
 }
 
 .nav-btn {
@@ -709,6 +725,50 @@
   border-color: #007bff;
 }
 
+.release-indicators {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.current-release-info {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.release-dots {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.release-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ced4da;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.release-dot:hover {
+  background: #adb5bd;
+  transform: scale(1.2);
+}
+
+.release-dot.active {
+  background: #007bff;
+  transform: scale(1.3);
+}
+
+.single-release-container {
+  width: 100%;
+}
+
 .see-all-btn {
   display: inline-flex;
   align-items: center;
@@ -748,12 +808,37 @@
     gap: 1rem;
   }
   
+  .releases-navigation.round-robin {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  
   .nav-btn {
     justify-content: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
   }
   
   .page-indicators {
     justify-content: center;
+  }
+  
+  .release-indicators {
+    gap: 0.25rem;
+  }
+  
+  .current-release-info {
+    font-size: 0.8rem;
+  }
+  
+  .release-dots {
+    gap: 0.25rem;
+  }
+  
+  .release-dot {
+    width: 8px;
+    height: 8px;
   }
 }
 
@@ -933,20 +1018,34 @@
 
 .song-download-link {
   margin-left: auto;
-  color: #6c757d;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
   text-decoration: none;
-  font-size: 1rem;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  transition: all 0.15s;
-  opacity: 0.7;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: all 0.2s;
   flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
 }
 
 .song-download-link:hover {
-  background: #e9ecef;
-  color: #28a745;
-  opacity: 1;
+  background: linear-gradient(135deg, #218838 0%, #1a9870 100%);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.song-download-link .download-icon {
+  font-size: 1rem;
+}
+
+.song-download-link .download-text {
+  white-space: nowrap;
 }
 
 /* Songs Pagination */

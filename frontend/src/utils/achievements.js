@@ -64,13 +64,22 @@ export async function checkAndShowNewAchievements() {
         allAchievements.map((ach) => [ach.code, ach])
       );
 
+      // Get current user data to show total score in achievement toast
+      let currentScore = null;
+      try {
+        const userResponse = await apiGet("/auth/me");
+        currentScore = userResponse?.achievement_score || null;
+      } catch (error) {
+        console.warn("Could not fetch current score for achievement toast:", error);
+      }
+
       // Show toasts for newly earned achievements
       allNewlyAwarded.forEach((code) => {
         const achievement = achievementMap.get(code);
         if (achievement) {
           // Try multiple notification methods with fallbacks
           if (window.showAchievementToast) {
-            window.showAchievementToast(achievement);
+            window.showAchievementToast(achievement, currentScore);
           } else if (window.showNotification) {
             window.showNotification(`🏆 Achievement Unlocked: ${achievement.name}`, "success");
           } else {

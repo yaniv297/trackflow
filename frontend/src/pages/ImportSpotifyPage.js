@@ -26,21 +26,50 @@ function ImportSpotifyPage() {
     }
 
     setIsSubmitting(true);
-    setProgress({ phase: "Importing playlist...", current: 0, total: 0 });
+    setProgress({ phase: "Connecting to Spotify...", current: 0, total: 3 });
 
     try {
+      // Small delay to show initial progress
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setProgress({ phase: "Reading playlist tracks...", current: 1, total: 3 });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setProgress({ phase: "Creating songs in database...", current: 2, total: 3 });
+      
       // Call the backend API
       const result = await apiPost(`/spotify/import-playlist`, {
         playlist_url: playlistUrl,
         status: status,
         pack: pack.trim() || null,
       });
+      
+      setProgress({ phase: "Import completed successfully", current: 3, total: 3 });
 
-      // Show success notification
-      window.showNotification(
-        `✅ Successfully imported ${result.imported_count} songs from playlist!`,
-        "success"
-      );
+      // Show success notification with details
+      let message = `✅ Successfully imported ${result.imported_count} songs from playlist!`;
+      
+      if (result.skipped_songs && result.skipped_songs.length > 0) {
+        message += `\n⏭️ Skipped ${result.skipped_songs.length} duplicate songs:`;
+        result.skipped_songs.slice(0, 3).forEach(song => {
+          message += `\n• ${song}`;
+        });
+        if (result.skipped_songs.length > 3) {
+          message += `\n• ...and ${result.skipped_songs.length - 3} more`;
+        }
+      }
+      
+      if (result.failed_songs && result.failed_songs.length > 0) {
+        message += `\n❌ Failed to import ${result.failed_songs.length} songs:`;
+        result.failed_songs.slice(0, 2).forEach(song => {
+          message += `\n• ${song}`;
+        });
+        if (result.failed_songs.length > 2) {
+          message += `\n• ...and ${result.failed_songs.length - 2} more`;
+        }
+      }
+      
+      window.showNotification(message, "success");
 
       // Check for new achievements
       await checkAndShowNewAchievements();

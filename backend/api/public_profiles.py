@@ -31,20 +31,18 @@ def get_user_achievement_score(db: Session, user_id: int) -> int:
     return result or 0
 
 def get_user_achievement_scores_batch(db: Session, user_ids: List[int]) -> Dict[int, int]:
-    """Calculate total achievement scores for multiple users in a batch query"""
+    """Get total scores (achievements + releases) for multiple users from user_stats"""
     if not user_ids:
         return {}
     
     results = db.query(
-        UserAchievement.user_id,
-        func.sum(Achievement.points).label('total_points')
-    ).join(
-        Achievement, Achievement.id == UserAchievement.achievement_id
+        UserStats.user_id,
+        UserStats.total_points
     ).filter(
-        UserAchievement.user_id.in_(user_ids)
-    ).group_by(UserAchievement.user_id).all()
+        UserStats.user_id.in_(user_ids)
+    ).all()
     
-    # Create a dictionary with default score of 0 for users with no achievements
+    # Create a dictionary with default score of 0 for users with no stats
     user_scores = {user_id: 0 for user_id in user_ids}
     for user_id, total_points in results:
         user_scores[user_id] = total_points or 0
@@ -180,8 +178,9 @@ def get_public_user_profile(
             detail="User not found"
         )
     
-    # Get achievement score
-    achievement_score = get_user_achievement_score(db, user.id)
+    # Get total score (achievements + releases) from user_stats
+    user_stats = db.query(UserStats).filter(UserStats.user_id == user.id).first()
+    achievement_score = user_stats.total_points if user_stats else 0
     
     # Get leaderboard rank
     leaderboard_rank = get_user_leaderboard_rank(db, user.id)

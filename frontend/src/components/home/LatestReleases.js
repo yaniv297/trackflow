@@ -6,11 +6,12 @@ import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../shared/UserProfilePopup';
 import './LatestReleases.css';
 
-const LatestReleases = ({ limit = 5 }) => {
+const LatestReleases = ({ limit = 5, isAuthenticated = true }) => {
   const [releases, setReleases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [currentReleaseIndex, setCurrentReleaseIndex] = useState(0);
   const [totalReleases, setTotalReleases] = useState(0);
   const navigate = useNavigate();
   const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
@@ -24,18 +25,25 @@ const LatestReleases = ({ limit = 5 }) => {
       setLoading(true);
       setError(null);
       
-      // Fetch recent releases from the API with pagination
+      // Fetch releases from the last month with pagination
       const offset = currentPage * limit;
-      const releasesData = await apiGet(`/songs/recent-pack-releases?limit=${limit}&offset=${offset}`);
-      setReleases(releasesData || []);
+      const daysBack = 30; // Last month
       
-      // For now, we'll estimate total count. Later we could add a separate count endpoint
-      if (releasesData && releasesData.length === limit) {
-        // If we got a full page, assume there might be more
-        setTotalReleases((currentPage + 1) * limit + 1);
+      // Fetch releases and total count in parallel
+      const [releasesData, countData] = await Promise.all([
+        apiGet(`/songs/recent-pack-releases?limit=${limit}&offset=${offset}&days_back=${daysBack}`),
+        apiGet(`/songs/recent-pack-releases/count?days_back=${daysBack}`)
+      ]);
+      
+      setReleases(releasesData || []);
+      setTotalReleases(countData?.count || 0);
+      
+      // Randomly select the first release to show
+      if (releasesData && releasesData.length > 0) {
+        const randomIndex = Math.floor(Math.random() * releasesData.length);
+        setCurrentReleaseIndex(randomIndex);
       } else {
-        // If we got less than limit, this is the last page
-        setTotalReleases(offset + (releasesData?.length || 0));
+        setCurrentReleaseIndex(0);
       }
       
     } catch (error) {
@@ -48,8 +56,20 @@ const LatestReleases = ({ limit = 5 }) => {
     }
   };
 
+  const handleNextRelease = () => {
+    if (releases.length > 0) {
+      setCurrentReleaseIndex((prev) => (prev + 1) % releases.length);
+    }
+  };
+
+  const handlePrevRelease = () => {
+    if (releases.length > 0) {
+      setCurrentReleaseIndex((prev) => (prev - 1 + releases.length) % releases.length);
+    }
+  };
+
   const handleExploreMusic = () => {
-    navigate('/login');
+    navigate('/');
   };
 
   if (loading) {
@@ -114,10 +134,10 @@ const LatestReleases = ({ limit = 5 }) => {
     <section className="latest-releases">
       <div className="releases-header">
         <div className="header-left">
-          <h2 className="section-title">Latest Releases</h2>
+          <h2 className="section-title">Latest Releases (Last Month)</h2>
           {totalReleases > 0 && (
             <span className="release-count">
-              Showing {currentPage * limit + 1}-{Math.min((currentPage + 1) * limit, totalReleases)} of {totalReleases}
+              Showing {currentPage * limit + 1}-{Math.min((currentPage + 1) * limit, totalReleases)} of {totalReleases} releases
             </span>
           )}
         </div>
@@ -141,60 +161,58 @@ const LatestReleases = ({ limit = 5 }) => {
         </div>
       </div>
       
-      {/* Navigation controls */}
-      {packReleases.length > 0 && totalReleases > limit && (
-        <div className="releases-navigation">
+      {/* Round Robin Navigation */}
+      {packReleases.length > 0 && (
+        <div className="releases-navigation round-robin">
           <button 
-            onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-            disabled={currentPage === 0}
-            className="nav-btn prev-btn"
+            onClick={handlePrevRelease}
+            disabled={packReleases.length <= 1}
+            className={`nav-btn prev-btn ${packReleases.length <= 1 ? 'disabled' : ''}`}
+            title="Previous release"
           >
             ← Previous
           </button>
           
-          <div className="page-indicators">
-            {Array.from({ length: Math.min(5, Math.ceil(totalReleases / limit)) }, (_, i) => {
-              const pageNum = Math.max(0, currentPage - 2) + i;
-              const totalPages = Math.ceil(totalReleases / limit);
-              
-              if (pageNum >= totalPages) return null;
-              
-              return (
+          <div className="release-indicators">
+            <span className="current-release-info">
+              {currentReleaseIndex + 1} of {packReleases.length} releases
+            </span>
+            <div className="release-dots">
+              {packReleases.map((_, index) => (
                 <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`page-indicator ${currentPage === pageNum ? 'active' : ''}`}
-                >
-                  {pageNum + 1}
-                </button>
-              );
-            })}
+                  key={index}
+                  onClick={() => setCurrentReleaseIndex(index)}
+                  className={`release-dot ${index === currentReleaseIndex ? 'active' : ''}`}
+                  title={`Go to release ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
           
           <button 
-            onClick={() => setCurrentPage(prev => prev + 1)}
-            disabled={releases.length < limit}
-            className="nav-btn next-btn"
+            onClick={handleNextRelease}
+            disabled={packReleases.length <= 1}
+            className={`nav-btn next-btn ${packReleases.length <= 1 ? 'disabled' : ''}`}
+            title="Next release"
           >
             Next →
           </button>
         </div>
       )}
-      <div className="releases-widget">
+      
+      <div className="releases-widget single-release">
         {packReleases.length > 0 ? (
-          <div className="releases-list">
-            {packReleases.map((pack, index) => (
-              <PackReleaseItem 
-                key={pack.pack_id || `single-${index}`} 
-                pack={pack} 
-                onUsernameClick={handleUsernameClick}
-                onUsernameHover={handleUsernameHover}
-                onUsernameLeave={delayedHidePopup}
-              />
-            ))}
+          <div className="single-release-container">
+            <PackReleaseItem 
+              key={packReleases[currentReleaseIndex]?.pack_id || `single-${currentReleaseIndex}`} 
+              pack={packReleases[currentReleaseIndex]} 
+              onUsernameClick={handleUsernameClick}
+              onUsernameHover={handleUsernameHover}
+              onUsernameLeave={delayedHidePopup}
+            />
           </div>
         ) : (
-          <EmptyReleases onExplore={handleExploreMusic} />
+          <EmptyReleasesFromMonth onExplore={handleExploreMusic} onSeeAllReleases={() => navigate('/releases')} />
         )}
       </div>
       
@@ -457,9 +475,10 @@ const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLea
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="song-download-link"
-                  title="Download"
+                  title="Download song"
                 >
-                  ↓
+                  <span className="download-icon">⬇</span>
+                  <span className="download-text">Download</span>
                 </a>
               )}
             </div>
@@ -509,6 +528,22 @@ const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLea
     </article>
   );
 };
+
+const EmptyReleasesFromMonth = ({ onExplore, onSeeAllReleases }) => (
+  <div className="empty-state">
+    <div className="empty-icon">♪</div>
+    <h3>No releases from the last month</h3>
+    <p>Our community artists are working on new music!</p>
+    <div className="empty-state-actions">
+      <button onClick={onSeeAllReleases} className="explore-button primary">
+        See All Releases →
+      </button>
+      <button onClick={onExplore} className="explore-button secondary">
+        Join Community
+      </button>
+    </div>
+  </div>
+);
 
 const EmptyReleases = ({ onExplore }) => (
   <div className="empty-state">

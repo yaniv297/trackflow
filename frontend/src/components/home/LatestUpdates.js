@@ -105,7 +105,7 @@ const LatestUpdates = ({ limit = 5 }) => {
   }
 
   return (
-    <section className="latest-updates">
+    <section className={`latest-updates ${showAllUpdates ? 'expanded' : 'compact'}`}>
       <div className="updates-header">
         <h2 className="section-title">Latest Updates</h2>
         {updates.length > 0 && (

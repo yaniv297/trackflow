@@ -187,9 +187,15 @@ def get_recent_releases(
 def get_recent_pack_releases(
     limit: int = Query(10, le=50, description="Maximum number of pack releases to return"),
     offset: int = Query(0, ge=0, description="Number of pack releases to skip"),
+    days_back: int = Query(30, le=365, description="Number of days back to fetch releases"),
     db: Session = Depends(get_db)
 ):
     """Get recently released packs with their songs, grouped by pack and ordered by pack release date."""
+    from datetime import datetime, timedelta
+    
+    # Calculate cutoff date
+    cutoff_date = datetime.utcnow() - timedelta(days=days_back)
+    
     # Get unique packs that have released songs, ordered by most recent release
     pack_releases = db.query(Pack).options(
         joinedload(Pack.user),
@@ -199,7 +205,8 @@ def get_recent_pack_releases(
         Song.released_at.isnot(None),
         Song.released_at != '',
         Pack.released_at.isnot(None),
-        Pack.released_at != ''
+        Pack.released_at != '',
+        Pack.released_at >= cutoff_date
     ).group_by(Pack.id).order_by(Pack.released_at.desc()).offset(offset).limit(limit).all()
     
     pack_data = []
@@ -252,3 +259,27 @@ def get_recent_pack_releases(
         pack_data.append(pack_info)
     
     return pack_data
+
+
+@router.get("/recent-pack-releases/count")
+def get_recent_pack_releases_count(
+    days_back: int = Query(30, le=365, description="Number of days back to count releases"),
+    db: Session = Depends(get_db)
+):
+    """Get the count of pack releases from the specified time period."""
+    from datetime import datetime, timedelta
+    
+    # Calculate cutoff date
+    cutoff_date = datetime.utcnow() - timedelta(days=days_back)
+    
+    # Count unique packs that have been released within the time period
+    pack_count = db.query(Pack).join(Song).filter(
+        Song.status == "Released",
+        Song.released_at.isnot(None),
+        Song.released_at != '',
+        Pack.released_at.isnot(None),
+        Pack.released_at != '',
+        Pack.released_at >= cutoff_date
+    ).group_by(Pack.id).count()
+    
+    return {"count": pack_count}

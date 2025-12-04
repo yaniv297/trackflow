@@ -109,7 +109,7 @@ export const apiCall = async (endpoint, options = {}) => {
 
       // If refresh failed, redirect to login
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      window.location.href = "/";
       throw new Error("Authentication required");
     }
 

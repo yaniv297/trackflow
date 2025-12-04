@@ -103,9 +103,14 @@ class SuggestionsService:
     # --- internal helpers ---
 
     def _fetch_songs(self, limit: int = 100) -> Tuple[List[Song], Dict[int, Song]]:
+        from sqlalchemy import or_
         songs = (
             self.db.query(Song)
-            .filter(Song.status == "In Progress", Song.user_id == self.current_user.id)
+            .filter(
+                Song.status == "In Progress", 
+                Song.user_id == self.current_user.id,
+                or_(Song.optional.is_(False), Song.optional.is_(None))  # Exclude optional songs
+            )
             .order_by(desc(Song.updated_at))
             .limit(limit)
             .all()
@@ -331,12 +336,14 @@ class SuggestionsService:
         if not username:
             return
 
+        from sqlalchemy import or_
         rows = (
             self.db.query(WipCollaboration.song_id, WipCollaboration.field)
             .join(Song, Song.id == WipCollaboration.song_id)
             .filter(
                 Song.status == "In Progress",
                 WipCollaboration.collaborator == username,
+                or_(Song.optional.is_(False), Song.optional.is_(None))  # Exclude optional songs
             )
             .all()
         )

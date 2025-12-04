@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import Song, Collaboration, CollaborationType, User, Pack, Authoring
+from models import Song, Collaboration, CollaborationType, User, Pack, Authoring, SongStatus
 from schemas import SongCreate, AuthoringUpdate
 from fastapi import HTTPException
 
@@ -75,6 +75,25 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
     
     print(f"Successfully created song with ID: {db_song.id}")
     
+    # Increment achievement counters based on status
+    try:
+        from api.achievements.repositories.achievements_repository import AchievementsRepository
+        achievements_repo = AchievementsRepository()
+        
+        # Increment Future Plans creation counter if song created as Future Plans
+        if db_song.status == SongStatus.future:
+            achievements_repo.increment_future_creation_count(db, user.id, commit=False)
+            print(f"🎯 Incremented Future Plans creation count for user {user.id} (song: {db_song.title})")
+        
+        # Increment WIP creation counter if song created as WIP  
+        elif db_song.status == SongStatus.wip:
+            achievements_repo.increment_wip_creation_count(db, user.id, commit=False)
+            print(f"🎯 Incremented WIP creation count for user {user.id} (song: {db_song.title})")
+            
+    except Exception as e:
+        print(f"⚠️ Failed to increment achievement counters: {e}")
+        # Don't fail song creation if achievement counting fails
+    
     # Create collaboration records if provided
     if collaborations:
         for collab_data in collaborations:
@@ -122,59 +141,62 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
             user_auto_enhance_enabled = bool(user_auto_enhance_enabled)
     
     if auto_enhance and user_auto_enhance_enabled:
+        print(f"🎵 Attempting auto-enhancement for song {db_song.id} ({db_song.title} by {db_song.artist})")
         try:
             from api.spotify import auto_enhance_song
-            if auto_enhance_song(db_song.id, db, preserve_artist_album=False, auto_commit=auto_commit):
-                print(f"Auto-enhanced song {db_song.id} with Spotify data")
+            enhancement_result = auto_enhance_song(db_song.id, db, preserve_artist_album=False)
+            if enhancement_result:
+                print(f"✅ Auto-enhanced song {db_song.id} with Spotify data")
                 
                 # Refresh to get updated metadata from Spotify
                 db.refresh(db_song)
+            else:
+                print(f"❌ Auto-enhancement failed for song {db_song.id} - no results found or error occurred")
                 
-                # Check for duplicates AFTER Spotify enhancement
-                print(f"Checking for post-enhancement duplicates: '{db_song.title}' by {db_song.artist}")
-                
-                # Look for other songs with the same title/artist (excluding this one)
-                # Protect against None values that could cause crashes
-                if db_song.title and db_song.artist:
-                    duplicate_song = db.query(Song).filter(
-                        Song.title.ilike(db_song.title),
-                        Song.artist.ilike(db_song.artist),
-                        Song.id != db_song.id  # Exclude the current song
-                    ).first()
+            # Check for duplicates AFTER Spotify enhancement
+            print(f"Checking for post-enhancement duplicates: '{db_song.title}' by {db_song.artist}")
+            # Look for other songs with the same title/artist (excluding this one)
+            # Protect against None values that could cause crashes
+            if db_song.title and db_song.artist:
+                duplicate_song = db.query(Song).filter(
+                    Song.title.ilike(db_song.title),
+                    Song.artist.ilike(db_song.artist),
+                    Song.id != db_song.id  # Exclude the current song
+                ).first()
+            else:
+                duplicate_song = None
+            
+            if duplicate_song:
+                # Check if user owns or collaborates on the duplicate
+                user_has_access = False
+                if duplicate_song.user_id == user.id:
+                    user_has_access = True
                 else:
-                    duplicate_song = None
-                
-                if duplicate_song:
-                    # Check if user owns or collaborates on the duplicate
-                    user_has_access = False
-                    if duplicate_song.user_id == user.id:
+                    collaboration = db.query(Collaboration).filter(
+                        Collaboration.song_id == duplicate_song.id,
+                        Collaboration.user_id == user.id,
+                        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+                    ).first()
+                    if collaboration:
                         user_has_access = True
-                    else:
-                        collaboration = db.query(Collaboration).filter(
-                            Collaboration.song_id == duplicate_song.id,
-                            Collaboration.user_id == user.id,
-                            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
-                        ).first()
-                        if collaboration:
-                            user_has_access = True
+                
+                if user_has_access:
+                    # Delete the newly created song to prevent duplicate using proper cleanup
+                    print(f"Deleting duplicate song {db_song.id} created by Spotify enhancement")
+                    song_id_to_delete = db_song.id
+                    song_title = db_song.title
+                    song_artist = db_song.artist
                     
-                    if user_has_access:
-                        # Delete the newly created song to prevent duplicate using proper cleanup
-                        print(f"Deleting duplicate song {db_song.id} created by Spotify enhancement")
-                        song_id_to_delete = db_song.id
-                        song_title = db_song.title
-                        song_artist = db_song.artist
-                        
-                        # Use the proper deletion function that handles related records
-                        if delete_song_from_db(db, song_id_to_delete):
-                            print(f"Successfully deleted duplicate song {song_id_to_delete}")
-                        else:
-                            print(f"Failed to delete duplicate song {song_id_to_delete}")
-                        
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Song '{song_title}' by {song_artist} already exists in your database (detected after Spotify enhancement)"
-                        )
+                    # Use the proper deletion function that handles related records
+                    if delete_song_from_db(db, song_id_to_delete):
+                        print(f"Successfully deleted duplicate song {song_id_to_delete}")
+                    else:
+                        print(f"Failed to delete duplicate song {song_id_to_delete}")
+                    
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Song '{song_title}' by {song_artist} already exists in your database (detected after Spotify enhancement)"
+                    )
                 
                 # Auto-clean remaster tags after enhancement
                 try:

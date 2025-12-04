@@ -28,10 +28,8 @@ function NewSongForm() {
     if (packName && packName.trim()) {
       setIsLoadingPackStatus(true);
       try {
-        // First, try to get the pack by name to see if it exists
-        const packsResponse = await apiGet(
-          `/packs/autocomplete?query=${encodeURIComponent(packName)}`
-        );
+        // First, get all packs to see if this pack exists
+        const packsResponse = await apiGet(`/packs/`);
         const existingPack = packsResponse.find(
           (pack) => pack.name === packName
         );

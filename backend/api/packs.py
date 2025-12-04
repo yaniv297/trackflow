@@ -12,6 +12,25 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/packs", tags=["Packs"])
 
 # Define specific routes FIRST to avoid conflicts with /{pack_id}
+
+@router.get("/autocomplete")
+def get_pack_autocomplete(
+    query: str = Query(""),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get pack name autocomplete suggestions."""
+    # Import here to avoid circular imports
+    from api.songs.services.song_service import SongService
+    from api.songs.validators.song_validators import SongValidator
+    
+    if query and query.strip():
+        SongValidator.validate_autocomplete_query(query)
+    
+    service = SongService(db)
+    suggestions = service.get_autocomplete_suggestions("packs", query, current_user)
+    return {"suggestions": suggestions}
+
 def compute_packs_near_completion(db: Session, current_user, limit: int, threshold: int):
     """Shared logic to compute near-completion packs (reused by dashboard)."""
     # Default workflow fields fallback (legacy list)
@@ -678,6 +697,7 @@ def release_pack_with_metadata(
     # Release completed songs and move optional incomplete songs to "Future Plans"
     released_count = 0
     moved_count = 0
+    wip_completed_songs = []  # Track songs released from "In Progress" status
     
     for song in songs:
         if song.status == "In Progress":
@@ -691,6 +711,7 @@ def release_pack_with_metadata(
                     song.release_download_link = release_data.song_download_links[str(song.id)]
                 
                 released_count += 1
+                wip_completed_songs.append(song)  # Track this as a WIP completion
             else:
                 # Optional song - move to "Future Plans" with new pack name
                 song.status = "Future Plans"
@@ -745,7 +766,47 @@ def release_pack_with_metadata(
         except Exception as e:
             print(f"Warning: Failed to send pack release notifications: {e}")
     
+    # Add activity log entries for WIP completions so they get counted by achievements
+    if wip_completed_songs:
+        try:
+            from models import ActivityLog
+            import json
+            
+            # Create activity log entries for each WIP completion
+            for song in wip_completed_songs:
+                activity_log = ActivityLog(
+                    user_id=current_user.id,
+                    activity_type="change_status",
+                    metadata_json=json.dumps({
+                        "song_id": song.id,
+                        "song_title": song.title,
+                        "song_artist": song.artist,
+                        "from": "In Progress",
+                        "to": "Released",
+                        "via": "pack_release",
+                        "pack_name": pack.name
+                    }),
+                    created_at=datetime.utcnow()
+                )
+                db.add(activity_log)
+            
+            print(f"🎯 Pack Release: Created {len(wip_completed_songs)} activity log entries for WIP completions")
+            
+        except Exception as e:
+            print(f"Warning: Failed to create activity log entries for WIP completions: {e}")
+    
     db.commit()
+    
+    # Check WIP completion achievements after creating activity logs
+    if wip_completed_songs:
+        try:
+            from api.achievements.services.achievements_service import AchievementsService
+            achievements_service = AchievementsService()
+            achievements_service.check_wip_completion_achievements(db, current_user.id)
+            print(f"🏆 Checked WIP completion achievements for user {current_user.id}")
+            
+        except Exception as e:
+            print(f"Warning: Failed to check WIP completion achievements: {e}")
     
     message = f"Pack '{pack.name}' released successfully with {released_count} songs"
     if moved_count > 0:

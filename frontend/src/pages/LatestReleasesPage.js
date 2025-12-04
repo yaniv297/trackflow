@@ -501,9 +501,10 @@ const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, o
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="song-download-link"
-                  title="Download"
+                  title="Download song"
                 >
-                  ↓
+                  <span className="download-icon">⬇</span>
+                  <span className="download-text">Download</span>
                 </a>
               )}
             </div>

@@ -145,8 +145,9 @@ class SongValidator:
     @staticmethod
     def validate_autocomplete_query(query: str) -> None:
         """Validate autocomplete query parameters."""
+        # Allow empty queries for autocomplete - return early without error
         if not query or not query.strip():
-            raise HTTPException(status_code=400, detail="Query parameter is required")
+            return
         
         if len(query.strip()) > 100:
             raise HTTPException(status_code=400, detail="Query must be 100 characters or less")

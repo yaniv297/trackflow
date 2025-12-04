@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { apiGet } from '../utils/api';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState([]);
   const [currentUserRank, setCurrentUserRank] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -84,10 +86,12 @@ const Leaderboard = () => {
         </div>
 
         <div className="table-body">
-          {leaderboard.map((entry) => (
+          {leaderboard.map((entry) => {
+            const isCurrentUser = user && entry.username === user.username;
+            return (
             <div 
               key={entry.user_id} 
-              className={`leaderboard-row ${entry.rank <= 3 ? 'top-three' : ''}`}
+              className={`leaderboard-row ${entry.rank <= 3 ? 'top-three' : ''} ${isCurrentUser ? 'current-user-row' : ''}`}
             >
               <div className="row-rank">
                 <span className={`rank-display ${entry.rank <= 3 ? 'medal' : ''}`}>
@@ -110,7 +114,8 @@ const Leaderboard = () => {
               <div className="row-achievements">{entry.total_achievements}</div>
               <div className="row-points">{entry.total_points}</div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {leaderboard.length === 0 && (
@@ -122,9 +127,6 @@ const Leaderboard = () => {
 
       <div className="leaderboard-footer">
         <p>Earn achievement points by completing various tasks and milestones!</p>
-        <button onClick={fetchLeaderboard} className="refresh-button">
-          🔄 Refresh
-        </button>
       </div>
 
       <style jsx>{`
@@ -227,6 +229,29 @@ const Leaderboard = () => {
           background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.2));
         }
 
+        .current-user-row {
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15)) !important;
+          border-left: 4px solid #667eea;
+          border-right: 4px solid #667eea;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .current-user-row:hover {
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.25)) !important;
+          box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .current-user-row .row-username {
+          color: #667eea;
+          font-weight: 700;
+        }
+
+        .current-user-row .row-username::before {
+          content: "👤 ";
+          margin-right: 4px;
+        }
+
         .rank-display {
           font-weight: bold;
           font-size: 1.1rem;
@@ -283,7 +308,7 @@ const Leaderboard = () => {
           margin-bottom: 1rem;
         }
 
-        .retry-button, .refresh-button {
+        .retry-button {
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border: none;
@@ -295,7 +320,7 @@ const Leaderboard = () => {
           transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .retry-button:hover, .refresh-button:hover {
+        .retry-button:hover {
           transform: translateY(-1px);
           box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }

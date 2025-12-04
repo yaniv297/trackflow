@@ -43,8 +43,8 @@ const HomePage = () => {
               <UserDashboard />
             </div>
             <div className="main-content-area">
-              <LatestReleases limit={6} />
               <LatestUpdates limit={5} />
+              <LatestReleases limit={6} />
             </div>
             <div className="sidebar-area">
               <CollaborationInvites />
@@ -61,8 +61,8 @@ const HomePage = () => {
           <>
             <div className="main-content-area">
               <IntroSection />
-              <LatestReleases limit={6} />
               <LatestUpdates limit={6} />
+              <LatestReleases limit={6} />
             </div>
             <div className="sidebar-area">
               <LoginSection />

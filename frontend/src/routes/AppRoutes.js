@@ -1,7 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "../components/ui/ProtectedRoute";
-import LoginForm from "../components/forms/LoginForm";
 import RegistrationWizard from "../components/shared/RegistrationWizard";
 import ForgotPassword from "../components/ForgotPassword";
 import ResetPassword from "../components/ResetPassword";
@@ -37,7 +36,6 @@ const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginForm />} />
       <Route path="/register" element={<RegistrationWizard />} />
       <Route path="/releases" element={<LatestReleasesPage />} />
       <Route path="/profile/:username" element={<ProfilePage />} />

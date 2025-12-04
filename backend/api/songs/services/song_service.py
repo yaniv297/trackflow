@@ -112,9 +112,23 @@ class SongService:
             if hasattr(song, key):
                 setattr(song, key, value)
         
-        # Set released_at timestamp when status changes to Released
+        # Handle status changes for achievements and timestamps
         if "status" in updates:
             new_status = updates["status"]
+            
+            # Increment Future Plans creation counter when status changes TO "Future Plans"
+            if ((isinstance(new_status, str) and new_status == "Future Plans") or new_status == SongStatus.future):
+                if old_status != "Future Plans" and old_status != SongStatus.future:
+                    self.achievements_repo.increment_future_creation_count(self.db, current_user.id, commit=False)
+                    print(f"🎯 Incremented Future Plans creation count for user {current_user.id} (status change: {old_status} → {new_status})")
+            
+            # Increment WIP creation counter when status changes TO "In Progress"
+            if ((isinstance(new_status, str) and new_status == "In Progress") or new_status == SongStatus.wip):
+                if old_status != "In Progress" and old_status != SongStatus.wip:
+                    self.achievements_repo.increment_wip_creation_count(self.db, current_user.id, commit=False)
+                    print(f"🎯 Incremented WIP creation count for user {current_user.id} (status change: {old_status} → {new_status})")
+            
+            # Set released_at timestamp when status changes to Released
             # Handle both string and enum values
             if (isinstance(new_status, str) and new_status == "Released") or new_status == SongStatus.released:
                 if old_status != "Released" and old_status != SongStatus.released:
@@ -543,6 +557,16 @@ class SongService:
     def _check_creation_achievements(self, song: Song, current_user: User):
         """Check achievements after song creation."""
         try:
+            # Increment Future Plans creation counter if song created as Future Plans
+            if song.status == SongStatus.future:
+                self.achievements_repo.increment_future_creation_count(self.db, current_user.id, commit=False)
+                print(f"🎯 Incremented Future Plans creation count for user {current_user.id} (song: {song.title})")
+            
+            # Increment WIP creation counter if song created as WIP
+            if song.status == SongStatus.wip:
+                self.achievements_repo.increment_wip_creation_count(self.db, current_user.id, commit=False)
+                print(f"🎯 Incremented WIP creation count for user {current_user.id} (song: {song.title})")
+            
             check_status_achievements(self.db, current_user.id)
             if song.status == SongStatus.released:
                 check_wip_completion_achievements(self.db, current_user.id)

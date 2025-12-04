@@ -397,6 +397,30 @@ const WipPackCard = ({
           </span>
         </div>
 
+        {/* Release Pack Button - visible even when collapsed */}
+        {percent === 100 && packName !== "(no pack)" && (
+          <button
+            onClick={() => onReleasePack(packName)}
+            style={{
+              background: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "20px",
+              padding: "0.4rem 0.8rem",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              marginRight: "0.5rem",
+            }}
+            title="Release this pack"
+          >
+            🚀 Release Pack
+          </button>
+        )}
+
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
           {/* Edit Pack Name (quick access) */}
@@ -845,47 +869,20 @@ const WipPackCard = ({
       {/* Songs List */}
       {!collapsedPacks[packName] && (
         <div>
-          {/* Action buttons when pack is expanded */}
-          <div
-            style={{
-              marginBottom: "1rem",
-              display: "flex",
-              gap: "0.5rem",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* Only show Release Pack button for actual packs (not "(no pack)") */}
-            {percent === 100 && packName !== "(no pack)" && (
-              <button
-                onClick={() => onReleasePack(packName)}
-                style={{
-                  background: "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "0.5rem 1rem",
-                  fontSize: "0.9rem",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-              >
-                🚀 Release Pack
-              </button>
-            )}
-            {/* For packless songs, show a note about individual release buttons */}
-            {packName === "(no pack)" && (
-              <div
-                style={{
-                  color: "#6c757d",
-                  fontSize: "0.9rem",
-                  fontStyle: "italic",
-                  padding: "0.5rem",
-                }}
-              >
-                💡 Use individual "Release Song" buttons below for completed songs
-              </div>
-            )}
-          </div>
+          {/* Info for packless songs */}
+          {packName === "(no pack)" && (
+            <div
+              style={{
+                color: "#6c757d",
+                fontSize: "0.9rem",
+                fontStyle: "italic",
+                padding: "0.5rem",
+                marginBottom: "1rem",
+              }}
+            >
+              💡 Use individual "Release Song" buttons below for completed songs
+            </div>
+          )}
 
           {/* Core Songs - Active (In Progress) */}
           {(() => {

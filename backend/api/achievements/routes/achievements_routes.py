@@ -128,3 +128,50 @@ def get_achievement_info():
             "Check your progress in the Stats section"
         ]
     }
+
+@router.get("/points-breakdown")
+def get_points_breakdown(db: Session = Depends(get_db), current_user=Depends(get_current_active_user)):
+    """Get detailed points breakdown for the current user."""
+    try:
+        user_id = current_user.id
+        
+        # Get achievement points
+        from sqlalchemy import text
+        achievement_result = db.execute(text("""
+            SELECT COALESCE(SUM(a.points), 0) as achievement_points
+            FROM user_achievements ua
+            JOIN achievements a ON ua.achievement_id = a.id
+            WHERE ua.user_id = :user_id
+        """), {"user_id": user_id}).fetchone()
+        
+        achievement_points = achievement_result[0] if achievement_result else 0
+        
+        # Get TrackFlow released songs count (only songs with released_at timestamp)
+        released_result = db.execute(text("""
+            SELECT COUNT(*) as released_count
+            FROM songs 
+            WHERE user_id = :user_id 
+              AND status = 'Released' 
+              AND released_at IS NOT NULL
+        """), {"user_id": user_id}).fetchone()
+        
+        released_count = released_result[0] if released_result else 0
+        release_points = released_count * 10
+        
+        # Get total points from user stats
+        total_points = achievement_points + release_points
+        
+        return {
+            "achievement_points": achievement_points,
+            "release_points": release_points,
+            "released_songs_count": released_count,
+            "total_points": total_points,
+            "breakdown": {
+                "achievements": achievement_points,
+                "released_songs": f"{released_count} × 10 = {release_points}"
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Error getting points breakdown: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get points breakdown")

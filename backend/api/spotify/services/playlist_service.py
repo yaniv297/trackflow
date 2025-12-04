@@ -5,7 +5,7 @@ Playlist service - handles Spotify playlist import operations.
 from typing import Optional, Dict
 from sqlalchemy.orm import Session
 
-from models import SongStatus
+from models import SongStatus, Song
 from schemas import SongCreate
 from api.data_access import create_song_in_db
 from ..repositories.spotify_repository import SpotifyRepository
@@ -42,6 +42,8 @@ class PlaylistService:
                 pack_id = new_pack.id
 
         imported_count = 0
+        skipped_songs = []
+        failed_songs = []
 
         try:
             results = sp.playlist_tracks(request.playlist_url)
@@ -86,13 +88,18 @@ class PlaylistService:
                     create_song_in_db(db, song_payload, current_user, auto_enhance=True)
                     imported_count += 1
                 except Exception as e:
-                    # Skip duplicates; bubble up other errors
-                    if not ("already exists" in str(e)):
-                        raise
-                except Exception:
-                    # Log and continue on unexpected errors
-                    import traceback
-                    traceback.print_exc()
+                    # Skip duplicates; log and continue on other errors
+                    if "already exists" in str(e):
+                        print(f"⏭️ Skipping duplicate: {title} by {artist_name}")
+                        skipped_songs.append(f"{title} by {artist_name}")
+                        continue
+                    else:
+                        # Log error but continue with remaining songs
+                        print(f"❌ Failed to create song '{title}' by '{artist_name}': {str(e)}")
+                        failed_songs.append(f"{title} by {artist_name}")
+                        import traceback
+                        traceback.print_exc()
+                        # Continue processing remaining songs instead of crashing
 
             if results.get("next"):
                 try:
@@ -102,4 +109,29 @@ class PlaylistService:
             else:
                 break
 
-        return {"imported_count": imported_count}
+        # Clean remaster tags from all imported songs
+        if imported_count > 0:
+            try:
+                from api.tools import bulk_clean_remaster_tags_function
+                # Get all songs created in this session for this user  
+                # We'll clean all recent songs for this user (simple approach)
+                recent_songs = db.query(Song).filter(
+                    Song.user_id == current_user.id,
+                    Song.pack_id == pack_id if pack_id else True
+                ).order_by(Song.created_at.desc()).limit(imported_count * 2).all()
+                
+                if recent_songs:
+                    song_ids = [song.id for song in recent_songs]
+                    cleaned_songs = bulk_clean_remaster_tags_function(song_ids, db, current_user.id)
+                    print(f"🧹 Cleaned remaster tags from {len(cleaned_songs)} songs")
+                    
+            except Exception as e:
+                print(f"⚠️ Failed to clean remaster tags: {e}")
+                # Don't fail the import if cleaning fails
+
+        return {
+            "imported_count": imported_count,
+            "skipped_songs": skipped_songs,
+            "failed_songs": failed_songs,
+            "total_processed": imported_count + len(skipped_songs) + len(failed_songs)
+        }

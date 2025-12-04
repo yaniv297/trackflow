@@ -17,20 +17,20 @@ from sqlalchemy import text
 # Achievement definitions with code, name, description, icon, category, points, rarity, target_value, metric_type
 ACHIEVEMENTS = [
     # Future Plans Songs (Planning/Vision)
-    ("dreamer", "Dreamer", "Add your first song to Future Plans", "💭", "milestone_future", 10, "common", 1, "total_future"),
-    ("visionary", "Visionary", "Add 5 songs to Future Plans", "🔮", "milestone_future", 10, "common", 5, "total_future"),
-    ("long_term_planner", "Long Term Planner", "Add 10 songs to Future Plans", "📋", "milestone_future", 25, "uncommon", 10, "total_future"),
-    ("strategic_thinker", "Strategic Thinker", "Add 25 songs to Future Plans", "🗺️", "milestone_future", 25, "uncommon", 25, "total_future"),
-    ("master_planner", "Master Planner", "Add 50 songs to Future Plans", "📊", "milestone_future", 50, "rare", 50, "total_future"),
-    ("future_architect", "Future Architect", "Add 100 songs to Future Plans", "🏗️", "milestone_future", 100, "epic", 100, "total_future"),
-    ("planning_legend", "Planning Legend", "Add 250 songs to Future Plans", "📐", "milestone_future", 100, "epic", 250, "total_future"),
+    ("dreamer", "Dreamer", "Add your first song to Future Plans", "💭", "milestone_future", 10, "common", 1, "total_future_created"),
+    ("visionary", "Visionary", "Add 5 songs to Future Plans", "🔮", "milestone_future", 10, "common", 5, "total_future_created"),
+    ("long_term_planner", "Long Term Planner", "Add 10 songs to Future Plans", "📋", "milestone_future", 25, "uncommon", 10, "total_future_created"),
+    ("strategic_thinker", "Strategic Thinker", "Add 25 songs to Future Plans", "🗺️", "milestone_future", 25, "uncommon", 25, "total_future_created"),
+    ("master_planner", "Master Planner", "Add 50 songs to Future Plans", "📊", "milestone_future", 50, "rare", 50, "total_future_created"),
+    ("future_architect", "Future Architect", "Add 100 songs to Future Plans", "🏗️", "milestone_future", 100, "epic", 100, "total_future_created"),
+    ("planning_legend", "Planning Legend", "Add 250 songs to Future Plans", "📐", "milestone_future", 100, "epic", 250, "total_future_created"),
     
-    # WIP Songs (Work/Progress)
-    ("getting_started_wip", "Getting Started", "Start your first WIP song", "🎬", "milestone_wip", 10, "common", 1, "total_wip"),
-    ("hard_worker", "Hard Worker", "Start 5 WIP songs", "💪", "milestone_wip", 10, "common", 5, "total_wip"),
-    ("dedicated_creator", "Dedicated Creator", "Start 10 WIP songs", "🎨", "milestone_wip", 25, "uncommon", 10, "total_wip"),
-    ("busy_bee", "Busy Bee", "Start 25 WIP songs", "🐝", "milestone_wip", 25, "uncommon", 25, "total_wip"),
-    ("workhorse", "Workhorse", "Start 50 WIP songs", "🐴", "milestone_wip", 50, "rare", 50, "total_wip"),
+    # WIP Songs (Work/Progress) - Now tracks lifetime WIP creations, not concurrent WIPs
+    ("getting_started_wip", "Getting Started", "Start your first WIP song", "🎬", "milestone_wip", 10, "common", 1, "wip_creations"),
+    ("hard_worker", "Hard Worker", "Start 5 WIP songs", "💪", "milestone_wip", 10, "common", 5, "wip_creations"),
+    ("dedicated_creator", "Dedicated Creator", "Start 10 WIP songs", "🎨", "milestone_wip", 25, "uncommon", 10, "wip_creations"),
+    ("busy_bee", "Busy Bee", "Start 25 WIP songs", "🐝", "milestone_wip", 25, "uncommon", 25, "wip_creations"),
+    ("workhorse", "Workhorse", "Start 50 WIP songs", "🐴", "milestone_wip", 50, "rare", 50, "wip_creations"),
     
     # WIP Completions (Finishing Work)
     ("first_finish", "First Finish", "Complete your first WIP (move to Released)", "🎉", "milestone_wip", 10, "common", 1, "wip_completions"),
@@ -56,11 +56,7 @@ ACHIEVEMENTS = [
     ("pack_legend", "Pack Legend", "Create 10 packs", "📘", "milestone_packs", 50, "rare", 10, "total_packs"),
     ("pack_collector", "Pack Collector", "Create 20 packs", "📗", "milestone_packs", 100, "epic", 20, "total_packs"),
     
-    # Collaborations (as owner)
-    ("first_collaborator", "Team Player", "Add your first collaborator", "🤝", "milestone_collaborations", 10, "common", 1, "total_collaborations"),
-    ("three_collaborations", "Collaborator", "Have 3 collaborations", "👥", "milestone_collaborations", 25, "uncommon", 3, "total_collaborations"),
-    ("ten_collaborations", "Social Butterfly", "Have 10 collaborations", "🦋", "milestone_collaborations", 50, "rare", 10, "total_collaborations"),
-    ("twenty_five_collaborations", "Community Leader", "Have 25 collaborations", "👑", "milestone_collaborations", 100, "epic", 25, "total_collaborations"),
+    # Merged into social category - removed duplicates
     
     # Spotify Integration
     ("first_spotify_import", "Spotify Explorer", "Import from Spotify for the first time", "🎧", "activity", 10, "common", 1, "total_spotify_imports"),
@@ -96,11 +92,12 @@ ACHIEVEMENTS = [
     ("three_complete_series", "Series Collector", "Complete 3 album series", "📀", "quality", 50, "rare", 3, "completed_series"),
     ("five_complete_series", "Series Legend", "Complete 5 album series", "🎪", "quality", 100, "epic", 5, "completed_series"),
     
-    # Social Achievements (Being added as collaborator OR adding others)
+    # Social Achievements (Collaborations, sharing, and community interaction)
     ("first_collaboration_added", "Collaborative Spirit", "Be added as a collaborator or add someone as a collaborator", "🤝", "social", 10, "common", 1, "collaborations_total"),
+    ("three_collaborations_social", "Team Player", "Be involved in 3 collaborations (added or adding)", "👥", "social", 25, "uncommon", 3, "collaborations_total"),
     ("five_collaborations_added", "Popular Collaborator", "Be involved in 5 collaborations (added or adding)", "⭐", "social", 25, "uncommon", 5, "collaborations_total"),
-    ("ten_collaborations_added", "Sought After", "Be involved in 10 collaborations (added or adding)", "🌟", "social", 50, "rare", 10, "collaborations_total"),
-    ("twenty_five_collaborations_added", "Community Favorite", "Be involved in 25 collaborations (added or adding)", "💖", "social", 100, "epic", 25, "collaborations_total"),
+    ("ten_collaborations_added", "Social Butterfly", "Be involved in 10 collaborations (added or adding)", "🦋", "social", 50, "rare", 10, "collaborations_total"),
+    ("twenty_five_collaborations_added", "Community Leader", "Be involved in 25 collaborations (added or adding)", "👑", "social", 100, "epic", 25, "collaborations_total"),
     
     # Diversity Achievements - Artist Diversity
     ("five_different_artists", "Variety Seeker", "Complete songs from 5 different artists", "🎭", "diversity", 25, "uncommon", 5, "unique_artists"),

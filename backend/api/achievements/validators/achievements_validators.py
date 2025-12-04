@@ -58,7 +58,9 @@ class UserStatsResponse(BaseModel):
     total_songs: int
     total_released: int
     total_future: int
+    total_future_created: int
     total_wip: int
+    total_wip_created: int
     total_packs: int
     total_collaborations: int
     total_spotify_imports: int

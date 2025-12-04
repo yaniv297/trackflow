@@ -8,11 +8,13 @@ import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../shared/UserProfilePopup';
 import './CommunityLeaderboard.css';
 
-const CommunityLeaderboard = ({ limit = 10 }) => {
+const CommunityLeaderboard = ({ limit = 8 }) => {
   const [leaderboard, setLeaderboard] = useState([]);
+  const [currentUserRank, setCurrentUserRank] = useState(null);
+  const [currentUserEntry, setCurrentUserEntry] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
@@ -29,7 +31,42 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
       const leaderboardData = isAuthenticated 
         ? await apiGet(`/achievements/leaderboard?limit=${limit}`)
         : await publicApiGet(`/achievements/leaderboard?limit=${limit}`);
-      setLeaderboard(leaderboardData.leaderboard || []);
+      
+      const topUsers = leaderboardData.leaderboard || [];
+      setCurrentUserRank(leaderboardData.current_user_rank);
+      
+      // Check if current user is in top 8
+      const currentUserInTop8 = user && topUsers.some(entry => entry.username === user.username);
+      
+      if (user && !currentUserInTop8 && leaderboardData.current_user_rank && leaderboardData.current_user_rank > 8) {
+        // User is not in top 8 - replace 8th spot with current user
+        try {
+          const fullLeaderboardData = isAuthenticated
+            ? await apiGet(`/achievements/leaderboard?limit=1000`)
+            : await publicApiGet(`/achievements/leaderboard?limit=1000`);
+          
+          const userEntry = fullLeaderboardData.leaderboard?.find(entry => entry.username === user.username);
+          if (userEntry) {
+            setCurrentUserEntry(userEntry);
+            // Show top 7 + current user as 8th
+            const top7 = topUsers.slice(0, 7);
+            setLeaderboard([...top7, userEntry]);
+          } else {
+            // Fallback: show top 8 if we can't find user entry
+            setLeaderboard(topUsers.slice(0, 8));
+            setCurrentUserEntry(null);
+          }
+        } catch (err) {
+          console.error('Failed to fetch current user entry:', err);
+          // Fallback: show top 8 if fetch fails
+          setLeaderboard(topUsers.slice(0, 8));
+          setCurrentUserEntry(null);
+        }
+      } else {
+        // User is in top 8 or not logged in - show top 8 normally
+        setLeaderboard(topUsers.slice(0, 8));
+        setCurrentUserEntry(null);
+      }
       
     } catch (error) {
       console.error('Failed to fetch leaderboard:', error);
@@ -48,7 +85,7 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
   };
 
   const handleJoinCommunity = () => {
-    navigate('/login');
+    navigate('/');
   };
 
   if (loading) {
@@ -84,17 +121,25 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
       <div className="leaderboard-widget">
         {leaderboard.length > 0 ? (
           <div className="leaderboard-list">
-            {leaderboard.map((entry, index) => (
-              <LeaderboardItem 
-                key={entry.user_id} 
-                entry={entry} 
-                isTopThree={index < 3}
-                getRankIcon={getRankIcon}
-                onUsernameClick={handleUsernameClick}
-                onUsernameHover={handleUsernameHover}
-                onUsernameLeave={delayedHidePopup}
-              />
-            ))}
+            {leaderboard.map((entry, index) => {
+              const isCurrentUser = user && entry.username === user.username;
+              const isTopThree = index < 3;
+              // Show actual rank if user replaced 8th spot (they're at index 7 and we have currentUserEntry)
+              const showActualRank = isCurrentUser && currentUserEntry && index === 7;
+              return (
+                <LeaderboardItem 
+                  key={entry.user_id} 
+                  entry={entry} 
+                  isTopThree={isTopThree}
+                  isCurrentUser={isCurrentUser}
+                  showActualRank={showActualRank}
+                  getRankIcon={getRankIcon}
+                  onUsernameClick={handleUsernameClick}
+                  onUsernameHover={handleUsernameHover}
+                  onUsernameLeave={delayedHidePopup}
+                />
+              );
+            })}
           </div>
         ) : (
           <EmptyLeaderboard />
@@ -126,11 +171,11 @@ const CommunityLeaderboard = ({ limit = 10 }) => {
   );
 };
 
-const LeaderboardItem = ({ entry, isTopThree, getRankIcon, onUsernameClick, onUsernameHover, onUsernameLeave }) => (
-  <div className={`leaderboard-item ${isTopThree ? 'top-three' : ''}`}>
-    <span className="rank">{getRankIcon(entry.rank)}</span>
+const LeaderboardItem = ({ entry, isTopThree, isCurrentUser, showActualRank, getRankIcon, onUsernameClick, onUsernameHover, onUsernameLeave }) => (
+  <div className={`leaderboard-item ${isTopThree ? 'top-three' : ''} ${isCurrentUser ? 'current-user' : ''}`}>
+    <span className="rank">{showActualRank ? `#${entry.rank}` : getRankIcon(entry.rank)}</span>
     <span 
-      className="username clickable" 
+      className={`username clickable ${isCurrentUser ? 'current-user-name' : ''}`}
       onClick={onUsernameClick(entry.username)}
       onMouseEnter={onUsernameHover(entry.username)}
       onMouseLeave={onUsernameLeave}

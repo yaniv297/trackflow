@@ -22,8 +22,14 @@
 
 .main-content-area {
   grid-area: main-content;
-  display: grid;
-  gap: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Keep components as separate boxes but with minimal spacing */
+.main-content-area > * {
+  margin: 0;
 }
 
 .sidebar-area {
@@ -31,7 +37,31 @@
   display: grid;
   gap: 0.75rem;
   max-width: 100%;
-  overflow: hidden;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+/* Ensure sidebar components are responsive */
+.sidebar-area > * {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  width: 100%;
+}
+
+/* Fix for sidebar components that might have overflow issues */
+.sidebar-area section,
+.sidebar-area > div {
+  overflow: visible !important;
+}
+
+/* Ensure all text and content in sidebar wraps properly */
+.sidebar-area * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Authenticated users layout */
@@ -48,6 +78,30 @@
   width: 100%;
 }
 
+/* Improve sidebar responsiveness for medium screens */
+@media (max-width: 1440px) {
+  .home-content {
+    max-width: 100%;
+    padding: 2rem 1.5rem;
+  }
+  
+  .sidebar-area {
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .home-content.unauthenticated,
+  .home-content.authenticated {
+    grid-template-columns: 1.75fr 1fr;
+    gap: 1.5rem;
+  }
+  
+  .home-content {
+    padding: 2rem 1.5rem;
+  }
+}
+
 @media (max-width: 1023px) {
   .home-content,
   .home-content.unauthenticated,
@@ -61,12 +115,20 @@
   .full-width-section {
     grid-area: unset;
   }
+  
+  .sidebar-area {
+    min-width: 100%;
+  }
 }
 
 @media (max-width: 768px) {
   .home-content {
     padding: 1.5rem 1rem;
     gap: 1.5rem;
+  }
+  
+  .sidebar-area {
+    min-width: 100%;
   }
 }
 

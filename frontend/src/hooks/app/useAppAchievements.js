@@ -16,17 +16,24 @@ export const useAppAchievements = (isAuthenticated, user) => {
     }
   }, [isAuthenticated, user]);
 
-  // Fetch user's achievement points
+  // Fetch user's total points (achievements + releases)
   const fetchAchievementPoints = async () => {
     try {
-      const achievements = await apiGet("/achievements/me");
-      const totalPoints = achievements.reduce(
-        (sum, ua) => sum + (ua.achievement?.points || 0),
-        0
-      );
-      setAchievementPoints(totalPoints);
+      const pointsBreakdown = await apiGet("/achievements/points-breakdown");
+      setAchievementPoints(pointsBreakdown.total_points);
     } catch (error) {
-      console.error("Failed to fetch achievement points:", error);
+      console.error("Failed to fetch total points:", error);
+      // Fallback to achievement points only if breakdown fails
+      try {
+        const achievements = await apiGet("/achievements/me");
+        const totalPoints = achievements.reduce(
+          (sum, ua) => sum + (ua.achievement?.points || 0),
+          0
+        );
+        setAchievementPoints(totalPoints);
+      } catch (fallbackError) {
+        console.error("Failed to fetch achievement points fallback:", fallbackError);
+      }
     }
   };
 

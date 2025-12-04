@@ -215,7 +215,7 @@ const RegisterForm = () => {
           <p style={{ color: "#666" }}>
             Already have an account?{" "}
             <button
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/")}
               style={{
                 background: "none",
                 border: "none",

@@ -62,7 +62,7 @@ const ResetPassword = () => {
       setMessage(data.message);
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate("/login");
+        navigate("/");
       }, 3000);
     } catch (error) {
       setError(error.detail || error.message || "Failed to reset password");
@@ -112,7 +112,7 @@ const ResetPassword = () => {
             Request New Reset Link
           </button>
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/")}
             style={{
               padding: "0.75rem 1.5rem",
               backgroundColor: "#6c757d",
@@ -274,7 +274,7 @@ const ResetPassword = () => {
 
         <div style={{ textAlign: "center" }}>
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/")}
             style={{
               background: "none",
               border: "none",

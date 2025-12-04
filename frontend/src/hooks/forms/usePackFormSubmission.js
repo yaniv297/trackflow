@@ -62,6 +62,7 @@ export const usePackFormSubmission = (
     }
 
     setIsSubmitting(true);
+    setProgress({ phase: "Preparing songs...", current: 0, total: songLines.length });
 
     let payload;
     if (mode === "artist") {
@@ -85,12 +86,25 @@ export const usePackFormSubmission = (
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .map((line) => {
-          // Split on " - " (space-hyphen-space) to avoid breaking artist names with hyphens
-          const parts = line.split(" - ");
+          // Split on various dash formats: " - " (space-hyphen-space) or " – " (space-emdash-space)
+          let parts = line.split(" - ");
+          if (parts.length < 2) {
+            // Try em dash if regular hyphen didn't work
+            parts = line.split(" – ");
+          }
+          if (parts.length < 2) {
+            // Try just hyphen without spaces
+            parts = line.split("-");
+          }
+          if (parts.length < 2) {
+            // Try just em dash without spaces
+            parts = line.split("–");
+          }
+          
           if (parts.length >= 2) {
-            // If we have a proper " - " separator
+            // If we have a proper separator
             const artist = parts[0].trim();
-            const title = parts.slice(1).join(" - ").trim(); // Rejoin in case title has " - "
+            const title = parts.slice(1).join(" - ").trim(); // Rejoin in case title has multiple separators
             return {
               title: capitalizeName(title || "Unknown Title"),
               artist: capitalizeName(artist || "Unknown Artist"),
@@ -99,7 +113,7 @@ export const usePackFormSubmission = (
               priority: meta.priority,
             };
           } else {
-            // Fallback: if no " - " found, treat whole line as title with unknown artist
+            // Fallback: if no separator found, treat whole line as title with unknown artist
             return {
               title: capitalizeName(line.trim() || "Unknown Title"),
               artist: capitalizeName("Unknown Artist"),
@@ -113,8 +127,13 @@ export const usePackFormSubmission = (
 
     try {
       // First, create the songs
+      setProgress({ phase: "Creating songs in database...", current: 0, total: 1 });
       const createdSongs = await apiPost("/songs/batch", payload);
       const newIds = createdSongs.map((s) => s.id);
+      setProgress({ phase: `Created ${createdSongs.length} songs successfully`, current: 1, total: 1 });
+      
+      // Brief delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // If creating an album series, create it now
       if (meta.isAlbumSeries) {
@@ -205,19 +224,26 @@ export const usePackFormSubmission = (
 
       if (shouldAutoEnhance) {
         setProgress({
-          phase: "Enhancing from Spotify",
+          phase: "Starting Spotify enhancement",
           current: 0,
           total: createdSongs.length,
         });
-        window.showNotification("Enhancing songs from Spotify...", "info");
+        
+        // Brief delay to show initial progress
+        await new Promise(resolve => setTimeout(resolve, 300));
 
         for (let i = 0; i < createdSongs.length; i++) {
           const song = createdSongs[i];
+          
+          // Update progress before starting this song
           setProgress({
-            phase: "Enhancing from Spotify",
-            current: i + 1,
+            phase: `Enhancing "${song.title}"...`,
+            current: i,
             total: createdSongs.length,
           });
+          
+          // Small delay to make progress visible
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           try {
             const optionsRes = await fetch(
@@ -231,6 +257,13 @@ export const usePackFormSubmission = (
             const options = await optionsRes.json();
 
             if (options.length > 0) {
+              // Update progress during enhancement
+              setProgress({
+                phase: `Applying Spotify data for "${song.title}"...`,
+                current: i,
+                total: createdSongs.length,
+              });
+              
               const enhanceRes = await fetch(
                 `${API_BASE_URL}/spotify/${song.id}/enhance/`,
                 {
@@ -245,30 +278,60 @@ export const usePackFormSubmission = (
                 );
               }
             }
+            
+            // Update progress after completing this song
+            setProgress({
+              phase: `Enhanced "${song.title}" successfully`,
+              current: i + 1,
+              total: createdSongs.length,
+            });
+            
+            // Small delay to show completion
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
           } catch (err) {
             console.warn(`Failed to enhance song ${song.id}`, err);
-            // Don't fail the entire process for enhancement errors
+            // Update progress for failed song
+            setProgress({
+              phase: `Enhancement failed for "${song.title}"`,
+              current: i + 1,
+              total: createdSongs.length,
+            });
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
+        
+        // Final enhancement completion message
+        setProgress({
+          phase: "Spotify enhancement complete",
+          current: createdSongs.length,
+          total: createdSongs.length,
+        });
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
-      // Cleanup phase
-      setProgress({ phase: "Cleaning remaster tags", current: 1, total: 1 });
-      window.showNotification("Cleaning remaster tags...", "info");
+      // Cleanup phase (silent background operation)
       try {
+        const token = localStorage.getItem("token");
         const cleanupRes = await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify(newIds),
         });
         if (!cleanupRes.ok) {
+          const errorText = await cleanupRes.text();
           throw new Error(
-            `Failed to clean remaster tags: ${cleanupRes.status}`
+            `Failed to clean remaster tags: ${cleanupRes.status} - ${errorText}`
           );
         }
+        const result = await cleanupRes.json();
+        console.log(`Successfully cleaned ${result.length} songs`);
+        
       } catch (err) {
         console.warn("Failed to clean remaster tags", err);
-        // Don't fail the entire process for cleanup errors
       }
 
       // Build success message based on what actually happened

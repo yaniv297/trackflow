@@ -19,12 +19,11 @@ const PublicSongFilters = ({
 
   const clearFilters = () => {
     onFiltersChange({
-      search: '',
-      status: ''
+      search: ''
     });
   };
 
-  const hasActiveFilters = filters.search || filters.status;
+  const hasActiveFilters = filters.search;
 
   return (
     <div className="public-song-filters">
@@ -55,23 +54,6 @@ const PublicSongFilters = ({
             className="filter-input"
           />
         </div>
-
-        {/* Status */}
-        <div className="filter-group">
-          <label htmlFor="status">Status</label>
-          <select
-            id="status"
-            value={filters.status}
-            onChange={(e) => handleInputChange('status', e.target.value)}
-            disabled={isLoading}
-            className="filter-select"
-          >
-            <option value="">All Statuses</option>
-            <option value="Future Plans">Future Plans</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Released">Released</option>
-          </select>
-        </div>
       </div>
 
       {hasActiveFilters && (
@@ -82,18 +64,6 @@ const PublicSongFilters = ({
               Search: "{filters.search}"
               <button 
                 onClick={() => handleInputChange('search', '')}
-                className="remove-filter"
-                disabled={isLoading}
-              >
-                ×
-              </button>
-            </span>
-          )}
-          {filters.status && (
-            <span className="filter-tag">
-              Status: "{filters.status}"
-              <button 
-                onClick={() => handleInputChange('status', '')}
                 className="remove-filter"
                 disabled={isLoading}
               >

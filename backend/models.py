@@ -387,7 +387,9 @@ class UserStats(Base):
     total_songs = Column(Integer, default=0)
     total_released = Column(Integer, default=0)
     total_future = Column(Integer, default=0)
+    total_future_created = Column(Integer, default=0)  # Lifetime Future Plans creations counter
     total_wip = Column(Integer, default=0)
+    total_wip_created = Column(Integer, default=0)  # Lifetime WIP creations counter
     total_packs = Column(Integer, default=0)
     total_collaborations = Column(Integer, default=0)
     total_spotify_imports = Column(Integer, default=0)

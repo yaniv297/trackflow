@@ -1,0 +1,130 @@
+/* Additional styles for user grouping */
+.users-grouped-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.user-group-item {
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.user-header {
+  padding: 1rem;
+  background: #f8f9fa;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.user-header:hover {
+  background: #e9ecef;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-image-container {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.user-image {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e1e5e9;
+}
+
+.user-image-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #6c757d;
+  border: 1px solid #e1e5e9;
+}
+
+.user-details {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.user-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.user-name:hover {
+  text-decoration: underline;
+}
+
+.user-songs {
+  padding: 0;
+  background: white;
+}
+
+.user-songs table {
+  margin: 0;
+  border-radius: 0;
+}
+
+/* Group buttons styling */
+.group-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #495057;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 40px;
+  box-sizing: border-box;
+}
+
+.group-toggle:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.group-toggle.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.group-toggle.active:hover {
+  background: #5568d3;
+  border-color: #5568d3;
+}
+
+.toggle-icon {
+  font-size: 1rem;
+}
+

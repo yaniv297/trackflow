@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import './ProfileSongsTable.css';
 
 const ProfileSongsTable = ({ 
@@ -13,6 +13,21 @@ const ProfileSongsTable = ({
   setExpandedArtists,
   itemsPerPage = 10
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filter songs based on search term
+  const filteredSongs = useMemo(() => {
+    if (!songs || songs.length === 0) return [];
+    if (!searchTerm.trim()) return songs;
+    
+    const search = searchTerm.toLowerCase().trim();
+    return songs.filter(song => 
+      (song.title && song.title.toLowerCase().includes(search)) ||
+      (song.artist && song.artist.toLowerCase().includes(search)) ||
+      (song.album && song.album.toLowerCase().includes(search))
+    );
+  }, [songs, searchTerm]);
+
   if (!songs || songs.length === 0) return null;
 
   // Group songs by artist and sort by song count (most to least)
@@ -134,11 +149,11 @@ const ProfileSongsTable = ({
   
   if (groupByArtist) {
     // When grouping by artist, group first, then paginate
-    groupedArtists = groupSongsByArtist(songs);
+    groupedArtists = groupSongsByArtist(filteredSongs);
     paginatedData = paginate(groupedArtists, currentPage);
   } else {
     // When showing table view, randomize order then paginate
-    const shuffledSongs = shuffleArray(songs);
+    const shuffledSongs = shuffleArray(filteredSongs);
     paginatedData = paginate(shuffledSongs, currentPage);
   }
 
@@ -147,9 +162,35 @@ const ProfileSongsTable = ({
       <div className="section-header">
         <div className="section-title-group">
           <h3 className="section-title">{title}</h3>
-          <span className="section-count">{songs.length}</span>
+          <span className="section-count">
+            {searchTerm ? `${filteredSongs.length} of ${songs.length}` : songs.length}
+          </span>
         </div>
         <div className="section-controls">
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Search songs, artists, albums..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                onPageChange(1); // Reset to first page when searching
+              }}
+              className="search-input"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  onPageChange(1);
+                }}
+                className="clear-search"
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setGroupByArtist(!groupByArtist)}
             className={`group-toggle ${groupByArtist ? 'active' : ''}`}
@@ -162,7 +203,12 @@ const ProfileSongsTable = ({
       </div>
       
       <div className="section-content songs-section">
-        {groupByArtist ? (
+        {filteredSongs.length === 0 && searchTerm ? (
+          <div className="no-search-results">
+            <p>No songs found matching "{searchTerm}"</p>
+            <p>Try searching for different terms or check the spelling.</p>
+          </div>
+        ) : groupByArtist ? (
           // Artist-grouped view
           <div className="artists-grouped-view">
             {paginatedData.items.map(({ artist, songs: artistSongs, songCount }) => {

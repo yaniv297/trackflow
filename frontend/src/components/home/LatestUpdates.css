@@ -1,18 +1,30 @@
 .latest-updates {
   background: white;
   border-radius: 12px;
-  padding: 1rem;
+  padding: 0.75rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   max-width: 100%;
 }
 
+/* Compact view - limit height */
+.latest-updates.compact {
+  max-height: 200px;
+  overflow: hidden;
+}
+
+/* Expanded view - allow full height */
+.latest-updates.expanded {
+  max-height: none;
+  overflow: visible;
+}
+
 .updates-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .section-title {
@@ -47,7 +59,7 @@
 .update-item {
   border: 1px solid #eee;
   border-radius: 8px;
-  padding: 1rem;
+  padding: 0.6rem;
   background: #fafafa;
   transition: all 0.2s ease;
 }
@@ -62,8 +74,8 @@
 .update-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
   flex-wrap: wrap;
 }
 
@@ -95,6 +107,31 @@
 
 .compact-updates .update-item {
   margin-bottom: 0;
+  padding: 0.75rem;
+  min-height: auto;
+}
+
+.compact-updates .update-item.compact {
+  padding: 0.6rem;
+}
+
+.compact-updates .update-item.compact .update-header {
+  margin-bottom: 0.5rem;
+}
+
+.compact-updates .update-item.compact .update-content {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-updates .update-item.compact .update-footer {
+  margin: 0;
 }
 
 .update-icon {
@@ -104,7 +141,7 @@
 
 .update-title {
   flex: 1;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 600;
   margin: 0;
   color: #333;
@@ -112,28 +149,33 @@
 }
 
 .update-date {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #666;
   flex-shrink: 0;
 }
 
 .update-content {
-  margin: 0 0 0.75rem 0;
-  line-height: 1.5;
+  margin: 0 0 0.4rem 0;
+  line-height: 1.4;
   color: #555;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .update-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .update-author {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #666;
   font-style: italic;
 }

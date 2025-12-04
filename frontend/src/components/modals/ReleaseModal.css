@@ -23,15 +23,35 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   width: 90%;
   max-width: 700px;
-  max-height: 90vh;
-  overflow: hidden;
+  max-height: 95vh;
+  overflow-y: auto;
   animation: slideUp 0.3s ease-out;
 }
 
 .form-section {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
   border-top: 1px solid #e5e7eb;
+}
+
+.section-toggle {
+  background: none;
+  border: none;
+  color: #374151;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  transition: color 0.2s;
+}
+
+.section-toggle:hover {
+  color: #2563eb;
 }
 
 .section-title {
@@ -91,6 +111,40 @@
   margin: 0;
 }
 
+.simple-form-group {
+  margin-bottom: 1rem !important;
+}
+
+.simple-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.simple-checkbox input[type="checkbox"] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+  margin-top: 1px;
+}
+
+.checkbox-text {
+  flex: 1;
+}
+
+.checkbox-text .field-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+  font-weight: normal;
+}
+
 @keyframes slideUp {
   from { 
     opacity: 0;
@@ -140,15 +194,11 @@
 }
 
 .release-modal-form {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  /* Remove flex layout since whole modal is scrollable */
 }
 
 .release-modal-body {
   padding: 2rem;
-  overflow-y: auto;
-  flex: 1;
 }
 
 .form-group {

@@ -86,147 +86,191 @@ def get_unique_authors_for_series(db: Session, series_id: int) -> List[str]:
     
     return sorted(list(all_authors))
 
-def calculate_series_completion_percentage(db: Session, series_id: int, series_album_name: str) -> Optional[int]:
+def get_all_wip_songs_for_user(db: Session, current_user):
+    """Get all WIP songs for the current user - to be cached and reused across all series calculations"""
+    from sqlalchemy import text, or_
+    
+    # Pre-fetch all collaboration data for the current user
+    user_song_collaborations = db.query(Collaboration.song_id).filter(
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).all()
+    user_song_collab_ids = {c.song_id for c in user_song_collaborations}
+    
+    # Get pack collaborations separated by type
+    user_pack_collaborations = db.query(Collaboration.pack_id, Collaboration.collaboration_type).filter(
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+    ).all()
+    user_pack_collab_ids = {c.pack_id for c in user_pack_collaborations if c.pack_id}
+    
+    # Get packs owned by current user
+    user_owned_packs = db.query(Pack.id).filter(Pack.user_id == current_user.id).all()
+    user_owned_pack_ids = {p.id for p in user_owned_packs}
+    
+    # Get songs in packs where user has song-level collaboration
+    songs_in_collab_packs = db.query(Song.pack_id).join(
+        Collaboration, Song.id == Collaboration.song_id
+    ).filter(
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+        Song.pack_id.isnot(None)
+    ).distinct().all()
+    songs_in_collab_pack_ids = {s.pack_id for s in songs_in_collab_packs if s.pack_id}
+    
+    # Build query with exact same logic as WIP songs endpoint
+    all_wip_songs = db.query(Song).options(
+        joinedload(Song.user),  # Load the song owner
+        joinedload(Song.pack_obj)  # Load the pack relationship
+    ).filter(
+        Song.status == 'In Progress'  # Only WIP songs - exact same filter as WIP endpoint
+    ).filter(
+        or_(
+            Song.user_id == current_user.id,  # Songs owned by current user
+            Song.id.in_(user_song_collab_ids),  # Songs where current user is a collaborator
+            Song.pack_id.in_(user_pack_collab_ids),  # Songs in packs where user has pack-level access
+            Song.pack_id.in_(songs_in_collab_pack_ids),  # Songs in packs where any song has user collaboration
+            Song.pack_id.in_(user_owned_pack_ids)  # Songs in packs owned by current user
+        )
+    ).all()
+    
+    return all_wip_songs
+
+def calculate_series_completion_percentage(db: Session, series_id: int, series_album_name: str, current_user, all_wip_songs=None, cached_workflows=None, cached_progress=None) -> Optional[int]:
     """Calculate completion percentage for an in_progress album series
     
-    Uses the same method as WIP view: average of each song's completion percentage.
-    Counts all songs (album + bonus), excluding only optional songs.
-    
-    Uses the new song_progress table and each song owner's custom workflow.
-    Every user MUST have a workflow - no fallback.
-    
-    Song filtering:
-    - If series has pack_id: only count songs from that pack
-    - Otherwise: determine majority pack from songs with album_series_id, then:
-      * Count songs with album_series_id that are in the majority pack
-      * Also include songs from the majority pack that match album name (even without album_series_id)
+    Optimized version that reuses cached WIP song data, workflows, and progress
     """
     from sqlalchemy import text
-    from collections import Counter
     
-    # Get the series to check if it has a pack_id
-    series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
-    if not series:
+    # Step 1: Use cached WIP songs or fetch if not provided
+    if all_wip_songs is None:
+        all_wip_songs = get_all_wip_songs_for_user(db, current_user)
+    
+    # Step 2: Find which pack name this album series corresponds to
+    # Look for songs with album_series_id = series_id to determine pack name
+    series_songs = [song for song in all_wip_songs if song.album_series_id == series_id]
+    if not series_songs:
         return 0
     
-    # Determine which pack to use
-    target_pack_id = series.pack_id
+    # Get the pack name from any song in the series (they should all have same pack)
+    target_pack_name = None
+    for song in series_songs:
+        if song.pack_obj and song.pack_obj.name:
+            target_pack_name = song.pack_obj.name
+            break
     
-    if not target_pack_id:
-        # No pack_id on series - determine majority pack from songs with album_series_id
-        songs_with_series_id = db.query(Song).filter(
-            Song.album_series_id == series_id,
-            Song.pack_id.isnot(None)
-        ).all()
-        
-        if songs_with_series_id:
-            # Count songs by pack_id to find majority
-            pack_counts = Counter(song.pack_id for song in songs_with_series_id)
-            if pack_counts:
-                target_pack_id = pack_counts.most_common(1)[0][0]
+    if not target_pack_name:
+        return 0
     
-    # Get songs to count
-    if target_pack_id:
-        # Count songs from the target pack that either:
-        # 1. Have album_series_id set, OR
-        # 2. Match the album name (to include songs like "She" that are in pack but missing album_series_id)
-        songs = db.query(Song).filter(
-            Song.pack_id == target_pack_id
-        ).filter(
-            (Song.album_series_id == series_id) |
-            ((Song.album == series.album_name) & (Song.album_series_id.is_(None)))
-        ).all()
-    else:
-        # No pack - just use album_series_id
-        songs = db.query(Song).filter(
-            Song.album_series_id == series_id
-        ).all()
+    # Step 3: Get all songs in the target pack (exact same as WIP pack grouping)
+    pack_songs = [song for song in all_wip_songs 
+                  if song.pack_obj and song.pack_obj.name == target_pack_name]
     
-    # Filter to core songs only (exclude optional, but include both album and bonus songs)
-    core_songs = [song for song in songs 
-                  if song.optional is None or song.optional == False]
+    # Step 4: Filter to core songs only (exclude optional) - exact same as WIP
+    core_songs = [song for song in pack_songs if song.optional is None or song.optional == False]
     
     if len(core_songs) == 0:
         return 0
     
-    # Batch fetch all workflows for unique user_ids
+    # Step 4: Use same workflow and progress logic as WIP page
+    
+    # Batch fetch all workflows for unique user_ids (use cache if available)
     unique_user_ids = list(set(song.user_id for song in core_songs if song.user_id))
     if not unique_user_ids:
         return 0
     
-    # Batch fetch all workflow steps for all users
-    from sqlalchemy import func
-    if unique_user_ids:
-        # Use tuple unpacking for IN clause
-        placeholders = ','.join(f':uid_{i}' for i in range(len(unique_user_ids)))
-        params = {f'uid_{i}': uid for i, uid in enumerate(unique_user_ids)}
-        workflow_rows = db.execute(
-            text(
-                f"""
-                SELECT uw.user_id, uws.step_name, uws.order_index
-                FROM user_workflows uw
-                JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
-                WHERE uw.user_id IN ({placeholders})
-                ORDER BY uw.user_id, uws.order_index
-                """
-            ),
-            params
-        ).fetchall()
-    else:
-        workflow_rows = []
-    
-    # Build workflow map: user_id -> list of step names
+    # Use cached workflows if available, otherwise fetch
     workflow_map = {}
-    for user_id, step_name, order_index in workflow_rows:
-        if user_id not in workflow_map:
-            workflow_map[user_id] = []
-        workflow_map[user_id].append(step_name)
+    if cached_workflows:
+        workflow_map = {uid: cached_workflows.get(uid, []) for uid in unique_user_ids}
+    else:
+        if unique_user_ids:
+            placeholders = ','.join(f':uid_{i}' for i in range(len(unique_user_ids)))
+            params = {f'uid_{i}': uid for i, uid in enumerate(unique_user_ids)}
+            workflow_rows = db.execute(
+                text(
+                    f"""
+                    SELECT uw.user_id, uws.step_name, uws.order_index
+                    FROM user_workflows uw
+                    JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+                    WHERE uw.user_id IN ({placeholders})
+                    ORDER BY uw.user_id, uws.order_index
+                    """
+                ),
+                params
+            ).fetchall()
+            
+            for user_id, step_name, order_index in workflow_rows:
+                if user_id not in workflow_map:
+                    workflow_map[user_id] = []
+                workflow_map[user_id].append(step_name)
     
-    # Batch fetch all song_progress for all songs
+    # Batch fetch all song_progress for all songs (use cache if available)
     song_ids = [song.id for song in core_songs]
     if not song_ids:
         return 0
     
-    progress_rows = db.execute(
-        text("SELECT song_id, step_name, is_completed FROM song_progress WHERE song_id = ANY(ARRAY[:song_ids])"),
-        {"song_ids": song_ids}
-    ).fetchall()
+    # Use cached progress if available, otherwise fetch
+    song_progress_map = {}
+    if cached_progress:
+        song_progress_map = {sid: cached_progress.get(sid, {}) for sid in song_ids}
+    else:
+        # Use same query as bulk progress endpoint
+        placeholders = ",".join([f":id{i}" for i in range(len(song_ids))])
+        params = {f"id{i}": song_id for i, song_id in enumerate(song_ids)}
+        
+        progress_rows = db.execute(text(f"""
+            SELECT song_id, step_name, is_completed
+            FROM song_progress
+            WHERE song_id IN ({placeholders})
+        """), params).fetchall()
+        
+        # Build progress map: song_id -> {step_name: is_completed} (same as WIP bulk API)
+        for r in progress_rows:
+            song_id = r[0]
+            if song_id not in song_progress_map:
+                song_progress_map[song_id] = {}
+            song_progress_map[song_id][r[1]] = bool(r[2])  # step_name -> is_completed
+        
+        # Ensure all songs are in the result (even if no progress)
+        for song_id in song_ids:
+            if song_id not in song_progress_map:
+                song_progress_map[song_id] = {}
     
-    # Build progress map: (song_id, step_name) -> is_completed
-    progress_map = {}
-    for song_id, step_name, is_completed in progress_rows:
-        progress_map[(song_id, step_name)] = bool(is_completed)
-    
-    # Calculate completion percentage for each song
+    # Step 5: Calculate completion percentage for each song (exact same logic as WIP)
     song_percentages = []
     for song in core_songs:
         if not song.user_id or song.user_id not in workflow_map:
             continue  # Skip songs whose owners have no workflow
         
-        workflow_steps = workflow_map[song.user_id]
+        workflow_steps = workflow_map[song.user_id]  # songOwnerFields
         if not workflow_steps:
             continue
         
-        # Count completed steps
-        completed_count = sum(
-            1 for step in workflow_steps 
-            if progress_map.get((song.id, step), False)
-        )
-        total_steps = len(workflow_steps)
+        # Get progress for this song (same as song.progress in WIP)
+        song_progress = song_progress_map.get(song.id, {})
         
+        # Calculate completion using exact same logic as getSongCompletionPercentage
+        completed_count = 0
+        for field in workflow_steps:
+            if song_progress.get(field, False):  # getFieldCompletion(song, field)
+                completed_count += 1
+        
+        total_steps = len(workflow_steps)
         if total_steps > 0:
-            song_pct = round((completed_count / total_steps) * 100)
+            song_pct = round((completed_count / total_steps) * 100)  # Math.round((completedCount / workflowFields.length) * 100)
             song_percentages.append(song_pct)
     
     if len(song_percentages) == 0:
         return 0
     
-    # Return average of all song percentages (matches WIP view)
-    return round(sum(song_percentages) / len(song_percentages))
+    # Step 6: Return average of all song percentages (exact same as WIP pack calculation)
+    return round(sum(song_percentages) / len(song_percentages))  # Math.round(totalPercent / coreSongs.length)
 
 @router.get("/", response_model=List[AlbumSeriesResponse])
 def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
-    """Get all album series, with song count and authors"""
+    """Get all album series, with song count and authors - optimized for performance"""
     # For released series, show all
     # For in_progress and planned series, only show if user is involved
     
@@ -313,6 +357,72 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
         if user_involved:
             filtered_series.append(s)
     
+    # PERFORMANCE OPTIMIZATION: Load all WIP songs, workflows, and progress once and reuse for all calculations
+    all_wip_songs = None
+    cached_workflows = None
+    cached_progress = None
+    
+    if any(s.status == "in_progress" for s in filtered_series):
+        try:
+            from sqlalchemy import text
+            
+            # Load all WIP songs once
+            all_wip_songs = get_all_wip_songs_for_user(db, current_user)
+            
+            # Batch load all workflows for all users in WIP songs
+            all_user_ids = list(set(song.user_id for song in all_wip_songs if song.user_id))
+            if all_user_ids:
+                placeholders = ','.join(f':uid_{i}' for i in range(len(all_user_ids)))
+                params = {f'uid_{i}': uid for i, uid in enumerate(all_user_ids)}
+                workflow_rows = db.execute(
+                    text(
+                        f"""
+                        SELECT uw.user_id, uws.step_name, uws.order_index
+                        FROM user_workflows uw
+                        JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+                        WHERE uw.user_id IN ({placeholders})
+                        ORDER BY uw.user_id, uws.order_index
+                        """
+                    ),
+                    params
+                ).fetchall()
+                
+                cached_workflows = {}
+                for user_id, step_name, order_index in workflow_rows:
+                    if user_id not in cached_workflows:
+                        cached_workflows[user_id] = []
+                    cached_workflows[user_id].append(step_name)
+            
+            # Batch load all progress for all WIP songs
+            all_song_ids = [song.id for song in all_wip_songs]
+            if all_song_ids:
+                placeholders = ",".join([f":id{i}" for i in range(len(all_song_ids))])
+                params = {f"id{i}": song_id for i, song_id in enumerate(all_song_ids)}
+                
+                progress_rows = db.execute(text(f"""
+                    SELECT song_id, step_name, is_completed
+                    FROM song_progress
+                    WHERE song_id IN ({placeholders})
+                """), params).fetchall()
+                
+                cached_progress = {}
+                for r in progress_rows:
+                    song_id = r[0]
+                    if song_id not in cached_progress:
+                        cached_progress[song_id] = {}
+                    cached_progress[song_id][r[1]] = bool(r[2])
+                
+                # Ensure all songs are in the result (even if no progress)
+                for song_id in all_song_ids:
+                    if song_id not in cached_progress:
+                        cached_progress[song_id] = {}
+                        
+        except Exception as e:
+            print(f"Error loading batch data: {e}")
+            all_wip_songs = None
+            cached_workflows = None
+            cached_progress = None
+    
     # Build response with cached data
     result = []
     for s in filtered_series:
@@ -323,7 +433,8 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
         completion_percentage = None
         if s.status == "in_progress":
             try:
-                completion_percentage = calculate_series_completion_percentage(db, s.id, s.album_name)
+                # Use cached WIP songs, workflows, and progress data for much faster calculation
+                completion_percentage = calculate_series_completion_percentage(db, s.id, s.album_name, current_user, all_wip_songs, cached_workflows, cached_progress)
             except Exception as e:
                 print(f"Error calculating completion for series {s.id}: {e}")
                 completion_percentage = None
@@ -348,7 +459,7 @@ def get_album_series(db: Session = Depends(get_db), current_user = Depends(get_c
     return result
 
 @router.get("/{series_id}", response_model=AlbumSeriesDetailResponse)
-def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
+def get_album_series_detail(series_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     """Get detailed information about a specific album series"""
     try:
         series = db.query(AlbumSeries).filter(AlbumSeries.id == series_id).first()
@@ -358,48 +469,80 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
         print(f"Error fetching series {series_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching series: {str(e)}")
     
-    # Get songs for this series - match the calculation logic:
-    # If series has pack_id: include songs from that pack that match album name
-    # Otherwise: include songs with album_series_id + songs from majority pack matching album name
-    from collections import Counter
+    # Use EXACT same song selection logic as calculation function
+    from sqlalchemy import text, or_
     
-    target_pack_id = series.pack_id
-    if not target_pack_id:
-        # Determine majority pack from songs with album_series_id
-        songs_with_series_id = db.query(Song).filter(
-            Song.album_series_id == series_id,
-            Song.pack_id.isnot(None)
-        ).all()
-        if songs_with_series_id:
-            pack_counts = Counter(song.pack_id for song in songs_with_series_id)
-            if pack_counts:
-                target_pack_id = pack_counts.most_common(1)[0][0]
-    
-    # Get all songs for this series with collaborations and authoring data
     try:
-        if target_pack_id:
-            # Include songs from the pack that either have album_series_id OR match the album name
-            songs = db.query(Song).options(
-                joinedload(Song.collaborations).joinedload(Collaboration.user),
-                joinedload(Song.user),  # Load the song owner
-                joinedload(Song.pack_obj),  # Load the pack relationship
-                joinedload(Song.authoring)
-            ).filter(
-                Song.pack_id == target_pack_id
-            ).filter(
-                (Song.album_series_id == series_id) |
-                ((Song.album == series.album_name) & (Song.album_series_id.is_(None)))
-            ).all()
+        # Step 1: Get ALL "In Progress" songs with exact same access logic as WIP endpoint
+        # (copied from calculation function)
+        
+        # Pre-fetch all collaboration data for the current user
+        user_song_collaborations = db.query(Collaboration.song_id).filter(
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).all()
+        user_song_collab_ids = {c.song_id for c in user_song_collaborations}
+        
+        # Get pack collaborations separated by type
+        user_pack_collaborations = db.query(Collaboration.pack_id, Collaboration.collaboration_type).filter(
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type.in_([CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT])
+        ).all()
+        user_pack_collab_ids = {c.pack_id for c in user_pack_collaborations if c.pack_id}
+        user_pack_edit_ids = {c.pack_id for c in user_pack_collaborations if c.pack_id and c.collaboration_type == CollaborationType.PACK_EDIT}
+        
+        # Get packs owned by current user
+        user_owned_packs = db.query(Pack.id).filter(Pack.user_id == current_user.id).all()
+        user_owned_pack_ids = {p.id for p in user_owned_packs}
+        
+        # Get songs in packs where user has song-level collaboration
+        songs_in_collab_packs = db.query(Song.pack_id).join(
+            Collaboration, Song.id == Collaboration.song_id
+        ).filter(
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+            Song.pack_id.isnot(None)
+        ).distinct().all()
+        songs_in_collab_pack_ids = {s.pack_id for s in songs_in_collab_packs if s.pack_id}
+        
+        # Build query with exact same logic as WIP songs endpoint
+        all_wip_songs = db.query(Song).options(
+            joinedload(Song.collaborations).joinedload(Collaboration.user),
+            joinedload(Song.user),  # Load the song owner
+            joinedload(Song.pack_obj),  # Load the pack relationship
+            joinedload(Song.authoring)  # Load the authoring data
+        ).filter(
+            Song.status == 'In Progress'  # Only WIP songs - exact same filter as WIP endpoint
+        ).filter(
+            or_(
+                Song.user_id == current_user.id,  # Songs owned by current user
+                Song.id.in_(user_song_collab_ids),  # Songs where current user is a collaborator
+                Song.pack_id.in_(user_pack_collab_ids),  # Songs in packs where user has pack-level access
+                Song.pack_id.in_(songs_in_collab_pack_ids),  # Songs in packs where any song has user collaboration
+                Song.pack_id.in_(user_owned_pack_ids)  # Songs in packs owned by current user
+            )
+        ).all()
+        
+        # Step 2: Find which pack name this album series corresponds to
+        # Look for songs with album_series_id = series_id to determine pack name
+        series_songs = [song for song in all_wip_songs if song.album_series_id == series_id]
+        if not series_songs:
+            songs = []  # No songs found for this series
         else:
-            # No pack - just use album_series_id
-            songs = db.query(Song).options(
-                joinedload(Song.collaborations).joinedload(Collaboration.user),
-                joinedload(Song.user),  # Load the song owner
-                joinedload(Song.pack_obj),  # Load the pack relationship
-                joinedload(Song.authoring)
-            ).filter(
-                Song.album_series_id == series_id
-            ).all()
+            # Get the pack name from any song in the series (they should all have same pack)
+            target_pack_name = None
+            for song in series_songs:
+                if song.pack_obj and song.pack_obj.name:
+                    target_pack_name = song.pack_obj.name
+                    break
+            
+            if not target_pack_name:
+                songs = []  # No pack name found
+            else:
+                # Step 3: Get all songs in the target pack (exact same as WIP pack grouping)
+                songs = [song for song in all_wip_songs 
+                        if song.pack_obj and song.pack_obj.name == target_pack_name]
+        
     except Exception as e:
         print(f"Error fetching songs for series {series_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching songs: {str(e)}")
@@ -408,12 +551,12 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
     album_songs = [song for song in songs if song.album and song.album.lower() == series.album_name.lower()]
     bonus_songs = [song for song in songs if song not in album_songs]
     
-    # Batch fetch all workflows and progress data for performance
+    # Use EXACT same progress data format as WIP page
     all_songs = album_songs + bonus_songs
     unique_user_ids = list(set(song.user_id for song in all_songs if song.user_id))
     song_ids = [song.id for song in all_songs]
     
-    # Batch fetch all workflow steps for all users
+    # Batch fetch all workflow steps for all users (same as WIP)
     from sqlalchemy import text
     workflow_map = {}
     if unique_user_ids:
@@ -437,41 +580,55 @@ def get_album_series_detail(series_id: int, db: Session = Depends(get_db)):
                 workflow_map[user_id] = []
             workflow_map[user_id].append(step_name)
     
-    # Batch fetch all song_progress for all songs
-    progress_map = {}
+    # Batch fetch all song_progress for all songs (same as WIP bulk API)
+    song_progress_map = {}
     if song_ids:
-        placeholders = ','.join(f':sid_{i}' for i in range(len(song_ids)))
-        params = {f'sid_{i}': sid for i, sid in enumerate(song_ids)}
-        progress_rows = db.execute(
-            text(f"SELECT song_id, step_name, is_completed FROM song_progress WHERE song_id IN ({placeholders})"),
-            params
-        ).fetchall()
+        # Use same query as bulk progress endpoint
+        placeholders = ",".join([f":id{i}" for i in range(len(song_ids))])
+        params = {f"id{i}": song_id for i, song_id in enumerate(song_ids)}
         
-        for song_id, step_name, is_completed in progress_rows:
-            progress_map[(song_id, step_name)] = bool(is_completed)
+        progress_rows = db.execute(text(f"""
+            SELECT song_id, step_name, is_completed
+            FROM song_progress
+            WHERE song_id IN ({placeholders})
+        """), params).fetchall()
+        
+        # Build progress map: song_id -> {step_name: is_completed} (same as WIP bulk API)
+        for r in progress_rows:
+            song_id = r[0]
+            if song_id not in song_progress_map:
+                song_progress_map[song_id] = {}
+            song_progress_map[song_id][r[1]] = bool(r[2])  # step_name -> is_completed
+        
+        # Ensure all songs are in the result (even if no progress)
+        for song_id in song_ids:
+            if song_id not in song_progress_map:
+                song_progress_map[song_id] = {}
     
-    # Format songs with properly structured collaborations
-    # Build authoring dict from song_progress for each song based on owner's workflow
+    # Build authoring dict in exact same format as WIP expects
     def build_authoring_from_progress(song):
-        """Build authoring dict from song_progress table based on owner's workflow
+        """Build authoring dict from song_progress in exact same format as WIP page expects
         
-        Returns a dict with ONLY the user's actual workflow steps.
-        No hardcoded fields - only what the user has configured.
-        Includes id and song_id for minimal schema compatibility.
+        The WIP page expects song.progress to be a dict with {step_name: is_completed}
+        But the album series detail expects song.authoring to be a dict with workflow fields + id/song_id
+        
+        This function bridges that gap by using the progress data but formatting it for the frontend.
         """
+        # Get progress for this song (same as song.progress in WIP)
+        song_progress = song_progress_map.get(song.id, {})
+        
         # Start with minimal required fields for schema compatibility
         authoring_dict = {
             "id": 0,  # Dummy ID - not used by frontend
             "song_id": song.id,
         }
         
-        # Only add fields from the user's actual workflow
+        # Add all workflow steps from the user's actual workflow with their progress values
         if song.user_id and song.user_id in workflow_map:
             workflow_steps = workflow_map[song.user_id]
             if workflow_steps:
-                # Add only the workflow steps with their actual progress values
                 for step in workflow_steps:
-                    authoring_dict[step] = progress_map.get((song.id, step), False)
+                    authoring_dict[step] = song_progress.get(step, False)
         
         return authoring_dict
     

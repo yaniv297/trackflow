@@ -89,7 +89,7 @@ class SongOut(BaseModel):
     author: Optional[str]  # Username from user relationship
     user_id: Optional[int]
     collaborations: List[SongCollaborationOut] = []
-    authoring: Optional[AuthoringOut] = None
+    authoring: Optional[dict] = None  # Dynamic dict with only user's workflow steps, no hardcoded fields
     optional: Optional[bool] = None
     artist_image_url: Optional[str] = None
     album_series_id: Optional[int] = None
@@ -135,6 +135,7 @@ class AlbumSeriesResponse(BaseModel):
     updated_at: datetime
     song_count: int = 0
     authors: List[str] = []  # List of all authors in this series
+    completion_percentage: Optional[int] = None  # For in_progress series only
     
     class Config:
         from_attributes = True

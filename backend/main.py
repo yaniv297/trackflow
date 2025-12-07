@@ -10,6 +10,18 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import text
 
+# Load environment variables from multiple possible locations BEFORE importing database
+# This ensures DATABASE_URL is set before database.py reads it
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),  # backend/.env
+    os.path.join(os.path.dirname(__file__), '..', '.env'),  # root/.env
+]
+
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        break
+
 from api import songs as songs
 from api import authoring as authoring
 from api import tools as tools
@@ -28,17 +40,6 @@ from api import admin as admin
 from api import feature_requests as feature_requests
 from database import engine, SQLALCHEMY_DATABASE_URL
 from models import Base
-
-# Load environment variables from multiple possible locations
-env_paths = [
-    os.path.join(os.path.dirname(__file__), '.env'),  # backend/.env
-    os.path.join(os.path.dirname(__file__), '..', '.env'),  # root/.env
-]
-
-for env_path in env_paths:
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-        break
 
 
 def mem_watchdog():

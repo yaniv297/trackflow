@@ -591,13 +591,11 @@ const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, o
         )}
       </div>
       
-      {/* YouTube Video Embed (only embed, no button) */}
+      {/* YouTube Video Embed - Compact */}
       {videoId && (
-        <div className="youtube-embed">
+        <div className="youtube-embed compact">
           <div className="youtube-wrapper">
             <iframe
-              width="560"
-              height="315"
               src={`https://www.youtube.com/embed/${videoId}`}
               title="YouTube video player"
               frameBorder="0"

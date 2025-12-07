@@ -159,6 +159,7 @@ class AlbumSeriesService:
         
         # Create album series
         album_series = self.album_series_repo.create(
+            pack_id=pack.id,
             series_number=None,
             album_name=request.album_name,
             artist_name=request.artist_name,
@@ -330,14 +331,13 @@ class AlbumSeriesService:
         """Assign songs to the album series."""
         target_songs = []
         if request.song_ids:
+            # If specific song IDs are provided, only assign those
             target_songs = self.song_repo.get_songs_by_ids(request.song_ids)
         else:
-            # Default: assign all qualifying songs that match artist/album
-            target_songs = [
-                s for s in songs
-                if (s.artist or "").strip().lower() == (request.artist_name or "").strip().lower()
-                and (s.album or "").strip().lower() == (request.album_name or "").strip().lower()
-            ] or songs
+            # Default: assign ALL songs in the pack to the album series
+            # Songs that match artist/album will be "album songs"
+            # Songs that don't match will be "bonus songs"
+            target_songs = songs
         
         for s in target_songs:
             s.album_series_id = album_series.id

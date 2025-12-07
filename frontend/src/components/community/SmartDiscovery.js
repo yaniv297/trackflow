@@ -15,6 +15,7 @@ const SmartDiscovery = () => {
   const [error, setError] = useState(null);
   const [expandedSongs, setExpandedSongs] = useState(false);
   const [expandedArtists, setExpandedArtists] = useState(false);
+  const [expandedIndividualArtists, setExpandedIndividualArtists] = useState(new Set());
   const [selectedSongForCollaboration, setSelectedSongForCollaboration] = useState(null);
   const [collaborationStatuses, setCollaborationStatuses] = useState({});
 
@@ -83,6 +84,16 @@ const SmartDiscovery = () => {
     checkCollaborationStatuses(); // Refresh statuses
   };
 
+  const toggleIndividualArtist = (artistKey) => {
+    const newExpanded = new Set(expandedIndividualArtists);
+    if (newExpanded.has(artistKey)) {
+      newExpanded.delete(artistKey);
+    } else {
+      newExpanded.add(artistKey);
+    }
+    setExpandedIndividualArtists(newExpanded);
+  };
+
   const getCollaborationButtonText = (songId) => {
     const status = collaborationStatuses[songId];
     switch (status) {
@@ -140,7 +151,7 @@ const SmartDiscovery = () => {
     );
   }
 
-  const hasSharedSongs = connections?.shared_songs?.length > 0;
+  const hasSharedSongs = connections?.shared_songs?.filter(song => collaborationStatuses[song.song_id] !== 'accepted').length > 0;
   const hasSharedArtists = connections?.shared_artists?.length > 0;
 
   if (!hasSharedSongs && !hasSharedArtists) {
@@ -160,8 +171,8 @@ const SmartDiscovery = () => {
   }
 
   const displayedSongs = expandedSongs 
-    ? connections.shared_songs 
-    : connections.shared_songs.slice(0, 3);
+    ? connections.shared_songs.filter(song => collaborationStatuses[song.song_id] !== 'accepted')
+    : connections.shared_songs.filter(song => collaborationStatuses[song.song_id] !== 'accepted').slice(0, 3);
   
   const displayedArtists = expandedArtists
     ? connections.shared_artists
@@ -176,7 +187,7 @@ const SmartDiscovery = () => {
         
         {hasSharedSongs && (
           <div className="shared-section">
-            <h4>🎵 Shared Songs</h4>
+            <h4>Shared Songs</h4>
             <div className="shared-items">
               {displayedSongs.map((item, index) => (
                 <div key={`${item.song_id}-${item.username}-${index}`} className="shared-item">
@@ -193,12 +204,6 @@ const SmartDiscovery = () => {
                         }}
                       />
                     ) : null}
-                    <div 
-                      className="shared-song-cover placeholder"
-                      style={{ display: item.album_cover ? 'none' : 'flex' }}
-                    >
-                      🎵
-                    </div>
                     <div className="shared-item-info">
                       <div className="shared-song">
                         <strong>{item.title}</strong> by {item.artist}
@@ -212,7 +217,7 @@ const SmartDiscovery = () => {
                           className="username-link"
                           title="Click to view profile"
                         >
-                          @{item.username}
+                          {item.username}
                         </span>
                       </div>
                     </div>
@@ -232,14 +237,14 @@ const SmartDiscovery = () => {
                   </button>
                 </div>
               ))}
-              {connections.shared_songs.length > 3 && (
+              {connections.shared_songs.filter(song => collaborationStatuses[song.song_id] !== 'accepted').length > 3 && (
                 <button
                   onClick={() => setExpandedSongs(!expandedSongs)}
                   className="expand-button"
                 >
                   {expandedSongs 
                     ? 'Show Less' 
-                    : `+${connections.shared_songs.length - 3} more songs`}
+                    : `+${connections.shared_songs.filter(song => collaborationStatuses[song.song_id] !== 'accepted').length - 3} more songs`}
                 </button>
               )}
             </div>
@@ -248,25 +253,109 @@ const SmartDiscovery = () => {
 
         {hasSharedArtists && (
           <div className="shared-section">
-            <h4>🎤 Shared Artists</h4>
+            <h4>Shared Artists</h4>
             <div className="shared-items">
-              {displayedArtists.map((item, index) => (
-                <div key={`${item.artist}-${item.username}-${index}`} className="shared-item">
-                  <div className="shared-artist">
-                    <strong>{item.artist}</strong> 
-                    <span className="song-count">({item.song_count} songs)</span>
+              {displayedArtists.map((item, index) => {
+                const artistKey = `${item.artist}-${item.username}-${index}`;
+                const isExpanded = expandedIndividualArtists.has(artistKey);
+                const artistSongs = connections?.shared_songs?.filter(song => 
+                  song.artist === item.artist && song.username === item.username
+                ) || [];
+                
+                return (
+                  <div key={artistKey} className="shared-item">
+                    <div className="shared-item-content">
+                      {item.artist_image_url && (
+                        <img 
+                          src={item.artist_image_url} 
+                          alt={`${item.artist}`}
+                          className="shared-song-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div className="shared-item-info">
+                        <div className="shared-artist">
+                          <strong>{item.artist}</strong>
+                        </div>
+                        <div className="artist-breakdown">
+                          {item.shared_songs_count > 0 && (
+                            <div className="breakdown-item">
+                              {item.shared_songs_count} shared song{item.shared_songs_count !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          <div className="breakdown-item">
+                            {item.my_songs_count || 0} by you
+                          </div>
+                          <div className="breakdown-item">
+                            {item.song_count} by <span 
+                              onClick={() => navigate(`/profile/${item.username}`)}
+                              className="username-link"
+                              title="Click to view profile"
+                            >
+                              {item.username}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {artistSongs.length > 0 && (
+                      <span
+                        onClick={() => toggleIndividualArtist(artistKey)}
+                        className="username-link"
+                        style={{ cursor: 'pointer', fontSize: '12px' }}
+                        title={isExpanded ? 'Hide songs' : 'Show songs'}
+                      >
+                        {isExpanded ? '▲' : '▼'}
+                      </span>
+                    )}
+                    
+                    {isExpanded && artistSongs.length > 0 && (
+                      <div className="artist-songs-list" style={{ marginTop: '8px', paddingLeft: '16px' }}>
+                        {artistSongs.map((song, songIndex) => (
+                          <div key={`${song.song_id}-${songIndex}`} className="shared-item" style={{ marginBottom: '4px', fontSize: '12px' }}>
+                            <div className="shared-item-content">
+                              {song.album_cover && (
+                                <img 
+                                  src={song.album_cover} 
+                                  alt={`${song.artist} - ${song.title} cover`}
+                                  className="shared-song-cover"
+                                  style={{ width: '20px', height: '20px' }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                              <div className="shared-item-info">
+                                <div className="shared-song">
+                                  <strong>{song.title}</strong>
+                                  {song.status && (
+                                    <span className="song-status-badge"> • {song.status}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleCollaborationRequest(song)}
+                              className={getCollaborationButtonClass(song.song_id)}
+                              disabled={collaborationStatuses[song.song_id] === 'pending' || 
+                                       collaborationStatuses[song.song_id] === 'accepted'}
+                              title={collaborationStatuses[song.song_id] === 'pending' 
+                                ? 'Collaboration request pending' 
+                                : collaborationStatuses[song.song_id] === 'accepted'
+                                ? 'Collaboration accepted'
+                                : 'Request collaboration on this song'}
+                            >
+                              {getCollaborationButtonText(song.song_id)}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="shared-user">
-                    with <span 
-                      onClick={() => navigate(`/profile/${item.username}`)}
-                      className="username-link"
-                      title="Click to view profile"
-                    >
-                      @{item.username}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {connections.shared_artists.length > 3 && (
                 <button
                   onClick={() => setExpandedArtists(!expandedArtists)}

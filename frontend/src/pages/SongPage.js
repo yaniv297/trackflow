@@ -12,7 +12,6 @@ import UnifiedCollaborationModal from "../components/modals/UnifiedCollaboration
 import Fireworks from "../components/ui/Fireworks";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import AlbumSeriesEditModal from "../components/modals/AlbumSeriesEditModal";
-import BulkProgressModal from "../components/modals/BulkProgressModal";
 import useCollaborations from "../hooks/collaborations/useCollaborations";
 import { useSongData } from "../hooks/songs/useSongData";
 import { useSongSortingAndGrouping } from "../hooks/songs/useSongSortingAndGrouping";
@@ -28,14 +27,6 @@ function SongPage({ status }) {
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [publicFilter, setPublicFilter] = useState("all");
   const [showMakeAllPublicConfirm, setShowMakeAllPublicConfirm] = useState(false);
-  const [bulkProgressModal, setBulkProgressModal] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    progress: 0,
-    total: 0,
-    isComplete: false
-  });
 
   // Alert/Prompt state
   const [alertConfig, setAlertConfig] = useState({
@@ -98,13 +89,6 @@ function SongPage({ status }) {
     if (publicFilter === "private") return songs.filter(song => song.is_public !== true);
     return songs;
   }, [songs, publicFilter]);
-
-  // Determine if all owned Future Plans songs are currently public
-  const allFuturePlansPublic = useMemo(() => {
-    const ownedSongs = songs.filter((song) => song.user_id === user?.id);
-    if (ownedSongs.length === 0) return false;
-    return ownedSongs.every((song) => song.is_public === true);
-  }, [songs, user]);
 
   // Sorting and grouping
   const { groupedSongs } = useSongSortingAndGrouping(
@@ -245,116 +229,40 @@ function SongPage({ status }) {
     );
   };
 
-  // Handle bulk edit modal opening with validation
-  const handleBulkEdit = () => {
-    if (selectedSongs.length === 0) {
-      if (window.showNotification) {
-        window.showNotification(
-          "Please select one or more songs before using bulk operations. Use the checkboxes next to song titles to select them.",
-          'info',
-          4000
-        );
-      }
-      return;
-    }
-    setShowBulkModal(true);
-  };
-
   // Handle bulk public status toggle
   const handleBulkTogglePublic = async (makePublic) => {
     try {
-      if (selectedSongs.length === 0) {
-        if (window.showNotification) {
-          window.showNotification(
-            'No songs selected',
-            'info',
-            3000
-          );
-        }
-        return;
-      }
-
-      // Filter songs that actually need to change
-      const songsToChange = selectedSongs.filter(songId => {
-        const song = songs.find(s => s.id === songId);
-        return song && song.is_public !== makePublic;
-      });
-
-      if (songsToChange.length === 0) {
-        if (window.showNotification) {
-          window.showNotification(
-            `All selected songs are already ${makePublic ? 'public' : 'private'}`,
-            'info',
-            3000
-          );
-        }
-        setSelectedSongs([]);
-        return;
-      }
-
-      // Show progress modal
-      setBulkProgressModal({
-        isOpen: true,
-        title: makePublic ? 'Making Songs Public' : 'Making Songs Private',
-        message: `Updating ${songsToChange.length} selected songs to ${makePublic ? 'public' : 'private'}...`,
-        progress: 0,
-        total: songsToChange.length,
-        isComplete: false
-      });
-
-      // Call bulk API
-      const result = await publicSongsService.bulkToggleSongsPublic(songsToChange, makePublic);
-
-      if (result.success) {
-        const { success_count, failed_count, total_count } = result.data;
-        
-        // Update progress to show completion
-        setBulkProgressModal(prev => ({
-          ...prev,
-          progress: total_count,
-          isComplete: true,
-          message: `Successfully updated ${success_count} out of ${total_count} songs.${failed_count > 0 ? ` ${failed_count} songs failed to update.` : ''}`
-        }));
-
-        // Update local state for successful songs
-        songsToChange.forEach(songId => {
-          if (!result.data.failed_song_ids.includes(songId)) {
-            handleSongUpdate(songId, { is_public: makePublic });
-          }
-        });
-
-
-        // Clear selection
-        setSelectedSongs([]);
-      } else {
-        // Handle API error
-        setBulkProgressModal(prev => ({
-          ...prev,
-          isComplete: true,
-          message: `Failed to update songs: ${result.error || 'Unknown error'}`
-        }));
-
-        if (window.showNotification) {
-          window.showNotification(
-            `Failed to update songs: ${result.error || 'Unknown error'}`,
-            'error',
-            5000
-          );
-        }
-      }
-
-    } catch (error) {
-      console.error('Error in bulk toggle operation:', error);
+      let successCount = 0;
       
-      setBulkProgressModal(prev => ({
-        ...prev,
-        isComplete: true,
-        message: `Unexpected error occurred: ${error.message || 'Unknown error'}`
-      }));
+      // Call API for each selected song that needs to change
+      for (const songId of selectedSongs) {
+        const song = songs.find(s => s.id === songId);
+        if (song && song.is_public !== makePublic) {
+          const result = await publicSongsService.toggleSongPublic(songId);
+          if (result.success) {
+            handleSongUpdate(songId, { is_public: result.data.is_public });
+            successCount++;
+          }
+        }
+      }
 
+      // Show success notification
       if (window.showNotification) {
         window.showNotification(
-          'An unexpected error occurred',
+          `Successfully made ${successCount} songs ${makePublic ? 'public' : 'private'}`,
+          'success',
+          3000
+        );
+      }
+
+      // Clear selection
+      setSelectedSongs([]);
+
+    } catch (error) {
+      console.error('Error toggling bulk public status:', error);
+      if (window.showNotification) {
+        window.showNotification(
+          'Failed to update some songs',
           'error',
           5000
         );
@@ -362,114 +270,57 @@ function SongPage({ status }) {
     }
   };
 
-  // Handle toggling all Future Plans songs public/private
+  // Handle making all Future Plans songs public
   const handleMakeAllPublic = () => {
     setShowMakeAllPublicConfirm(true);
   };
 
   const confirmMakeAllPublic = async () => {
     try {
-      setShowMakeAllPublicConfirm(false);
-
-      // Use all songs, not filtered songs, to get accurate state
-      const ownedSongs = songs.filter(
-        (song) => song.user_id === user?.id
+      // Use all songs, not filtered songs, to get accurate count
+      const futurePlansPrivateSongs = songs.filter(song => 
+        song.user_id === user?.id && !song.is_public
       );
 
-      if (ownedSongs.length === 0) {
+      if (futurePlansPrivateSongs.length === 0) {
         if (window.showNotification) {
           window.showNotification(
-            "You don't have any Future Plans songs to update.",
+            'All your Future Plans songs are already public!',
             'info',
             3000
           );
         }
+        setShowMakeAllPublicConfirm(false);
         return;
       }
 
-      // Decide target state: if all are public, make all private; otherwise make all public
-      const targetMakePublic = !allFuturePlansPublic;
-
-      const songsToChange = ownedSongs.filter(
-        (song) => song.is_public !== targetMakePublic
-      );
-
-      if (songsToChange.length === 0) {
-        if (window.showNotification) {
-          window.showNotification(
-            targetMakePublic
-              ? 'All your Future Plans songs are already public!'
-              : 'All your Future Plans songs are already private!',
-            'info',
-            3000
-          );
-        }
-        return;
-      }
-
-      // Show progress modal
-      setBulkProgressModal({
-        isOpen: true,
-        title: targetMakePublic ? 'Making Songs Public' : 'Making Songs Private',
-        message: `Updating ${songsToChange.length} songs to ${targetMakePublic ? 'public' : 'private'}...`,
-        progress: 0,
-        total: songsToChange.length,
-        isComplete: false
-      });
-
-      // Extract song IDs
-      const songIds = songsToChange.map(song => song.id);
+      let successCount = 0;
       
-      // Call bulk API
-      const result = await publicSongsService.bulkToggleSongsPublic(songIds, targetMakePublic);
-      
-      if (result.success) {
-        const { success_count, failed_count, total_count } = result.data;
-        
-        // Update progress to show completion
-        setBulkProgressModal(prev => ({
-          ...prev,
-          progress: total_count,
-          isComplete: true,
-          message: `Successfully updated ${success_count} out of ${total_count} songs.${failed_count > 0 ? ` ${failed_count} songs failed to update.` : ''}`
-        }));
-
-        // Update local state for successful songs
-        songsToChange.forEach(song => {
-          if (!result.data.failed_song_ids.includes(song.id)) {
-            handleSongUpdate(song.id, { is_public: targetMakePublic });
-          }
-        });
-
-      } else {
-        // Handle API error
-        setBulkProgressModal(prev => ({
-          ...prev,
-          isComplete: true,
-          message: `Failed to update songs: ${result.error || 'Unknown error'}`
-        }));
-
-        if (window.showNotification) {
-          window.showNotification(
-            `Failed to update songs: ${result.error || 'Unknown error'}`,
-            'error',
-            5000
-          );
+      // Call API for each private song
+      for (const song of futurePlansPrivateSongs) {
+        const result = await publicSongsService.toggleSongPublic(song.id);
+        if (result.success) {
+          handleSongUpdate(song.id, { is_public: true });
+          successCount++;
         }
       }
 
-    } catch (error) {
-      console.error('Error in bulk operation:', error);
-      
-      setBulkProgressModal(prev => ({
-        ...prev,
-        isComplete: true,
-        message: `Unexpected error occurred: ${error.message || 'Unknown error'}`
-      }));
-
+      // Show success notification
       if (window.showNotification) {
         window.showNotification(
-          'An unexpected error occurred',
+          `Successfully made ${successCount} Future Plans songs public!`,
+          'success',
+          4000
+        );
+      }
+
+      setShowMakeAllPublicConfirm(false);
+
+    } catch (error) {
+      console.error('Error making all songs public:', error);
+      if (window.showNotification) {
+        window.showNotification(
+          'Failed to make some songs public',
           'error',
           5000
         );
@@ -503,8 +354,8 @@ function SongPage({ status }) {
         publicFilter={publicFilter}
         setPublicFilter={setPublicFilter}
         selectedSongs={selectedSongs}
+        onBulkTogglePublic={handleBulkTogglePublic}
         onMakeAllPublic={status === "Future Plans" ? handleMakeAllPublic : undefined}
-        allFuturePlansPublic={status === "Future Plans" ? allFuturePlansPublic : undefined}
       />
 
       {/* Loading Spinner */}
@@ -538,7 +389,7 @@ function SongPage({ status }) {
           setSelectedItemForCollaboration={setSelectedItemForCollaboration}
           setCollaborationType={setCollaborationType}
           status={status}
-          onBulkEdit={handleBulkEdit}
+          onBulkEdit={() => setShowBulkModal(true)}
           onStartWork={handleStartWork}
           onBulkDelete={() => {}} // Placeholder for now
           onBulkEnhance={() => {}} // Placeholder for now
@@ -674,34 +525,13 @@ function SongPage({ status }) {
       {/* Make All Public Confirmation Modal */}
       <CustomAlert
         isOpen={showMakeAllPublicConfirm}
-        title={
-          allFuturePlansPublic
-            ? "Make All Future Plans Private"
-            : "Make All Future Plans Public"
-        }
-        message={
-          allFuturePlansPublic
-            ? "Are you sure you want to make ALL your Future Plans songs private? This will hide them from other users in the Community section. You can still make individual songs public afterward if needed."
-            : "Are you sure you want to make ALL your Future Plans songs public? This will make them visible to other users in the Community section. You can still make individual songs private afterward if needed."
-        }
+        title="Make All Future Plans Public"
+        message={`Are you sure you want to make ALL your Future Plans songs public? This will make them visible to other users in the Community section. You can still make individual songs private afterward if needed.`}
         type="warning"
-        confirmText={
-          allFuturePlansPublic ? "Yes, Make All Private" : "Yes, Make All Public"
-        }
+        confirmText="Yes, Make All Public"
         cancelText="Cancel"
         onConfirm={confirmMakeAllPublic}
         onClose={() => setShowMakeAllPublicConfirm(false)}
-      />
-
-      {/* Bulk Progress Modal */}
-      <BulkProgressModal
-        isOpen={bulkProgressModal.isOpen}
-        title={bulkProgressModal.title}
-        message={bulkProgressModal.message}
-        progress={bulkProgressModal.progress}
-        total={bulkProgressModal.total}
-        isComplete={bulkProgressModal.isComplete}
-        onClose={bulkProgressModal.isComplete ? () => setBulkProgressModal({ ...bulkProgressModal, isOpen: false }) : null}
       />
 
       <Fireworks />

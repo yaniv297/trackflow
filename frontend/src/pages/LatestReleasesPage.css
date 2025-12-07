@@ -7,7 +7,11 @@
 
 /* YouTube Embed Styles */
 .youtube-embed {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
+}
+
+.youtube-embed.compact {
+  margin-top: 0.75rem;
 }
 
 .youtube-wrapper {
@@ -15,8 +19,13 @@
   padding-bottom: 56.25%; /* 16:9 aspect ratio */
   height: 0;
   overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.youtube-embed.compact .youtube-wrapper {
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .youtube-wrapper iframe {
@@ -25,7 +34,11 @@
   left: 0;
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 8px;
+}
+
+.youtube-embed.compact .youtube-wrapper iframe {
+  border-radius: 6px;
 }
 
 .releases-header {
@@ -192,6 +205,23 @@
   padding: 0 1rem;
 }
 
+/* Releases list - 2 column grid */
+.releases-list {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  padding: 0 1rem;
+}
+
+@media (max-width: 1024px) {
+  .releases-list {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
 .pack-release-card {
   background: white;
   color: #333;
@@ -325,10 +355,10 @@
 }
 
 .pack-title-section .pack-name {
-  font-size: 1.6rem !important;
+  font-size: 1.3rem !important;
   font-weight: 700 !important;
   color: #1a1a1a !important;
-  margin: 0 0 0.75rem 0 !important;
+  margin: 0 0 0.5rem 0 !important;
   line-height: 1.3 !important;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -600,12 +630,32 @@
     padding: 0 0.5rem;
   }
   
+  .releases-list {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 0 0.5rem;
+  }
+  
   .pack-release-card {
     max-height: none;
   }
   
   .pack-cover {
     height: 160px;
+  }
+  
+  .releases-page .pack-cover {
+    width: 80px;
+    height: 80px;
+    min-width: 80px;
+    max-width: 80px;
+  }
+  
+  .releases-page .pack-cover-carousel .pack-cover {
+    width: 80px;
+    height: 80px;
+    min-width: 80px;
+    max-width: 80px;
   }
   
   .pagination-controls {
@@ -633,4 +683,59 @@
   .release-action-btn {
     flex: none;
   }
+}
+
+/* Override shared styles for 2-column layout */
+.releases-page .pack-release {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.releases-page .pack-header {
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.releases-page .pack-title-section .pack-name {
+  font-size: 1.3rem !important;
+  margin: 0 0 0.5rem 0 !important;
+}
+
+.releases-page .pack-cover {
+  width: 100px;
+  height: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.releases-page .pack-cover-carousel .pack-cover {
+  width: 100px;
+  height: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.releases-page .pack-songs-section {
+  margin-top: 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.releases-page .pack-songs {
+  max-height: 300px;
+  overflow-y: auto;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+}
+
+.releases-page .songs-section-title {
+  font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.releases-page .release-description-section {
+  margin: 0.75rem 0;
 }

@@ -7,6 +7,36 @@ import collaborationRequestsService from '../../services/collaborationRequestsSe
  * Compact row component for displaying public songs in a table format
  */
 const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtistColumn = false, hideUserColumn = false }) => {
+  
+  // Generate a consistent color for each username based on hash
+  const getUsernameColor = (username) => {
+    const colors = [
+      { bg: '#e74c3c', text: 'white' }, // Red
+      { bg: '#3498db', text: 'white' }, // Blue  
+      { bg: '#2ecc71', text: 'white' }, // Green
+      { bg: '#f39c12', text: 'white' }, // Orange
+      { bg: '#9b59b6', text: 'white' }, // Purple
+      { bg: '#1abc9c', text: 'white' }, // Teal
+      { bg: '#e67e22', text: 'white' }, // Dark Orange
+      { bg: '#34495e', text: 'white' }, // Dark Blue Gray
+      { bg: '#16a085', text: 'white' }, // Dark Teal
+      { bg: '#27ae60', text: 'white' }, // Dark Green
+      { bg: '#2980b9', text: 'white' }, // Strong Blue
+      { bg: '#8e44ad', text: 'white' }, // Dark Purple
+    ];
+    
+    // Simple hash function for username
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      const char = username.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Use absolute value and modulo to get color index
+    const colorIndex = Math.abs(hash) % colors.length;
+    return colors[colorIndex];
+  };
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
   const [collaborationStatus, setCollaborationStatus] = useState(null); // null, 'pending', 'accepted', 'declined'
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -157,8 +187,8 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtist
             <span
               onClick={handleUsernameClick(song.username)}
               style={{
-                background: '#3498db',
-                color: 'white',
+                background: getUsernameColor(song.username).bg,
+                color: getUsernameColor(song.username).text,
                 padding: '2px 8px',
                 borderRadius: '12px',
                 fontSize: '12px',
@@ -168,7 +198,7 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtist
               }}
               title="Click to view profile"
             >
-{song.username}
+              {song.username}
             </span>
           </td>
         )}
@@ -272,7 +302,7 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtist
                     <strong>Status:</strong> Pending
                   </p>
                   <p style={{ margin: 0, lineHeight: 1.5 }}>
-                    Your collaboration request has been sent and is waiting for a response from @{song.username}.
+                    Your collaboration request has been sent and is waiting for a response from {song.username}.
                   </p>
                 </div>
                 <div style={{

@@ -1,86 +1,100 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
-import UserProfilePopup from '../shared/UserProfilePopup';
-import collaborationRequestsService from '../../services/collaborationRequestsService';
-import PublicSongRow from './PublicSongRow';
-import '../profile/ProfileSongsTable.css';
-import './PublicSongsTableNew.css';
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
+import UserProfilePopup from "../shared/UserProfilePopup";
+import collaborationRequestsService from "../../services/collaborationRequestsService";
+import PublicSongRow from "./PublicSongRow";
+import "../profile/ProfileSongsTable.css";
+import "./PublicSongsTableNew.css";
 
-const PublicSongsTableNew = ({ 
+const PublicSongsTableNew = ({
   songs,
-  currentPage, 
-  onPageChange, 
+  currentPage,
+  onPageChange,
   onCollaborationRequest,
   currentUserId,
-  groupBy = 'none', // 'none', 'artist', or 'user'
+  groupBy = "none", // 'none', 'artist', or 'user'
   setGroupBy,
   expandedGroups,
   setExpandedGroups,
-  itemsPerPage = 20
+  itemsPerPage = 20,
 }) => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [hideMySongs, setHideMySongs] = useState(false);
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
-  
-  // Filter songs based on search term
+
+  // Filter songs based on search term, exclude released songs, and optionally hide current user's songs
   const filteredSongs = useMemo(() => {
     if (!songs || songs.length === 0) return [];
-    if (!searchTerm.trim()) return songs;
-    
-    const search = searchTerm.toLowerCase().trim();
-    return songs.filter(song => 
-      (song.title && song.title.toLowerCase().includes(search)) ||
-      (song.artist && song.artist.toLowerCase().includes(search)) ||
-      (song.album && song.album.toLowerCase().includes(search)) ||
-      (song.username && song.username.toLowerCase().includes(search))
-    );
-  }, [songs, searchTerm]);
+
+    // First filter out released songs
+    let filtered = songs.filter((song) => song.status !== "Released");
+
+    // Filter out current user's songs if checkbox is checked
+    if (hideMySongs && currentUserId) {
+      filtered = filtered.filter((song) => song.user_id !== currentUserId);
+    }
+
+    // Then apply search filter if present
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(
+        (song) =>
+          (song.title && song.title.toLowerCase().includes(search)) ||
+          (song.artist && song.artist.toLowerCase().includes(search)) ||
+          (song.album && song.album.toLowerCase().includes(search)) ||
+          (song.username && song.username.toLowerCase().includes(search))
+      );
+    }
+
+    return filtered;
+  }, [songs, searchTerm, hideMySongs, currentUserId]);
 
   if (!songs || songs.length === 0) return null;
 
   // Group songs by artist
   const groupSongsByArtist = (songs) => {
     const grouped = songs.reduce((acc, song) => {
-      const artist = song.artist || 'Unknown Artist';
+      const artist = song.artist || "Unknown Artist";
       if (!acc[artist]) {
         acc[artist] = [];
       }
       acc[artist].push(song);
       return acc;
     }, {});
-    
+
     // Debug: Log first artist group to check for artist_image_url
     const firstArtist = Object.keys(grouped)[0];
     if (firstArtist && grouped[firstArtist]?.length > 0) {
-      console.log('First artist group sample:', {
+      console.log("First artist group sample:", {
         artist: firstArtist,
         firstSong: grouped[firstArtist][0],
         hasArtistImageUrl: !!grouped[firstArtist][0]?.artist_image_url,
-        artistImageUrl: grouped[firstArtist][0]?.artist_image_url
+        artistImageUrl: grouped[firstArtist][0]?.artist_image_url,
       });
     }
-    
+
     return Object.entries(grouped)
       .sort((a, b) => b[1].length - a[1].length)
       .map(([artist, songs]) => ({
         artist,
         songs: songs.sort((a, b) => a.title.localeCompare(b.title)),
-        songCount: songs.length
+        songCount: songs.length,
       }));
   };
 
   // Group songs by user
   const groupSongsByUser = (songs) => {
     const grouped = songs.reduce((acc, song) => {
-      const username = song.username || 'Unknown User';
+      const username = song.username || "Unknown User";
       if (!acc[username]) {
         acc[username] = [];
       }
       acc[username].push(song);
       return acc;
     }, {});
-    
+
     return Object.entries(grouped)
       .sort((a, b) => b[1].length - a[1].length)
       .map(([username, songs]) => ({
@@ -88,11 +102,11 @@ const PublicSongsTableNew = ({
         songs: songs.sort((a, b) => {
           // Sort by artist first, then title
           if (a.artist !== b.artist) {
-            return (a.artist || '').localeCompare(b.artist || '');
+            return (a.artist || "").localeCompare(b.artist || "");
           }
-          return (a.title || '').localeCompare(b.title || '');
+          return (a.title || "").localeCompare(b.title || "");
         }),
-        songCount: songs.length
+        songCount: songs.length,
       }));
   };
 
@@ -115,61 +129,58 @@ const PublicSongsTableNew = ({
       items: items.slice(startIndex, endIndex),
       totalPages: Math.ceil(items.length / perPage),
       currentPage: page,
-      totalItems: items.length
+      totalItems: items.length,
     };
   };
 
   const renderPagination = (totalPages, currentPage, onPageChange) => {
     if (totalPages <= 1) return null;
-    
+
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return (
       <div className="pagination-wrapper">
         <div className="pagination">
-          <button 
-            onClick={() => onPageChange(1)} 
-            disabled={currentPage === 1}
-          >
+          <button onClick={() => onPageChange(1)} disabled={currentPage === 1}>
             First
           </button>
-          <button 
-            onClick={() => onPageChange(currentPage - 1)} 
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
           >
             Previous
           </button>
-          
-          {pages.map(page => (
+
+          {pages.map((page) => (
             <button
               key={page}
               onClick={() => onPageChange(page)}
-              className={currentPage === page ? 'active' : ''}
+              className={currentPage === page ? "active" : ""}
             >
               {page}
             </button>
           ))}
-          
-          <button 
-            onClick={() => onPageChange(currentPage + 1)} 
+
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
           >
             Next
           </button>
-          <button 
-            onClick={() => onPageChange(totalPages)} 
+          <button
+            onClick={() => onPageChange(totalPages)}
             disabled={currentPage === totalPages}
           >
             Last
@@ -181,18 +192,18 @@ const PublicSongsTableNew = ({
 
   let paginatedData;
   let groupedData;
-  
-  if (groupBy === 'artist') {
+
+  if (groupBy === "artist") {
     groupedData = groupSongsByArtist(filteredSongs);
     paginatedData = paginate(groupedData, currentPage);
-  } else if (groupBy === 'user') {
+  } else if (groupBy === "user") {
     groupedData = groupSongsByUser(filteredSongs);
     paginatedData = paginate(groupedData, currentPage);
   } else {
     // Sort A to Z by title when no grouping
     const sortedSongs = [...filteredSongs].sort((a, b) => {
-      const titleA = (a.title || '').toLowerCase();
-      const titleB = (b.title || '').toLowerCase();
+      const titleA = (a.title || "").toLowerCase();
+      const titleB = (b.title || "").toLowerCase();
       return titleA.localeCompare(titleB);
     });
     paginatedData = paginate(sortedSongs, currentPage);
@@ -204,7 +215,9 @@ const PublicSongsTableNew = ({
         <div className="section-title-group">
           <h3 className="section-title">Public Songs</h3>
           <span className="section-count">
-            {searchTerm ? `${filteredSongs.length} of ${songs.length}` : songs.length}
+            {filteredSongs.length}
+            {(searchTerm || hideMySongs) &&
+              ` of ${songs.filter((s) => s.status !== "Released").length}`}
           </span>
         </div>
         <div className="section-controls">
@@ -222,7 +235,7 @@ const PublicSongsTableNew = ({
             {searchTerm && (
               <button
                 onClick={() => {
-                  setSearchTerm('');
+                  setSearchTerm("");
                   onPageChange(1);
                 }}
                 className="clear-search"
@@ -232,26 +245,39 @@ const PublicSongsTableNew = ({
               </button>
             )}
           </div>
+          {currentUserId && (
+            <label className="hide-my-songs-checkbox">
+              <input
+                type="checkbox"
+                checked={hideMySongs}
+                onChange={(e) => {
+                  setHideMySongs(e.target.checked);
+                  onPageChange(1);
+                }}
+              />
+              <span>Hide my songs</span>
+            </label>
+          )}
           <div className="group-buttons">
             <button
-              onClick={() => setGroupBy('none')}
-              className={`group-toggle ${groupBy === 'none' ? 'active' : ''}`}
+              onClick={() => setGroupBy("none")}
+              className={`group-toggle ${groupBy === "none" ? "active" : ""}`}
               title="No Grouping"
             >
               <span className="toggle-icon">📋</span>
               None
             </button>
             <button
-              onClick={() => setGroupBy('artist')}
-              className={`group-toggle ${groupBy === 'artist' ? 'active' : ''}`}
+              onClick={() => setGroupBy("artist")}
+              className={`group-toggle ${groupBy === "artist" ? "active" : ""}`}
               title="Group by Artist"
             >
               <span className="toggle-icon">👥</span>
               Artist
             </button>
             <button
-              onClick={() => setGroupBy('user')}
-              className={`group-toggle ${groupBy === 'user' ? 'active' : ''}`}
+              onClick={() => setGroupBy("user")}
+              className={`group-toggle ${groupBy === "user" ? "active" : ""}`}
               title="Group by User"
             >
               <span className="toggle-icon">👤</span>
@@ -260,166 +286,185 @@ const PublicSongsTableNew = ({
           </div>
         </div>
       </div>
-      
+
       <div className="section-content songs-section">
         {filteredSongs.length === 0 && searchTerm ? (
           <div className="no-search-results">
             <p>No songs found matching "{searchTerm}"</p>
             <p>Try searching for different terms or check the spelling.</p>
           </div>
-        ) : groupBy === 'artist' ? (
+        ) : groupBy === "artist" ? (
           // Artist-grouped view
           <div className="artists-grouped-view">
-            {paginatedData.items.map(({ artist, songs: artistSongs, songCount }) => {
-              const isCollapsed = !expandedGroups.has(artist);
-              
-              return (
-                <div key={artist} className="artist-group">
-                  <div 
-                    className="artist-header"
-                    onClick={() => toggleGroup(artist)}
-                  >
-                    <div className="artist-info">
-                      <span className="collapse-icon">
-                        {isCollapsed ? '▶' : '▼'}
-                      </span>
-                      <div className="artist-image-container">
-                        {artistSongs[0]?.artist_image_url ? (
-                          <img 
-                            src={artistSongs[0].artist_image_url} 
-                            alt={`${artist}`}
-                            className="artist-image"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextElementSibling.style.display = 'flex';
+            {paginatedData.items.map(
+              ({ artist, songs: artistSongs, songCount }) => {
+                const isCollapsed = !expandedGroups.has(artist);
+
+                return (
+                  <div key={artist} className="artist-group">
+                    <div
+                      className="artist-header"
+                      onClick={() => toggleGroup(artist)}
+                    >
+                      <div className="artist-info">
+                        <span className="collapse-icon">
+                          {isCollapsed ? "▶" : "▼"}
+                        </span>
+                        <div className="artist-image-container">
+                          {artistSongs[0]?.artist_image_url ? (
+                            <img
+                              src={artistSongs[0].artist_image_url}
+                              alt={`${artist}`}
+                              className="artist-image"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.nextElementSibling.style.display =
+                                  "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="artist-image-placeholder"
+                            style={{
+                              display: artistSongs[0]?.artist_image_url
+                                ? "none"
+                                : "flex",
                             }}
-                          />
-                        ) : null}
-                        <div 
-                          className="artist-image-placeholder" 
-                          style={{ display: artistSongs[0]?.artist_image_url ? 'none' : 'flex' }}
-                        >
-                          🎤
+                          >
+                            🎤
+                          </div>
+                        </div>
+                        <div className="artist-details">
+                          <h4 className="artist-name">{artist}</h4>
+                          <span className="song-count">
+                            ({songCount} song{songCount !== 1 ? "s" : ""})
+                          </span>
                         </div>
                       </div>
-                      <div className="artist-details">
-                        <h4 className="artist-name">{artist}</h4>
-                        <span className="song-count">({songCount} song{songCount !== 1 ? 's' : ''})</span>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="artist-songs">
+                        <table className="songs-table">
+                          <thead>
+                            <tr>
+                              <th></th>
+                              <th>Title</th>
+                              <th>Owner</th>
+                              <th>Status</th>
+                              <th>Updated</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {artistSongs.map((song) => (
+                              <PublicSongRow
+                                key={song.id}
+                                song={song}
+                                onCollaborationRequest={onCollaborationRequest}
+                                currentUserId={currentUserId}
+                                hideArtistColumn={true}
+                              />
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    </div>
+                    )}
                   </div>
-                  
-                  {!isCollapsed && (
-                    <div className="artist-songs">
-                      <table className="songs-table">
-                        <thead>
-                          <tr>
-                            <th></th>
-                            <th>Title</th>
-                            <th>Owner</th>
-                            <th>Status</th>
-                            <th>Updated</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {artistSongs.map((song) => (
-                            <PublicSongRow
-                              key={song.id}
-                              song={song}
-                              onCollaborationRequest={onCollaborationRequest}
-                              currentUserId={currentUserId}
-                              hideArtistColumn={true}
-                            />
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              }
+            )}
           </div>
-        ) : groupBy === 'user' ? (
+        ) : groupBy === "user" ? (
           // User-grouped view
           <div className="users-grouped-view">
-            {paginatedData.items.map(({ username, songs: userSongs, songCount }) => {
-              const isCollapsed = !expandedGroups.has(username);
-              
-              return (
-                <div key={username} className="user-group-item">
-                  <div 
-                    className="user-header"
-                    onClick={() => toggleGroup(username)}
-                  >
-                    <div className="user-info">
-                      <span className="collapse-icon">
-                        {isCollapsed ? '▶' : '▼'}
-                      </span>
-                      <div className="user-image-container">
-                        {userSongs[0]?.profile_image_url ? (
-                          <img 
-                            src={userSongs[0].profile_image_url} 
-                            alt={`${username}`}
-                            className="user-image"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextElementSibling.style.display = 'flex';
+            {paginatedData.items.map(
+              ({ username, songs: userSongs, songCount }) => {
+                const isCollapsed = !expandedGroups.has(username);
+
+                return (
+                  <div key={username} className="user-group-item">
+                    <div
+                      className="user-header"
+                      onClick={() => toggleGroup(username)}
+                    >
+                      <div className="user-info">
+                        <span className="collapse-icon">
+                          {isCollapsed ? "▶" : "▼"}
+                        </span>
+                        <div className="user-image-container">
+                          {userSongs[0]?.profile_image_url ? (
+                            <img
+                              src={userSongs[0].profile_image_url}
+                              alt={`${username}`}
+                              className="user-image"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.nextElementSibling.style.display =
+                                  "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="user-image-placeholder"
+                            style={{
+                              display: userSongs[0]?.profile_image_url
+                                ? "none"
+                                : "flex",
                             }}
-                          />
-                        ) : null}
-                        <div 
-                          className="user-image-placeholder" 
-                          style={{ display: userSongs[0]?.profile_image_url ? 'none' : 'flex' }}
-                        >
-                          👤
+                          >
+                            👤
+                          </div>
+                        </div>
+                        <div className="user-details">
+                          <h4
+                            className="user-name"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/profile/${username}`);
+                            }}
+                            style={{ cursor: "pointer" }}
+                          >
+                            {username}
+                          </h4>
+                          <span className="song-count">
+                            ({songCount} song{songCount !== 1 ? "s" : ""})
+                          </span>
                         </div>
                       </div>
-                      <div className="user-details">
-                        <h4 className="user-name" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/profile/${username}`);
-                          }}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {username}
-                        </h4>
-                        <span className="song-count">({songCount} song{songCount !== 1 ? 's' : ''})</span>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="user-songs">
+                        <table className="songs-table">
+                          <thead>
+                            <tr>
+                              <th></th>
+                              <th>Title</th>
+                              <th>Artist</th>
+                              <th>Status</th>
+                              <th>Updated</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userSongs.map((song) => (
+                              <PublicSongRow
+                                key={song.id}
+                                song={song}
+                                onCollaborationRequest={onCollaborationRequest}
+                                currentUserId={currentUserId}
+                                hideUserColumn={true}
+                              />
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                    </div>
+                    )}
                   </div>
-                  
-                  {!isCollapsed && (
-                    <div className="user-songs">
-                      <table className="songs-table">
-                        <thead>
-                          <tr>
-                            <th></th>
-                            <th>Title</th>
-                            <th>Artist</th>
-                            <th>Status</th>
-                            <th>Updated</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {userSongs.map((song) => (
-                            <PublicSongRow
-                              key={song.id}
-                              song={song}
-                              onCollaborationRequest={onCollaborationRequest}
-                              currentUserId={currentUserId}
-                              hideUserColumn={true}
-                            />
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              }
+            )}
           </div>
         ) : (
           // Table view
@@ -449,14 +494,14 @@ const PublicSongsTableNew = ({
             </table>
           </div>
         )}
-        
+
         {renderPagination(
-          paginatedData.totalPages, 
-          paginatedData.currentPage, 
+          paginatedData.totalPages,
+          paginatedData.currentPage,
           onPageChange
         )}
       </div>
-      
+
       {popupState.isVisible && (
         <UserProfilePopup
           username={popupState.username}
@@ -469,4 +514,3 @@ const PublicSongsTableNew = ({
 };
 
 export default PublicSongsTableNew;
-

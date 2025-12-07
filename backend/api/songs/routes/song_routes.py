@@ -196,7 +196,8 @@ def get_recent_pack_releases(
     # Calculate cutoff date
     cutoff_date = datetime.utcnow() - timedelta(days=days_back)
     
-    # Get unique packs that have released songs, ordered by most recent release
+    # Get unique packs that have released songs AND are meant to be shown on homepage
+    # (Pack.released_at IS NOT NULL means it should appear on homepage)
     pack_releases = db.query(Pack).options(
         joinedload(Pack.user),
         joinedload(Pack.songs).joinedload(Song.user)
@@ -204,7 +205,7 @@ def get_recent_pack_releases(
         Song.status == "Released",
         Song.released_at.isnot(None),
         Song.released_at != '',
-        Pack.released_at.isnot(None),
+        Pack.released_at.isnot(None),  # This ensures pack is meant for homepage
         Pack.released_at != '',
         Pack.released_at >= cutoff_date
     ).group_by(Pack.id).order_by(Pack.released_at.desc()).offset(offset).limit(limit).all()

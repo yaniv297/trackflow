@@ -180,7 +180,7 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
                     onMouseLeave={(e) => e.target.style.opacity = '1'}
                     title="Click to view profile"
                   >
-                    @{song.username}
+                    {song.username}
                   </span></span>
                 )}
               </div>

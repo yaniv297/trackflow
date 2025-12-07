@@ -119,8 +119,23 @@ const ReleaseModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isReleasing) {
+      return;
+    }
 
     const newErrors = {};
+
+    // For public releases (not private), title and description are mandatory
+    if (!hideFromHomepage) {
+      if (type === "pack" && (!releaseData.title || releaseData.title.trim() === "")) {
+        newErrors.title = "Title is required for public releases";
+      }
+      if (!releaseData.description || releaseData.description.trim() === "") {
+        newErrors.description = "Description is required for public releases";
+      }
+    }
 
     // Validate YouTube URL if provided
     if (
@@ -151,6 +166,7 @@ const ReleaseModal = ({
     }
 
     try {
+      
       setIsReleasing(true);
 
       // Prepare the release payload
@@ -169,15 +185,18 @@ const ReleaseModal = ({
           song_download_links: songDownloadLinks,
           hide_from_homepage: hideFromHomepage,
         };
+        
+        
+        
         await apiPost(`/packs/${itemId}/release`, packReleaseData);
       }
 
-      // Notify parent component of successful release
+      onClose();
+      
+      // Call success callback to refresh the page content
       if (onReleaseComplete) {
         onReleaseComplete(itemId, releaseData);
       }
-
-      onClose();
     } catch (error) {
       console.error(`Failed to ${editMode ? 'update' : 'release'}:`, error);
       setErrors({
@@ -210,8 +229,10 @@ const ReleaseModal = ({
               <div className="form-group">
                 <label htmlFor="title">
                   Release Post Title
+                  {!hideFromHomepage && <span className="required-indicator">*</span>}
                   <span className="field-hint">
                     Title that will appear on the homepage blog post
+                    {hideFromHomepage && " (optional for private releases)"}
                   </span>
                 </label>
                 <input
@@ -220,17 +241,22 @@ const ReleaseModal = ({
                   value={releaseData.title}
                   onChange={(e) => handleInputChange("title", e.target.value)}
                   placeholder={`e.g., "New Album Release: ${itemName}"`}
-                  className="form-input"
+                  className={`form-input ${errors.title ? "error" : ""}`}
                   maxLength={200}
                 />
+                {errors.title && (
+                  <span className="field-error">{errors.title}</span>
+                )}
               </div>
             )}
 
             <div className="form-group">
               <label htmlFor="description">
                 Description
+                {!hideFromHomepage && <span className="required-indicator">*</span>}
                 <span className="field-hint">
                   Tell people about your {type}
+                  {hideFromHomepage && " (optional for private releases)"}
                 </span>
               </label>
               <textarea
@@ -241,8 +267,11 @@ const ReleaseModal = ({
                 }
                 placeholder={`Describe your ${type}...`}
                 rows={3}
-                className="form-textarea"
+                className={`form-textarea ${errors.description ? "error" : ""}`}
               />
+              {errors.description && (
+                <span className="field-error">{errors.description}</span>
+              )}
             </div>
 
             <div className="form-group">

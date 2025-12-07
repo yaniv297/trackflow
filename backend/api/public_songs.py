@@ -343,23 +343,47 @@ def get_shared_connections(
         print(f"DEBUG: Result type: {type(shared_songs_results[0])}")
         print(f"DEBUG: Result length: {len(shared_songs_results[0]) if hasattr(shared_songs_results[0], '__len__') else 'N/A'}")
     
-    # Get current user's artists for comparison
-    my_artists = db.query(Song.artist).filter(Song.user_id == current_user.id).distinct().subquery()
+    # SIMPLIFIED APPROACH: Get artists where current user has songs
+    my_artist_counts = db.query(
+        Song.artist,
+        func.count(Song.id).label('my_count')
+    ).filter(
+        Song.user_id == current_user.id
+    ).group_by(Song.artist).subquery()
     
-    # Find shared artists
-    shared_artists = db.query(
+    # Find other users who have public songs by the same artists
+    shared_artists_query = db.query(
         User.username,
         Song.artist,
-        func.count(Song.id).label('song_count')
+        func.count(Song.id).label('other_user_count'),
+        my_artist_counts.c.my_count
     ).select_from(Song)\
     .join(User, Song.user_id == User.id)\
-    .join(my_artists, Song.artist == my_artists.c.artist)\
+    .join(my_artist_counts, Song.artist == my_artist_counts.c.artist)\
     .filter(
         Song.user_id != current_user.id,
         Song.is_public == True
-    ).group_by(User.username, Song.artist)\
+    ).group_by(User.username, Song.artist, my_artist_counts.c.my_count)\
     .order_by(func.count(Song.id).desc())\
     .limit(10).all()
+    
+    # Get artist images for shared artists
+    shared_artist_names = [artist for _, artist, _, _ in shared_artists_query if artist]
+    artist_images = get_artist_images_batch(db, shared_artist_names)
+    
+    # Build detailed artist breakdown
+    shared_artists = []
+    for username, artist, other_user_count, my_songs_count in shared_artists_query:
+        # Count shared songs (same title + artist between current user and this other user)
+        shared_songs_count = db.query(func.count(Song.id)).select_from(Song)\
+        .join(my_songs, and_(Song.title == my_songs.c.title, Song.artist == my_songs.c.artist))\
+        .filter(
+            Song.user_id != current_user.id,
+            Song.artist == artist,
+            Song.is_public == True
+        ).scalar() or 0
+        
+        shared_artists.append((username, artist, other_user_count, shared_songs_count, my_songs_count))
     
     # Build response with proper field mapping - always include all fields
     shared_songs_list = []
@@ -395,9 +419,12 @@ def get_shared_connections(
             {
                 "username": username,
                 "artist": artist,
-                "song_count": count
+                "song_count": other_user_count,
+                "shared_songs_count": shared_songs_count,
+                "my_songs_count": my_songs_count,
+                "artist_image_url": artist_images.get(artist.lower()) if artist else None
             }
-            for username, artist, count in shared_artists
+            for username, artist, other_user_count, shared_songs_count, my_songs_count in shared_artists
         ]
     )
 

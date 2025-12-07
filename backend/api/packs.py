@@ -696,17 +696,15 @@ def release_pack_with_metadata(
 ):
     """Release a pack with optional metadata."""
     
+    
     # Get the pack
     pack = db.query(Pack).filter(Pack.id == pack_id, Pack.user_id == current_user.id).first()
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
     
-    print(f"🐛 DEBUG: Pack '{pack.name}' release - Initial released_at: {pack.released_at}")
-    print(f"🐛 DEBUG: hide_from_homepage setting: {release_data.hide_from_homepage}")
     
     # Check if pack is already released - if so, just update metadata
     if pack.released_at:
-        print(f"🐛 DEBUG: Pack already has released_at, going to metadata update path")
         # Pack already released, update metadata and handle homepage visibility
         pack.release_title = release_data.title
         pack.release_description = release_data.description
@@ -728,13 +726,9 @@ def release_pack_with_metadata(
     pack.release_download_link = release_data.download_link 
     pack.release_youtube_url = release_data.youtube_url
     
-    print(f"🐛 DEBUG: Pack is new release, setting released_at based on hide_from_homepage")
     # Only set released_at if not hiding from homepage
     if not release_data.hide_from_homepage:
         pack.released_at = datetime.utcnow()
-        print(f"🐛 DEBUG: Set pack.released_at = {pack.released_at}")
-    else:
-        print(f"🐛 DEBUG: Keeping pack.released_at = None (hide from homepage)")
     # Note: if hide_from_homepage=True, pack.released_at stays None
     
     # Get all songs in the pack
@@ -818,7 +812,6 @@ def release_pack_with_metadata(
                 )
                 db.add(activity_log)
             
-            print(f"🎯 Pack Release: Created {len(wip_completed_songs)} activity log entries for WIP completions")
             
         except Exception as e:
             print(f"Warning: Failed to create activity log entries for WIP completions: {e}")
@@ -826,9 +819,7 @@ def release_pack_with_metadata(
     # Commit all database changes first
     try:
         db.commit()
-        print(f"✅ Pack release database changes committed successfully")
     except Exception as e:
-        print(f"❌ Failed to commit pack release changes: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to release pack: {e}")
     
@@ -836,7 +827,7 @@ def release_pack_with_metadata(
     
     # Check pack achievements (after commit)
     try:
-        check_pack_achievements(current_user.id, db)
+        check_pack_achievements(db, current_user.id)
     except Exception as e:
         print(f"Warning: Failed to check pack achievements: {e}")
     

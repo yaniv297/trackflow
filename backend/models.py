@@ -1,13 +1,51 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint, Index, TypeDecorator
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.types import UserDefinedType
 from datetime import datetime
 import enum
 
 Base = declarative_base()
 
+
+class SafeDateTime(DateTime):
+    """A DateTime type that gracefully handles empty strings by converting them to None.
+    
+    This is a more robust approach that overrides SQLAlchemy's built-in datetime handling.
+    """
+    
+    def bind_processor(self, dialect):
+        """Override bind processor to handle empty strings going to DB."""
+        super_proc = super().bind_processor(dialect)
+        
+        def process(value):
+            if value == '' or (isinstance(value, str) and value.strip() == ''):
+                return None
+            if super_proc:
+                return super_proc(value)
+            return value
+        return process
+    
+    def result_processor(self, dialect, coltype):
+        """Override result processor to handle empty strings coming from DB."""
+        super_proc = super().result_processor(dialect, coltype)
+        
+        def process(value):
+            if value == '' or (isinstance(value, str) and value.strip() == ''):
+                return None
+            if super_proc and value is not None:
+                try:
+                    return super_proc(value)
+                except (ValueError, TypeError):
+                    # If datetime parsing fails, return None instead of crashing
+                    print(f"Warning: Failed to parse datetime value '{value}', returning None")
+                    return None
+            return value
+        return process
+
+
 # Re-export Base for compatibility
-__all__ = ['Base', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken', 'CollaborationRequest']
+__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken', 'CollaborationRequest']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -81,9 +119,9 @@ class Song(Base):
     optional = Column(Boolean, default=False)  # Whether this song is optional for pack completion
     notes = Column(Text, nullable=True)  # Progress notes for the song
     is_public = Column(Boolean, default=False, index=True)  # Whether this song is public
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    released_at = Column(DateTime, nullable=True)  # When song was released
+    created_at = Column(SafeDateTime, default=datetime.utcnow)
+    updated_at = Column(SafeDateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    released_at = Column(SafeDateTime, nullable=True)  # When song was released
     release_description = Column(Text, nullable=True)  # Optional description for the release
     release_download_link = Column(String, nullable=True)  # Download link for the song
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release

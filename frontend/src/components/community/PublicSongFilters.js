@@ -27,9 +27,8 @@ const PublicSongFilters = ({
 
   return (
     <div className="public-song-filters">
-      <div className="filters-header">
-        <h3>🔍 Browse Public Songs</h3>
-        {hasActiveFilters && (
+      {hasActiveFilters && (
+        <div className="filters-header">
           <button 
             onClick={clearFilters}
             className="clear-filters-btn"
@@ -37,8 +36,8 @@ const PublicSongFilters = ({
           >
             Clear Filters
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="filters-grid">
         {/* Search */}

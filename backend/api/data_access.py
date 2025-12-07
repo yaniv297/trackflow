@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from models import Song, Collaboration, CollaborationType, User, Pack, Authoring, SongStatus
 from schemas import SongCreate, AuthoringUpdate
 from fastapi import HTTPException
@@ -117,16 +118,26 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
         if auto_commit:
             db.commit()
     
-    # Auto-create authoring row if song is "In Progress"
+    # Auto-create default song progress steps if song is "In Progress"
     if db_song.status == "In Progress":
-        db_authoring = Authoring(song_id=db_song.id)
-        db.add(db_authoring)
+        # Create default workflow steps using raw SQL to avoid foreign key issues
+        default_steps = [
+            "demucs", "midi", "tempo_map", "fake_ending", "drums", "bass", "guitar",
+            "vocals", "harmonies", "pro_keys", "keys", "animations", "drum_fills",
+            "overdrive", "compile"
+        ]
+        
+        for step_name in default_steps:
+            db.execute(text("""
+                INSERT INTO song_progress (song_id, step_name, is_completed, created_at, updated_at)
+                VALUES (:sid, :step, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(song_id, step_name) DO NOTHING
+            """), {"sid": db_song.id, "step": step_name})
+        
         if auto_commit:
             db.commit()
-            db.refresh(db_authoring)
         else:
             db.flush()
-            db.refresh(db_authoring)
     
     # Auto-enhance song with Spotify data (only if auto_enhance is True and user has it enabled)
     # Reload user from database to get fresh setting value (user might be from cache)

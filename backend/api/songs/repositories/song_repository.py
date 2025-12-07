@@ -99,7 +99,23 @@ class SongRepository:
         if limit:
             q = q.limit(limit)
         
-        return q.all()
+        # Use safe query execution to handle potential datetime issues
+        try:
+            return q.all()
+        except ValueError as e:
+            if "Invalid isoformat string" in str(e):
+                # Clean up bad datetime data and retry
+                from database_protection import clean_datetime_strings
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("Detected bad datetime data in songs, attempting cleanup")
+                fixes_applied = clean_datetime_strings(self.db)
+                if fixes_applied > 0:
+                    logger.info(f"Applied {fixes_applied} datetime fixes, retrying query")
+                    return q.all()
+                else:
+                    logger.error("No datetime fixes applied, query still failing")
+            raise
     
     def get_songs_by_pack_id(self, pack_id: int) -> List[Song]:
         """Get all songs in a specific pack."""

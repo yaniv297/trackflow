@@ -549,15 +549,6 @@ function AdminPage() {
                       👤 Login As
                     </button>
                     <button
-                      className={`btn-toggle-admin ${
-                        user.is_admin ? "btn-demote" : "btn-promote"
-                      }`}
-                      onClick={() => handleToggleAdmin(user.id, user.is_admin)}
-                      title={user.is_admin ? "Remove admin" : "Make admin"}
-                    >
-                      {user.is_admin ? "⬇️ Demote" : "⬆️ Promote"}
-                    </button>
-                    <button
                       className="btn-delete"
                       onClick={() => handleDeleteUser(user.id, user.username)}
                       title="Delete user"

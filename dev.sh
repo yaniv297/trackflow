@@ -25,8 +25,8 @@ start_backend() {
     source venv/bin/activate
     pip install -r requirements.txt
     
-    echo "🌐 Starting backend server on http://localhost:8000"
-    python main.py &
+    echo "🌐 Starting backend server on http://localhost:8001"
+    PORT=8001 python main.py &
     BACKEND_PID=$!
     cd ..
 }
@@ -68,7 +68,7 @@ start_frontend
 
 echo ""
 echo "✅ Both services are running!"
-echo "   Backend:  http://localhost:8000"
+echo "   Backend:  http://localhost:8001"
 echo "   Frontend: http://localhost:3000"
 echo ""
 echo "Press Ctrl+C to stop both services"

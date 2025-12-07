@@ -17,7 +17,43 @@ const AlbumSeriesPage = () => {
     try {
       setLoading(true);
       const data = await apiGet("/album-series/");
+      
+      // Debug: log completion percentages from API
+      const inProgressSeries = data.filter((series) => series.status === "in_progress");
+      if (inProgressSeries.length > 0) {
+        console.log("Album Series API Response - Completion Percentages:");
+        inProgressSeries.forEach((series) => {
+          console.log(`  ${series.album_name}: ${series.completion_percentage ?? 'NOT SET'}%`);
+        });
+      }
+      
       setAlbumSeries(data);
+      
+      // Pre-fetch series details for all "in_progress" series to calculate accurate percentages
+      // Only fetch if backend didn't provide completion_percentage
+      const seriesNeedingDetails = inProgressSeries.filter(
+        (series) => series.completion_percentage === undefined || series.completion_percentage === null
+      );
+      
+      if (seriesNeedingDetails.length > 0) {
+        // Fetch all in_progress series details in parallel
+        const detailPromises = seriesNeedingDetails.map((series) =>
+          apiGet(`/album-series/${series.id}`).catch((err) => {
+            console.error(`Error fetching details for series ${series.id}:`, err);
+            return null;
+          })
+        );
+        
+        const details = await Promise.all(detailPromises);
+        const detailsMap = {};
+        seriesNeedingDetails.forEach((series, index) => {
+          if (details[index]) {
+            detailsMap[series.id] = details[index];
+          }
+        });
+        
+        setSeriesDetails((prev) => ({ ...prev, ...detailsMap }));
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -122,6 +158,12 @@ const AlbumSeriesPage = () => {
   const calculateSeriesCompletion = (series) => {
     if (series.status !== "in_progress") return null;
 
+    // Prefer backend-calculated percentage if available (most accurate)
+    if (series.completion_percentage !== undefined && series.completion_percentage !== null) {
+      return series.completion_percentage;
+    }
+
+    // Fallback to frontend calculation from series details
     const authoringFields = [
       "demucs",
       "midi",
@@ -159,30 +201,27 @@ const AlbumSeriesPage = () => {
   };
 
   const calculateSongCompletion = (song) => {
-    const authoringFields = [
-      "demucs",
-      "midi",
-      "tempo_map",
-      "fake_ending",
-      "drums",
-      "bass",
-      "guitar",
-      "vocals",
-      "harmonies",
-      "pro_keys",
-      "keys",
-      "animations",
-      "drum_fills",
-      "overdrive",
-      "compile",
-    ];
+    // Use the song's actual authoring object (which contains only the song owner's workflow steps)
+    // No hardcoded fields - the backend already provides only the relevant workflow steps
+    if (!song.authoring) {
+      return 0;
+    }
 
-    const filledParts = authoringFields.filter(
-      (field) => song.authoring?.[field]
+    // Get all workflow steps from authoring (exclude 'id' and 'song_id' metadata fields)
+    const workflowSteps = Object.keys(song.authoring).filter(
+      (key) => key !== "id" && key !== "song_id"
+    );
+
+    if (workflowSteps.length === 0) {
+      return 0;
+    }
+
+    // Count completed steps (where value is true)
+    const completedSteps = workflowSteps.filter(
+      (step) => song.authoring[step] === true
     ).length;
-    return filledParts > 0
-      ? Math.round((filledParts / authoringFields.length) * 100)
-      : 0;
+
+    return Math.round((completedSteps / workflowSteps.length) * 100);
   };
 
   const renderSongList = (songs, title, color, showCompletion = false) => {
@@ -967,9 +1006,11 @@ const AlbumSeriesPage = () => {
                   {/* Completion Progress for In Progress series */}
                   {series.status === "in_progress" &&
                     (() => {
-                      // Fetch series details if not already loaded
+                      // Fetch series details if not already loaded (fallback)
                       if (!seriesDetails[series.id]) {
                         fetchSeriesDetails(series.id);
+                        // Return null while loading to avoid showing incorrect percentage
+                        return null;
                       }
                       const completion = calculateSeriesCompletion(series);
                       return completion !== null ? (

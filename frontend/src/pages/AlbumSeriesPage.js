@@ -1,13 +1,21 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { useAlbumSeriesData } from "../hooks/albumSeries/useAlbumSeriesData";
 import { useAlbumSeriesOperations } from "../hooks/albumSeries/useAlbumSeriesOperations";
 import { useAlbumSeriesUI } from "../hooks/albumSeries/useAlbumSeriesUI";
+import { useWorkflowData } from "../hooks/workflows/useWorkflowData";
+import { useUserWorkflowFields } from "../hooks/workflows/useUserWorkflowFields";
+import { useAuth } from "../contexts/AuthContext";
 import { calculateSeriesCompletion } from "../utils/albumSeriesUtils";
 import SeriesCard from "../components/albumSeries/SeriesCard";
 import StatusLegend from "../components/albumSeries/StatusLegend";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 
 const AlbumSeriesPage = () => {
+  const { user } = useAuth();
+  const { authoringFields } = useWorkflowData(user);
+  const { fetchUserWorkflowFields, getWorkflowFields } = useUserWorkflowFields();
+  const [userWorkflowFields, setUserWorkflowFields] = useState({});
+
   // Data fetching
   const {
     albumSeries,
@@ -24,26 +32,64 @@ const AlbumSeriesPage = () => {
   // UI state
   const { expandedSeries, toggleSeries } = useAlbumSeriesUI(fetchSeriesDetails);
 
+  // Fetch workflow fields for all unique song owners (like WIP page)
+  useEffect(() => {
+    const uniqueUserIds = new Set();
+    
+    // Collect all user IDs from songs in all series details
+    Object.values(seriesDetails).forEach((details) => {
+      const allSongs = [...(details.album_songs || []), ...(details.bonus_songs || [])];
+      allSongs.forEach((song) => {
+        if (song.user_id) {
+          uniqueUserIds.add(song.user_id);
+        }
+      });
+    });
+
+    // Update state with cached workflow fields immediately, then fetch any missing ones
+    const cachedFields = {};
+    uniqueUserIds.forEach((userId) => {
+      const cached = getWorkflowFields(userId);
+      if (cached) {
+        cachedFields[userId] = cached;
+      }
+    });
+    if (Object.keys(cachedFields).length > 0) {
+      setUserWorkflowFields((prev) => ({ ...prev, ...cachedFields }));
+    }
+
+    // Fetch workflow fields for each unique user (will use cache if available)
+    uniqueUserIds.forEach(async (userId) => {
+      const fields = await fetchUserWorkflowFields(userId);
+      if (fields) {
+        setUserWorkflowFields((prev) => ({
+          ...prev,
+          [userId]: fields,
+        }));
+      }
+    });
+  }, [seriesDetails, fetchUserWorkflowFields, getWorkflowFields]);
+
   // Sort and filter series by status
   const wipSeries = useMemo(() => {
     return albumSeries
       .filter((series) => series.status === "in_progress")
       .sort((a, b) => {
-        const aCompletion = calculateSeriesCompletion(a, seriesDetails) || 0;
-        const bCompletion = calculateSeriesCompletion(b, seriesDetails) || 0;
+        const aCompletion = calculateSeriesCompletion(a, seriesDetails, authoringFields, userWorkflowFields) || 0;
+        const bCompletion = calculateSeriesCompletion(b, seriesDetails, authoringFields, userWorkflowFields) || 0;
         return bCompletion - aCompletion; // Highest first
       });
-  }, [albumSeries, seriesDetails]);
+  }, [albumSeries, seriesDetails, authoringFields, userWorkflowFields]);
 
   const plannedSeries = useMemo(() => {
     return albumSeries
       .filter((series) => series.status === "planned")
       .sort((a, b) => {
-        const aCompletion = calculateSeriesCompletion(a, seriesDetails) || 0;
-        const bCompletion = calculateSeriesCompletion(b, seriesDetails) || 0;
+        const aCompletion = calculateSeriesCompletion(a, seriesDetails, authoringFields, userWorkflowFields) || 0;
+        const bCompletion = calculateSeriesCompletion(b, seriesDetails, authoringFields, userWorkflowFields) || 0;
         return bCompletion - aCompletion; // Highest first
       });
-  }, [albumSeries, seriesDetails]);
+  }, [albumSeries, seriesDetails, authoringFields, userWorkflowFields]);
 
   const releasedSeries = useMemo(() => {
     return albumSeries.filter((series) => series.status === "released");
@@ -99,6 +145,8 @@ const AlbumSeriesPage = () => {
                 fetchAlbumArtForSeries={fetchAlbumArtForSeries}
                 seriesDetails={seriesDetails}
                 fetchSeriesDetails={fetchSeriesDetails}
+                authoringFields={authoringFields}
+                userWorkflowFields={userWorkflowFields}
               />
             );
           })}

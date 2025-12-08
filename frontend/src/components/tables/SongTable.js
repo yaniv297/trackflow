@@ -46,6 +46,7 @@ const SongTable = ({
   packs,
   visibleColumns,
   onSongUpdate,
+  search,
 }) => {
   const [localSortStates, setLocalSortStates] = useState({});
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -288,7 +289,11 @@ const SongTable = ({
     let titleText = "No songs yet";
     let messageText = "Add your first song to get started!";
 
-    if (status === "Future Plans") {
+    // If there's a search query, show search-specific message
+    if (search && search.trim() !== "") {
+      titleText = "No matching songs found";
+      messageText = "Try adjusting your search terms or clear the search to see all songs.";
+    } else if (status === "Future Plans") {
       titleText = "No future plans yet";
       messageText = "Add your first song to start planning!";
     } else if (status === "In Progress") {

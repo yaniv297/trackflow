@@ -157,10 +157,7 @@ function NewPackForm() {
         createMode={editSeriesModal.createMode || false}
         createData={editSeriesModal.createData || null}
         onChanged={() => {
-          window.showNotification(
-            "Album series updated successfully!",
-            "success"
-          );
+          // Notification is already shown by the modal itself
         }}
       />
     </div>

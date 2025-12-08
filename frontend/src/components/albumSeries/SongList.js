@@ -4,14 +4,14 @@ import { getAuthorsForSong, calculateSongCompletion } from "../../utils/albumSer
 /**
  * Component for rendering a list of songs
  */
-const SongList = ({ songs, title, color, showCompletion = false }) => {
+const SongList = ({ songs, title, color, showCompletion = false, authoringFields, userWorkflowFields = {} }) => {
   if (!songs || songs.length === 0) return null;
 
   // Sort songs by completion percentage if showCompletion is true
   const sortedSongs = showCompletion
     ? [...songs].sort((a, b) => {
-        const aCompletion = calculateSongCompletion(a);
-        const bCompletion = calculateSongCompletion(b);
+        const aCompletion = calculateSongCompletion(a, authoringFields, userWorkflowFields);
+        const bCompletion = calculateSongCompletion(b, authoringFields, userWorkflowFields);
         return bCompletion - aCompletion; // Sort descending (highest first)
       })
     : songs;
@@ -36,7 +36,7 @@ const SongList = ({ songs, title, color, showCompletion = false }) => {
         {sortedSongs.map((song, index) => {
           const authors = getAuthorsForSong(song);
           const songCompletion = showCompletion
-            ? calculateSongCompletion(song)
+            ? calculateSongCompletion(song, authoringFields, userWorkflowFields)
             : null;
 
           return (

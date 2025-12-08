@@ -125,7 +125,7 @@ class AlbumSeriesRepository:
             joinedload(Song.collaborations).joinedload(Collaboration.user),
             joinedload(Song.user),
             joinedload(Song.pack_obj),
-            joinedload(Song.authoring)
+            joinedload(Song.progress)
         ).filter(
             Song.album_series_id == series_id
         ).all()

@@ -2,6 +2,8 @@
  * Utility functions for album series
  */
 
+import { getSongCompletionPercentage } from "./progressUtils";
+
 export const getStatusColor = (status) => {
   switch (status) {
     case "released":
@@ -43,25 +45,7 @@ export const getAuthorsForSong = (song) => {
   return authors;
 };
 
-const AUTHORING_FIELDS = [
-  "demucs",
-  "midi",
-  "tempo_map",
-  "fake_ending",
-  "drums",
-  "bass",
-  "guitar",
-  "vocals",
-  "harmonies",
-  "pro_keys",
-  "keys",
-  "animations",
-  "drum_fills",
-  "overdrive",
-  "compile",
-];
-
-export const calculateSeriesCompletion = (series, seriesDetails) => {
+export const calculateSeriesCompletion = (series, seriesDetails, authoringFields, userWorkflowFields = {}) => {
   if (series.status !== "in_progress") return null;
 
   // Get songs for this series (both album songs and bonus songs, but exclude optional songs)
@@ -72,22 +56,35 @@ export const calculateSeriesCompletion = (series, seriesDetails) => {
 
   if (coreSongs.length === 0) return 0;
 
-  const totalParts = coreSongs.length * AUTHORING_FIELDS.length;
-  const filledParts = coreSongs.reduce((acc, song) => {
-    return (
-      acc + AUTHORING_FIELDS.filter((field) => song.authoring?.[field]).length
-    );
-  }, 0);
+  // Calculate pack completion as average of each song's completion percentage
+  // Each song's completion is relative to its owner's workflow (like WIP page)
+  let totalPercent = 0;
+  coreSongs.forEach((song) => {
+    // Get workflow fields for this song's owner
+    const songOwnerFields = song.user_id && userWorkflowFields[song.user_id]
+      ? userWorkflowFields[song.user_id]
+      : authoringFields; // Fallback to current user's workflow if owner's not available
+    
+    if (!songOwnerFields || songOwnerFields.length === 0) {
+      return; // Skip if no workflow fields
+    }
+    
+    const songPercent = getSongCompletionPercentage(song, songOwnerFields);
+    totalPercent += songPercent;
+  });
 
-  return totalParts > 0 ? Math.round((filledParts / totalParts) * 100) : 0;
+  return coreSongs.length > 0
+    ? Math.round(totalPercent / coreSongs.length)
+    : 0;
 };
 
-export const calculateSongCompletion = (song) => {
-  const filledParts = AUTHORING_FIELDS.filter(
-    (field) => song.authoring?.[field]
-  ).length;
-  return filledParts > 0
-    ? Math.round((filledParts / AUTHORING_FIELDS.length) * 100)
-    : 0;
+export const calculateSongCompletion = (song, authoringFields, userWorkflowFields = {}) => {
+  // Get workflow fields for this song's owner (like WIP page)
+  const songOwnerFields = song.user_id && userWorkflowFields[song.user_id]
+    ? userWorkflowFields[song.user_id]
+    : authoringFields; // Fallback to current user's workflow if owner's not available
+  
+  // Use the exact same function as WIP page
+  return getSongCompletionPercentage(song, songOwnerFields);
 };
 

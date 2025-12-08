@@ -147,7 +147,13 @@ def bulk_clean_remaster_tags_function(song_ids: list[int], db: Session, current_
 @router.post("/bulk-clean", response_model=list[SongOut])
 def bulk_clean_remaster_tags(song_ids: list[int] = Body(...), db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
     # Batch fetch all songs belonging to the current user
-    songs = db.query(Song).filter(
+    from sqlalchemy.orm import joinedload
+    songs = db.query(Song).options(
+        joinedload(Song.user),
+        joinedload(Song.pack_obj).joinedload(Pack.user),
+        joinedload(Song.collaborations).joinedload(Collaboration.user),
+        joinedload(Song.authoring)
+    ).filter(
         Song.id.in_(song_ids),
         Song.user_id == current_user.id
     ).all()

@@ -17,6 +17,8 @@ const SeriesCard = ({
   fetchAlbumArtForSeries,
   seriesDetails,
   fetchSeriesDetails,
+  authoringFields,
+  userWorkflowFields = {},
 }) => {
   return (
     <div
@@ -223,7 +225,7 @@ const SeriesCard = ({
           if (!seriesDetails[series.id]) {
             fetchSeriesDetails(series.id);
           }
-          const completion = calculateSeriesCompletion(series, seriesDetails);
+          const completion = calculateSeriesCompletion(series, seriesDetails, authoringFields, userWorkflowFields);
           return completion !== null ? (
             <div
               style={{
@@ -322,12 +324,16 @@ const SeriesCard = ({
             title="Album Songs"
             color="#4CAF50"
             showCompletion={series.status === "in_progress"}
+            authoringFields={authoringFields}
+            userWorkflowFields={userWorkflowFields}
           />
           <SongList
             songs={details.bonus_songs.filter((song) => !song.optional)}
             title="Bonus Songs"
             color="#FF9800"
             showCompletion={series.status === "in_progress"}
+            authoringFields={authoringFields}
+            userWorkflowFields={userWorkflowFields}
           />
           <SongList
             songs={[...details.album_songs, ...details.bonus_songs].filter(
@@ -336,6 +342,8 @@ const SeriesCard = ({
             title="Optional Songs"
             color="#9E9E9E"
             showCompletion={series.status === "in_progress"}
+            authoringFields={authoringFields}
+            userWorkflowFields={userWorkflowFields}
           />
         </div>
       )}

@@ -406,6 +406,7 @@ function SongPage({ status }) {
           packs={packs}
           visibleColumns={visibleColumns}
           onSongUpdate={handleSongUpdate}
+          search={search}
         />
       )}
 

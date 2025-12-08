@@ -8,15 +8,14 @@ from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
 
 from models import AlbumSeries, Song, SongStatus, User
-from schemas import AlbumSeriesResponse, AlbumSeriesDetailResponse, CreateAlbumSeriesRequest
+from schemas import AlbumSeriesResponse, CreateAlbumSeriesRequest
 from ..repositories.album_series_repository import (
     AlbumSeriesRepository, DLCRepository, PreexistingRepository, 
     OverrideRepository, SongRepository, PackRepository, UserRepository
 )
 from ..validators.album_series_validators import (
-    TracklistItem, AlbumSeriesValidator
+    AlbumSeriesValidator
 )
-from api.tools import clean_string, normalize_title, titles_similar
 
 # Spotify credentials
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
@@ -157,6 +156,16 @@ class AlbumSeriesService:
         song_statuses = [song.status for song in songs]
         status = "in_progress" if SongStatus.wip in song_statuses else "planned"
         
+        # Determine cover image URL
+        cover_image_url = request.cover_image_url
+        if not cover_image_url:
+            # First, try to get cover image from songs' album_cover field
+            for song in songs:
+                if song.album_cover:
+                    cover_image_url = song.album_cover
+                    print(f"Found album_cover in song {song.id}: {cover_image_url}")
+                    break
+        
         # Create album series
         album_series = self.album_series_repo.create(
             pack_id=pack.id,
@@ -164,19 +173,20 @@ class AlbumSeriesService:
             album_name=request.album_name,
             artist_name=request.artist_name,
             year=request.year,
-            cover_image_url=request.cover_image_url,
+            cover_image_url=cover_image_url,
             status=status,
             description=request.description,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
         
+        # If still no cover image, try Spotify auto-fetch
+        if not album_series.cover_image_url:
+            print("No album_cover found in songs, trying Spotify auto-fetch")
+            self._auto_fetch_album_art(album_series)
+        
         # Assign songs to this album series
         self._assign_songs_to_series(songs, album_series, request)
-        
-        # Auto-fetch album art if not provided
-        if not request.cover_image_url:
-            self._auto_fetch_album_art(album_series)
         
         # Check achievements
         try:
@@ -283,7 +293,7 @@ class AlbumSeriesService:
                 "optional": song.optional,
                 "album_series_id": song.album_series_id,
                 "collaborations": [],
-                "authoring": song.authoring
+                "progress": song.progress
             }
             
             # Format collaborations
@@ -318,7 +328,7 @@ class AlbumSeriesService:
                 "optional": song.optional,
                 "album_series_id": song.album_series_id,
                 "collaborations": [],
-                "authoring": song.authoring
+                "progress": song.progress
             }
     
     def _get_unique_authors_for_series(self, series_id: int) -> List[str]:

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { apiGet, apiPatch, apiDelete, apiPost } from "../utils/api";
+import { apiGet, apiDelete, apiPost } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import ActivityFeed from "../components/shared/ActivityFeed";
 import RecentlyAuthoredParts from "../components/shared/RecentlyAuthoredParts";
@@ -55,30 +55,6 @@ function AdminPage() {
     }
   };
 
-  const handleToggleAdmin = async (userId, currentAdminStatus) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to ${
-          currentAdminStatus ? "remove admin access from" : "grant admin access to"
-        } this user?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const result = await apiPatch(`/admin/users/${userId}/toggle-admin`);
-      setUsers(
-        users.map((user) =>
-          user.id === userId ? { ...user, is_admin: result.is_admin } : user
-        )
-      );
-    } catch (err) {
-      console.error("Failed to toggle admin status:", err);
-      const errorMessage = err.response?.data?.detail || err.message || "Network error occurred";
-      alert(`Failed to toggle admin status: ${errorMessage}`);
-    }
-  };
 
   const handleDeleteUser = async (userId, username) => {
     if (
@@ -382,20 +358,6 @@ function AdminPage() {
                   </td>
                   <td style={{ padding: '1rem', textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                      <button
-                        onClick={() => handleToggleAdmin(user.id, user.is_admin)}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          fontSize: '0.8rem',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          background: user.is_admin ? '#dc3545' : '#28a745',
-                          color: 'white'
-                        }}
-                      >
-                        {user.is_admin ? 'Remove Admin' : 'Make Admin'}
-                      </button>
                       <button
                         onClick={() => handleImpersonate(user.id, user.username)}
                         style={{

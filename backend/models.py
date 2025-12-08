@@ -45,7 +45,7 @@ class SafeDateTime(DateTime):
 
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken', 'CollaborationRequest']
+__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken', 'CollaborationRequest', 'SongProgress']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -144,6 +144,7 @@ class Song(Base):
         cascade="",  # Do not auto-delete or update authoring (can be a DB view)
         passive_deletes=True,
     )
+    progress = relationship("SongProgress", backref="song", cascade="all, delete-orphan")
     collaborations = relationship("Collaboration", back_populates="song")
     # Song-level album series override (nullable)
     album_series_id = Column(Integer, ForeignKey("album_series.id"), nullable=True, index=True)
@@ -573,3 +574,25 @@ class CollaborationRequest(Base):
     song = relationship("Song", foreign_keys=[song_id])
     requester = relationship("User", foreign_keys=[requester_id])
     owner = relationship("User", foreign_keys=[owner_id])
+
+class SongProgress(Base):
+    """
+    Dynamic progress tracking for songs based on user's workflow
+    Replaces the old fixed Authoring table
+    """
+    __tablename__ = "song_progress"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False, index=True)
+    step_name = Column(String, nullable=False)  # The workflow step name
+    is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
+    notes = Column(Text)  # Optional notes for this step
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_song_progress_lookup', 'song_id', 'step_name'),
+        UniqueConstraint('song_id', 'step_name', name='uq_song_step_progress'),
+    )

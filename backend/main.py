@@ -25,8 +25,8 @@ from api import authoring as authoring
 from api import tools as tools
 from api import stats as stats
 from api.album_series import router as album_series_router
-from api import auth as auth
-from api import packs as packs
+from api.auth import router as auth_router
+from api.packs import router as packs_router
 from api import dashboard as dashboard
 from api import collaborations as collaborations
 from api import user_settings as user_settings
@@ -102,14 +102,14 @@ def init_db():
         pass  # Don't block startup if database is not available
 
 # Register route modules
-app.include_router(auth.router)
+app.include_router(auth_router)
 app.include_router(songs_router)
 app.include_router(authoring.router)
 app.include_router(spotify_router)
 app.include_router(tools.router)
 app.include_router(stats.router)
 app.include_router(album_series_router)
-app.include_router(packs.router)
+app.include_router(packs_router)
 app.include_router(dashboard.router)
 app.include_router(collaborations.router)
 app.include_router(user_settings.router)

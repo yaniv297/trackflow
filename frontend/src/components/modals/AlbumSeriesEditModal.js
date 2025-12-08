@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost, apiDelete } from "../../utils/api";
+import API_BASE_URL from "../../config";
 
 export default function AlbumSeriesEditModal({
   isOpen,
@@ -294,6 +295,29 @@ export default function AlbumSeriesEditModal({
 
       // Create the songs first
       const createdSongs = await apiPost("/songs/batch", songsToCreate);
+      const createdSongIds = createdSongs.map((s) => s.id);
+
+      // Clean remaster tags from the newly created songs
+      try {
+        const token = localStorage.getItem("token");
+        const cleanupRes = await fetch(`${API_BASE_URL}/tools/bulk-clean`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(createdSongIds),
+        });
+        if (cleanupRes.ok) {
+          const result = await cleanupRes.json();
+          console.log(`Successfully cleaned remaster tags from ${result.length} songs`);
+        } else {
+          console.warn("Failed to clean remaster tags, but continuing...");
+        }
+      } catch (err) {
+        console.warn("Failed to clean remaster tags", err);
+        // Don't fail the whole operation if cleanup fails
+      }
 
       // Create the album series
       const packName = `${createData.albumName} Album Series`;

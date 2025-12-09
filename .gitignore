@@ -63,4 +63,11 @@ coverage/
 .vscode/
 
 # Ignore static asset cache
-frontend/public/static/ 
+frontend/public/static/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

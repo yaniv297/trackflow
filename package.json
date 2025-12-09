@@ -1,0 +1,14 @@
+{
+  "name": "trackflow",
+  "version": "1.0.0",
+  "description": "A music management system with separate frontend and backend components.",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^24.10.2"
+  }
+}

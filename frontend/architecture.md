@@ -1,286 +1,278 @@
-# TrackFlow Frontend Architecture
+# TrackFlow Frontend Architecture - GROUND TRUTH DOCUMENTATION
 
-## Overview
+## System Boundaries & Domain Definition
 
-TrackFlow frontend is a React-based single-page application for music management and collaboration. It follows modern React patterns with hooks, context API, and component-based architecture.
+**TrackFlow IS:**
+- A workflow tracker for Rock Band music authors
+- A social platform for collaboration, achievements, and discovery
+- A metadata viewer for songs (title, artist, album, external links)
+- A DLC duplicate checker (read-only UI interface)
+- An album series and pack management system
 
-## Technology Stack
+**TrackFlow is NOT:**
+- A file uploader or cloud storage system
+- An audio/music player application
+- A MIDI/chart editor or viewer
+- A DAW-like audio editing tool
+- A real-time WebSocket application (currently)
 
-- **Framework**: React 19.1.0 with React Router DOM 7.6.3
-- **Build Tool**: Create React App (react-scripts 5.0.1)
-- **Deployment**: Railway with Docker and Express.js server
-- **State Management**: React Context API + Local State
-- **Testing**: React Testing Library + Jest
+## Project Overview
 
-## Project Structure
+TrackFlow frontend is a React-based single-page application built for Rock Band music workflow management and community collaboration. The system emphasizes component composition, custom hooks, and maintainable architecture without over-engineering.
+
+**CRITICAL API REQUIREMENT: The frontend MUST connect to backend on port 8001, NEVER on 8000.**
+
+## Technical Stack
+
+### Core Framework
+- **React 19.1.0**: Modern React with hooks-based architecture
+- **React Router DOM 7.6.3**: Client-side routing with protected routes
+- **Create React App 5.0.1**: Build toolchain (no custom webpack configuration)
+- **JavaScript ES6+**: Modern JavaScript without TypeScript
+
+### Testing & Quality
+- **React Testing Library 16.3.0**: Component testing
+- **Jest**: Unit testing framework
+- **ESLint**: Code linting with React rules
+- **Web Vitals**: Performance monitoring
+
+### Deployment
+- **Railway**: Docker-based deployment with Express.js static serving
+- **Environment Configuration**: Multi-environment API URL handling
+- **HTTPS Enforcement**: Production security requirements
+
+## Current Folder Structure (ACTUAL)
 
 ```
 frontend/src/
-├── App.js                    # Main app component with providers
-├── index.js                  # React app entry point
-├── config.js                 # API configuration and environment handling
-├── components/               # Reusable UI components
-│   ├── albumSeries/         # Album series specific components
-│   ├── community/           # Community features
-│   ├── features/            # Feature-specific components  
-│   ├── forms/               # Form components
-│   ├── home/                # Home page components
-│   ├── modals/              # Modal dialogs
-│   ├── music/               # Music player components
-│   ├── navigation/          # Navigation and header components
-│   ├── notifications/       # Notification system
-│   ├── pages/               # Page-level components
-│   ├── profile/             # User profile components
-│   ├── shared/              # Shared/common components
-│   ├── stats/               # Statistics and analytics
-│   ├── tables/              # Data table components
-│   ├── ui/                  # Low-level UI components
-│   └── widgets/             # Dashboard widgets
-├── contexts/                # React contexts for global state
-├── hooks/                   # Custom React hooks
-│   ├── app/                 # Application-level hooks
-│   ├── albumSeries/         # Album series hooks
-│   ├── collaborations/      # Collaboration hooks
-│   ├── forms/               # Form-related hooks
-│   ├── songs/               # Song management hooks
-│   ├── stats/               # Statistics hooks
-│   ├── ui/                  # UI interaction hooks
-│   ├── wip/                 # Work-in-progress hooks
-│   └── workflows/           # Workflow hooks
-├── pages/                   # Route-level page components
+├── components/               # UI Components
+│   ├── albumSeries/         # Album series (SeriesCard, SongList, StatusLegend)
+│   ├── community/           # Community features (7 components)
+│   ├── features/            # Feature-specific components
+│   │   ├── achievements/    # AchievementBadge only
+│   │   ├── collaboration/   # 6 collaboration components
+│   │   ├── comments/        # CommentItem, CommentSection
+│   │   ├── dlc/            # DLC checking UI (2 components)
+│   │   └── workflows/       # Workflow UI (3 components)
+│   ├── forms/               # Form components (5 + pack subfolder)
+│   ├── home/                # Homepage components (14 components)
+│   ├── modals/              # Modal dialogs (12 components)
+│   ├── music/               # Song filtering (2 components, NO player)
+│   ├── navigation/          # Navigation system (6 + dropdowns)
+│   ├── notifications/       # Toast notifications (5 components)
+│   ├── pages/               # Page-level components + WipSongCard
+│   ├── profile/             # ProfileSongsTable only
+│   ├── shared/              # Cross-feature components (8 components)
+│   ├── stats/               # Statistics display (4 components)
+│   ├── tables/              # Data tables (3 components)
+│   ├── ui/                  # UI primitives (11 components)
+│   └── widgets/             # RandomResourceWidget only
+├── contexts/                # React contexts
+│   └── AuthContext.js       # ONLY context (no Theme/Toast contexts)
+├── hooks/                   # Custom React hooks (46 hooks total)
+│   ├── albumSeries/         # 3 hooks
+│   ├── app/                 # 5 hooks (achievements, dropdowns, etc.)
+│   ├── collaborations/      # 3 hooks
+│   ├── forms/               # 2 hooks
+│   ├── songs/               # 7 hooks
+│   ├── stats/               # 2 hooks
+│   ├── ui/                  # 4 hooks
+│   ├── wip/                 # 12 hooks (extensive WIP functionality)
+│   └── workflows/           # 4 hooks
+├── pages/                   # Route-level pages (18 pages)
 ├── routes/                  # React Router configuration
-├── services/                # API service layer
-├── utils/                   # Utility functions and helpers
-└── data/                    # Static data and constants
+├── services/                # API service layer (3 services)
+├── utils/                   # Utilities and helpers (8 utilities)
+└── data/                    # Static data (resources.js)
 ```
 
 ## Architecture Patterns
 
-### 1. Component Organization
+### 1. Custom Hooks Pattern
+The application heavily uses custom hooks for:
+- **Data Fetching**: API calls with caching and loading states
+- **UI State Management**: Modal visibility, dropdown states
+- **Business Logic**: Song operations, collaboration workflows
+- **Cross-Component Communication**: Shared state management
 
-Components are organized by feature and complexity level:
+**Key Hook Categories:**
+- `hooks/wip/` - 12 hooks for work-in-progress functionality
+- `hooks/songs/` - 7 hooks for song management
+- `hooks/app/` - 5 hooks for application-level state
 
-- **Pages**: Top-level route components that orchestrate features
-- **Features**: Business logic components for specific domains
-- **Shared**: Reusable components across multiple features  
-- **UI**: Low-level, generic UI components
-- **Widgets**: Small, self-contained functional components
+### 2. Component Composition
+- **Feature-Based Organization**: Components grouped by business domain
+- **Modal System**: Unified modal architecture (12 different modals)
+- **Form Components**: Specialized forms with validation
+- **Table Components**: Sortable, filterable data displays
 
-### 2. State Management Strategy
+### 3. State Management
 
-- **Global State**: React Context API for authentication, notifications
-- **Local State**: Component-level useState for UI state
-- **Server State**: Custom hooks with caching for API data
-- **Form State**: Local state with validation helpers
+#### Global State (ACTUAL)
+- **AuthContext**: ONLY global context - handles authentication, JWT tokens, user state
+- **NO Theme Context**: Despite architecture claims, no theming system exists
+- **NO Notification Context**: Notifications use local component state
 
-### 3. Custom Hooks Pattern
+#### Local State
+- **Component useState**: UI-specific state management
+- **Custom Hooks**: Business logic state encapsulation
+- **NotificationManager**: Local state for toast notifications (not global context)
 
-Extensive use of custom hooks for:
-- **Data fetching** with caching and loading states
-- **UI interactions** like dropdowns and modals
-- **Business logic** separation from components
-- **Shared functionality** across multiple components
+## API Integration
 
-## Key Architectural Components
-
-### Authentication System
-
-- **AuthContext**: Global authentication state management
-- **ProtectedRoute**: Route-level authentication guards
-- **Token management**: LocalStorage with automatic refresh
-- **User impersonation**: Admin functionality with context switching
-
-### API Integration
-
-- **API Layer**: Centralized API calls with authentication headers
-- **Config Management**: Environment-aware API URL handling
-- **HTTPS Enforcement**: Production security for mixed content prevention
-- **Error Handling**: Consistent error handling across API calls
-
-### Navigation & Routing
-
-- **React Router**: SPA navigation with protected routes
-- **App Navigation**: Context-aware navigation with user state
-- **Dynamic Routes**: Parameter-based routing for entities
-- **Route Protection**: Authentication and role-based access
-
-## Data Flow Patterns
-
-### 1. API Data Flow
-
-```
-Page Component → Custom Hook → API Service → Backend
-     ↓              ↓              ↓
-Local State ← Data Transform ← Response
-     ↓
-UI Component
+### Configuration
+```javascript
+// config.js - Multi-environment API URL resolution
+const getApiUrl = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL; // Force HTTPS in production
+  }
+  if (window.location.hostname === "localhost") {
+    return "http://localhost:8001"; // Development port 8001
+  }
+  return "https://trackflow-api.up.railway.app"; // Production
+};
 ```
 
-### 2. User Actions
-
-```
-UI Event → Event Handler → API Call → State Update → Re-render
-```
-
-### 3. Global State Updates
-
-```
-Context Provider → State Update → Context Consumers → Re-render
-```
-
-## Component Patterns
-
-### 1. Container/Presentational Pattern
-
-- **Container components**: Handle data fetching and business logic
-- **Presentational components**: Focus on UI rendering and user interaction
-- **Custom hooks**: Extract data logic from containers
-
-### 2. Compound Components
-
-- **Navigation components**: Multiple related components working together
-- **Form components**: Multi-step forms with shared state
-- **Modal systems**: Base modal with specialized content components
-
-### 3. Higher-Order Components (rare)
-
-- **ProtectedRoute**: Route protection wrapper
-- **Error boundaries**: Error handling wrappers
-
-## Development Patterns
-
-### Code Organization Rules
-
-1. **Feature-based organization** over type-based (components by domain)
-2. **Custom hooks** for all data fetching and complex logic
-3. **Prop drilling avoidance** using Context API for shared state
-4. **Component composition** over inheritance
-5. **Controlled components** for all form inputs
-
-### Component Design Principles
-
-1. **Single Responsibility**: Each component has one clear purpose
-2. **Prop Interface**: Clear, typed prop interfaces
-3. **State Minimization**: Keep local state minimal and focused
-4. **Side Effect Isolation**: Use useEffect appropriately
-5. **Memoization**: Use React.memo and useMemo for performance
-
-### File Naming Conventions
-
-1. **PascalCase** for component files (UserProfile.js)
-2. **camelCase** for utility files (apiUtils.js)
-3. **camelCase** for hook files (useUserData.js)
-4. **Descriptive names** that indicate purpose
-
-## Performance Patterns
-
-### 1. Data Fetching Optimization
-
-- **Caching**: Custom hooks implement response caching
-- **Loading states**: Consistent loading UI patterns
-- **Error states**: Graceful error handling and retry mechanisms
-- **Pagination**: Large dataset handling with pagination
-
-### 2. Component Optimization
-
-- **React.memo**: Prevent unnecessary re-renders
-- **useMemo**: Expensive calculation memoization
-- **useCallback**: Function reference stability
-- **Code splitting**: Dynamic imports for large features
-
-### 3. Bundle Optimization
-
-- **Create React App**: Built-in webpack optimization
-- **Production builds**: Minification and tree shaking
-- **Static assets**: Efficient asset loading
-
-## Testing Architecture
-
-### Testing Strategy
-
-- **Unit tests**: Individual component and hook testing
-- **Integration tests**: Component interaction testing
-- **API tests**: Service layer testing
-- **User interaction tests**: End-to-end user workflows
-
-### Testing Patterns
-
-- **React Testing Library**: User-centric testing approach
-- **Custom hook testing**: Isolated hook behavior verification
-- **Mock services**: API call mocking for predictable tests
-- **Test utilities**: Shared test setup and helpers
-
-## Security Patterns
-
-### Client-Side Security
-
-1. **Token management**: Secure storage and transmission
-2. **Input validation**: Client-side validation (not relied upon)
-3. **XSS prevention**: Proper output encoding
-4. **HTTPS enforcement**: Production security requirements
-5. **Environment separation**: Different configs per environment
+### Service Layer
+- **utils/api.js**: Main API utility with JWT authentication
+- **services/** folder**: Domain-specific API services
+  - profileService.js - User profile operations
+  - publicSongsService.js - Community features
+  - collaborationRequestsService.js - Collaboration requests
 
 ### Authentication Flow
+1. JWT token stored in localStorage
+2. Automatic token refresh (23-hour interval)
+3. Protected routes using ProtectedRoute component
+4. Admin impersonation with token switching
+5. Automatic logout on token expiration
 
-1. **Login**: JWT token acquisition and storage
-2. **Token validation**: Automatic token validation
-3. **Protected routes**: Route-level access control
-4. **Logout**: Secure token cleanup
-5. **Session management**: Token refresh and expiration
+## Feature Implementation Status
+
+### ✅ FULLY IMPLEMENTED
+- User authentication with JWT
+- Song CRUD operations with workflow states
+- Pack creation and management
+- Album series functionality
+- Achievement badge display system
+- Community features (public songs, discovery)
+- Collaboration system (comprehensive, 6 components)
+- Comment system (CommentItem, CommentSection)
+- DLC duplicate checking (read-only UI)
+- Statistics and analytics
+- User profiles (public viewing)
+- Admin functionality with impersonation
+- Registration wizard
+- Help system (comprehensive, 11 sections)
+- Data tables with sorting/filtering
+- Modal system (12 different modals)
+- Toast notifications (local state)
+
+### ❌ NOT IMPLEMENTED (Despite Architecture Claims)
+- **File uploads**: Only file links management exists
+- **Real-time notifications**: No WebSocket, no real-time features
+- **Music/audio player**: No audio functionality
+- **Cloudinary integration**: No cloud storage integration
+- **Theme system**: No theming context or components
+- **AI recommendations**: SmartDiscovery has no AI features
+- **Breadcrumb system**: No breadcrumb navigation
+- **Code splitting**: No dynamic imports found
+
+### 🔶 PARTIALLY IMPLEMENTED
+- **Notifications**: Toast system exists but uses local state, not global context
+- **Smart Discovery**: Community feature exists but no AI functionality
+
+## Component Architecture Details
+
+### Navigation System
+- **AppNavigation**: Main navigation with dropdown menus
+- **Dropdown Components**: 5 dropdown menus (New, Stats, Community, Help, Admin, User)
+- **Protected Routes**: Authentication guards for secured areas
+- **NO Breadcrumb System**: Despite claims, no breadcrumb components exist
+
+### Form Architecture
+- **Controlled Components**: All forms use controlled inputs
+- **Form Hooks**: usePackFormState, usePackFormSubmission
+- **Validation**: Client-side validation (NewSongForm, NewPackForm, etc.)
+- **Registration Wizard**: Multi-step user registration process
+
+### Data Display
+- **SongTable**: Primary data table with sorting/filtering
+- **Card Components**: Various card layouts for different data types
+- **Statistics**: StatCard, YearDistribution components
+- **NO Music Player**: Despite architecture claims, no audio player exists
+
+### Community Features
+- **Public Songs**: Community browsing with filters
+- **User Profiles**: Public profile viewing
+- **Smart Discovery**: Song discovery (no AI features despite claims)
+- **Collaboration Requests**: Cross-user collaboration system
+
+## Development Guidelines for AI
+
+### System Boundaries (CRITICAL)
+**NEVER add these features** (they're outside TrackFlow's scope):
+- File upload functionality
+- Audio/music player components
+- Cloud storage integration (Cloudinary, etc.)
+- Real-time WebSocket features
+- MIDI/chart editing tools
+- DAW-like audio processing
+
+### Adding New Features
+1. **Follow Feature Organization**: Group components by business domain in `components/`
+2. **Create Custom Hooks First**: Separate data logic from UI in `hooks/`
+3. **Use Existing Patterns**: Reference similar features for consistency
+4. **Respect Component Structure**: Use existing modal/form/table patterns
+
+### Component Development Best Practices
+1. **Data Flow**: Start with custom hook for data fetching/business logic
+2. **UI Layer**: Create presentational component that uses the hook
+3. **Error Handling**: Implement loading states and error boundaries
+4. **API Integration**: Use `utils/api.js` for all API calls
+5. **Authentication**: Use `useAuth()` hook for user state
+
+### File Locations
+- **New UI Components**: `src/components/[feature]/`
+- **Business Logic**: `src/hooks/[feature]/`
+- **API Calls**: `src/services/` or `src/utils/api.js`
+- **Page Components**: `src/pages/`
+- **Utilities**: `src/utils/`
+
+## Code Quality Standards
+
+### JavaScript/React Practices
+- **ES6+ Syntax**: Modern JavaScript with async/await
+- **Function Components**: Hooks-based, no class components
+- **JSX Patterns**: Clean, readable JSX structure
+- **Error Boundaries**: Graceful error handling
+
+### File Naming Conventions
+- **Components**: PascalCase (UserProfile.js, SongTable.js)
+- **Hooks**: camelCase with 'use' prefix (useUserData.js)
+- **Utilities**: camelCase (apiUtils.js, dateHelpers.js)
+- **Services**: camelCase with 'Service' suffix (profileService.js)
+
+### Performance Guidelines
+- **React.memo**: Strategic use for expensive renders
+- **Custom Hooks**: Encapsulate complex logic
+- **API Caching**: Intelligent request caching in hooks
+- **Loading States**: Consistent loading UI patterns
 
 ## Deployment Architecture
 
 ### Build Process
+1. **React Build**: `npm run build` - static asset generation
+2. **Express Server**: `server.js` - production SPA serving
+3. **Railway Deployment**: Platform-as-a-service hosting
+4. **HTTPS Enforcement**: Production SSL requirements
 
-1. **React build**: Static asset generation
-2. **Express server**: Production server for SPA routing
-3. **Docker containerization**: Consistent deployment environment
-4. **Railway deployment**: Platform-as-a-service hosting
+### Environment Handling
+- **Development**: `http://localhost:8001` API connection
+- **Production**: `https://trackflow-api.up.railway.app` with HTTPS enforcement
+- **Configuration**: Environment-aware API URL resolution
 
-### Environment Configuration
+---
 
-- **Development**: localhost API with hot reloading
-- **Production**: HTTPS-enforced API with optimized builds
-- **Environment variables**: Runtime configuration via .env files
-
-## AI Development Guidelines
-
-### When Adding New Features
-
-1. **Follow feature-based organization** - group related components, hooks, and utilities
-2. **Create custom hooks** for data fetching and complex logic
-3. **Use Context sparingly** - only for truly global state
-4. **Implement proper loading/error states** for all async operations
-5. **Follow existing component patterns** - look at similar features for consistency
-
-### Component Development Best Practices
-
-1. **Start with the data flow** - understand what data the component needs
-2. **Create the custom hook first** - separate data logic from UI logic
-3. **Build presentational component** - focus on UI rendering
-4. **Add proper prop types** - ensure clear component interfaces
-5. **Implement error boundaries** - handle component failures gracefully
-
-### API Integration Standards
-
-1. **Use the existing API utilities** - don't create new API functions unnecessarily
-2. **Implement proper error handling** - consistent error messaging
-3. **Cache when appropriate** - avoid unnecessary API calls
-4. **Handle loading states** - provide user feedback during operations
-5. **Follow REST conventions** - consistent API patterns
-
-### Code Quality Standards
-
-1. **Use ESLint rules** - follow the existing linting configuration
-2. **Write descriptive component names** - indicate purpose and scope
-3. **Keep components small** - single responsibility principle
-4. **Document complex logic** - especially in custom hooks
-5. **Test critical functionality** - focus on user-facing features
-
-### Performance Considerations
-
-1. **Avoid premature optimization** - measure before optimizing
-2. **Use React DevTools** - profile component performance
-3. **Implement proper memoization** - prevent unnecessary re-renders
-4. **Optimize bundle size** - dynamic imports for large features
-5. **Monitor API performance** - track slow requests and optimize
+**This architecture reflects the ACTUAL implementation as of the codebase analysis. Future AI agents should reference this ground truth documentation and respect the defined system boundaries.**

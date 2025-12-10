@@ -18,6 +18,8 @@ const RegistrationWizard = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
   // Step 3: Workflow customization
   const [workflowSteps, setWorkflowSteps] = useState([]);
@@ -155,6 +157,45 @@ const RegistrationWizard = () => {
 
     setError("");
     setStep(3);
+  };
+
+  const validatePassword = (pwd) => {
+    if (pwd.length === 0) {
+      return "";
+    }
+    if (pwd.length < 8) {
+      return "Password must be at least 8 characters long";
+    }
+    if (!/[A-Za-z]/.test(pwd) || !/\d/.test(pwd)) {
+      return "Password must contain at least one letter and one number";
+    }
+    return "";
+  };
+
+  const handlePasswordChange = (e) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    setPasswordError(validatePassword(newPassword));
+    
+    // Also validate confirm password if it has a value
+    if (confirmPassword) {
+      if (newPassword !== confirmPassword) {
+        setConfirmPasswordError("Passwords do not match");
+      } else {
+        setConfirmPasswordError("");
+      }
+    }
+  };
+
+  const handleConfirmPasswordChange = (e) => {
+    const newConfirmPassword = e.target.value;
+    setConfirmPassword(newConfirmPassword);
+    
+    if (newConfirmPassword && password !== newConfirmPassword) {
+      setConfirmPasswordError("Passwords do not match");
+    } else {
+      setConfirmPasswordError("");
+    }
   };
 
   const handleFinalSubmit = async () => {
@@ -493,18 +534,45 @@ const RegistrationWizard = () => {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 required
                 style={{
                   width: "100%",
                   padding: "0.75rem",
-                  border: "1px solid #ddd",
+                  border: passwordError ? "1px solid #c33" : "1px solid #ddd",
                   borderRadius: "4px",
                   fontSize: "1rem",
                   boxSizing: "border-box",
                 }}
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 8 characters"
               />
+              {passwordError && (
+                <div
+                  style={{
+                    color: "#c33",
+                    fontSize: "0.875rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  {passwordError}
+                </div>
+              )}
+              {!passwordError && password.length > 0 && (
+                <div
+                  style={{
+                    color: "#28a745",
+                    fontSize: "0.875rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  ✓ Password meets requirements
+                </div>
+              )}
+              {password.length === 0 && (
+                <small style={{ color: "#666", fontSize: "0.8rem", display: "block", marginTop: "0.25rem" }}>
+                  At least 8 characters with letters and numbers
+                </small>
+              )}
             </div>
 
             <div style={{ marginBottom: "1.5rem" }}>
@@ -520,18 +588,40 @@ const RegistrationWizard = () => {
               <input
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={handleConfirmPasswordChange}
                 required
                 style={{
                   width: "100%",
                   padding: "0.75rem",
-                  border: "1px solid #ddd",
+                  border: confirmPasswordError ? "1px solid #c33" : "1px solid #ddd",
                   borderRadius: "4px",
                   fontSize: "1rem",
                   boxSizing: "border-box",
                 }}
                 placeholder="Re-enter password"
               />
+              {confirmPasswordError && (
+                <div
+                  style={{
+                    color: "#c33",
+                    fontSize: "0.875rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  {confirmPasswordError}
+                </div>
+              )}
+              {!confirmPasswordError && confirmPassword.length > 0 && password === confirmPassword && (
+                <div
+                  style={{
+                    color: "#28a745",
+                    fontSize: "0.875rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  ✓ Passwords match
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: "0.5rem" }}>

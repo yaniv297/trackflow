@@ -387,6 +387,70 @@ class TestAchievements:
         print(f"Comprehensive test - Achievements: {achievements}")
         print(f"Comprehensive test - Newly awarded: {newly_awarded}")
 
+    def test_welcome_aboard_achievement_on_registration(self):
+        """Test that Welcome Aboard achievement is awarded when a new user registers."""
+        from api.achievements.services.achievements_service import AchievementsService
+        
+        # Ensure Welcome Aboard achievement exists
+        welcome_achievement = self.db.query(Achievement).filter(Achievement.code == "welcome_aboard").first()
+        if not welcome_achievement:
+            welcome_achievement = Achievement(
+                code="welcome_aboard",
+                name="Welcome Aboard!",
+                description="Successfully create your TrackFlow account and join the community",
+                icon="⚓",
+                category="special",
+                points=10,
+                rarity="common",
+                target_value=None,
+                metric_type=None
+            )
+            self.db.add(welcome_achievement)
+            self.db.commit()
+            self.db.refresh(welcome_achievement)
+        
+        # Create a new user (simulating registration)
+        new_user = User(
+            username="newuser",
+            email="newuser@test.com",
+            hashed_password="hashed_password"
+        )
+        self.db.add(new_user)
+        self.db.commit()
+        self.db.refresh(new_user)
+        
+        # Verify user doesn't have the achievement yet
+        initial_achievements = self.get_user_achievements(new_user.id)
+        assert "welcome_aboard" not in initial_achievements, "User should not have Welcome Aboard before registration"
+        
+        # Simulate registration endpoint awarding the achievement
+        achievements_service = AchievementsService()
+        result = achievements_service.award_achievement(self.db, new_user.id, "welcome_aboard")
+        
+        # Verify achievement was awarded
+        assert result is not None, "Achievement should be awarded"
+        
+        final_achievements = self.get_user_achievements(new_user.id)
+        assert "welcome_aboard" in final_achievements, "User should have Welcome Aboard achievement after registration"
+        
+        # Verify user_stats total_points was updated
+        stats = self.db.query(UserStats).filter(UserStats.user_id == new_user.id).first()
+        if stats:
+            assert stats.total_points >= 10, f"User should have at least 10 points (Welcome Aboard), got {stats.total_points}"
+        
+        # Verify achievement is not awarded twice
+        result2 = achievements_service.award_achievement(self.db, new_user.id, "welcome_aboard")
+        assert result2 is None, "Achievement should not be awarded twice"
+        
+        # Verify only one instance exists
+        welcome_count = self.db.query(UserAchievement).join(Achievement).filter(
+            UserAchievement.user_id == new_user.id,
+            Achievement.code == "welcome_aboard"
+        ).count()
+        assert welcome_count == 1, f"Should only have one Welcome Aboard achievement, got {welcome_count}"
+        
+        print(f"Welcome Aboard test passed - User has achievement: {'welcome_aboard' in final_achievements}")
+
 
 if __name__ == "__main__":
     # Run specific tests
@@ -422,6 +486,9 @@ if __name__ == "__main__":
         
         print("\n9. Testing comprehensive achievement check...")
         test_instance.test_comprehensive_achievement_check()
+        
+        print("\n10. Testing Welcome Aboard achievement on registration...")
+        test_instance.test_welcome_aboard_achievement_on_registration()
         
         print("\n✅ All achievement tests completed!")
         

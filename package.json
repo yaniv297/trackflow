@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "description": "A music management system with separate frontend and backend components.",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -16,6 +16,10 @@ def login(user_credentials: UserLogin, request: Request, db: Session = Depends(g
     auth_service = AuthService(db)
     
     try:
+        # Check if this is first login (before updating last_login_at)
+        user_before_login = auth_service.user_repo.get_by_username(user_credentials.username)
+        is_first_login = user_before_login and user_before_login.last_login_at is None
+        
         access_token, user = auth_service.login_user(
             user_credentials.username, 
             user_credentials.password
@@ -39,6 +43,16 @@ def login(user_credentials: UserLogin, request: Request, db: Session = Depends(g
             record_activity(user.id)
         except Exception as e:
             print(f"Failed to record user activity: {e}")
+        
+        # Award Welcome Aboard achievement on first login if not already earned (fallback)
+        if is_first_login:
+            try:
+                from api.achievements.services.achievements_service import AchievementsService
+                achievements_service = AchievementsService()
+                achievements_service.award_achievement(db, user.id, "welcome_aboard")
+            except Exception as e:
+                print(f"Warning: Failed to award Welcome Aboard achievement for user {user.id} on first login: {e}")
+                # Don't fail login if achievement award fails
         
         return {"access_token": access_token, "token_type": "bearer"}
         
@@ -87,6 +101,15 @@ def claim_existing_user(
             )
         except Exception as e:
             print(f"Failed to log claim activity: {e}")
+        
+        # Award Welcome Aboard achievement if not already earned
+        try:
+            from api.achievements.services.achievements_service import AchievementsService
+            achievements_service = AchievementsService()
+            achievements_service.award_achievement(db, user.id, "welcome_aboard")
+        except Exception as e:
+            print(f"Warning: Failed to award Welcome Aboard achievement for user {user.id}: {e}")
+            # Don't fail claim if achievement award fails
         
         # Create access token
         access_token = auth_service.create_access_token(data={"sub": user.username})

@@ -131,6 +131,9 @@ ACHIEVEMENTS = [
     ("first_collab_request", "Reach Out", "Make your first collaboration request", "🤲", "social", 10, "common", 1, "collab_requests_sent"),
     ("five_collab_requests", "Active Networker", "Make 5 collaboration requests", "🕸️", "social", 25, "uncommon", 5, "collab_requests_sent"),
     ("ten_collab_requests", "Collaboration Seeker", "Make 10 collaboration requests", "🔍", "social", 50, "rare", 10, "collab_requests_sent"),
+    
+    # Special Achievements
+    ("welcome_aboard", "Welcome Aboard!", "Successfully create your TrackFlow account and join the community", "⚓", "special", 10, "common", None, None),
 ]
 
 def seed_achievements():

@@ -44,6 +44,21 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
         except Exception as e:
             print(f"Failed to log registration activity: {e}")
         
+        # Award Welcome Aboard achievement
+        try:
+            from api.achievements.services.achievements_service import AchievementsService
+            achievements_service = AchievementsService()
+            result = achievements_service.award_achievement(db, user.id, "welcome_aboard")
+            if result:
+                print(f"✅ Successfully awarded Welcome Aboard achievement to user {user.id}")
+            else:
+                print(f"⚠️ Welcome Aboard achievement not awarded (may already exist or achievement not found in DB)")
+        except Exception as e:
+            print(f"❌ Error awarding Welcome Aboard achievement for user {user.id}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Don't fail registration if achievement award fails
+        
         # Create access token
         access_token = auth_service.create_access_token(data={"sub": user.username})
         

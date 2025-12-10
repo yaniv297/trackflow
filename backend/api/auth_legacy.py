@@ -427,7 +427,7 @@ def claim_existing_user(
         
         # Award the welcome achievement
         achievements_service = AchievementsService()
-        achievements_service.award_achievement(db, user.id, "account_created")
+        achievements_service.award_achievement(db, user.id, "welcome_aboard")
         
         # Create welcome notification
         notification_service = NotificationService(db)
@@ -549,7 +549,7 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
         
         # Award the welcome achievement
         achievements_service = AchievementsService()
-        achievements_service.award_achievement(db, db_user.id, "account_created")
+        achievements_service.award_achievement(db, db_user.id, "welcome_aboard")
         
         # Create welcome notification
         notification_service = NotificationService(db)

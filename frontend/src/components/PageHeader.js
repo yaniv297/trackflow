@@ -12,6 +12,7 @@ const PageHeader = ({
   packSortBy,
   setPackSortBy,
   onColumnChange,
+  onRandomizerClick,
 }) => {
   return (
     <div>
@@ -123,6 +124,38 @@ const PageHeader = ({
 
         {/* Column Selector */}
         <ColumnSelector onColumnChange={onColumnChange} groupBy={groupBy} />
+
+        {/* Randomizer Button - only show for Future Plans */}
+        {status === "Future Plans" && onRandomizerClick && (
+          <button
+            onClick={onRandomizerClick}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "999px",
+              border: "1px solid #007bff",
+              backgroundColor: "#007bff",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: "500",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "#0056b3";
+              e.target.style.borderColor = "#0056b3";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "#007bff";
+              e.target.style.borderColor = "#007bff";
+            }}
+            title="Pick a random pack to work on"
+          >
+            🎲 Random Pack
+          </button>
+        )}
       </div>
     </div>
   );

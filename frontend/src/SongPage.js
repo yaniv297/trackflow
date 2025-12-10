@@ -13,6 +13,7 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import useCollaborations from "./hooks/useCollaborations";
 import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "./utils/api";
 import AlbumSeriesEditModal from "./components/AlbumSeriesEditModal";
+import PackRandomizerModal from "./components/PackRandomizerModal";
 
 function SongPage({ status }) {
   const { user } = useAuth();
@@ -76,6 +77,7 @@ function SongPage({ status }) {
   const [doubleAlbumSeriesData, setDoubleAlbumSeriesData] = useState(null);
   const [isExecutingDoubleAlbumSeries, setIsExecutingDoubleAlbumSeries] =
     useState(false);
+  const [showPackRandomizer, setShowPackRandomizer] = useState(false);
 
   // Use collaboration hook
   const { fetchCollaborations, getPackCollaborators } = useCollaborations();
@@ -282,6 +284,25 @@ function SongPage({ status }) {
       return sortedGrouped;
     }
   }, [sortedSongs, search, groupBy, packs, packSortBy]);
+
+  // Extract pack information for randomizer (only for Future Plans)
+  const randomizerPacks = useMemo(() => {
+    if (status !== "Future Plans" || !groupedSongs || groupBy !== "pack") {
+      return [];
+    }
+
+    return Object.keys(groupedSongs)
+      .map((packName) => {
+        const packSongs = groupedSongs[packName] || [];
+        const firstSong = packSongs[0];
+        return {
+          id: firstSong?.pack_id,
+          name: packName,
+          songCount: packSongs.length,
+        };
+      })
+      .filter((pack) => pack.id && pack.name !== "(no pack)");
+  }, [groupedSongs, groupBy, status]);
 
   // Event handlers
   const handleSort = (key) => {
@@ -819,6 +840,7 @@ function SongPage({ status }) {
         packSortBy={packSortBy}
         setPackSortBy={setPackSortBy}
         onColumnChange={setVisibleColumns}
+        onRandomizerClick={() => setShowPackRandomizer(true)}
       />
 
       {/* Loading Spinner */}
@@ -991,6 +1013,20 @@ function SongPage({ status }) {
         onConfirm={promptConfig.onConfirm}
         onCancel={() => setPromptConfig({ ...promptConfig, isOpen: false })}
       />
+
+      {/* Pack Randomizer Modal */}
+      {status === "Future Plans" && (
+        <PackRandomizerModal
+          isOpen={showPackRandomizer}
+          onClose={() => setShowPackRandomizer(false)}
+          packs={randomizerPacks}
+          onPackMoved={() => {
+            // Refresh songs when pack is moved
+            setSongsCache({});
+            fetchSongs();
+          }}
+        />
+      )}
 
       <Fireworks />
     </div>

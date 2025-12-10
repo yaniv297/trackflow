@@ -11,6 +11,22 @@ export const useSongOperations = (songs, setSongs, refreshSongs) => {
   const saveEdit = useCallback(
     async (id, field, editValues, setEditing, setEditValues) => {
       const value = editValues[`${id}_${field}`];
+      
+      // Always clear editing state, even if no value to save
+      // This ensures the UI exits edit mode properly
+      setEditing((prev) => {
+        const newState = { ...prev };
+        delete newState[`${id}_${field}`];
+        return newState;
+      });
+
+      setEditValues((prev) => {
+        const newState = { ...prev };
+        delete newState[`${id}_${field}`];
+        return newState;
+      });
+
+      // Only save if we have a value to save
       if (value === undefined) return;
 
       try {
@@ -40,19 +56,6 @@ export const useSongOperations = (songs, setSongs, refreshSongs) => {
         if (field === "pack") {
           refreshSongs();
         }
-
-        // Clean up editing state
-        setEditing((prev) => {
-          const newState = { ...prev };
-          delete newState[`${id}_${field}`];
-          return newState;
-        });
-
-        setEditValues((prev) => {
-          const newState = { ...prev };
-          delete newState[`${id}_${field}`];
-          return newState;
-        });
 
         return { success: true, response };
       } catch (error) {

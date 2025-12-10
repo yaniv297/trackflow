@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { apiPost, apiPatch, apiGet } from "../utils/api";
+import { apiPost, apiPatch, apiGet, ApiError } from "../utils/api";
 import SmartDropdown from "./SmartDropdown";
 
 const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
@@ -38,6 +38,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
 
     setLoading(true);
     let failed = 0;
+    let errorMessages = []; // Collect error messages for better user feedback
 
     try {
       switch (selectedAction) {
@@ -66,14 +67,25 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 `BulkEditModal: Updating song ${id} with field ${field}:`,
                 updates
               );
-              await apiPatch(`/songs/${id}/`, updates);
+              await apiPatch(`/songs/${id}`, updates);
               setProgress({
                 current: i + 1,
                 total: selectedSongs.length,
                 message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
               });
-            } catch {
+            } catch (error) {
               failed++;
+              // Capture error message if available
+              if (error instanceof ApiError) {
+                const errorMsg = error.detail || error.message;
+                if (errorMsg && !errorMessages.includes(errorMsg)) {
+                  errorMessages.push(errorMsg);
+                }
+              } else if (error.message) {
+                if (!errorMessages.includes(error.message)) {
+                  errorMessages.push(error.message);
+                }
+              }
             }
           }
           break;
@@ -104,8 +116,18 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
                 total: selectedSongs.length,
                 message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
               });
-            } catch {
+            } catch (error) {
               failed++;
+              if (error instanceof ApiError) {
+                const errorMsg = error.detail || error.message;
+                if (errorMsg && !errorMessages.includes(errorMsg)) {
+                  errorMessages.push(errorMsg);
+                }
+              } else if (error.message) {
+                if (!errorMessages.includes(error.message)) {
+                  errorMessages.push(error.message);
+                }
+              }
             }
           }
           break;
@@ -127,17 +149,30 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
               );
 
               if (targetUser) {
-                await apiPatch(`/songs/${id}/`, { user_id: targetUser.id });
+                await apiPatch(`/songs/${id}`, { user_id: targetUser.id });
               } else {
                 failed++;
+                if (!errorMessages.includes(`User "${inputValue}" not found`)) {
+                  errorMessages.push(`User "${inputValue}" not found`);
+                }
               }
               setProgress({
                 current: i + 1,
                 total: selectedSongs.length,
                 message: `Updated ${i + 1} of ${selectedSongs.length} songs`,
               });
-            } catch {
+            } catch (error) {
               failed++;
+              if (error instanceof ApiError) {
+                const errorMsg = error.detail || error.message;
+                if (errorMsg && !errorMessages.includes(errorMsg)) {
+                  errorMessages.push(errorMsg);
+                }
+              } else if (error.message) {
+                if (!errorMessages.includes(error.message)) {
+                  errorMessages.push(error.message);
+                }
+              }
             }
           }
           break;
@@ -202,14 +237,34 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
             console.error("Bulk enhance error:", error);
             failed = selectedSongs.length;
             setProgress({ current: 0, total: 0, message: "" });
+            if (error instanceof ApiError) {
+              const errorMsg = error.detail || error.message;
+              if (errorMsg && !errorMessages.includes(errorMsg)) {
+                errorMessages.push(errorMsg);
+              }
+            } else if (error.message) {
+              if (!errorMessages.includes(error.message)) {
+                errorMessages.push(error.message);
+              }
+            }
           }
           break;
 
         case "bulk_delete":
           try {
             await apiPost("/songs/bulk-delete/", { ids: selectedSongs });
-          } catch {
+          } catch (error) {
             failed = selectedSongs.length;
+            if (error instanceof ApiError) {
+              const errorMsg = error.detail || error.message;
+              if (errorMsg && !errorMessages.includes(errorMsg)) {
+                errorMessages.push(errorMsg);
+              }
+            } else if (error.message) {
+              if (!errorMessages.includes(error.message)) {
+                errorMessages.push(error.message);
+              }
+            }
           }
           break;
 
@@ -226,9 +281,19 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
               total: selectedSongs.length,
               message: "Cleaning complete!",
             });
-          } catch {
+          } catch (error) {
             failed = selectedSongs.length;
             setProgress({ current: 0, total: 0, message: "" });
+            if (error instanceof ApiError) {
+              const errorMsg = error.detail || error.message;
+              if (errorMsg && !errorMessages.includes(errorMsg)) {
+                errorMessages.push(errorMsg);
+              }
+            } else if (error.message) {
+              if (!errorMessages.includes(error.message)) {
+                errorMessages.push(error.message);
+              }
+            }
           }
           break;
 
@@ -243,10 +308,35 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           "success"
         );
       } else {
-        window.showNotification(`Failed for ${failed} song(s).`, "error");
+        // Build a user-friendly error message
+        let errorMessage = `Failed to update ${failed} of ${selectedSongs.length} song(s).`;
+        
+        if (errorMessages.length > 0) {
+          // Show the first error message (or combine if multiple unique errors)
+          const primaryError = errorMessages[0];
+          if (errorMessages.length === 1) {
+            errorMessage = `Bulk edit failed: ${primaryError}`;
+          } else {
+            errorMessage = `Bulk edit failed: ${primaryError} (and ${errorMessages.length - 1} other error${errorMessages.length - 1 > 1 ? 's' : ''})`;
+          }
+        } else {
+          // Fallback if we couldn't extract error messages
+          errorMessage = `Bulk edit failed for ${failed} song(s). Please try again.`;
+        }
+        
+        window.showNotification(errorMessage, "error");
       }
     } catch (error) {
-      window.showNotification("Action failed.", "error");
+      // Handle top-level errors (e.g., from bulk_enhance, bulk_delete, etc.)
+      let errorMessage = "Bulk edit action failed.";
+      
+      if (error instanceof ApiError) {
+        errorMessage = error.detail || error.message || errorMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      window.showNotification(errorMessage, "error");
     }
 
     setLoading(false);

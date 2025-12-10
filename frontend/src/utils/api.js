@@ -1,5 +1,15 @@
 import { API_BASE_URL } from "../config";
 
+// Custom error class for API errors
+export class ApiError extends Error {
+  constructor(message, status, detail) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 // Get token from localStorage
 const getToken = () => {
   return localStorage.getItem("token");
@@ -114,9 +124,33 @@ export const apiCall = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.detail || `HTTP error! status: ${response.status}`
+      // Try to parse error response as JSON
+      let errorData = {};
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      
+      try {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          errorData = await response.json();
+          // FastAPI typically returns errors in { detail: "message" } format
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } else {
+          // Try to get text response as fallback
+          const textResponse = await response.text();
+          if (textResponse) {
+            errorMessage = textResponse;
+          }
+        }
+      } catch (parseError) {
+        // If JSON parsing fails, use default error message
+        console.error("Failed to parse error response:", parseError);
+      }
+      
+      // Throw structured API error with status code and message
+      throw new ApiError(
+        errorMessage,
+        response.status,
+        errorData.detail || errorData.message
       );
     }
 
@@ -130,6 +164,24 @@ export const apiCall = async (endpoint, options = {}) => {
 
     return await response.json();
   } catch (error) {
+    // If it's already an ApiError, re-throw it
+    if (error instanceof ApiError) {
+      console.error("API call failed:", error.message, `Status: ${error.status}`);
+      throw error;
+    }
+    
+    // For network errors (TypeError: Failed to fetch, etc.), wrap in ApiError
+    // but mark as network error (no status code)
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      console.error("API call failed: Network error", error);
+      throw new ApiError(
+        "Network error: Could not reach the server. Please check your connection.",
+        null,
+        null
+      );
+    }
+    
+    // For other errors, re-throw as-is
     console.error("API call failed:", error);
     throw error;
   }

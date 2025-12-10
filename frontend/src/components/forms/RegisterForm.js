@@ -18,11 +18,8 @@ const RegisterForm = () => {
     if (pwd.length === 0) {
       return "";
     }
-    if (pwd.length < 8) {
-      return "Password must be at least 8 characters long";
-    }
-    if (!/[A-Za-z]/.test(pwd) || !/\d/.test(pwd)) {
-      return "Password must contain at least one letter and one number";
+    if (pwd.length < 6) {
+      return "Password must be at least 6 characters long";
     }
     return "";
   };
@@ -199,7 +196,7 @@ const RegisterForm = () => {
                 fontSize: "1rem",
                 boxSizing: "border-box",
               }}
-              placeholder="Choose a password (min 8 characters)"
+              placeholder="Choose a password (min 6 characters)"
             />
             {passwordError && (
               <div
@@ -225,7 +222,7 @@ const RegisterForm = () => {
             )}
             {password.length === 0 && (
               <small style={{ color: "#666", fontSize: "0.8rem", display: "block", marginTop: "0.25rem" }}>
-                At least 8 characters with letters and numbers
+                At least 6 characters
               </small>
             )}
           </div>

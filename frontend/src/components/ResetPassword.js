@@ -20,11 +20,8 @@ const ResetPassword = () => {
   }, [token]);
 
   const validatePassword = (password) => {
-    if (password.length < 8) {
-      return "Password must be at least 8 characters long";
-    }
-    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      return "Password must contain at least one letter and one number";
+    if (password.length < 6) {
+      return "Password must be at least 6 characters long";
     }
     return null;
   };
@@ -219,7 +216,7 @@ const ResetPassword = () => {
                 placeholder="Enter new password"
               />
               <small style={{ color: "#666", fontSize: "0.8rem" }}>
-                At least 8 characters with letters and numbers
+                At least 6 characters
               </small>
             </div>
 

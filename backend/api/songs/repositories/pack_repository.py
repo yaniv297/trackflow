@@ -33,15 +33,13 @@ class PackRepository:
         self,
         name: str,
         user_id: int,
-        priority: Optional[int] = None,
-        status: str = "in_progress"
+        priority: Optional[int] = None
     ) -> Pack:
         """Create a new pack."""
         pack = Pack(
             name=name,
             user_id=user_id,
-            priority=priority,
-            status=status
+            priority=priority
         )
         self.db.add(pack)
         self.db.commit()

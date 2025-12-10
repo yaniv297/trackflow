@@ -696,8 +696,7 @@ class SongService:
         else:
             optional_pack = self.pack_repo.create_pack(
                 name=optional_pack_name,
-                user_id=pack.user_id,
-                status="future_plans"
+                user_id=pack.user_id
             )
         
         # Move optional songs to the optional pack and set status to future_plans

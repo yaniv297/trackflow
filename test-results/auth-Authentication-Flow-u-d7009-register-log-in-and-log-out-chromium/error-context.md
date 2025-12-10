@@ -1,0 +1,326 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6] [cursor=pointer]: TrackFlow
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Future" [ref=e9] [cursor=pointer]:
+          - /url: /future
+        - link "WIP" [ref=e10] [cursor=pointer]:
+          - /url: /wip
+        - link "Released" [ref=e11] [cursor=pointer]:
+          - /url: /released
+        - button "New ▼" [ref=e13] [cursor=pointer]:
+          - text: New
+          - generic [ref=e14]: ▼
+        - button "Stats ▼" [ref=e16] [cursor=pointer]:
+          - text: Stats
+          - generic [ref=e17]: ▼
+        - button "Community ▼" [ref=e19] [cursor=pointer]:
+          - text: Community
+          - generic [ref=e20]: ▼
+        - button "Help ▼" [ref=e22] [cursor=pointer]:
+          - text: Help
+          - generic [ref=e23]: ▼
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic "View your profile" [ref=e26] [cursor=pointer]: testing
+        - generic "View achievements" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⭐
+          - generic [ref=e29]: "10"
+          - generic [ref=e30]: pts
+      - button "🔔 1" [ref=e32] [cursor=pointer]:
+        - generic [ref=e33]: 🔔
+        - generic [ref=e34]: "1"
+      - button "⚙️ ▼" [ref=e36] [cursor=pointer]:
+        - text: ⚙️
+        - generic [ref=e37]: ▼
+  - generic [ref=e40]:
+    - generic [ref=e42]:
+      - generic [ref=e44]:
+        - heading "Pick up where you left off" [level=2] [ref=e45]
+        - button "Collapse suggestions" [ref=e46] [cursor=pointer]: ▲
+      - generic [ref=e48]:
+        - paragraph [ref=e49]: No work suggestions available
+        - button "Start working" [ref=e50] [cursor=pointer]
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - heading "Latest Updates" [level=2] [ref=e54]
+          - button "View All" [ref=e55] [cursor=pointer]
+        - article [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e60]: ▶
+            - heading "Welcome to TrackFlow!" [level=3] [ref=e61]
+            - generic [ref=e62]:
+              - generic [ref=e63]: Nov 20, 2024
+              - button "↻" [ref=e64] [cursor=pointer]
+          - paragraph [ref=e65]: TrackFlow is your complete music production management system. Track your projects, collaborate with others, and see how you rank on the community leaderboard!
+          - generic [ref=e66]:
+            - generic [ref=e67]: By TrackFlow Team
+            - generic [ref=e68]: Announcement
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - heading "Latest Releases (Last Month)" [level=2] [ref=e72]
+            - generic [ref=e73]: Showing 1-5 of 5 releases
+          - generic [ref=e74]:
+            - button "See All Releases →" [ref=e75] [cursor=pointer]
+            - link "Find More on RhythmVerse →" [ref=e76] [cursor=pointer]:
+              - /url: http://rhythmverse.co/
+        - generic [ref=e77]:
+          - button "← Previous" [ref=e78] [cursor=pointer]
+          - generic [ref=e79]:
+            - generic [ref=e80]: 3 of 5 releases
+            - generic [ref=e81]:
+              - button "Go to release 1" [ref=e82] [cursor=pointer]
+              - button "Go to release 2" [ref=e83] [cursor=pointer]
+              - button "Go to release 3" [ref=e84] [cursor=pointer]
+              - button "Go to release 4" [ref=e85] [cursor=pointer]
+              - button "Go to release 5" [ref=e86] [cursor=pointer]
+          - button "Next →" [ref=e87] [cursor=pointer]
+        - article [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - button "Previous cover" [ref=e93] [cursor=pointer]: ‹
+              - img "Album cover 1 of 4" [ref=e95]
+              - button "Next cover" [ref=e96] [cursor=pointer]: ›
+              - generic [ref=e97]:
+                - button "Go to cover 1" [ref=e98] [cursor=pointer]
+                - button "Go to cover 2" [ref=e99] [cursor=pointer]
+                - button "Go to cover 3" [ref=e100] [cursor=pointer]
+                - button "Go to cover 4" [ref=e101] [cursor=pointer]
+            - generic [ref=e102]:
+              - generic [ref=e103]:
+                - heading "db" [level=3] [ref=e104]
+                - generic [ref=e106]: by testplan2
+              - generic [ref=e107]:
+                - generic [ref=e108]: 4 songs
+                - generic [ref=e109]: Dec 3, 2025
+          - generic [ref=e111]:
+            - text: "Players whose roles were built around being a “free creator” but couldn’t adjust to pressing structures, defensive demands, or multi-positional flexibility. 1. James Rodríguez Archetypal case: brilliant in a traditional 10 role, less effective in modern pressing or wide roles. Struggled at Real M..."
+            - button "Read more" [ref=e112] [cursor=pointer]
+          - link "⬇ Download Pack" [ref=e114] [cursor=pointer]:
+            - /url: https://www.youtube.com/watch?v=F8dHtTVTqYc
+            - generic [ref=e115]: ⬇
+            - text: Download Pack
+          - generic [ref=e116]:
+            - heading "Songs (4)" [level=4] [ref=e117]
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - generic [ref=e120]: "1."
+                - img "Neil Young - Harvest cover" [ref=e121]
+                - generic [ref=e122]:
+                  - generic [ref=e123]: Harvest
+                  - generic [ref=e124]: Neil Young
+              - generic [ref=e125]:
+                - generic [ref=e126]: "2."
+                - img "Neil Young - Old Man cover" [ref=e127]
+                - generic [ref=e128]:
+                  - generic [ref=e129]: Old Man
+                  - generic [ref=e130]: Neil Young
+              - generic [ref=e131]:
+                - generic [ref=e132]: "3."
+                - img "David Bowie - Changes cover" [ref=e133]
+                - generic [ref=e134]:
+                  - generic [ref=e135]: Changes
+                  - generic [ref=e136]: David Bowie
+                - link "⬇ Download" [ref=e137] [cursor=pointer]:
+                  - /url: https://www.last.fm/user/yaniv297
+                  - generic [ref=e138]: ⬇
+                  - generic [ref=e139]: Download
+              - generic [ref=e140]:
+                - generic [ref=e141]: "4."
+                - img "David Bowie - Afraid cover" [ref=e142]
+                - generic [ref=e143]:
+                  - generic [ref=e144]: Afraid
+                  - generic [ref=e145]: David Bowie
+                - link "⬇ Download" [ref=e146] [cursor=pointer]:
+                  - /url: https://www.last.fm/user/yaniv297
+                  - generic [ref=e147]: ⬇
+                  - generic [ref=e148]: Download
+          - iframe [ref=e151]:
+            - generic "YouTube Video Player" [ref=f2e3]:
+              - generic [ref=f2e5]:
+                - link "Photo image of Rock Music" [ref=f2e8] [cursor=pointer]:
+                  - /url: https://www.youtube.com/channel/UC9Jo4SSvN6wOiOto0Zz1TkA?embeds_referring_euri=http%3A%2F%2Flocalhost%3A3000%2F
+                - link "Bruce Springsteen - Meet me in the city - Live - Pittsburgh 2016" [ref=f2e11] [cursor=pointer]:
+                  - /url: https://www.youtube.com/watch?v=DzygIbyyl9g
+                - button "Share" [ref=f2e13] [cursor=pointer]:
+                  - generic [ref=f2e14]:
+                    - img
+                  - generic [ref=f2e15]: Share
+              - button "Play" [ref=f2e18] [cursor=pointer]:
+                - img
+              - link "Watch on YouTube" [ref=f2e19] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=DzygIbyyl9g&embeds_referring_euri=http%3A%2F%2Flocalhost%3A3000%2F
+                - generic [ref=f2e20]: Watch on
+                - generic [ref=f2e21]:
+                  - img
+    - generic [ref=e152]:
+      - generic [ref=e154]:
+        - heading "Community WIPs" [level=2] [ref=e155]
+        - generic [ref=e156]:
+          - generic [ref=e157]:
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - heading "Starman" [level=4] [ref=e160]
+                - paragraph [ref=e161]: by David Bowie
+              - img "Album Cover" [ref=e162]
+            - generic [ref=e164]:
+              - generic [ref=e165]: by yaniv297
+              - generic [ref=e166]: 1 weeks ago
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - generic [ref=e169]:
+                - heading "White Line" [level=4] [ref=e170]
+                - paragraph [ref=e171]: by Neil Young
+              - img "Album Cover" [ref=e172]
+            - generic [ref=e174]:
+              - generic [ref=e175]: by yaniv297
+              - generic [ref=e176]: 1 weeks ago
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - generic [ref=e179]:
+                - heading "All the World is Green" [level=4] [ref=e180]
+                - paragraph [ref=e181]: by Tom Waits
+              - img "Album Cover" [ref=e182]
+            - generic [ref=e184]:
+              - generic [ref=e185]: by yaniv297
+              - generic [ref=e186]: 1 weeks ago
+          - generic [ref=e187]:
+            - generic [ref=e188]:
+              - generic [ref=e189]:
+                - heading "Alabama" [level=4] [ref=e190]
+                - paragraph [ref=e191]: by Neil Young
+              - img "Album Cover" [ref=e192]
+            - generic [ref=e194]:
+              - generic [ref=e195]: by testplan2
+              - generic [ref=e196]: 5 days ago
+          - generic [ref=e197]:
+            - generic [ref=e198]:
+              - generic [ref=e199]:
+                - heading "Bad Guy" [level=4] [ref=e200]
+                - paragraph [ref=e201]: by Billie Eilish
+              - img "Album Cover" [ref=e202]
+            - generic [ref=e204]:
+              - generic [ref=e205]: by testplan2
+              - generic [ref=e206]: 5 days ago
+        - button "View Community →" [ref=e208] [cursor=pointer]
+      - generic [ref=e209]:
+        - heading "Almost There!" [level=3] [ref=e210]
+        - generic [ref=e211]:
+          - generic [ref=e213]:
+            - generic [ref=e214]: TrackFlow Veteran
+            - generic [ref=e215]: Log in 100 days in a row
+            - generic [ref=e216]:
+              - generic [ref=e217]: 0 / 100
+              - generic [ref=e218]: 0%
+              - generic [ref=e219]: "+250"
+          - generic [ref=e221]:
+            - generic [ref=e222]: Devoted
+            - generic [ref=e223]: Log in 60 days in a row
+            - generic [ref=e224]:
+              - generic [ref=e225]: 0 / 60
+              - generic [ref=e226]: 0%
+              - generic [ref=e227]: "+100"
+          - generic [ref=e229]:
+            - generic [ref=e230]: Spotify Power User
+            - generic [ref=e231]: Import 10 playlists from Spotify
+            - generic [ref=e232]:
+              - generic [ref=e233]: 0 / 10
+              - generic [ref=e234]: 0%
+              - generic [ref=e235]: "+50"
+        - link "View all →" [ref=e237] [cursor=pointer]:
+          - /url: /achievements
+      - generic [ref=e238]:
+        - heading "Community Leaderboard" [level=2] [ref=e239]
+        - generic [ref=e241]:
+          - generic [ref=e242]:
+            - generic [ref=e243]: ♥
+            - generic "Hover for quick info, click to view full profile" [ref=e244] [cursor=pointer]: yaniv297
+            - generic [ref=e245]: 4100 pts
+          - generic [ref=e246]:
+            - generic [ref=e247]: ♠
+            - generic "Hover for quick info, click to view full profile" [ref=e248] [cursor=pointer]: jphn
+            - generic [ref=e249]: 2000 pts
+          - generic [ref=e250]:
+            - generic [ref=e251]: ♦
+            - generic "Hover for quick info, click to view full profile" [ref=e252] [cursor=pointer]: testplan2
+            - generic [ref=e253]: 1870 pts
+          - generic [ref=e254]:
+            - generic [ref=e255]: "#4"
+            - generic "Hover for quick info, click to view full profile" [ref=e256] [cursor=pointer]: achiever3
+            - generic [ref=e257]: 660 pts
+          - generic [ref=e258]:
+            - generic [ref=e259]: "#5"
+            - generic "Hover for quick info, click to view full profile" [ref=e260] [cursor=pointer]: Kamotch
+            - generic [ref=e261]: 470 pts
+          - generic [ref=e262]:
+            - generic [ref=e263]: "#6"
+            - generic "Hover for quick info, click to view full profile" [ref=e264] [cursor=pointer]: BornGamerRob
+            - generic [ref=e265]: 355 pts
+          - generic [ref=e266]:
+            - generic [ref=e267]: "#7"
+            - generic "Hover for quick info, click to view full profile" [ref=e268] [cursor=pointer]: Bat Ramps
+            - generic [ref=e269]: 245 pts
+          - generic [ref=e270]:
+            - generic [ref=e271]: "#24"
+            - generic "Hover for quick info, click to view full profile" [ref=e272] [cursor=pointer]: 👤 testing
+            - generic [ref=e273]: 10 pts
+      - generic [ref=e274]:
+        - heading "Tips & Tricks" [level=2] [ref=e275]
+        - article [ref=e278] [cursor=pointer]:
+          - generic [ref=e279]:
+            - generic [ref=e280]:
+              - heading "Progress Bar Colors" [level=4] [ref=e281]
+              - generic [ref=e282]: visual
+            - button "↻" [ref=e283]
+          - paragraph [ref=e285]: Progress bars change color based on completion percentage, providing visual feedback at a glance.
+      - generic [ref=e287]:
+        - heading "Latest Feature Requests" [level=2] [ref=e288]
+        - generic [ref=e289]:
+          - generic [ref=e290]:
+            - generic [ref=e292]:
+              - button "▲" [ref=e293] [cursor=pointer]
+              - generic [ref=e294]: "1"
+              - button "▼" [ref=e295] [cursor=pointer]
+            - generic [ref=e296]:
+              - generic [ref=e297]:
+                - generic [ref=e298]: 💡
+                - heading "A cool feature" [level=4] [ref=e299]
+              - paragraph [ref=e300]:
+                - generic [ref=e301]: by yaniv297
+                - generic [ref=e302]: 11/16/2025
+          - generic [ref=e303]:
+            - generic [ref=e305]:
+              - button "▲" [ref=e306] [cursor=pointer]
+              - generic [ref=e307]: "1"
+              - button "▼" [ref=e308] [cursor=pointer]
+            - generic [ref=e309]:
+              - generic [ref=e310]:
+                - generic [ref=e311]: 💡
+                - heading "Another feature" [level=4] [ref=e312]
+              - paragraph [ref=e313]:
+                - generic [ref=e314]: by yaniv297
+                - generic [ref=e315]: 11/16/2025
+        - button "View All Requests →" [ref=e317] [cursor=pointer]
+      - generic [ref=e318]:
+        - generic [ref=e319]:
+          - heading "Featured Resource" [level=2] [ref=e320]
+          - button "↻" [ref=e321] [cursor=pointer]
+        - generic [ref=e322]:
+          - generic [ref=e323]:
+            - heading "Magma" [level=4] [ref=e324]
+            - generic [ref=e325]: Software
+          - paragraph [ref=e326]: Compiler that converts your authored songs into playable .con files for Rock Band 3. Required for finalizing any custom song project.
+          - generic [ref=e327]:
+            - link "Visit ↗" [ref=e328] [cursor=pointer]:
+              - /url: https://rhythmgamingworld.com/wp-content/uploads/2024/05/MagmaC3v335.zip
+            - link "View All" [ref=e329] [cursor=pointer]:
+              - /url: /resources
+```

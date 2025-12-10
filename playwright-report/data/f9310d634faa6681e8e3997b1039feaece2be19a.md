@@ -1,0 +1,169 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6] [cursor=pointer]: TrackFlow
+        - generic [ref=e7]:
+          - link "Home" [ref=e8] [cursor=pointer]:
+            - /url: /
+          - link "Future" [ref=e9] [cursor=pointer]:
+            - /url: /future
+          - link "WIP" [ref=e10] [cursor=pointer]:
+            - /url: /wip
+          - link "Released" [ref=e11] [cursor=pointer]:
+            - /url: /released
+          - button "New ▼" [ref=e13] [cursor=pointer]:
+            - text: New
+            - generic [ref=e14]: ▼
+          - button "Stats ▼" [ref=e16] [cursor=pointer]:
+            - text: Stats
+            - generic [ref=e17]: ▼
+          - button "Community ▼" [ref=e19] [cursor=pointer]:
+            - text: Community
+            - generic [ref=e20]: ▼
+          - button "Help ▼" [ref=e22] [cursor=pointer]:
+            - text: Help
+            - generic [ref=e23]: ▼
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic "View your profile" [ref=e26] [cursor=pointer]: testing
+          - generic "View achievements" [ref=e27] [cursor=pointer]:
+            - generic [ref=e28]: ⭐
+            - generic [ref=e29]: "20"
+            - generic [ref=e30]: pts
+        - button "🔔 2" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: 🔔
+          - generic [ref=e34]: "2"
+        - button "⚙️ ▼" [ref=e36] [cursor=pointer]:
+          - text: ⚙️
+          - generic [ref=e37]: ▼
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - heading "Future Plans" [level=2] [ref=e41]
+        - generic [ref=e42]:
+          - textbox "Search title, artist, album, or collaborators..." [ref=e43]
+          - combobox [ref=e45] [cursor=pointer]:
+            - 'option "Group: Pack" [selected]'
+            - 'option "Group: Artist"'
+          - combobox [ref=e47] [cursor=pointer]:
+            - 'option "Sort: A-Z"'
+            - 'option "Sort: Priority" [selected]'
+          - button "🌐 Make All Public" [ref=e48] [cursor=pointer]
+          - button "Collapse All" [ref=e49] [cursor=pointer]
+          - button "Columns (10)" [ref=e51] [cursor=pointer]:
+            - img [ref=e52]
+            - text: Columns (10)
+            - img [ref=e54]
+      - table [ref=e57]:
+        - rowgroup [ref=e58]:
+          - row "Toggle pack (no pack) (2)" [ref=e59]:
+            - cell [ref=e60]:
+              - checkbox [ref=e61] [cursor=pointer]
+            - cell "Toggle pack (no pack) (2)" [ref=e62]:
+              - generic [ref=e63]:
+                - button "Toggle pack" [ref=e64] [cursor=pointer]: ▼
+                - generic [ref=e66]: (no pack) (2)
+          - row "Cover Title Artist Album Owner Year Notes Collaborations Visibility Actions" [ref=e67]:
+            - columnheader [ref=e68]
+            - columnheader "Cover" [ref=e69]
+            - columnheader "Title" [ref=e70] [cursor=pointer]
+            - columnheader "Artist" [ref=e71] [cursor=pointer]
+            - columnheader "Album" [ref=e72] [cursor=pointer]
+            - columnheader "Owner" [ref=e73]
+            - columnheader "Year" [ref=e74] [cursor=pointer]
+            - columnheader "Notes" [ref=e75]
+            - columnheader "Collaborations" [ref=e76]
+            - columnheader "Visibility" [ref=e77]
+            - columnheader "Actions" [ref=e78]
+          - row "cover ✏️ Achievement Test 1765294974625 ✏️ Dave ✏️ My 24th Birthday ✏️ testing 2022 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e79]:
+            - cell [ref=e80]:
+              - checkbox [ref=e81] [cursor=pointer]
+            - cell "cover ✏️" [ref=e82]:
+              - generic [ref=e83] [cursor=pointer]:
+                - img "cover" [ref=e84]
+                - text: ✏️
+            - cell "Achievement Test 1765294974625 ✏️" [ref=e85]:
+              - generic [ref=e86] [cursor=pointer]:
+                - generic [ref=e87]: Achievement Test 1765294974625
+                - text: ✏️
+            - cell "Dave ✏️" [ref=e88]:
+              - generic [ref=e89] [cursor=pointer]:
+                - generic [ref=e90]: Dave
+                - text: ✏️
+            - cell "My 24th Birthday ✏️" [ref=e91]:
+              - generic [ref=e92] [cursor=pointer]:
+                - generic [ref=e93]: My 24th Birthday
+                - text: ✏️
+            - cell "testing" [ref=e94]:
+              - generic "Click to view profile" [ref=e95] [cursor=pointer]: testing
+            - cell "2022 ✏️" [ref=e96]:
+              - generic [ref=e97] [cursor=pointer]:
+                - generic [ref=e98]: "2022"
+                - text: ✏️
+            - cell "Click to add notes... ✏️" [ref=e99]:
+              - generic [ref=e100] [cursor=pointer]:
+                - generic [ref=e101]: Click to add notes...
+                - text: ✏️
+            - cell "Managed via pack" [ref=e102]:
+              - generic [ref=e104]: Managed via pack
+            - cell "🔒" [ref=e105]:
+              - button "🔒" [ref=e106] [cursor=pointer]
+            - cell "Enhance ❌" [ref=e107]:
+              - generic [ref=e108]:
+                - button "Enhance" [ref=e109]
+                - button "❌" [ref=e110] [cursor=pointer]
+          - row "cover ✏️ Notification Test 1765294971838 ✏️ Sigma ✏️ SOUNDBOY ✏️ testing 2025 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e111]:
+            - cell [ref=e112]:
+              - checkbox [ref=e113] [cursor=pointer]
+            - cell "cover ✏️" [ref=e114]:
+              - generic [ref=e115] [cursor=pointer]:
+                - img "cover" [ref=e116]
+                - text: ✏️
+            - cell "Notification Test 1765294971838 ✏️" [ref=e117]:
+              - generic [ref=e118] [cursor=pointer]:
+                - generic [ref=e119]: Notification Test 1765294971838
+                - text: ✏️
+            - cell "Sigma ✏️" [ref=e120]:
+              - generic [ref=e121] [cursor=pointer]:
+                - generic [ref=e122]: Sigma
+                - text: ✏️
+            - cell "SOUNDBOY ✏️" [ref=e123]:
+              - generic [ref=e124] [cursor=pointer]:
+                - generic [ref=e125]: SOUNDBOY
+                - text: ✏️
+            - cell "testing" [ref=e126]:
+              - generic "Click to view profile" [ref=e127] [cursor=pointer]: testing
+            - cell "2025 ✏️" [ref=e128]:
+              - generic [ref=e129] [cursor=pointer]:
+                - generic [ref=e130]: "2025"
+                - text: ✏️
+            - cell "Click to add notes... ✏️" [ref=e131]:
+              - generic [ref=e132] [cursor=pointer]:
+                - generic [ref=e133]: Click to add notes...
+                - text: ✏️
+            - cell "Managed via pack" [ref=e134]:
+              - generic [ref=e136]: Managed via pack
+            - cell "🔒" [ref=e137]:
+              - button "🔒" [ref=e138] [cursor=pointer]
+            - cell "Enhance ❌" [ref=e139]:
+              - generic [ref=e140]:
+                - button "Enhance" [ref=e141]
+                - button "❌" [ref=e142] [cursor=pointer]
+  - generic [ref=e143]:
+    - generic [ref=e144]:
+      - generic [ref=e145]: 💭
+      - generic [ref=e146]:
+        - generic [ref=e147]: Achievement Unlocked!
+        - generic [ref=e148]: Dreamer
+      - button "×" [ref=e149] [cursor=pointer]
+    - generic [ref=e150]:
+      - generic [ref=e151]: Add your first song to Future Plans
+      - generic [ref=e153]:
+        - generic [ref=e154]:
+          - strong [ref=e155]: "+10"
+          - text: points
+        - generic [ref=e156]: common
+```

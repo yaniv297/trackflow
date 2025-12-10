@@ -1,0 +1,332 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6] [cursor=pointer]: TrackFlow
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Future" [ref=e9] [cursor=pointer]:
+          - /url: /future
+        - link "WIP" [ref=e10] [cursor=pointer]:
+          - /url: /wip
+        - link "Released" [ref=e11] [cursor=pointer]:
+          - /url: /released
+        - button "New ▼" [ref=e13] [cursor=pointer]:
+          - text: New
+          - generic [ref=e14]: ▼
+        - button "Stats ▼" [ref=e16] [cursor=pointer]:
+          - text: Stats
+          - generic [ref=e17]: ▼
+        - button "Community ▼" [ref=e19] [cursor=pointer]:
+          - text: Community
+          - generic [ref=e20]: ▼
+        - button "Help ▼" [ref=e22] [cursor=pointer]:
+          - text: Help
+          - generic [ref=e23]: ▼
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic "View your profile" [ref=e26] [cursor=pointer]: testing
+        - generic "View achievements" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⭐
+          - generic [ref=e29]: "20"
+          - generic [ref=e30]: pts
+      - button "🔔 2" [ref=e32] [cursor=pointer]:
+        - generic [ref=e33]: 🔔
+        - generic [ref=e34]: "2"
+      - button "⚙️ ▼" [ref=e36] [cursor=pointer]:
+        - text: ⚙️
+        - generic [ref=e37]: ▼
+  - generic [ref=e40]:
+    - generic [ref=e42]:
+      - generic [ref=e44]:
+        - heading "Pick up where you left off" [level=2] [ref=e45]
+        - button "Collapse suggestions" [ref=e46] [cursor=pointer]: ▲
+      - generic [ref=e48]:
+        - paragraph [ref=e49]: No work suggestions available
+        - button "Start working" [ref=e50] [cursor=pointer]
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - heading "Latest Updates" [level=2] [ref=e54]
+          - button "View All" [ref=e55] [cursor=pointer]
+        - article [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e60]: ▶
+            - heading "Welcome to TrackFlow!" [level=3] [ref=e61]
+            - generic [ref=e62]:
+              - generic [ref=e63]: Nov 20, 2024
+              - button "↻" [ref=e64] [cursor=pointer]
+          - paragraph [ref=e65]: TrackFlow is your complete music production management system. Track your projects, collaborate with others, and see how you rank on the community leaderboard!
+          - generic [ref=e66]:
+            - generic [ref=e67]: By TrackFlow Team
+            - generic [ref=e68]: Announcement
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - heading "Latest Releases (Last Month)" [level=2] [ref=e72]
+            - generic [ref=e73]: Showing 1-5 of 5 releases
+          - generic [ref=e74]:
+            - button "See All Releases →" [ref=e75] [cursor=pointer]
+            - link "Find More on RhythmVerse →" [ref=e76] [cursor=pointer]:
+              - /url: http://rhythmverse.co/
+        - generic [ref=e77]:
+          - button "← Previous" [ref=e78] [cursor=pointer]
+          - generic [ref=e79]:
+            - generic [ref=e80]: 2 of 5 releases
+            - generic [ref=e81]:
+              - button "Go to release 1" [ref=e82] [cursor=pointer]
+              - button "Go to release 2" [ref=e83] [cursor=pointer]
+              - button "Go to release 3" [ref=e84] [cursor=pointer]
+              - button "Go to release 4" [ref=e85] [cursor=pointer]
+              - button "Go to release 5" [ref=e86] [cursor=pointer]
+          - button "Next →" [ref=e87] [cursor=pointer]
+        - article [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - button "Previous cover" [ref=e93] [cursor=pointer]: ‹
+              - img "Album cover 1 of 2" [ref=e95]
+              - button "Next cover" [ref=e96] [cursor=pointer]: ›
+              - generic [ref=e97]:
+                - button "Go to cover 1" [ref=e98] [cursor=pointer]
+                - button "Go to cover 2" [ref=e99] [cursor=pointer]
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - heading "🎸 Wilco Rock Band Pack – “Misfits & Melodies”" [level=3] [ref=e102]
+                - generic [ref=e104]: by testplan2
+              - generic [ref=e105]:
+                - generic [ref=e106]: 4 songs
+                - generic [ref=e107]: Dec 4, 2025
+          - generic [ref=e109]:
+            - text: Step into the beautifully ragged world of Wilco with this four-song custom pack, showcasing the band’s evolution from scrappy alt-country outsiders to avant-rock craftsmen. From explosive barn-burners to fragile sonic tapestries, this pack offers a dynamic mix for players who want both energy and em...
+            - button "Read more" [ref=e110] [cursor=pointer]
+          - generic [ref=e111]:
+            - heading "Songs (4)" [level=4] [ref=e112]
+            - generic [ref=e113]:
+              - generic [ref=e114]:
+                - generic [ref=e115]: "1."
+                - img "Wilco - Monday cover" [ref=e116]
+                - generic [ref=e117]:
+                  - generic [ref=e118]: Monday
+                  - generic [ref=e119]: Wilco
+                - link "⬇ Download" [ref=e120] [cursor=pointer]:
+                  - /url: https://www.last.fm/user/yaniv297/library
+                  - generic [ref=e121]: ⬇
+                  - generic [ref=e122]: Download
+              - generic [ref=e123]:
+                - generic [ref=e124]: "2."
+                - img "Wilco - She’s a Jar cover" [ref=e125]
+                - generic [ref=e126]:
+                  - generic [ref=e127]: She’s a Jar
+                  - generic [ref=e128]: Wilco
+                - link "⬇ Download" [ref=e129] [cursor=pointer]:
+                  - /url: https://www.last.fm/user/yaniv297/library
+                  - generic [ref=e130]: ⬇
+                  - generic [ref=e131]: Download
+              - generic [ref=e132]:
+                - generic [ref=e133]: "3."
+                - img "Wilco - Someday Soon cover" [ref=e134]
+                - generic [ref=e135]:
+                  - generic [ref=e136]: Someday Soon
+                  - generic [ref=e137]: Wilco
+                - link "⬇ Download" [ref=e138] [cursor=pointer]:
+                  - /url: https://www.last.fm/user/yaniv297/library
+                  - generic [ref=e139]: ⬇
+                  - generic [ref=e140]: Download
+              - generic [ref=e141]:
+                - generic [ref=e142]: "4."
+                - img "Wilco - Misunderstood cover" [ref=e143]
+                - generic [ref=e144]:
+                  - generic [ref=e145]: Misunderstood
+                  - generic [ref=e146]: Wilco
+                - link "⬇ Download" [ref=e147] [cursor=pointer]:
+                  - /url: https://www.last.fm/user/yaniv297/library
+                  - generic [ref=e148]: ⬇
+                  - generic [ref=e149]: Download
+          - iframe [ref=e152]:
+            - generic "YouTube Video Player" [ref=f3e3]:
+              - generic [ref=f3e5]:
+                - link "Photo image of wilco" [ref=f3e8] [cursor=pointer]:
+                  - /url: https://www.youtube.com/channel/UCVdVWoOy-V2r2dcFsMAWN9Q?embeds_referring_euri=http%3A%2F%2Flocalhost%3A3000%2F
+                - link "WILCO - \"Monday\" (Live)" [ref=f3e11] [cursor=pointer]:
+                  - /url: https://www.youtube.com/watch?v=B24la7sQsCw
+                - button "Share" [ref=f3e13] [cursor=pointer]:
+                  - generic [ref=f3e14]:
+                    - img
+                  - generic [ref=f3e15]: Share
+              - button "Play" [ref=f3e18] [cursor=pointer]:
+                - img
+              - link "Watch on YouTube" [ref=f3e19] [cursor=pointer]:
+                - /url: https://www.youtube.com/watch?v=B24la7sQsCw&embeds_referring_euri=http%3A%2F%2Flocalhost%3A3000%2F
+                - generic [ref=f3e20]: Watch on
+                - generic [ref=f3e21]:
+                  - img
+    - generic [ref=e153]:
+      - generic [ref=e155]:
+        - heading "Community WIPs" [level=2] [ref=e156]
+        - generic [ref=e157]:
+          - generic [ref=e158]:
+            - generic [ref=e159]:
+              - generic [ref=e160]:
+                - heading "I Believe In You" [level=4] [ref=e161]
+                - paragraph [ref=e162]: by Neil Young
+              - img "Album Cover" [ref=e163]
+            - generic [ref=e165]:
+              - generic [ref=e166]: by yaniv297
+              - generic [ref=e167]: 1 weeks ago
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]:
+                - heading "Tears Before Bedtime" [level=4] [ref=e171]
+                - paragraph [ref=e172]: by Elvis Costello
+              - img "Album Cover" [ref=e173]
+            - generic [ref=e175]:
+              - generic [ref=e176]: by yaniv297
+              - generic [ref=e177]: 1 weeks ago
+          - generic [ref=e178]:
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - heading "Folkia" [level=4] [ref=e181]
+                - paragraph [ref=e182]: by Kaipa
+              - img "Album Cover" [ref=e183]
+            - generic [ref=e185]:
+              - generic [ref=e186]: by yaniv297
+              - generic [ref=e187]: 1 weeks ago
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - generic [ref=e190]:
+                - heading "We Can’t Be Beat" [level=4] [ref=e191]
+                - paragraph [ref=e192]: by The Walkmen
+              - img "Album Cover" [ref=e193]
+            - generic [ref=e195]:
+              - generic [ref=e196]: by jphn
+              - generic [ref=e197]: 2 weeks ago
+          - generic [ref=e198]:
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - heading "Janie, Don’t You Lose Heart" [level=4] [ref=e201]
+                - paragraph [ref=e202]: by Bruce Springsteen
+              - img "Album Cover" [ref=e203]
+            - generic [ref=e205]:
+              - generic [ref=e206]: by yaniv297
+              - generic [ref=e207]: 1 weeks ago
+        - button "View Community →" [ref=e209] [cursor=pointer]
+      - generic [ref=e210]:
+        - heading "Almost There!" [level=3] [ref=e211]
+        - generic [ref=e212]:
+          - generic [ref=e214]:
+            - generic [ref=e215]: Visionary
+            - generic [ref=e216]: Add 5 songs to Future Plans
+            - generic [ref=e217]:
+              - generic [ref=e218]: 2 / 5
+              - generic [ref=e219]: 40%
+              - generic [ref=e220]: "+10"
+          - generic [ref=e222]:
+            - generic [ref=e223]: Long Term Planner
+            - generic [ref=e224]: Add 10 songs to Future Plans
+            - generic [ref=e225]:
+              - generic [ref=e226]: 2 / 10
+              - generic [ref=e227]: 20%
+              - generic [ref=e228]: "+25"
+          - generic [ref=e230]:
+            - generic [ref=e231]: Strategic Thinker
+            - generic [ref=e232]: Add 25 songs to Future Plans
+            - generic [ref=e233]:
+              - generic [ref=e234]: 2 / 25
+              - generic [ref=e235]: 8%
+              - generic [ref=e236]: "+25"
+        - link "View all →" [ref=e238] [cursor=pointer]:
+          - /url: /achievements
+      - generic [ref=e239]:
+        - heading "Community Leaderboard" [level=2] [ref=e240]
+        - generic [ref=e242]:
+          - generic [ref=e243]:
+            - generic [ref=e244]: ♥
+            - generic "Hover for quick info, click to view full profile" [ref=e245] [cursor=pointer]: yaniv297
+            - generic [ref=e246]: 4100 pts
+          - generic [ref=e247]:
+            - generic [ref=e248]: ♠
+            - generic "Hover for quick info, click to view full profile" [ref=e249] [cursor=pointer]: jphn
+            - generic [ref=e250]: 2000 pts
+          - generic [ref=e251]:
+            - generic [ref=e252]: ♦
+            - generic "Hover for quick info, click to view full profile" [ref=e253] [cursor=pointer]: testplan2
+            - generic [ref=e254]: 1870 pts
+          - generic [ref=e255]:
+            - generic [ref=e256]: "#4"
+            - generic "Hover for quick info, click to view full profile" [ref=e257] [cursor=pointer]: achiever3
+            - generic [ref=e258]: 660 pts
+          - generic [ref=e259]:
+            - generic [ref=e260]: "#5"
+            - generic "Hover for quick info, click to view full profile" [ref=e261] [cursor=pointer]: Kamotch
+            - generic [ref=e262]: 470 pts
+          - generic [ref=e263]:
+            - generic [ref=e264]: "#6"
+            - generic "Hover for quick info, click to view full profile" [ref=e265] [cursor=pointer]: BornGamerRob
+            - generic [ref=e266]: 355 pts
+          - generic [ref=e267]:
+            - generic [ref=e268]: "#7"
+            - generic "Hover for quick info, click to view full profile" [ref=e269] [cursor=pointer]: Bat Ramps
+            - generic [ref=e270]: 245 pts
+          - generic [ref=e271]:
+            - generic [ref=e272]: "#19"
+            - generic "Hover for quick info, click to view full profile" [ref=e273] [cursor=pointer]: 👤 testing
+            - generic [ref=e274]: 20 pts
+      - generic [ref=e275]:
+        - heading "Tips & Tricks" [level=2] [ref=e276]
+        - article [ref=e279] [cursor=pointer]:
+          - generic [ref=e280]:
+            - generic [ref=e281]:
+              - heading "Custom Workflow Steps" [level=4] [ref=e282]
+              - generic [ref=e283]: workflow
+            - button "↻" [ref=e284]
+          - generic [ref=e285]:
+            - paragraph [ref=e286]: You can create completely custom workflow steps beyond the predefined ones. Name them whatever makes sense for your process.
+            - button "Learn More →" [ref=e287]
+      - generic [ref=e289]:
+        - heading "Latest Feature Requests" [level=2] [ref=e290]
+        - generic [ref=e291]:
+          - generic [ref=e292]:
+            - generic [ref=e294]:
+              - button "▲" [ref=e295] [cursor=pointer]
+              - generic [ref=e296]: "1"
+              - button "▼" [ref=e297] [cursor=pointer]
+            - generic [ref=e298]:
+              - generic [ref=e299]:
+                - generic [ref=e300]: 💡
+                - heading "A cool feature" [level=4] [ref=e301]
+              - paragraph [ref=e302]:
+                - generic [ref=e303]: by yaniv297
+                - generic [ref=e304]: 11/16/2025
+          - generic [ref=e305]:
+            - generic [ref=e307]:
+              - button "▲" [ref=e308] [cursor=pointer]
+              - generic [ref=e309]: "1"
+              - button "▼" [ref=e310] [cursor=pointer]
+            - generic [ref=e311]:
+              - generic [ref=e312]:
+                - generic [ref=e313]: 💡
+                - heading "Another feature" [level=4] [ref=e314]
+              - paragraph [ref=e315]:
+                - generic [ref=e316]: by yaniv297
+                - generic [ref=e317]: 11/16/2025
+        - button "View All Requests →" [ref=e319] [cursor=pointer]
+      - generic [ref=e320]:
+        - generic [ref=e321]:
+          - heading "Featured Resource" [level=2] [ref=e322]
+          - button "↻" [ref=e323] [cursor=pointer]
+        - generic [ref=e324]:
+          - generic [ref=e325]:
+            - heading "Nautilus" [level=4] [ref=e326]
+            - generic [ref=e327]: Tools
+          - paragraph [ref=e328]:
+            - text: Swiss army knife for custom song management. Convert between formats, batch process files, and countless other tools.
+            - generic [ref=e329]: Credit to Nemo
+          - generic [ref=e330]:
+            - link "Visit ↗" [ref=e331] [cursor=pointer]:
+              - /url: https://nemosnautilus.com/nautilus/
+            - link "View All" [ref=e332] [cursor=pointer]:
+              - /url: /resources
+```

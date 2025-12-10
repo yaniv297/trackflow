@@ -136,8 +136,9 @@ export default function EditableCell({
               style={{
                 width: "50px",
                 height: "50px",
+                aspectRatio: "1",
                 objectFit: "cover",
-                flex: 1,
+                flexShrink: 0,
               }}
             />
           ) : isNotes ? (

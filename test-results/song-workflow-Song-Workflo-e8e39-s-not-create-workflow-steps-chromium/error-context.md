@@ -1,0 +1,339 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6] [cursor=pointer]: TrackFlow
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "Future" [ref=e9] [cursor=pointer]:
+          - /url: /future
+        - link "WIP" [ref=e10] [cursor=pointer]:
+          - /url: /wip
+        - link "Released" [ref=e11] [cursor=pointer]:
+          - /url: /released
+        - button "New ▼" [ref=e13] [cursor=pointer]:
+          - text: New
+          - generic [ref=e14]: ▼
+        - button "Stats ▼" [ref=e16] [cursor=pointer]:
+          - text: Stats
+          - generic [ref=e17]: ▼
+        - button "Community ▼" [ref=e19] [cursor=pointer]:
+          - text: Community
+          - generic [ref=e20]: ▼
+        - button "Help ▼" [ref=e22] [cursor=pointer]:
+          - text: Help
+          - generic [ref=e23]: ▼
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic "View your profile" [ref=e26] [cursor=pointer]: testing
+        - generic "View achievements" [ref=e27] [cursor=pointer]:
+          - generic [ref=e28]: ⭐
+          - generic [ref=e29]: "55"
+          - generic [ref=e30]: pts
+      - button "🔔 4" [ref=e32] [cursor=pointer]:
+        - generic [ref=e33]: 🔔
+        - generic [ref=e34]: "4"
+      - button "⚙️ ▼" [ref=e36] [cursor=pointer]:
+        - text: ⚙️
+        - generic [ref=e37]: ▼
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - heading "Future Plans" [level=2] [ref=e41]
+      - generic [ref=e42]:
+        - textbox "Search title, artist, album, or collaborators..." [ref=e43]
+        - combobox [ref=e45] [cursor=pointer]:
+          - 'option "Group: Pack" [selected]'
+          - 'option "Group: Artist"'
+        - combobox [ref=e47] [cursor=pointer]:
+          - 'option "Sort: A-Z"'
+          - 'option "Sort: Priority" [selected]'
+        - button "🌐 Make All Public" [ref=e48] [cursor=pointer]
+        - button "Collapse All" [ref=e49] [cursor=pointer]
+        - button "Columns (10)" [ref=e51] [cursor=pointer]:
+          - img [ref=e52]
+          - text: Columns (10)
+          - img [ref=e54]
+    - table [ref=e57]:
+      - rowgroup [ref=e58]:
+        - row "Toggle pack (no pack) (7)" [ref=e59]:
+          - cell [ref=e60]:
+            - checkbox [ref=e61] [cursor=pointer]
+          - cell "Toggle pack (no pack) (7)" [ref=e62]:
+            - generic [ref=e63]:
+              - button "Toggle pack" [ref=e64] [cursor=pointer]: ▼
+              - generic [ref=e66]: (no pack) (7)
+        - row "Cover Title Artist Album Owner Year Notes Collaborations Visibility Actions" [ref=e67]:
+          - columnheader [ref=e68]
+          - columnheader "Cover" [ref=e69]
+          - columnheader "Title" [ref=e70] [cursor=pointer]
+          - columnheader "Artist" [ref=e71] [cursor=pointer]
+          - columnheader "Album" [ref=e72] [cursor=pointer]
+          - columnheader "Owner" [ref=e73]
+          - columnheader "Year" [ref=e74] [cursor=pointer]
+          - columnheader "Notes" [ref=e75]
+          - columnheader "Collaborations" [ref=e76]
+          - columnheader "Visibility" [ref=e77]
+          - columnheader "Actions" [ref=e78]
+        - row "cover ✏️ Achievement Test 1765294974625 ✏️ Dave ✏️ My 24th Birthday ✏️ testing 2022 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e79]:
+          - cell [ref=e80]:
+            - checkbox [ref=e81] [cursor=pointer]
+          - cell "cover ✏️" [ref=e82]:
+            - generic [ref=e83] [cursor=pointer]:
+              - img "cover" [ref=e84]
+              - text: ✏️
+          - cell "Achievement Test 1765294974625 ✏️" [ref=e85]:
+            - generic [ref=e86] [cursor=pointer]:
+              - generic [ref=e87]: Achievement Test 1765294974625
+              - text: ✏️
+          - cell "Dave ✏️" [ref=e88]:
+            - generic [ref=e89] [cursor=pointer]:
+              - generic [ref=e90]: Dave
+              - text: ✏️
+          - cell "My 24th Birthday ✏️" [ref=e91]:
+            - generic [ref=e92] [cursor=pointer]:
+              - generic [ref=e93]: My 24th Birthday
+              - text: ✏️
+          - cell "testing" [ref=e94]:
+            - generic "Click to view profile" [ref=e95] [cursor=pointer]: testing
+          - cell "2022 ✏️" [ref=e96]:
+            - generic [ref=e97] [cursor=pointer]:
+              - generic [ref=e98]: "2022"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e99]:
+            - generic [ref=e100] [cursor=pointer]:
+              - generic [ref=e101]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e102]:
+            - generic [ref=e104]: Managed via pack
+          - cell "🔒" [ref=e105]:
+            - button "🔒" [ref=e106] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e107]:
+            - generic [ref=e108]:
+              - button "Enhance" [ref=e109]
+              - button "❌" [ref=e110] [cursor=pointer]
+        - row "cover ✏️ Collaboration Test 1765294980141 ✏️ Sigma ✏️ SOUNDBOY ✏️ testing 2025 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e111]:
+          - cell [ref=e112]:
+            - checkbox [ref=e113] [cursor=pointer]
+          - cell "cover ✏️" [ref=e114]:
+            - generic [ref=e115] [cursor=pointer]:
+              - img "cover" [ref=e116]
+              - text: ✏️
+          - cell "Collaboration Test 1765294980141 ✏️" [ref=e117]:
+            - generic [ref=e118] [cursor=pointer]:
+              - generic [ref=e119]: Collaboration Test 1765294980141
+              - text: ✏️
+          - cell "Sigma ✏️" [ref=e120]:
+            - generic [ref=e121] [cursor=pointer]:
+              - generic [ref=e122]: Sigma
+              - text: ✏️
+          - cell "SOUNDBOY ✏️" [ref=e123]:
+            - generic [ref=e124] [cursor=pointer]:
+              - generic [ref=e125]: SOUNDBOY
+              - text: ✏️
+          - cell "testing" [ref=e126]:
+            - generic "Click to view profile" [ref=e127] [cursor=pointer]: testing
+          - cell "2025 ✏️" [ref=e128]:
+            - generic [ref=e129] [cursor=pointer]:
+              - generic [ref=e130]: "2025"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e131]:
+            - generic [ref=e132] [cursor=pointer]:
+              - generic [ref=e133]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e134]:
+            - generic [ref=e136]: Managed via pack
+          - cell "🔒" [ref=e137]:
+            - button "🔒" [ref=e138] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e139]:
+            - generic [ref=e140]:
+              - button "Enhance" [ref=e141]
+              - button "❌" [ref=e142] [cursor=pointer]
+        - row "cover ✏️ Future Song 1765294992538 ✏️ Dax ✏️ The Next Rap God 2 ✏️ testing 2021 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e143]:
+          - cell [ref=e144]:
+            - checkbox [ref=e145] [cursor=pointer]
+          - cell "cover ✏️" [ref=e146]:
+            - generic [ref=e147] [cursor=pointer]:
+              - img "cover" [ref=e148]
+              - text: ✏️
+          - cell "Future Song 1765294992538 ✏️" [ref=e149]:
+            - generic [ref=e150] [cursor=pointer]:
+              - generic [ref=e151]: Future Song 1765294992538
+              - text: ✏️
+          - cell "Dax ✏️" [ref=e152]:
+            - generic [ref=e153] [cursor=pointer]:
+              - generic [ref=e154]: Dax
+              - text: ✏️
+          - cell "The Next Rap God 2 ✏️" [ref=e155]:
+            - generic [ref=e156] [cursor=pointer]:
+              - generic [ref=e157]: The Next Rap God 2
+              - text: ✏️
+          - cell "testing" [ref=e158]:
+            - generic "Click to view profile" [ref=e159] [cursor=pointer]: testing
+          - cell "2021 ✏️" [ref=e160]:
+            - generic [ref=e161] [cursor=pointer]:
+              - generic [ref=e162]: "2021"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e163]:
+            - generic [ref=e164] [cursor=pointer]:
+              - generic [ref=e165]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e166]:
+            - generic [ref=e168]: Managed via pack
+          - cell "🔒" [ref=e169]:
+            - button "🔒" [ref=e170] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e171]:
+            - generic [ref=e172]:
+              - button "Enhance" [ref=e173]
+              - button "❌" [ref=e174] [cursor=pointer]
+        - row "cover ✏️ Notification Test 1765294971838 ✏️ Sigma ✏️ SOUNDBOY ✏️ testing 2025 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e175]:
+          - cell [ref=e176]:
+            - checkbox [ref=e177] [cursor=pointer]
+          - cell "cover ✏️" [ref=e178]:
+            - generic [ref=e179] [cursor=pointer]:
+              - img "cover" [ref=e180]
+              - text: ✏️
+          - cell "Notification Test 1765294971838 ✏️" [ref=e181]:
+            - generic [ref=e182] [cursor=pointer]:
+              - generic [ref=e183]: Notification Test 1765294971838
+              - text: ✏️
+          - cell "Sigma ✏️" [ref=e184]:
+            - generic [ref=e185] [cursor=pointer]:
+              - generic [ref=e186]: Sigma
+              - text: ✏️
+          - cell "SOUNDBOY ✏️" [ref=e187]:
+            - generic [ref=e188] [cursor=pointer]:
+              - generic [ref=e189]: SOUNDBOY
+              - text: ✏️
+          - cell "testing" [ref=e190]:
+            - generic "Click to view profile" [ref=e191] [cursor=pointer]: testing
+          - cell "2025 ✏️" [ref=e192]:
+            - generic [ref=e193] [cursor=pointer]:
+              - generic [ref=e194]: "2025"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e195]:
+            - generic [ref=e196] [cursor=pointer]:
+              - generic [ref=e197]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e198]:
+            - generic [ref=e200]: Managed via pack
+          - cell "🔒" [ref=e201]:
+            - button "🔒" [ref=e202] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e203]:
+            - generic [ref=e204]:
+              - button "Enhance" [ref=e205]
+              - button "❌" [ref=e206] [cursor=pointer]
+        - row "cover ✏️ Profile Release 1765294988675 ✏️ Baku ✏️ Trust The Process ✏️ testing 2025 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e207]:
+          - cell [ref=e208]:
+            - checkbox [ref=e209] [cursor=pointer]
+          - cell "cover ✏️" [ref=e210]:
+            - generic [ref=e211] [cursor=pointer]:
+              - img "cover" [ref=e212]
+              - text: ✏️
+          - cell "Profile Release 1765294988675 ✏️" [ref=e213]:
+            - generic [ref=e214] [cursor=pointer]:
+              - generic [ref=e215]: Profile Release 1765294988675
+              - text: ✏️
+          - cell "Baku ✏️" [ref=e216]:
+            - generic [ref=e217] [cursor=pointer]:
+              - generic [ref=e218]: Baku
+              - text: ✏️
+          - cell "Trust The Process ✏️" [ref=e219]:
+            - generic [ref=e220] [cursor=pointer]:
+              - generic [ref=e221]: Trust The Process
+              - text: ✏️
+          - cell "testing" [ref=e222]:
+            - generic "Click to view profile" [ref=e223] [cursor=pointer]: testing
+          - cell "2025 ✏️" [ref=e224]:
+            - generic [ref=e225] [cursor=pointer]:
+              - generic [ref=e226]: "2025"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e227]:
+            - generic [ref=e228] [cursor=pointer]:
+              - generic [ref=e229]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e230]:
+            - generic [ref=e232]: Managed via pack
+          - cell "🔒" [ref=e233]:
+            - button "🔒" [ref=e234] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e235]:
+            - generic [ref=e236]:
+              - button "Enhance" [ref=e237]
+              - button "❌" [ref=e238] [cursor=pointer]
+        - row "cover ✏️ Release Test 1765294986733 ✏️ Earl Sweatshirt ✏️ VOIR DIRE ✏️ testing 2023 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e239]:
+          - cell [ref=e240]:
+            - checkbox [ref=e241] [cursor=pointer]
+          - cell "cover ✏️" [ref=e242]:
+            - generic [ref=e243] [cursor=pointer]:
+              - img "cover" [ref=e244]
+              - text: ✏️
+          - cell "Release Test 1765294986733 ✏️" [ref=e245]:
+            - generic [ref=e246] [cursor=pointer]:
+              - generic [ref=e247]: Release Test 1765294986733
+              - text: ✏️
+          - cell "Earl Sweatshirt ✏️" [ref=e248]:
+            - generic [ref=e249] [cursor=pointer]:
+              - generic [ref=e250]: Earl Sweatshirt
+              - text: ✏️
+          - cell "VOIR DIRE ✏️" [ref=e251]:
+            - generic [ref=e252] [cursor=pointer]:
+              - generic [ref=e253]: VOIR DIRE
+              - text: ✏️
+          - cell "testing" [ref=e254]:
+            - generic "Click to view profile" [ref=e255] [cursor=pointer]: testing
+          - cell "2023 ✏️" [ref=e256]:
+            - generic [ref=e257] [cursor=pointer]:
+              - generic [ref=e258]: "2023"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e259]:
+            - generic [ref=e260] [cursor=pointer]:
+              - generic [ref=e261]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e262]:
+            - generic [ref=e264]: Managed via pack
+          - cell "🔒" [ref=e265]:
+            - button "🔒" [ref=e266] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e267]:
+            - generic [ref=e268]:
+              - button "Enhance" [ref=e269]
+              - button "❌" [ref=e270] [cursor=pointer]
+        - row "cover ✏️ Test Song 1765294989635 ✏️ Dax ✏️ The Next Rap God 2 ✏️ testing 2021 ✏️ Click to add notes... ✏️ Managed via pack 🔒 Enhance ❌" [ref=e271]:
+          - cell [ref=e272]:
+            - checkbox [ref=e273] [cursor=pointer]
+          - cell "cover ✏️" [ref=e274]:
+            - generic [ref=e275] [cursor=pointer]:
+              - img "cover" [ref=e276]
+              - text: ✏️
+          - cell "Test Song 1765294989635 ✏️" [ref=e277]:
+            - generic [ref=e278] [cursor=pointer]:
+              - generic [ref=e279]: Test Song 1765294989635
+              - text: ✏️
+          - cell "Dax ✏️" [ref=e280]:
+            - generic [ref=e281] [cursor=pointer]:
+              - generic [ref=e282]: Dax
+              - text: ✏️
+          - cell "The Next Rap God 2 ✏️" [ref=e283]:
+            - generic [ref=e284] [cursor=pointer]:
+              - generic [ref=e285]: The Next Rap God 2
+              - text: ✏️
+          - cell "testing" [ref=e286]:
+            - generic "Click to view profile" [ref=e287] [cursor=pointer]: testing
+          - cell "2021 ✏️" [ref=e288]:
+            - generic [ref=e289] [cursor=pointer]:
+              - generic [ref=e290]: "2021"
+              - text: ✏️
+          - cell "Click to add notes... ✏️" [ref=e291]:
+            - generic [ref=e292] [cursor=pointer]:
+              - generic [ref=e293]: Click to add notes...
+              - text: ✏️
+          - cell "Managed via pack" [ref=e294]:
+            - generic [ref=e296]: Managed via pack
+          - cell "🔒" [ref=e297]:
+            - button "🔒" [ref=e298] [cursor=pointer]
+          - cell "Enhance ❌" [ref=e299]:
+            - generic [ref=e300]:
+              - button "Enhance" [ref=e301]
+              - button "❌" [ref=e302] [cursor=pointer]
+```

@@ -52,10 +52,25 @@ export default function EditableCell({
     saveEdit(songId, field);
   };
 
+  const handleClick = () => {
+    if (isEditable) {
+      // Initialize editValues with current value when entering edit mode
+      // This ensures that if user doesn't change anything, we still have the original value to save
+      // Use a function form to ensure we're working with the latest state
+      setEditValues((prev) => {
+        if (prev[key] === undefined) {
+          return { ...prev, [key]: value };
+        }
+        return prev;
+      });
+      setEditing({ [key]: true });
+    }
+  };
+
   return (
     <div 
       className="editable-cell" 
-      onClick={() => isEditable && setEditing({ [key]: true })}
+      onClick={handleClick}
       style={{
         cursor: isEditable ? "pointer" : "default",
         opacity: isEditable ? 1 : 0.6,

@@ -403,6 +403,22 @@ function SongPage({ status }) {
   // Song editing handlers
   const saveEdit = async (id, field) => {
     const value = editValues[`${id}_${field}`];
+    
+    // Always clear editing state, even if no value to save
+    // This ensures the UI exits edit mode properly
+    setEditing((prev) => {
+      const newState = { ...prev };
+      delete newState[`${id}_${field}`];
+      return newState;
+    });
+
+    setEditValues((prev) => {
+      const newState = { ...prev };
+      delete newState[`${id}_${field}`];
+      return newState;
+    });
+
+    // Only save if we have a value to save
     if (value === undefined) return;
 
     try {
@@ -425,18 +441,6 @@ function SongPage({ status }) {
 
       // Remove unnecessary cache clearing - we already updated local state
       // setSongsCache({});
-
-      setEditing((prev) => {
-        const newState = { ...prev };
-        delete newState[`${id}_${field}`];
-        return newState;
-      });
-
-      setEditValues((prev) => {
-        const newState = { ...prev };
-        delete newState[`${id}_${field}`];
-        return newState;
-      });
 
       // Clear cache and refresh to get updated pack information
       if (field === "pack") {

@@ -7,23 +7,33 @@ const LoginSection = () => {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCredentials(prev => ({ ...prev, [name]: value }));
+    // Reset login success state when user starts typing
+    if (loginSuccess) {
+      setLoginSuccess(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setLoginSuccess(false);
 
     try {
       await login(credentials.username, credentials.password);
+      // Mark login as successful and clear error before navigation
+      setLoginSuccess(true);
+      setError('');
       navigate('/');
     } catch (error) {
+      setLoginSuccess(false);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -39,7 +49,7 @@ const LoginSection = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          {error && (
+          {error && !loading && !loginSuccess && (
             <div className="error-message">
               {error}
             </div>

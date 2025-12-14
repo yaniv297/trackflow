@@ -20,6 +20,8 @@ import { usePackOperations } from "../hooks/songs/usePackOperations";
 import { useAlbumSeriesOperations } from "../hooks/songs/useAlbumSeriesOperations";
 import { useBulkOperations } from "../hooks/songs/useBulkOperations";
 import { useSongPageModals } from "../hooks/songs/useSongPageModals";
+import { usePackRandomizer } from "../hooks/songs/usePackRandomizer";
+import PackRandomizerModal from "../components/modals/PackRandomizerModal";
 
 function SongPage({ status }) {
   const { user } = useAuth();
@@ -27,6 +29,7 @@ function SongPage({ status }) {
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [publicFilter, setPublicFilter] = useState("all");
   const [showMakeAllPublicConfirm, setShowMakeAllPublicConfirm] = useState(false);
+  const [showPackRandomizer, setShowPackRandomizer] = useState(false);
 
   // Alert/Prompt state
   const [alertConfig, setAlertConfig] = useState({
@@ -338,6 +341,28 @@ function SongPage({ status }) {
     refreshSongs
   );
 
+  // Pack randomizer - extract packs from grouped songs for Future Plans
+  const randomizerPacks = useMemo(() => {
+    if (status !== "Future Plans" || !groupedSongs || groupBy !== "pack") {
+      return [];
+    }
+
+    return Object.keys(groupedSongs)
+      .map((packName) => {
+        const packSongs = groupedSongs[packName] || [];
+        const firstSong = packSongs[0];
+        return {
+          id: firstSong?.pack_id,
+          name: packName,
+          songCount: packSongs.length,
+        };
+      })
+      .filter((pack) => pack.id && pack.name !== "(no pack)");
+  }, [groupedSongs, groupBy, status]);
+
+  // Pack randomizer hook
+  const packRandomizer = usePackRandomizer(randomizerPacks, refreshSongs);
+
   return (
     <div className="app-container">
       <PageHeader
@@ -356,6 +381,9 @@ function SongPage({ status }) {
         selectedSongs={selectedSongs}
         onBulkTogglePublic={handleBulkTogglePublic}
         onMakeAllPublic={status === "Future Plans" ? handleMakeAllPublic : undefined}
+        onRandomizerClick={
+          status === "Future Plans" ? () => setShowPackRandomizer(true) : undefined
+        }
       />
 
       {/* Loading Spinner */}
@@ -534,6 +562,15 @@ function SongPage({ status }) {
         onConfirm={confirmMakeAllPublic}
         onClose={() => setShowMakeAllPublicConfirm(false)}
       />
+
+      {/* Pack Randomizer Modal */}
+      {status === "Future Plans" && (
+        <PackRandomizerModal
+          isOpen={showPackRandomizer}
+          onClose={() => setShowPackRandomizer(false)}
+          randomizer={packRandomizer}
+        />
+      )}
 
       <Fireworks />
     </div>

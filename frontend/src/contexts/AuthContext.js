@@ -73,19 +73,34 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
       setToken(data.access_token);
-      setUser(data.user);
       localStorage.setItem("token", data.access_token);
 
-      // Check if this is user's first login by checking if last_login_at was just set
-      if (data.user.last_login_at) {
-        const loginTime = new Date(data.user.last_login_at);
-        const now = new Date();
-        const secondsSinceLogin = (now - loginTime) / 1000;
+      // Fetch user data separately since backend doesn't include it in login response
+      try {
+        const userResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${data.access_token}`,
+          },
+        });
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          setUser(userData);
 
-        // If last_login_at is very recent (< 5 seconds), it's first login
-        if (secondsSinceLogin < 5) {
-          sessionStorage.setItem("show_welcome", "true");
+          // Check if this is user's first login by checking if last_login_at was just set
+          if (userData.last_login_at) {
+            const loginTime = new Date(userData.last_login_at);
+            const now = new Date();
+            const secondsSinceLogin = (now - loginTime) / 1000;
+
+            // If last_login_at is very recent (< 5 seconds), it's first login
+            if (secondsSinceLogin < 5) {
+              sessionStorage.setItem("show_welcome", "true");
+            }
+          }
         }
+      } catch (userError) {
+        // If fetching user data fails, don't fail the login - user can still use the token
+        console.error("Failed to fetch user data after login:", userError);
       }
 
       return data;

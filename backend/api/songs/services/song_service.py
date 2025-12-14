@@ -557,15 +557,8 @@ class SongService:
     def _check_creation_achievements(self, song: Song, current_user: User):
         """Check achievements after song creation."""
         try:
-            # Increment Future Plans creation counter if song created as Future Plans
-            if song.status == SongStatus.future:
-                self.achievements_repo.increment_future_creation_count(self.db, current_user.id, commit=False)
-                print(f"🎯 Incremented Future Plans creation count for user {current_user.id} (song: {song.title})")
-            
-            # Increment WIP creation counter if song created as WIP
-            if song.status == SongStatus.wip:
-                self.achievements_repo.increment_wip_creation_count(self.db, current_user.id, commit=False)
-                print(f"🎯 Incremented WIP creation count for user {current_user.id} (song: {song.title})")
+            # Note: Creation counters are already incremented in create_song_in_db,
+            # so we only need to check achievements here, not increment counters again.
             
             check_status_achievements(self.db, current_user.id)
             if song.status == SongStatus.released:

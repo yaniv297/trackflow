@@ -132,8 +132,8 @@ ACHIEVEMENTS = [
     ("five_collab_requests", "Active Networker", "Make 5 collaboration requests", "🕸️", "social", 25, "uncommon", 5, "collab_requests_sent"),
     ("ten_collab_requests", "Collaboration Seeker", "Make 10 collaboration requests", "🔍", "social", 50, "rare", 10, "collab_requests_sent"),
     
-    # Special Achievements
-    ("welcome_aboard", "Welcome Aboard!", "Successfully create your TrackFlow account and join the community", "⚓", "special", 10, "common", None, None),
+    # Activity Achievements
+    ("welcome_aboard", "Welcome Aboard!", "Successfully create your TrackFlow account and join the community", "👋", "activity", 5, "common", None, None),
 ]
 
 def seed_achievements():
@@ -165,12 +165,26 @@ def seed_achievements():
             # Check if achievement already exists
             existing = db.query(Achievement).filter(Achievement.code == code).first()
             if existing:
-                # Update existing achievement with new fields if they're missing
+                updated = False
+                # Update existing achievement with new fields if they're missing or incorrect
                 if existing.target_value is None and target_value is not None:
                     existing.target_value = target_value
                     existing.metric_type = metric_type
+                    updated = True
                     print(f"🔄 Updated {code} with target data")
-                else:
+                
+                # Fix Welcome Aboard achievement if it has wrong category or points
+                if code == "welcome_aboard":
+                    if existing.category != category:
+                        print(f"🔄 Fixing {code}: category '{existing.category}' → '{category}'")
+                        existing.category = category
+                        updated = True
+                    if existing.points != points:
+                        print(f"🔄 Fixing {code}: points {existing.points} → {points}")
+                        existing.points = points
+                        updated = True
+                
+                if not updated:
                     print(f"⏭️  Skipping {code} (already exists)")
                     skipped_count += 1
                 continue

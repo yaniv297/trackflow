@@ -398,9 +398,9 @@ class TestAchievements:
                 code="welcome_aboard",
                 name="Welcome Aboard!",
                 description="Successfully create your TrackFlow account and join the community",
-                icon="⚓",
-                category="special",
-                points=10,
+                icon="👋",
+                category="activity",
+                points=5,
                 rarity="common",
                 target_value=None,
                 metric_type=None
@@ -436,7 +436,7 @@ class TestAchievements:
         # Verify user_stats total_points was updated
         stats = self.db.query(UserStats).filter(UserStats.user_id == new_user.id).first()
         if stats:
-            assert stats.total_points >= 10, f"User should have at least 10 points (Welcome Aboard), got {stats.total_points}"
+            assert stats.total_points >= 5, f"User should have at least 5 points (Welcome Aboard), got {stats.total_points}"
         
         # Verify achievement is not awarded twice
         result2 = achievements_service.award_achievement(self.db, new_user.id, "welcome_aboard")

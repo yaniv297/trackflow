@@ -9,6 +9,7 @@ TrackFlow is a comprehensive music management and collaboration platform with a 
 ## System Boundaries & Constraints
 
 ### What TrackFlow IS ✅
+
 - **Workflow Tracker**: Trello-like task management for Rock Band song authoring projects
 - **Collaboration Platform**: Multi-user team coordination for custom song projects
 - **Progress Monitor**: Track completion of workflow steps (tempo map, charts, vocals, etc.)
@@ -16,6 +17,7 @@ TrackFlow is a comprehensive music management and collaboration platform with a 
 - **Community Platform**: Share progress, achievements, and collaborate with other creators
 
 ### What TrackFlow is NOT ❌
+
 TrackFlow is **NOT** any of these - do not implement these features:
 
 - ❌ **DAW (Digital Audio Workstation)**: No audio recording, editing, or mixing
@@ -28,6 +30,7 @@ TrackFlow is **NOT** any of these - do not implement these features:
 - ❌ **Audio Analysis Tool**: No tempo detection, key analysis, or beat mapping
 
 ### File Storage Constraints ❌
+
 - **No Binary File Storage**: TrackFlow does not store audio files, MIDI files, or documents
 - **External URLs Only**: References to files hosted elsewhere (Google Drive, Dropbox, etc.)
 - **No File Processing**: Does not analyze, convert, or manipulate any file types
@@ -35,24 +38,28 @@ TrackFlow is **NOT** any of these - do not implement these features:
 ## Technical Stack
 
 ### Core Framework
+
 - **FastAPI 0.104.1**: Modern async web framework with automatic API documentation
 - **SQLAlchemy 2.0.23**: ORM with declarative models and query optimization
 - **PostgreSQL**: Production database with psycopg2-binary driver
 - **Python 3.9+**: Runtime environment with virtual environment isolation
 
 ### Authentication & Security
+
 - **JWT Authentication**: python-jose[cryptography] for token-based auth
 - **Password Hashing**: passlib[bcrypt] with bcrypt 3.2.2 for secure password storage
 - **CORS Configuration**: Comprehensive cross-origin handling for multiple frontend domains
 - **Trusted Host Middleware**: Railway deployment security with proxy header handling
 
 ### External Integrations
+
 - **Spotify API**: spotipy 2.25.1 for music metadata enrichment and album import
 - **Email Service**: SMTP-based notification and password reset system
 - **Rock Band DLC Database**: Integration for duplicate detection and community features
 - **Discord Webhooks**: Bug report notifications and community integration
 
 ### Development & Deployment
+
 - **Environment Management**: python-dotenv for configuration
 - **Production Server**: Gunicorn 21.2.0 with Uvicorn workers
 - **Database Migration**: SQLAlchemy-based migrations with automated schema updates
@@ -86,6 +93,7 @@ backend/
 ### 2. Repository Pattern Implementation
 
 Each domain implements a consistent repository pattern:
+
 - **Repository Layer**: Pure data access without business logic
 - **Service Layer**: Business logic and cross-domain operations
 - **Route Layer**: HTTP request handling and response formatting
@@ -94,6 +102,7 @@ Each domain implements a consistent repository pattern:
 ### 3. Database Architecture
 
 #### Core Models
+
 - **User**: Authentication, profile, settings, and collaboration management
 - **Song**: Music track metadata with workflow states and collaboration
 - **Pack**: Song collections with release management and sharing
@@ -102,6 +111,7 @@ Each domain implements a consistent repository pattern:
 - **Collaboration**: Multi-user permission system for packs and songs
 
 #### Advanced Features
+
 - **SafeDateTime**: Custom SQLAlchemy type for robust datetime handling
 - **Enum Types**: Strongly typed status fields (SongStatus, CollaborationType)
 - **Relationship Management**: Complex many-to-many and foreign key relationships
@@ -110,12 +120,14 @@ Each domain implements a consistent repository pattern:
 ### 4. Authentication & Authorization System
 
 #### JWT Implementation
+
 - **Token Generation**: Secure JWT creation with expiration handling
 - **Route Protection**: Dependency injection for authenticated endpoints
 - **Admin Impersonation**: Secure admin user switching with token management
 - **Password Reset**: Email-based password recovery with token validation
 
 #### Permission System
+
 - **Role-Based Access**: Admin and standard user roles
 - **Resource-Level Permissions**: Pack and song collaboration permissions
 - **Public Sharing**: Granular public/private content visibility controls
@@ -123,6 +135,7 @@ Each domain implements a consistent repository pattern:
 ## API Endpoints & Features
 
 ### Song Management (`/api/songs/`)
+
 - **CRUD Operations**: Complete song lifecycle management
 - **Workflow Integration**: Song status progression with validation
 - **Collaboration**: Multi-user editing with permission controls
@@ -130,30 +143,36 @@ Each domain implements a consistent repository pattern:
 - **Progress Tracking**: WIP completion percentage monitoring
 
 ### Authentication System (`/api/auth/`)
+
 - **User Registration/Login**: Secure account management
 - **Profile Management**: User settings and display preferences
 - **Password Reset**: Email-based password recovery
 - **Admin Functions**: User impersonation and management
 
 ### Achievement System (`/api/achievements/`)
+
 - **Dynamic Achievement Engine**: Rule-based achievement triggering
 - **User Progress Tracking**: Points, milestones, and completion status
 - **Retroactive Processing**: Bulk achievement calculation for existing data
 - **Leaderboard Integration**: Community ranking and statistics
 
 ### Spotify Integration (`/api/spotify/`)
+
 - **Metadata Enrichment**: Automatic song metadata fetching (title, artist, album)
 - **Album Import**: Complete album import from Spotify for album series
 - **Artist Information**: Basic artist metadata and image URLs
 
 ### Pack Management (`/api/packs/`)
+
 - **Collection Management**: Song grouping and organization with optional songs
 - **Release System**: Pack publication with metadata, download links, YouTube URLs
 - **Collaboration**: Multi-level permissions (pack_view, pack_edit, song_edit)
 - **Progress Tracking**: Pack completion logic with smart percentage calculation
 - **Release Posts**: Community announcements for pack releases
+- **Status Updates**: Move packs between Future Plans, In Progress, and Released via `/packs/{pack_id}/status`
 
 ### Collaboration Request System (`/api/collaboration-requests/`)
+
 - **Public Song Requests**: Users can request to collaborate on public songs
 - **Request Management**: Accept, reject, or reopen collaboration requests
 - **Notification Integration**: Real-time notifications for request status changes
@@ -161,6 +180,7 @@ Each domain implements a consistent repository pattern:
 - **Message System**: Custom messages with collaboration requests
 
 ### Home Dashboard (`/dashboard/`)
+
 - **Smart Suggestions**: AI-powered recommendations based on user activity
 - **Recent Activity**: Recently worked songs with priority weighting
 - **Near Completion**: Songs close to completion detection
@@ -168,6 +188,7 @@ Each domain implements a consistent repository pattern:
 - **Long Dormant**: Songs that haven't been worked on recently
 
 ### Album Series Management (`/album-series/`)
+
 - **Spotify Integration**: Import complete albums from Spotify API
 - **Progress Tracking**: Visual completion percentage for album series
 - **Pre-existing Songs**: Mark songs as already completed before import
@@ -175,6 +196,7 @@ Each domain implements a consistent repository pattern:
 - **Metadata Enrichment**: Automatic artist and album information
 
 ### Public Discovery (`/api/public-songs/`, `/community/`)
+
 - **Advanced Browsing**: Search, filter by status, artist grouping
 - **Intelligent Pagination**: Smart grouping to prevent user/artist flooding
 - **Random Discovery**: Public WIPs section for serendipitous discovery
@@ -182,6 +204,7 @@ Each domain implements a consistent repository pattern:
 - **Public Profiles**: Rich user profiles with achievement showcasing
 
 ### Community Features
+
 - **Public Song Discovery**: Advanced browsing with search, filters, and intelligent grouping
 - **Collaboration Request System**: Complete workflow for requesting/accepting public song collaboration
 - **Public User Profiles**: Rich profiles with achievements, leaderboards, and content showcasing
@@ -194,16 +217,17 @@ Each domain implements a consistent repository pattern:
 ## Database Schema Highlights
 
 ### User Model
+
 ```python
 class User(Base):
     # Core authentication
     username, email, hashed_password
     is_active, is_admin, created_at, last_login_at
-    
+
     # Profile customization
     display_name, profile_image_url, website_url
     preferred_contact_method, discord_username
-    
+
     # Feature preferences
     auto_spotify_fetch_enabled, default_public_sharing
 ```
@@ -213,6 +237,7 @@ class User(Base):
 ### Core Tables
 
 #### users
+
 ```python
 id [PK], username [UNIQUE], email [UNIQUE], hashed_password
 is_active [DEFAULT: True], is_admin [DEFAULT: False]
@@ -223,6 +248,7 @@ auto_spotify_fetch_enabled [DEFAULT: True], default_public_sharing [DEFAULT: Fal
 ```
 
 #### songs
+
 ```python
 id [PK], title, artist, artist_id [FK->artists.id], album, year
 status, album_cover, user_id [FK->users.id], pack_id [FK->packs.id]
@@ -233,6 +259,7 @@ album_series_id [FK->album_series.id, NULL]
 ```
 
 #### packs
+
 ```python
 id [PK], name, user_id [FK->users.id], priority [NULL]
 created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow], released_at [NULL]
@@ -241,6 +268,7 @@ release_download_link [NULL], release_youtube_url [NULL]
 ```
 
 #### collaborations
+
 ```python
 id [PK], pack_id [FK->packs.id, NULL], song_id [FK->songs.id, NULL]
 user_id [FK->users.id], collaboration_type [ENUM: pack_view/pack_edit/song_edit]
@@ -250,6 +278,7 @@ created_at [DEFAULT: utcnow]
 ### Community & Discovery Tables
 
 #### collaboration_requests
+
 ```python
 id [PK], song_id [FK->songs.id], requester_id [FK->users.id], owner_id [FK->users.id]
 message, requested_parts [JSON, NULL], status [DEFAULT: "pending"]
@@ -258,11 +287,13 @@ created_at [DEFAULT: utcnow], responded_at [NULL]
 ```
 
 #### artists
+
 ```python
 id [PK], name [UNIQUE], image_url [NULL], user_id [FK->users.id, NULL]
 ```
 
 #### album_series
+
 ```python
 id [PK], series_number [UNIQUE], album_name, artist_name, year
 cover_image_url, status, description, pack_id [FK->packs.id]
@@ -270,6 +301,7 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ```
 
 #### album_series_preexisting
+
 ```python
 id [PK], series_id [FK->album_series.id], spotify_track_id [NULL], title_clean [NULL]
 artist [NULL], pre_existing [DEFAULT: False], irrelevant [DEFAULT: False]
@@ -277,6 +309,7 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ```
 
 #### album_series_overrides
+
 ```python
 id [PK], series_id [FK->album_series.id], spotify_track_id [NULL], title_clean [NULL]
 linked_song_id [FK->songs.id], created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
@@ -285,6 +318,7 @@ linked_song_id [FK->songs.id], created_at [DEFAULT: utcnow], updated_at [DEFAULT
 ### Workflow & Progress Tables
 
 #### song_progress
+
 ```python
 id [PK], song_id [FK->songs.id], step_name, is_completed [DEFAULT: False]
 completed_at [NULL], notes [NULL]
@@ -292,6 +326,7 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ```
 
 #### authoring
+
 ```python
 id [PK], song_id [FK->songs.id, UNIQUE]
 demucs, midi, tempo_map, fake_ending, drums, bass, guitar, vocals, harmonies
@@ -302,6 +337,7 @@ pro_keys, keys, animations, drum_fills, overdrive, compile
 ### Achievement & Gamification Tables
 
 #### achievements
+
 ```python
 id [PK], code [UNIQUE], name, description, icon
 category [INDEX: milestone/activity/quality/social/special]
@@ -310,12 +346,14 @@ target_value [NULL], metric_type [NULL], created_at [DEFAULT: utcnow]
 ```
 
 #### user_achievements
+
 ```python
 id [PK], user_id [FK->users.id], achievement_id [FK->achievements.id]
 earned_at [DEFAULT: utcnow], notified [DEFAULT: False], is_public [DEFAULT: True]
 ```
 
 #### user_stats
+
 ```python
 user_id [PK, FK->users.id], total_songs [DEFAULT: 0], total_released [DEFAULT: 0]
 total_future [DEFAULT: 0], total_future_created [DEFAULT: 0]
@@ -329,6 +367,7 @@ last_login_date [NULL], updated_at [DEFAULT: utcnow]
 ### Community Features Tables
 
 #### feature_requests
+
 ```python
 id [PK], title, description, user_id [FK->users.id]
 is_done [DEFAULT: False], is_rejected [DEFAULT: False], rejection_reason [NULL]
@@ -336,6 +375,7 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ```
 
 #### feature_request_comments
+
 ```python
 id [PK], feature_request_id [FK->feature_requests.id], user_id [FK->users.id]
 parent_comment_id [FK->feature_request_comments.id, NULL]
@@ -344,6 +384,7 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ```
 
 #### feature_request_votes
+
 ```python
 id [PK], feature_request_id [FK->feature_requests.id], user_id [FK->users.id]
 vote_type ["upvote"/"downvote"]
@@ -353,6 +394,7 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ### Notification & Communication Tables
 
 #### notifications
+
 ```python
 id [PK], user_id [FK->users.id], type [NotificationType enum], title, message
 is_read [DEFAULT: False], related_achievement_id [FK->achievements.id, NULL]
@@ -362,6 +404,7 @@ created_at [DEFAULT: utcnow], read_at [NULL]
 ```
 
 #### release_posts
+
 ```python
 id [PK], post_type [PostType enum], title, subtitle [NULL], description [NULL]
 cover_image_url [NULL], banner_image_url [NULL]
@@ -374,34 +417,40 @@ created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow]
 ### Legacy & Reference Tables
 
 #### wip_collaborations (Legacy)
+
 ```python
 id [PK], song_id [FK->songs.id], collaborator, field, created_at [DEFAULT: utcnow]
 ```
 
 #### file_links
+
 ```python
 id [PK], song_id [FK->songs.id], user_id [FK->users.id]
 file_url, message, created_at [DEFAULT: utcnow]
 ```
 
 #### rock_band_dlc
+
 ```python
 id [PK], title, artist, origin, linked_song_id [FK->songs.id, NULL]
 created_at [DEFAULT: utcnow]
 ```
 
 #### activity_logs
+
 ```python
 id [PK], user_id [FK->users.id], activity_type, description
 metadata_json [JSON, NULL], created_at [DEFAULT: utcnow]
 ```
 
 #### password_reset_tokens
+
 ```python
 id [PK], email, token [UNIQUE], expires_at, used_at [NULL], created_at [DEFAULT: utcnow]
 ```
 
 ### Key Indexes
+
 - **Songs**: user_id+status, pack_id+status, artist+title
 - **Collaborations**: user_id+type, song_id+user_id, pack_id+user_id
 - **Notifications**: user_id+is_read, user_id+created_at
@@ -409,17 +458,18 @@ id [PK], email, token [UNIQUE], expires_at, used_at [NULL], created_at [DEFAULT:
 - **User Achievements**: earned_at, user_id+achievement_id
 
 ### Achievement System (50+ Achievements)
+
 ```python
 class Achievement(Base):
     # Definition
     name, description, category, points_value
     requirements_data (JSON), badge_icon
     rarity (common, uncommon, rare, epic, legendary)
-    
+
     # Categories: milestone, activity, quality, social, special
     # Examples:
     # - First Song, 10 Songs, 100 Songs (milestone)
-    # - Login Streak, WIP Warrior (activity) 
+    # - Login Streak, WIP Warrior (activity)
     # - Album Completionist (quality)
     # - Community Helper (social)
     # - Beta Tester (special)
@@ -437,6 +487,7 @@ class UserStats(Base):
 ```
 
 ### Workflow System
+
 ```python
 class WorkflowTemplate(Base):
     # Template definitions
@@ -455,6 +506,7 @@ class SongProgress(Base):
 ```
 
 ### Collaboration & Permissions
+
 ```python
 class Collaboration(Base):
     # Multi-level permission system
@@ -469,18 +521,20 @@ class CollaborationRequest(Base):
 ```
 
 ### Notification System
+
 ```python
 class Notification(Base):
     # Multi-type notification system
     user_id, type, title, message, metadata (JSON)
     is_read, created_at
-    # Types: achievement_earned, collaboration_request, 
+    # Types: achievement_earned, collaboration_request,
     #        feature_update, welcome, pack_released
 ```
 
 ## Configuration & Deployment
 
 ### Environment Variables
+
 ```bash
 # Database
 DATABASE_URL=postgresql://user:pass@host:port/db
@@ -498,6 +552,7 @@ SMTP_PASSWORD=your-app-password
 ```
 
 ### Production Deployment (Railway)
+
 - **Port Configuration**: Always port 8001 (hardcoded requirement)
 - **Database**: PostgreSQL with connection pooling, SQLite for development
 - **File Storage**: External URL references only (no binary file storage)
@@ -511,7 +566,7 @@ SMTP_PASSWORD=your-app-password
 ### Request/Response Flow
 
 1. **Route Handler**: Validates request, extracts user context
-2. **Service Layer**: Implements business logic, calls repositories  
+2. **Service Layer**: Implements business logic, calls repositories
 3. **Repository Layer**: Executes database operations
 4. **Response**: Pydantic schemas ensure consistent API contracts
 
@@ -587,7 +642,7 @@ SMTP_PASSWORD=your-app-password
 ## Testing Architecture
 
 - **Unit tests** for individual components
-- **Integration tests** for API endpoints  
+- **Integration tests** for API endpoints
 - **Database tests** with transaction rollbacks
 - **Test coverage** tracking with coverage.xml
 
@@ -600,7 +655,7 @@ SMTP_PASSWORD=your-app-password
 - Eager loading for related data
 - Query result pagination for large datasets
 
-### API Optimizations  
+### API Optimizations
 
 - GZip compression middleware
 - Request timeout handling
@@ -660,6 +715,7 @@ SMTP_PASSWORD=your-app-password
 ### Critical Constraints for AI Agents
 
 #### NEVER Implement These Features ❌
+
 - **File Upload Endpoints**: No binary file storage capabilities
 - **Audio Processing**: No audio analysis, conversion, or manipulation
 - **MIDI Processing**: No MIDI file parsing, generation, or editing
@@ -668,6 +724,7 @@ SMTP_PASSWORD=your-app-password
 - **Audio Playback**: No streaming, waveform display, or player functionality
 
 #### Required Patterns ✅
+
 ```python
 # Correct: External URL reference
 reference_audio_url = Column(String, nullable=True)  # Link only
@@ -680,8 +737,8 @@ def upload_audio_file():  # DON'T CREATE THIS
 # Correct: Workflow step tracking
 def mark_step_complete(step_name: str):
     # Track completion of manual work done outside TrackFlow
-    
-# Wrong: Automated audio analysis  
+
+# Wrong: Automated audio analysis
 def analyze_audio_tempo():  # DON'T CREATE THIS
     pass
 ```
@@ -689,6 +746,7 @@ def analyze_audio_tempo():  # DON'T CREATE THIS
 ## Current Implementation Status
 
 ### Core Platform Features ✅ FULLY IMPLEMENTED
+
 ✅ **Authentication System**: JWT-based auth, password reset, user management
 ✅ **Song & Pack Management**: Complete CRUD with status tracking, metadata, release management
 ✅ **Collaboration System**: Multi-level permissions (pack_view, pack_edit, song_edit)
@@ -699,6 +757,7 @@ def analyze_audio_tempo():  # DON'T CREATE THIS
 ✅ **Activity Logging**: Complete audit trail with JSON metadata
 
 ### Community & Discovery Features ✅ FULLY IMPLEMENTED
+
 ✅ **Public Song Discovery**: Advanced browsing with search, filters, grouping
 ✅ **Public User Profiles**: Rich profiles with achievements and content showcasing
 ✅ **Home Dashboard**: Smart suggestions engine with AI-powered recommendations
@@ -708,6 +767,7 @@ def analyze_audio_tempo():  # DON'T CREATE THIS
 ✅ **Feature Request System**: Community voting and commenting system
 
 ### Advanced Features ✅ FULLY IMPLEMENTED
+
 ✅ **Custom Workflows**: Template-based workflow system with user customization
 ✅ **Spotify Integration**: Metadata enrichment, album import, artist management
 ✅ **Smart Dashboard**: Recently worked songs, near-completion detection
@@ -716,6 +776,7 @@ def analyze_audio_tempo():  # DON'T CREATE THIS
 ✅ **Email Service**: SMTP-based notifications and password recovery
 
 ### Developer & Maintenance Tools ✅ COMPREHENSIVE SUITE
+
 ✅ **Database Migrations**: Custom migration system with rollback safety
 ✅ **Achievement Tools**: Retroactive calculation and debugging utilities
 ✅ **Statistics Maintenance**: User stats recalculation and backfill tools
@@ -724,6 +785,7 @@ def analyze_audio_tempo():  # DON'T CREATE THIS
 ✅ **Debug Tools**: System verification and troubleshooting scripts
 
 ### Integration & External Services ✅ FULLY IMPLEMENTED
+
 ✅ **Rock Band DLC Database**: Integration for duplicate detection
 ✅ **Discord Webhooks**: Bug report notifications
 ✅ **Email SMTP**: Password reset and notification delivery
@@ -732,18 +794,21 @@ def analyze_audio_tempo():  # DON'T CREATE THIS
 ## API Standards & Conventions
 
 ### Response Formats
+
 - **Success**: JSON with data payload and optional metadata
 - **Errors**: Consistent HTTP status codes with error details
 - **Pagination**: Limit/offset with total count metadata
 - **Timestamps**: ISO 8601 format in UTC
 
 ### Naming Conventions
+
 - **Endpoints**: RESTful URL structure with plural nouns
 - **Database**: snake_case for tables and columns
 - **Python**: PEP 8 compliance with type hints
 - **Environment Variables**: UPPERCASE_WITH_UNDERSCORES
 
 ### Documentation Requirements
+
 - **OpenAPI**: Automatic schema generation through FastAPI
 - **Docstrings**: Comprehensive function and class documentation
 - **Type Hints**: Full typing for better code clarity

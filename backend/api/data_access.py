@@ -118,16 +118,30 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
         if auto_commit:
             db.commit()
     
-    # Auto-create default song progress steps if song is "In Progress"
+    # Auto-create song progress steps from user's workflow if song is "In Progress"
     if db_song.status == "In Progress":
-        # Create default workflow steps using raw SQL to avoid foreign key issues
-        default_steps = [
-            "demucs", "midi", "tempo_map", "fake_ending", "drums", "bass", "guitar",
-            "vocals", "harmonies", "pro_keys", "keys", "animations", "drum_fills",
-            "overdrive", "compile"
-        ]
+        # Load user's workflow - REQUIRED, no fallback to templates
+        workflow_steps = db.execute(text("""
+            SELECT uws.step_name, uws.display_name, uws.order_index
+            FROM user_workflows uw
+            JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+            WHERE uw.user_id = :uid
+            ORDER BY uws.order_index
+        """), {"uid": user.id}).fetchall()
         
-        for step_name in default_steps:
+        if not workflow_steps:
+            # User has no workflow configured - this is an error
+            # Rollback the song creation
+            if auto_commit:
+                db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="USER_WORKFLOW_NOT_CONFIGURED: User workflow is required before creating songs. Please configure your workflow first."
+            )
+        
+        # Create song progress steps from user's workflow
+        for step_row in workflow_steps:
+            step_name = step_row[0]
             db.execute(text("""
                 INSERT INTO song_progress (song_id, step_name, is_completed, created_at, updated_at)
                 VALUES (:sid, :step, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)

@@ -15,13 +15,14 @@ router = APIRouter()
 
 @router.post("/register", response_model=Token)
 def register(registration_data: dict, db: Session = Depends(get_db)):
-    """Register a new user."""
+    """Register a new user with custom workflow."""
     auth_service = AuthService(db)
     
     # Extract and validate registration data
     username = registration_data.get("username", "").strip()
     email = registration_data.get("email", "").strip()
     password = registration_data.get("password", "")
+    workflow_steps = registration_data.get("workflow_steps", [])
     
     if not username or not email or not password:
         raise HTTPException(
@@ -29,8 +30,92 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
             detail="Username, email, and password are required"
         )
     
+    # Validate workflow_steps - REQUIRED for registration
+    if not workflow_steps or len(workflow_steps) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="workflow_steps is required and must have at least 1 step"
+        )
+    
+    # Validate each step
+    step_names = set()
+    for i, step in enumerate(workflow_steps):
+        step_name = step.get("step_name", "").strip()
+        display_name = step.get("display_name", "").strip()
+        
+        if not step_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Step {i+1}: step_name is required and cannot be empty"
+            )
+        
+        if not display_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Step {i+1}: display_name is required and cannot be empty"
+            )
+        
+        # Ensure step names are unique
+        if step_name in step_names:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Step '{step_name}' appears multiple times. Each step must be unique."
+            )
+        step_names.add(step_name)
+    
+    from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
+    
     try:
+        # Create user
         user = auth_service.create_user(username, email, password)
+        db.flush()  # Get user.id without committing
+        
+        # Create user workflow (no template dependency)
+        db.execute(text("""
+            INSERT INTO user_workflows (user_id, name, description, template_id, created_at, updated_at)
+            VALUES (:uid, 'My Workflow', 'Custom workflow', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """), {"uid": user.id})
+        
+        # Get the workflow_id
+        workflow_result = db.execute(text("SELECT id FROM user_workflows WHERE user_id = :uid"), {"uid": user.id}).fetchone()
+        if not workflow_result:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create user workflow"
+            )
+        workflow_id = workflow_result[0]
+        
+        # Insert workflow steps (using only columns that exist in the table)
+        for i, step in enumerate(workflow_steps):
+            db.execute(text("""
+                INSERT INTO user_workflow_steps (workflow_id, step_name, display_name, order_index)
+                VALUES (:wid, :step_name, :display_name, :order_index)
+            """), {
+                "wid": workflow_id,
+                "step_name": step["step_name"],
+                "display_name": step["display_name"],
+                "order_index": i
+            })
+        
+        # Commit transaction - if any step fails, entire registration fails
+        db.commit()
+        db.refresh(user)
+        
+        # Log workflow creation
+        try:
+            from api.activity_logger import log_activity
+            log_activity(
+                db=db,
+                user_id=user.id,
+                activity_type="workflow_created",
+                description=f"Created user workflow with {len(workflow_steps)} steps during registration",
+                metadata={"step_count": len(workflow_steps), "workflow_id": workflow_id}
+            )
+        except Exception as e:
+            print(f"Warning: Failed to log workflow creation for user {user.id}: {e}")
+        
+        print(f"✅ Created user workflow for user {user.id} with {len(workflow_steps)} steps")
         
         # Log activity
         try:
@@ -65,8 +150,17 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
         return {"access_token": access_token, "token_type": "bearer"}
         
     except HTTPException:
+        db.rollback()
         raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"Database error during registration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user account and workflow"
+        )
     except Exception as e:
+        db.rollback()
         print(f"Registration error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

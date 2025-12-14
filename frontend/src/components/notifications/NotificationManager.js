@@ -7,17 +7,23 @@ const NotificationManager = ({ children }) => {
   const [achievementToasts, setAchievementToasts] = useState([]);
 
   const showNotification = useCallback(
-    (message, type = "info", duration = 4000) => {
+    (message, type = "info", duration = 5000) => {
       const id = Date.now() + Math.random();
       setNotifications((prev) => [...prev, { id, message, type, duration }]);
     },
     []
   );
 
-  const showAchievementToast = useCallback((achievement, currentScore = null) => {
-    const id = Date.now() + Math.random();
-    setAchievementToasts((prev) => [...prev, { id, achievement, currentScore }]);
-  }, []);
+  const showAchievementToast = useCallback(
+    (achievement, currentScore = null) => {
+      const id = Date.now() + Math.random();
+      setAchievementToasts((prev) => [
+        ...prev,
+        { id, achievement, currentScore },
+      ]);
+    },
+    []
+  );
 
   const removeNotification = useCallback((id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));

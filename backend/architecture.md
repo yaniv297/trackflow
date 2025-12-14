@@ -505,6 +505,19 @@ class SongProgress(Base):
     completed_at, completed_by_user_id, notes
 ```
 
+#### CRITICAL: Never Use Hardcoded Workflow Steps ❌
+
+**HARDCODED WORKFLOW STEPS MUST NEVER BE USED AS FALLBACKS OR DEFAULTS.**
+
+- ❌ **NEVER** create hardcoded lists like `["demucs", "midi", "tempo_map", ...]` as fallbacks
+- ❌ **NEVER** use default step lists when a user workflow is missing
+- ✅ **ALWAYS** load steps from `user_workflows` and `user_workflow_steps` tables
+- ✅ **ALWAYS** return errors (409 USER_WORKFLOW_NOT_CONFIGURED) if workflow is missing
+- ✅ **ALWAYS** require workflow configuration during registration
+- ✅ **ALWAYS** use user's persisted workflow for song creation and progress tracking
+
+**Rationale**: The workflow system is user-customizable. Using hardcoded steps defeats the purpose of the custom workflow feature and creates inconsistent behavior. If a user has no workflow, they must be blocked from creating songs until they configure one.
+
 ### Collaboration & Permissions
 
 ```python

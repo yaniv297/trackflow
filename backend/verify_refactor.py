@@ -130,13 +130,12 @@ class RefactorVerifier:
         """Verify all original routes are covered"""
         print("🔍 Verifying route coverage...")
         
-        # Check auth routes
-        if os.path.exists('api/auth_legacy.py'):
-            legacy_routes = self._extract_routes('api/auth_legacy.py')
-            refactored_routes = []
-            
-            for root, dirs, files in os.walk('api/auth'):
-                for file in files:
+        # Check auth routes (auth_legacy.py has been removed)
+        # All auth routes are now in api/auth/
+        refactored_routes = []
+        
+        for root, dirs, files in os.walk('api/auth'):
+            for file in files:
                     if file.endswith('.py'):
                         filepath = os.path.join(root, file)
                         refactored_routes.extend(self._extract_routes(filepath))

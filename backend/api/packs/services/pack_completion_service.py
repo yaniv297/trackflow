@@ -15,13 +15,6 @@ class PackCompletionService:
     def __init__(self, db: Session):
         self.db = db
         self.pack_repo = PackRepository(db)
-        
-        # Default workflow fields fallback (legacy list)
-        self.default_workflow_fields = [
-            'demucs', 'midi', 'tempo_map', 'fake_ending', 'drums', 'bass', 
-            'guitar', 'vocals', 'harmonies', 'pro_keys', 'keys', 
-            'animations', 'drum_fills', 'overdrive', 'compile'
-        ]
     
     def get_packs_near_completion(self, user_id: int, limit: int = 3, threshold: int = 70) -> List[PackCompletionResponse]:
         """Get packs that are close to completion."""
@@ -102,9 +95,10 @@ class PackCompletionService:
                         workflow_fields_map[user_id] = []
                     workflow_fields_map[user_id].append(step_name)
             except Exception:
-                # Fallback to default workflow if tables don't exist
-                for user_id in song_owner_ids:
-                    workflow_fields_map[user_id] = self.default_workflow_fields
+                # If workflow tables don't exist or query fails, users without workflows
+                # will have empty workflow_fields_map, resulting in 0% completion
+                # This encourages users to configure their workflows
+                pass
         
         # Get song progress for all songs
         song_ids = [song.id for song in pack_songs]
@@ -139,10 +133,12 @@ class PackCompletionService:
                 completed_songs += 1
                 continue
             
-            # Check workflow progress
-            user_workflow = workflow_fields_map.get(song.user_id, self.default_workflow_fields)
+            # Check workflow progress - REQUIRED, no fallback to hardcoded steps
+            user_workflow = workflow_fields_map.get(song.user_id)
             song_progress = song_progress_map.get(song.id, {})
             
+            # Only calculate completion if user has a configured workflow
+            # Users without workflows cannot have songs marked as complete
             if user_workflow:
                 completed_steps = sum(1 for step in user_workflow if song_progress.get(step, False))
                 total_steps = len(user_workflow)
@@ -150,6 +146,7 @@ class PackCompletionService:
                 # Consider complete if all steps are done
                 if completed_steps == total_steps:
                     completed_songs += 1
+            # If no workflow exists, song remains incomplete (encourages workflow setup)
         
         incomplete_songs = total_songs - completed_songs
         completion_percentage = (completed_songs / total_songs) * 100 if total_songs > 0 else 0

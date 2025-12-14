@@ -189,7 +189,7 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
         db.refresh(authoring)
         song.authoring = authoring
 
-    # Determine steps to complete from owner's workflow; fallback to legacy list
+    # Determine steps to complete from owner's workflow - REQUIRED, no fallback
     rows = db.execute(
         text(
             """
@@ -202,10 +202,13 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
         ),
         {"uid": song.user_id},
     ).fetchall()
-    step_names = [r[0] for r in rows] or [
-        "demucs", "midi", "tempo_map", "fake_ending", "drums", "bass", "guitar",
-        "vocals", "harmonies", "pro_keys", "keys", "animations", "drum_fills", "overdrive", "compile"
-    ]
+    step_names = [r[0] for r in rows]
+    
+    if not step_names:
+        raise HTTPException(
+            status_code=409,
+            detail="USER_WORKFLOW_NOT_CONFIGURED: Song owner's workflow is not configured. Cannot mark steps as complete."
+        )
 
     # Upsert all steps as completed
     for step in step_names:

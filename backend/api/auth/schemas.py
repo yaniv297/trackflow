@@ -61,6 +61,8 @@ class ClaimUserRequest(BaseModel):
     username: str
     email: str
     password: str
+    user_id: Optional[int] = None  # For frontend compatibility
+    workflow_steps: Optional[list] = []  # Workflow steps for claiming user
     
     @validator('username')
     def validate_username(cls, v):

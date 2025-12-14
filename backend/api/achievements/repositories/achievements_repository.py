@@ -293,14 +293,9 @@ class AchievementsRepository:
             {"uid": user_id}
         ).fetchall()
         
-        if not rows:
-            # Fallback to legacy list if no workflow
-            return [
-                "demucs", "midi", "tempo_map", "fake_ending", "drums", "bass", "guitar",
-                "vocals", "harmonies", "pro_keys", "keys", "animations", "drum_fills", "overdrive", "compile"
-            ]
-        else:
-            return [r[0] for r in rows]
+        # No fallback - if user has no workflow, return empty list
+        # This ensures users must configure their workflow before getting completion counts
+        return [r[0] for r in rows]
     
     def get_completed_songs_optimized(self, db: Session, user_id: int) -> int:
         """Get count of fully completed songs using optimized bulk queries."""

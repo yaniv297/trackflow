@@ -66,22 +66,15 @@ async def get_my_workflow(
     if cached_workflow is not None:
         return cached_workflow
     
-    # Ensure a workflow exists for this user
+    # Load user's workflow - REQUIRED, no fallback to templates
     result = db.execute(text("SELECT id, user_id, name, description, template_id, created_at, updated_at FROM user_workflows WHERE user_id = :uid"), {"uid": current_user.id}).fetchone()
     if not result:
-        # Create from default template if missing
-        tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = TRUE LIMIT 1")).fetchone()
-        if not tmpl:
-            raise HTTPException(status_code=500, detail="Default workflow template missing")
-        db.execute(text("INSERT INTO user_workflows (user_id, name, description, template_id, created_at, updated_at) VALUES (:uid, 'My Workflow', 'Customized workflow', :tid, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"), {"uid": current_user.id, "tid": tmpl[0]})
-        # Copy steps
-        db.execute(text("""
-            INSERT INTO user_workflow_steps (workflow_id, step_name, display_name, order_index)
-            SELECT (SELECT id FROM user_workflows WHERE user_id = :uid), step_name, display_name, order_index
-            FROM workflow_template_steps WHERE template_id = :tid
-        """), {"uid": current_user.id, "tid": tmpl[0]})
-        db.commit()
-        result = db.execute(text("SELECT id, user_id, name, description, template_id, created_at, updated_at FROM user_workflows WHERE user_id = :uid"), {"uid": current_user.id}).fetchone()
+        # User has no workflow - this should never happen if registration worked correctly
+        # But we don't create one from templates - user must configure it
+        raise HTTPException(
+            status_code=404,
+            detail="USER_WORKFLOW_NOT_CONFIGURED: No workflow found. Please configure your workflow."
+        )
 
     workflow_id = result[0]
     steps = db.execute(text("""
@@ -270,9 +263,14 @@ async def reset_to_default(
         raise HTTPException(status_code=404, detail="No workflow found")
     wid = wf[0]
 
+    # Note: This endpoint requires a template to exist - it's an explicit user action
+    # Templates are only used when explicitly chosen by the user
     tmpl = db.execute(text("SELECT id FROM workflow_templates WHERE is_default = 1 LIMIT 1")).fetchone()
     if not tmpl:
-        raise HTTPException(status_code=500, detail="Default workflow template missing")
+        raise HTTPException(
+            status_code=404, 
+            detail="No default workflow template available. Please configure your workflow manually or contact support."
+        )
 
     db.execute(text("DELETE FROM user_workflow_steps WHERE workflow_id = :wid"), {"wid": wid})
     db.execute(text("""

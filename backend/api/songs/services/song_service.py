@@ -3,13 +3,14 @@ from typing import List, Optional, Dict, Any, Tuple
 from fastapi import HTTPException
 from datetime import datetime
 
-from models import Song, SongStatus, User, Pack, AlbumSeries, CollaborationType
+from models import Song, SongStatus, User, Pack, AlbumSeries, CollaborationType, NotificationType
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
 from api.activity_logger import log_activity
 from api.achievements import (
-    check_status_achievements, check_wip_completion_achievements,
-    check_diversity_achievements, check_collaboration_achievements
+    check_status_achievements,
+    check_wip_completion_achievements,
+    check_diversity_achievements,
 )
 from api.achievements.repositories.achievements_repository import AchievementsRepository
 from api.notifications.services.notification_service import NotificationService
@@ -112,7 +113,7 @@ class SongService:
             if hasattr(song, key):
                 setattr(song, key, value)
         
-        # Handle status changes for achievements and timestamps
+        # Handle status changes for achievements, timestamps and collaboration notifications
         if "status" in updates:
             new_status = updates["status"]
             
@@ -148,12 +149,46 @@ class SongService:
                         )
                     except Exception as e:
                         print(f"⚠️ Failed to award release points: {e}")
+
+                    # Notify collaborators that the song was released
+                    try:
+                        actor_name = getattr(current_user, "display_name", None) or current_user.username
+                        message = f"{actor_name} released '{song.title}'"
+                        self.notification_service.notify_song_collaborators(
+                            song_id=song.id,
+                            actor_user_id=current_user.id,
+                            notification_type=NotificationType.COLLAB_SONG_STATUS,
+                            title=f"Song released: {song.title}",
+                            message=message,
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Failed to notify collaborators about release: {e}")
                         
             # Clear released_at if moving away from Released
             elif song.released_at is not None:
                 if old_status == "Released" or old_status == SongStatus.released:
                     song.released_at = None
                     print(f"🔄 Cleared released_at for song {song.id} '{song.title}' - status change from {old_status} to {new_status}")
+            
+            # Notify collaborators about non-release status changes (e.g. Future Plans → WIP)
+            try:
+                # Normalize to string values for comparison / messaging
+                old_status_str = old_status.value if isinstance(old_status, SongStatus) else str(old_status)
+                new_status_str = new_status.value if isinstance(new_status, SongStatus) else str(new_status)
+                if old_status_str != new_status_str:
+                    actor_name = getattr(current_user, "display_name", None) or current_user.username
+                    # Skip here if we already sent a dedicated release notification above
+                    if not (new_status_str == SongStatus.released.value and (old_status_str != SongStatus.released.value)):
+                        message = f"{actor_name} moved '{song.title}' to {new_status_str}"
+                        self.notification_service.notify_song_collaborators(
+                            song_id=song.id,
+                            actor_user_id=current_user.id,
+                            notification_type=NotificationType.COLLAB_SONG_STATUS,
+                            title=f"Song status updated: {song.title}",
+                            message=message,
+                        )
+            except Exception as e:
+                print(f"⚠️ Failed to notify collaborators about status change: {e}")
         
         self.db.commit()
         
@@ -189,7 +224,6 @@ class SongService:
         # First pass: validate ALL songs before creating ANY (including duplicates)
         from api.data_access import check_song_duplicate_for_user
         from models import Song, User as UserModel
-        from sqlalchemy import or_, and_
         
         validation_errors = []
         validation_warnings = []
@@ -302,7 +336,7 @@ class SongService:
         completed_songs, optional_songs = self._separate_songs_by_optional(songs)
         
         # Release completed songs
-        self._release_completed_songs(completed_songs)
+        self._release_completed_songs(completed_songs, actor=current_user)
         
         # Handle optional songs
         optional_pack_id = None
@@ -671,8 +705,8 @@ class SongService:
         
         return completed_songs, optional_songs
     
-    def _release_completed_songs(self, completed_songs: List[Song]):
-        """Release completed songs by changing their status."""
+    def _release_completed_songs(self, completed_songs: List[Song], actor: User):
+        """Release completed songs by changing their status and notifying collaborators."""
         points_awarded = 0
         released_songs = []
         
@@ -690,6 +724,20 @@ class SongService:
                     released_songs.append(song.title)
                 except Exception as e:
                     print(f"⚠️ Failed to award release points: {e}")
+
+                # Notify collaborators that this collaboration song was released
+                try:
+                    actor_name = getattr(actor, "display_name", None) or actor.username
+                    message = f"{actor_name} released '{song.title}'"
+                    self.notification_service.notify_song_collaborators(
+                        song_id=song.id,
+                        actor_user_id=actor.id,
+                        notification_type=NotificationType.COLLAB_SONG_STATUS,
+                        title=f"Song released: {song.title}",
+                        message=message,
+                    )
+                except Exception as e:
+                    print(f"⚠️ Failed to notify collaborators about pack song release: {e}")
         
         # Create summary notification for pack release if points were awarded
         if points_awarded > 0 and released_songs:

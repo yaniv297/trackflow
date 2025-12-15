@@ -49,7 +49,8 @@ export const useWipPackOperations = (
       } catch (error) {
         console.error("Failed to update pack priority:", error);
         if (window.showNotification) {
-          const errorMessage = error.message || "Failed to update pack priority";
+          const errorMessage =
+            error.message || "Failed to update pack priority";
           window.showNotification(errorMessage, "error");
         }
         throw error;
@@ -71,7 +72,9 @@ export const useWipPackOperations = (
 
             // Remove songs from current view (optimistic update)
             setSongs((prev) =>
-              prev.filter((song) => (song.pack_name || "(no pack)") !== packName)
+              prev.filter(
+                (song) => (song.pack_name || "(no pack)") !== packName
+              )
             );
 
             if (window.showNotification) {
@@ -129,7 +132,10 @@ export const useWipPackOperations = (
         );
 
         if (window.showNotification) {
-          window.showNotification(`Pack renamed to "${newPackName}"`, "success");
+          window.showNotification(
+            `Pack renamed to "${newPackName}"`,
+            "success"
+          );
         }
       } catch (error) {
         console.error("Failed to rename pack:", error);
@@ -175,7 +181,15 @@ export const useWipPackOperations = (
           )
         );
 
-        await apiPatch(`/packs/${packId}/status`, { status: "Future Plans" });
+        // Update status for all songs in this pack on the backend.
+        // We PATCH the songs directly instead of using the pack status
+        // endpoint, because song status legitimately supports "Future Plans"
+        // while the new pack status API only accepts WIP/Complete/Released.
+        await Promise.all(
+          packSongs.map((song) =>
+            apiPatch(`/songs/${song.id}`, { status: "Future Plans" })
+          )
+        );
 
         // Refresh WIP data to ensure consistency
         refreshSongs();
@@ -189,14 +203,15 @@ export const useWipPackOperations = (
       } catch (error) {
         console.error("Failed to move pack to Future Plans:", error);
         if (window.showNotification) {
-          const errorMessage = error.message || "Failed to move pack to Future Plans";
+          const errorMessage =
+            error.message || "Failed to move pack to Future Plans";
           window.showNotification(errorMessage, "error");
         }
         // Revert optimistic update on error
         refreshSongs();
       }
     },
-    [songs, setSongs]
+    [songs, setSongs, refreshSongs]
   );
 
   return {
@@ -206,4 +221,3 @@ export const useWipPackOperations = (
     handleMovePackToFuturePlans,
   };
 };
-

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { apiGet } from "../../utils/api";
 import { useWorkflowData } from "../workflows/useWorkflowData";
 import { useUserWorkflowFields } from "../workflows/useUserWorkflowFields";
@@ -20,7 +20,59 @@ export const useWipData = (user) => {
 
   // Get dynamic workflow fields for the current user
   const { authoringFields } = useWorkflowData(user);
-  const { fetchUserWorkflowFields, getWorkflowFields } = useUserWorkflowFields();
+  const { fetchUserWorkflowFields, getWorkflowFields } =
+    useUserWorkflowFields();
+
+  // Helper to load songs with their workflow progress in one place
+  const loadSongsWithProgress = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiGet("/songs/?status=In%20Progress");
+
+      // After loading songs, fetch song_progress for ALL songs in ONE bulk request
+      if (data && data.length > 0) {
+        try {
+          const songIds = data.map((s) => s.id).join(",");
+          const progressMap = await apiGet(
+            `/workflows/songs/progress/bulk?song_ids=${songIds}`
+          );
+
+          const songsWithProgress = data.map((s) => ({
+            ...s,
+            progress: progressMap[s.id] || {},
+          }));
+
+          setSongs(songsWithProgress);
+        } catch (e) {
+          console.error("Failed to fetch bulk progress:", e);
+          // Fallback to original songs if progress fetch fails
+          setSongs(data || []);
+        }
+      } else {
+        setSongs(data || []);
+      }
+
+      // Calculate pack completion and set initial collapsed state
+      const packs = Array.from(
+        new Set((data || []).map((s) => s.pack_name || "(no pack)"))
+      );
+
+      setCollapsedPacks((prev) => {
+        const collapsed = {};
+        packs.forEach((packName) => {
+          // Preserve existing expanded state if pack exists, otherwise collapse by default
+          collapsed[packName] =
+            prev[packName] !== undefined ? prev[packName] : true;
+        });
+        return collapsed;
+      });
+    } catch (error) {
+      console.error("Failed to load songs:", error);
+      setSongs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Helper function to get list of collaborating users for a pack
   const getPackCollaborators = (packId, validSongsInPack) => {
@@ -93,59 +145,13 @@ export const useWipData = (user) => {
     return collaborators.size > 0 ? Array.from(collaborators) : null;
   };
 
-  // Note: We don't need to load packs separately since pack priority 
+  // Note: We don't need to load packs separately since pack priority
   // comes from song data (pack_priority field) which is more reliable
 
   // Load songs
   useEffect(() => {
-    setLoading(true);
-    apiGet("/songs/?status=In%20Progress")
-      .then(async (data) => {
-        // After loading songs, fetch song_progress for ALL songs in ONE bulk request
-        try {
-          if (data && data.length > 0) {
-            const songIds = data.map((s) => s.id).join(",");
-            const progressMap = await apiGet(
-              `/workflows/songs/progress/bulk?song_ids=${songIds}`
-            );
-
-            const songsWithProgress = data.map((s) => ({
-              ...s,
-              progress: progressMap[s.id] || {},
-            }));
-
-            setSongs(songsWithProgress);
-          } else {
-            setSongs(data || []);
-          }
-        } catch (e) {
-          console.error("Failed to fetch bulk progress:", e);
-          // Fallback to original songs if progress fetch fails
-          setSongs(data || []);
-        }
-
-        // Calculate pack completion and set initial collapsed state
-        const packs = Array.from(
-          new Set(data.map((s) => s.pack_name || "(no pack)"))
-        );
-        
-        setCollapsedPacks((prev) => {
-          const collapsed = {};
-          packs.forEach((packName) => {
-            // Preserve existing expanded state if pack exists, otherwise collapse by default
-            collapsed[packName] = prev[packName] !== undefined ? prev[packName] : true;
-          });
-          return collapsed;
-        });
-      })
-      .catch((error) => {
-        console.error("Failed to load songs:", error);
-        setSongs([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [authoringFields]);
+    loadSongsWithProgress();
+  }, [authoringFields, loadSongsWithProgress]);
 
   // Load user collaborations
   useEffect(() => {
@@ -246,29 +252,35 @@ export const useWipData = (user) => {
         totalPercent += songPercent;
       });
       const percent =
-        coreSongs.length > 0
-          ? Math.round(totalPercent / coreSongs.length)
-          : 0;
+        coreSongs.length > 0 ? Math.round(totalPercent / coreSongs.length) : 0;
 
       // Categorize songs within the pack by ownership and completion
       const ownedSongs = coreSongs.filter((song) => song.user_id === user?.id);
-      
+
       // Only include songs where user is NOT a direct collaborator
       const collaboratorSongs = coreSongs.filter((song) => {
         const isOwner = song.user_id === user?.id;
-        const isDirectCollaborator = song.collaborations && song.collaborations.some(
-          collab => collab.user_id === user?.id && 
-          (collab.collaboration_type === 'SONG_EDIT' || collab.collaboration_type === 'song_edit')
-        );
+        const isDirectCollaborator =
+          song.collaborations &&
+          song.collaborations.some(
+            (collab) =>
+              collab.user_id === user?.id &&
+              (collab.collaboration_type === "SONG_EDIT" ||
+                collab.collaboration_type === "song_edit")
+          );
         return !isOwner && !isDirectCollaborator;
       });
-      
+
       const collaboratorOptionalSongs = optionalSongs.filter((song) => {
         const isOwner = song.user_id === user?.id;
-        const isDirectCollaborator = song.collaborations && song.collaborations.some(
-          collab => collab.user_id === user?.id && 
-          (collab.collaboration_type === 'SONG_EDIT' || collab.collaboration_type === 'song_edit')
-        );
+        const isDirectCollaborator =
+          song.collaborations &&
+          song.collaborations.some(
+            (collab) =>
+              collab.user_id === user?.id &&
+              (collab.collaboration_type === "SONG_EDIT" ||
+                collab.collaboration_type === "song_edit")
+          );
         return !isOwner && !isDirectCollaborator;
       });
 
@@ -317,12 +329,13 @@ export const useWipData = (user) => {
         // Priority sorting (highest first), then by alphabetical
         const aPriority = a.priority ?? 0; // null becomes 0
         const bPriority = b.priority ?? 0; // null becomes 0
-        
+
         if (aPriority !== bPriority) {
           return bPriority - aPriority; // Higher priority first
         }
         return a.pack.toLowerCase().localeCompare(b.pack.toLowerCase()); // Then alphabetically
-      } else { // completion
+      } else {
+        // completion
         // Completion sorting (highest first), then by alphabetical
         if (a.percent !== b.percent) {
           return b.percent - a.percent; // Higher completion first
@@ -348,34 +361,25 @@ export const useWipData = (user) => {
   };
 
   const refreshSongs = async () => {
-    try {
-      setLoading(true);
-      const songsData = await apiGet("/songs/?status=In%20Progress");
-      setSongs(songsData);
-    } catch (error) {
-      console.error("Failed to refresh songs:", error);
-    } finally {
-      setLoading(false);
-    }
+    // Use the same logic as the initial load so that
+    // song.progress is always populated and pack percentages
+    // remain correct after any refresh-triggering operation.
+    await loadSongsWithProgress();
   };
 
   const updatePackPriorityLocal = (packId, priority) => {
     // Update local pack data immediately without triggering loading state
-    setPacks(prevPacks => 
-      prevPacks.map(pack => 
-        pack.id === packId 
-          ? { ...pack, priority }
-          : pack
+    setPacks((prevPacks) =>
+      prevPacks.map((pack) =>
+        pack.id === packId ? { ...pack, priority } : pack
       )
     );
-    
+
     // ALSO update the pack_priority field on all songs in this pack
     // This is what the UI actually displays!
-    setSongs(prevSongs =>
-      prevSongs.map(song =>
-        song.pack_id === packId
-          ? { ...song, pack_priority: priority }
-          : song
+    setSongs((prevSongs) =>
+      prevSongs.map((song) =>
+        song.pack_id === packId ? { ...song, pack_priority: priority } : song
       )
     );
   };

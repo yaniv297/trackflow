@@ -18,7 +18,8 @@ class NotificationRepository:
         message: str,
         related_achievement_id: Optional[int] = None,
         related_feature_request_id: Optional[int] = None,
-        related_comment_id: Optional[int] = None
+        related_comment_id: Optional[int] = None,
+        related_song_id: Optional[int] = None,
     ) -> Notification:
         """Create a new notification"""
         notification = Notification(
@@ -28,7 +29,8 @@ class NotificationRepository:
             message=message,
             related_achievement_id=related_achievement_id,
             related_feature_request_id=related_feature_request_id,
-            related_comment_id=related_comment_id
+            related_comment_id=related_comment_id,
+            related_song_id=related_song_id,
         )
         self.db.add(notification)
         self.db.commit()

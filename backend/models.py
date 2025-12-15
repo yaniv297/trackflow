@@ -1,7 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint, Index, TypeDecorator
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.types import UserDefinedType
 from datetime import datetime
 import enum
 
@@ -449,6 +448,9 @@ class NotificationType(str, enum.Enum):
     WELCOME = "welcome"
     GENERAL = "general"
     PACK_RELEASE = "pack_release"
+    COLLAB_SONG_PROGRESS = "collab_song_progress"
+    COLLAB_SONG_STATUS = "collab_song_status"
+    COLLAB_WIP_ASSIGNMENTS = "collab_wip_assignments"
 
 class PostType(str, enum.Enum):
     PACK_RELEASE = "pack_release"      # Automatic pack release
@@ -471,6 +473,7 @@ class Notification(Base):
     related_achievement_id = Column(Integer, ForeignKey("achievements.id"), nullable=True, index=True)
     related_feature_request_id = Column(Integer, ForeignKey("feature_requests.id"), nullable=True, index=True)
     related_comment_id = Column(Integer, ForeignKey("feature_request_comments.id"), nullable=True, index=True)
+    related_song_id = Column(Integer, ForeignKey("songs.id"), nullable=True, index=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     read_at = Column(DateTime, nullable=True)
@@ -480,10 +483,12 @@ class Notification(Base):
     related_achievement = relationship("Achievement", foreign_keys=[related_achievement_id])
     related_feature_request = relationship("FeatureRequest", foreign_keys=[related_feature_request_id])
     related_comment = relationship("FeatureRequestComment", foreign_keys=[related_comment_id])
+    related_song = relationship("Song", foreign_keys=[related_song_id])
     
     __table_args__ = (
         Index('idx_notification_user_read', 'user_id', 'is_read'),
         Index('idx_notification_user_created', 'user_id', 'created_at'),
+        Index('idx_notification_related_song', 'related_song_id'),
     )
 
 class ReleasePost(Base):

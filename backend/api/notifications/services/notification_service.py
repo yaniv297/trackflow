@@ -1,8 +1,14 @@
 from sqlalchemy.orm import Session
+from typing import List, Optional, Set
+
 from ..repositories.notification_repository import NotificationRepository
-from ..validators.notification_validators import NotificationOut, NotificationCountOut, NotificationListOut, NotificationMarkAllReadResponse
+from ..validators.notification_validators import (
+    NotificationOut,
+    NotificationCountOut,
+    NotificationListOut,
+    NotificationMarkAllReadResponse,
+)
 from models import NotificationType, Achievement, FeatureRequest, FeatureRequestComment
-from typing import List, Optional
 
 class NotificationService:
     """Service layer for notification business logic"""
@@ -105,13 +111,23 @@ class NotificationService:
         
         return self._format_notification_out(notification)
     
-    def create_general_notification(self, user_id: int, title: str, message: str) -> NotificationOut:
+    def create_general_notification(
+        self,
+        user_id: int,
+        title: str,
+        message: str,
+        related_song_id: Optional[int] = None,
+    ) -> NotificationOut:
         """Create a general notification"""
         notification = self.repository.create_notification(
             user_id=user_id,
             type=NotificationType.GENERAL,
             title=title,
-            message=message
+            message=message,
+            related_achievement_id=None,
+            related_feature_request_id=None,
+            related_comment_id=None,
+            related_song_id=related_song_id,
         )
         
         return self._format_notification_out(notification)
@@ -221,7 +237,82 @@ class NotificationService:
     def delete_notification(self, notification_id: int, user_id: int) -> bool:
         """Delete a notification"""
         return self.repository.delete_notification(notification_id, user_id)
-    
+
+    # ==========================================================
+    # Collaboration / song helper methods
+    # ==========================================================
+
+    def _get_song_collaborator_user_ids(self, song_id: int, actor_user_id: int) -> Set[int]:
+        """
+        Get all user IDs that should be considered collaborators on a song,
+        excluding the acting user.
+        """
+        from models import Collaboration, CollaborationType, Song  # Local import to avoid cycles
+
+        collaborator_ids: Set[int] = set()
+
+        # Include the song owner
+        song = self.db.query(Song).filter(Song.id == song_id).first()
+        if not song:
+            return set()
+        if song.user_id:
+            collaborator_ids.add(song.user_id)
+
+        # Include all SONG_EDIT collaborators on this song
+        song_collaborations = (
+            self.db.query(Collaboration)
+            .filter(
+                Collaboration.song_id == song_id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+            )
+            .all()
+        )
+        for collab in song_collaborations:
+            if collab.user_id:
+                collaborator_ids.add(collab.user_id)
+
+        # Don't notify the actor themselves
+        collaborator_ids.discard(actor_user_id)
+        return collaborator_ids
+
+    def notify_song_collaborators(
+        self,
+        song_id: int,
+        actor_user_id: int,
+        notification_type: NotificationType,
+        title: str,
+        message: str,
+    ) -> int:
+        """
+        Create the same notification for all collaborators on a given song,
+        excluding the acting user.
+
+        Returns the number of notifications created.
+        """
+        collaborator_ids = self._get_song_collaborator_user_ids(song_id, actor_user_id)
+        if not collaborator_ids:
+            return 0
+
+        created_count = 0
+        for target_user_id in collaborator_ids:
+            try:
+                self.repository.create_notification(
+                    user_id=target_user_id,
+                    type=notification_type,
+                    title=title,
+                    message=message,
+                    related_song_id=song_id,
+                )
+                created_count += 1
+            except Exception as e:
+                # Don't let a single failure break others; just log
+                print(
+                    f"⚠️ Failed to create collaboration notification "
+                    f"for user {target_user_id} on song {song_id}: {e}"
+                )
+
+        return created_count
+
     def _format_notification_out(self, notification) -> NotificationOut:
         """Convert notification model to output format with related data"""
         notification_dict = {
@@ -234,6 +325,7 @@ class NotificationService:
             "related_achievement_id": notification.related_achievement_id,
             "related_feature_request_id": notification.related_feature_request_id,
             "related_comment_id": notification.related_comment_id,
+            "related_song_id": getattr(notification, "related_song_id", None),
             "created_at": notification.created_at,
             "read_at": notification.read_at,
             "achievement": None,

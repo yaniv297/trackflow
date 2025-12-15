@@ -13,6 +13,7 @@ class NotificationOut(BaseModel):
     related_achievement_id: Optional[int] = None
     related_feature_request_id: Optional[int] = None
     related_comment_id: Optional[int] = None
+    related_song_id: Optional[int] = None
     created_at: datetime
     read_at: Optional[datetime] = None
     
@@ -30,6 +31,7 @@ class NotificationCreate(BaseModel):
     related_achievement_id: Optional[int] = None
     related_feature_request_id: Optional[int] = None
     related_comment_id: Optional[int] = None
+    related_song_id: Optional[int] = None
 
 class NotificationUpdate(BaseModel):
     is_read: Optional[bool] = None

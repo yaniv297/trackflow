@@ -5,7 +5,7 @@ from typing import List
 from database import get_db
 from schemas import AuthoringOut
 from api.data_access import get_authoring_by_song_id
-from models import Song, WipCollaboration, Authoring, Collaboration, CollaborationType
+from models import Song, WipCollaboration, Authoring, Collaboration, CollaborationType, SongStatus
 from api.auth import get_current_active_user
 from sqlalchemy import text
 
@@ -152,10 +152,14 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
     db.commit()
     db.refresh(song)
     
-    # Check quality achievements after authoring update
+    # Check achievements after authoring update
     try:
-        from api.achievements import check_quality_achievements
+        from api.achievements import check_quality_achievements, check_wip_completion_achievements
         check_quality_achievements(db, current_user.id)
+        # Check WIP completion achievements - songs become complete when all workflow steps are done
+        # Only check if song is in Released status (completed WIP songs are released)
+        if song.status == SongStatus.released:
+            check_wip_completion_achievements(db, current_user.id)
     except Exception as ach_err:
         print(f"⚠️ Failed to check achievements: {ach_err}")
     
@@ -230,10 +234,14 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
     db.commit()
     db.refresh(song)
     
-    # Check quality achievements after marking all complete
+    # Check achievements after marking all complete
     try:
-        from api.achievements import check_quality_achievements
+        from api.achievements import check_quality_achievements, check_wip_completion_achievements
         check_quality_achievements(db, current_user.id)
+        # Check WIP completion achievements - songs become complete when all workflow steps are done
+        # Only check if song is in Released status (completed WIP songs are released)
+        if song.status == SongStatus.released:
+            check_wip_completion_achievements(db, current_user.id)
     except Exception as ach_err:
         print(f"⚠️ Failed to check achievements: {ach_err}")
     

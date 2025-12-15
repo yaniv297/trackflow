@@ -61,7 +61,8 @@ class PackReleaseData(BaseModel):
     download_link: Optional[str] = None
     youtube_url: Optional[str] = None
     song_download_links: Optional[Dict[int, str]] = None
-    hide_from_homepage: Optional[bool] = False
+    hide_from_homepage: Optional[bool] = False  # Keep for backward compatibility
+    show_on_homepage: Optional[bool] = None  # New explicit field
     
     @validator('title')
     def validate_title(cls, v):
@@ -88,6 +89,7 @@ class PackResponse(BaseModel):
     release_description: Optional[str] = None
     release_download_link: Optional[str] = None
     release_youtube_url: Optional[str] = None
+    show_on_homepage: bool = True
     
     class Config:
         from_attributes = True

@@ -188,19 +188,55 @@ class SongService:
         
         # First pass: validate ALL songs before creating ANY (including duplicates)
         from api.data_access import check_song_duplicate_for_user
+        from models import Song, User as UserModel
+        from sqlalchemy import or_, and_
+        
         validation_errors = []
+        validation_warnings = []
+        
         for i, song_data in enumerate(songs_data):
             song_dict = song_data.dict()
+            title = song_dict.get('title', '').strip()
+            artist = song_dict.get('artist', '').strip()
             
-            # Check for duplicates before creating anything
-            if check_song_duplicate_for_user(self.db, song_dict.get('title'), song_dict.get('artist'), current_user):
-                validation_errors.append(f"Song '{song_dict.get('title')}' by {song_dict.get('artist')} already exists in your database")
+            if not title or not artist:
+                continue
+            
+            # Check for user's own duplicates (this is an error - blocks creation)
+            if check_song_duplicate_for_user(self.db, title, artist, current_user):
+                validation_errors.append(f"Song '{title}' by {artist} already exists in your database")
+                continue
+            
+            # Check for released songs by other users (this is a warning - inform user but don't block)
+            released_songs = self.db.query(Song, UserModel).join(
+                UserModel, Song.user_id == UserModel.id
+            ).filter(
+                Song.title.ilike(title),
+                Song.artist.ilike(artist),
+                Song.user_id != current_user.id,
+                Song.status == "Released"  # Only check released songs
+            ).all()
+            
+            if released_songs:
+                owners = [f"{user.display_name or user.username}" for song, user in released_songs]
+                owners_str = ", ".join(owners[:3])  # Limit to first 3 owners
+                if len(released_songs) > 3:
+                    owners_str += f" and {len(released_songs) - 3} other(s)"
+                validation_warnings.append({
+                    "song": f"{title} by {artist}",
+                    "message": f"Already released by {owners_str}",
+                    "type": "released"
+                })
         
-        # If ANY song fails validation, fail the entire batch
+        # If ANY song fails validation (user duplicates), fail the entire batch
         if validation_errors:
+            error_detail = f"Pack creation failed - {'; '.join(validation_errors)}"
+            if validation_warnings:
+                # Include warnings in the error response
+                error_detail += f" | Warnings: {len(validation_warnings)} song(s) already released by others"
             raise HTTPException(
                 status_code=400,
-                detail=f"Pack creation failed - {'; '.join(validation_errors)}"
+                detail=error_detail
             )
         
         # Second pass: create all songs in transaction

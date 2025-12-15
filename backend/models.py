@@ -98,6 +98,7 @@ class Pack(Base):
     release_description = Column(Text, nullable=True)  # Optional description for the release
     release_download_link = Column(String, nullable=True)  # Download link for the pack
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
+    show_on_homepage = Column(Boolean, default=True, nullable=False)  # Whether to show this pack on the homepage
     # Relationships
     user = relationship("User", back_populates="packs")
     songs = relationship("Song", back_populates="pack_obj")

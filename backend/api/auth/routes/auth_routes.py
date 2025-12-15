@@ -44,6 +44,21 @@ def login(user_credentials: UserLogin, request: Request, db: Session = Depends(g
         except Exception as e:
             print(f"Failed to record user activity: {e}")
         
+        # Update login streak
+        try:
+            from api.achievements.repositories.achievements_repository import AchievementsRepository
+            achievements_repo = AchievementsRepository()
+            new_streak = achievements_repo.update_login_streak(db, user.id)
+            print(f"✅ Updated login streak for user {user.id} to {new_streak}")
+            
+            # Check login streak achievements after updating streak
+            from api.achievements.services.achievements_service import AchievementsService
+            achievements_service = AchievementsService()
+            achievements_service.check_login_streak_achievements(db, user.id)
+        except Exception as e:
+            print(f"Warning: Failed to update login streak for user {user.id}: {e}")
+            # Don't fail login if streak update fails
+        
         # Award Welcome Aboard achievement on first login if not already earned (fallback)
         if is_first_login:
             try:
@@ -195,6 +210,21 @@ def claim_existing_user(
             )
         except Exception as e:
             print(f"Failed to log claim activity: {e}")
+        
+        # Update login streak (first login for claimed user)
+        try:
+            from api.achievements.repositories.achievements_repository import AchievementsRepository
+            achievements_repo = AchievementsRepository()
+            new_streak = achievements_repo.update_login_streak(db, user.id)
+            print(f"✅ Updated login streak for user {user.id} to {new_streak}")
+            
+            # Check login streak achievements after updating streak
+            from api.achievements.services.achievements_service import AchievementsService
+            achievements_service = AchievementsService()
+            achievements_service.check_login_streak_achievements(db, user.id)
+        except Exception as e:
+            print(f"Warning: Failed to update login streak for user {user.id}: {e}")
+            # Don't fail claim if streak update fails
         
         # Award Welcome Aboard achievement if not already earned
         try:

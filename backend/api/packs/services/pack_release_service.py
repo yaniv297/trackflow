@@ -48,9 +48,23 @@ class PackReleaseService:
             'release_youtube_url': release_data.youtube_url
         }
         
-        # Set released_at timestamp unless hiding from homepage
-        if not release_data.hide_from_homepage:
-            update_data['released_at'] = datetime.utcnow()
+        # Handle homepage visibility with new explicit boolean field
+        if release_data.show_on_homepage is not None:
+            # Use the explicit show_on_homepage field if provided
+            update_data['show_on_homepage'] = release_data.show_on_homepage
+            print(f"🔧 Setting show_on_homepage to {release_data.show_on_homepage}")
+        elif release_data.hide_from_homepage is not None:
+            # Backward compatibility: convert hide_from_homepage to show_on_homepage
+            update_data['show_on_homepage'] = not release_data.hide_from_homepage
+            print(f"🔧 Converting hide_from_homepage={release_data.hide_from_homepage} to show_on_homepage={not release_data.hide_from_homepage}")
+        else:
+            # Default behavior: show on homepage
+            update_data['show_on_homepage'] = True
+            print("🔧 Using default show_on_homepage=True")
+        
+        # Always set released_at timestamp for released packs (separate from homepage visibility)
+        update_data['released_at'] = datetime.utcnow()
+        print(f"🔧 Setting released_at timestamp: {update_data['released_at']}")
         
         self.pack_repo.update_pack(pack, update_data)
         
@@ -58,9 +72,9 @@ class PackReleaseService:
         print(f"🔧 About to release songs for pack {pack_id}")
         self._release_pack_songs(pack_id, release_data, user_id)
         
-        print(f"🔧 About to commit changes to database")
+        print("🔧 About to commit changes to database")
         self.pack_repo.commit()
-        print(f"✅ Database changes committed")
+        print("✅ Database changes committed")
         
         # Check pack achievements
         try:
@@ -92,7 +106,8 @@ class PackReleaseService:
             release_title=pack.release_title,
             release_description=pack.release_description,
             release_download_link=pack.release_download_link,
-            release_youtube_url=pack.release_youtube_url
+            release_youtube_url=pack.release_youtube_url,
+            show_on_homepage=pack.show_on_homepage
         )
     
     def update_pack_status(self, pack_id: int, status: str, user_id: int) -> PackResponse:
@@ -118,10 +133,14 @@ class PackReleaseService:
             # Set released timestamp if not already set
             if not pack.released_at:
                 update_data['released_at'] = datetime.utcnow()
+            # IMPORTANT: Don't change show_on_homepage for existing releases
+            # If a pack is already released with show_on_homepage=False, keep it hidden
         elif status in ["WIP", "Complete"]:
             # Remove released timestamp for non-released statuses
             if pack.released_at:
                 update_data['released_at'] = None
+            # When moving back from Released, also hide from homepage
+            update_data['show_on_homepage'] = False
         
         self.pack_repo.update_pack(pack, update_data)
         self.pack_repo.commit()
@@ -156,7 +175,8 @@ class PackReleaseService:
             release_title=pack.release_title,
             release_description=pack.release_description,
             release_download_link=pack.release_download_link,
-            release_youtube_url=pack.release_youtube_url
+            release_youtube_url=pack.release_youtube_url,
+            show_on_homepage=pack.show_on_homepage
         )
     
     def _release_pack_songs(self, pack_id: int, release_data: PackReleaseData, user_id: int):

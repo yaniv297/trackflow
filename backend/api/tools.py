@@ -79,6 +79,18 @@ def clean_string(title: str) -> str:
         "", title, flags=re.IGNORECASE
     )
 
+    # 11. Remove patterns like "[25th Anniversary Edition]"
+    title = re.sub(
+        r"\s*\[[0-9]+(st|nd|rd|th)\s+Anniversary\s+Edition\]",
+        "", title, flags=re.IGNORECASE
+    )
+
+    # 12. Remove patterns like "- 2011 Remastered Version"
+    title = re.sub(
+        r"\s*-\s*[12][0-9]{3}\s+Remastered\s+Version$",
+        "", title, flags=re.IGNORECASE
+    )
+
     return title.strip()
 
 

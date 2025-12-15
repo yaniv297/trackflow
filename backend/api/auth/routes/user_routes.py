@@ -129,6 +129,21 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
         except Exception as e:
             print(f"Failed to log registration activity: {e}")
         
+        # Update login streak (first login for new user)
+        try:
+            from api.achievements.repositories.achievements_repository import AchievementsRepository
+            achievements_repo = AchievementsRepository()
+            new_streak = achievements_repo.update_login_streak(db, user.id)
+            print(f"✅ Updated login streak for user {user.id} to {new_streak}")
+            
+            # Check login streak achievements after updating streak
+            from api.achievements.services.achievements_service import AchievementsService
+            achievements_service = AchievementsService()
+            achievements_service.check_login_streak_achievements(db, user.id)
+        except Exception as e:
+            print(f"Warning: Failed to update login streak for user {user.id}: {e}")
+            # Don't fail registration if streak update fails
+        
         # Award Welcome Aboard achievement
         try:
             from api.achievements.services.achievements_service import AchievementsService

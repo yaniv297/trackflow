@@ -61,7 +61,7 @@ frontend/src/
 │   │   └── workflows/       # Workflow UI (3 components)
 │   ├── forms/               # Form components (5 + pack subfolder)
 │   ├── home/                # Homepage components (14 components)
-│   ├── modals/              # Modal dialogs (13 components, includes PackRandomizerModal)
+│   ├── modals/              # Modal dialogs (13 components, includes PackRandomizerModal, ReleaseModal)
 │   ├── music/               # Song filtering (2 components, NO player)
 │   ├── navigation/          # Navigation system (6 + dropdowns)
 │   ├── notifications/       # Toast notifications (5 components)
@@ -168,7 +168,7 @@ const getApiUrl = () => {
 
 - User authentication with JWT
 - Song CRUD operations with workflow states
-- Pack creation and management
+- Pack creation and management with homepage visibility control
 - Album series functionality
 - Achievement badge display system
 - Community features (public songs, discovery)

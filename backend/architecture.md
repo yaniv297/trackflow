@@ -166,6 +166,7 @@ Each domain implements a consistent repository pattern:
 
 - **Collection Management**: Song grouping and organization with optional songs
 - **Release System**: Pack publication with metadata, download links, YouTube URLs
+- **Homepage Visibility Control**: Explicit `show_on_homepage` boolean field for controlling homepage appearance
 - **Collaboration**: Multi-level permissions (pack_view, pack_edit, song_edit)
 - **Progress Tracking**: Pack completion logic with smart percentage calculation
 - **Release Posts**: Community announcements for pack releases
@@ -265,6 +266,7 @@ id [PK], name, user_id [FK->users.id], priority [NULL]
 created_at [DEFAULT: utcnow], updated_at [DEFAULT: utcnow], released_at [NULL]
 release_title [NULL], release_description [NULL]
 release_download_link [NULL], release_youtube_url [NULL]
+show_on_homepage [DEFAULT: True, NOT NULL]  # Explicit homepage visibility control
 ```
 
 #### collaborations

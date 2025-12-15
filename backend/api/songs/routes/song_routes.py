@@ -197,7 +197,7 @@ def get_recent_pack_releases(
     cutoff_date = datetime.utcnow() - timedelta(days=days_back)
     
     # Get unique packs that have released songs AND are meant to be shown on homepage
-    # (Pack.released_at IS NOT NULL means it should appear on homepage)
+    # Use explicit show_on_homepage boolean field
     pack_releases = db.query(Pack).options(
         joinedload(Pack.user),
         joinedload(Pack.songs).joinedload(Song.user)
@@ -205,9 +205,10 @@ def get_recent_pack_releases(
         Song.status == "Released",
         Song.released_at.isnot(None),
         Song.released_at != '',
-        Pack.released_at.isnot(None),  # This ensures pack is meant for homepage
+        Pack.released_at.isnot(None),  # Pack must be released
         Pack.released_at != '',
-        Pack.released_at >= cutoff_date
+        Pack.released_at >= cutoff_date,
+        Pack.show_on_homepage == True  # Explicit homepage visibility check
     ).group_by(Pack.id).order_by(Pack.released_at.desc()).offset(offset).limit(limit).all()
     
     pack_data = []
@@ -273,14 +274,15 @@ def get_recent_pack_releases_count(
     # Calculate cutoff date
     cutoff_date = datetime.utcnow() - timedelta(days=days_back)
     
-    # Count unique packs that have been released within the time period
+    # Count unique packs that have been released within the time period AND are visible on homepage
     pack_count = db.query(Pack).join(Song).filter(
         Song.status == "Released",
         Song.released_at.isnot(None),
         Song.released_at != '',
         Pack.released_at.isnot(None),
         Pack.released_at != '',
-        Pack.released_at >= cutoff_date
+        Pack.released_at >= cutoff_date,
+        Pack.show_on_homepage == True  # Only count packs visible on homepage
     ).group_by(Pack.id).count()
     
     return {"count": pack_count}

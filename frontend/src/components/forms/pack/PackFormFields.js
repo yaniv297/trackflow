@@ -1,5 +1,6 @@
 import React from "react";
 import SmartDropdown from "../../ui/SmartDropdown";
+import PackSongWarnings from "../../features/pack/PackSongWarnings";
 
 /**
  * Component for rendering pack form fields
@@ -137,8 +138,7 @@ const PackFormFields = ({
                 onClick={() => setCreationMode("manual")}
                 style={{
                   border: "1px solid #ccc",
-                  background:
-                    creationMode === "manual" ? "#eef5ff" : "#fff",
+                  background: creationMode === "manual" ? "#eef5ff" : "#fff",
                   color: "#333",
                   borderRadius: 6,
                   padding: "0.35rem 0.75rem",
@@ -153,8 +153,7 @@ const PackFormFields = ({
                 onClick={() => setCreationMode("wizard")}
                 style={{
                   border: "1px solid #ccc",
-                  background:
-                    creationMode === "wizard" ? "#eef5ff" : "#fff",
+                  background: creationMode === "wizard" ? "#eef5ff" : "#fff",
                   color: "#333",
                   borderRadius: 6,
                   padding: "0.35rem 0.75rem",
@@ -179,8 +178,7 @@ const PackFormFields = ({
       >
         <div
           style={{
-            display:
-              meta.isAlbumSeries && mode === "artist" ? "none" : "block",
+            display: meta.isAlbumSeries && mode === "artist" ? "none" : "block",
           }}
         >
           <label style={labelStyle}>Pack Name *</label>
@@ -340,6 +338,20 @@ const PackFormFields = ({
             onBlur={(e) => {
               Object.assign(e.target.style, blurStyle);
             }}
+            disabled={isSubmitting}
+          />
+          {/* Show warnings for bulk songs */}
+          <PackSongWarnings
+            songsText={entries}
+            mode={mode}
+            artistName={
+              mode === "artist"
+                ? meta.isAlbumSeries
+                  ? meta.albumSeriesArtist
+                  : meta.artist
+                : null
+            }
+            showWarning={!isSubmitting}
           />
         </div>
       )}
@@ -348,4 +360,3 @@ const PackFormFields = ({
 };
 
 export default PackFormFields;
-

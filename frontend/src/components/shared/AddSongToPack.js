@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import SmartDropdown from "../ui/SmartDropdown";
 import { apiPost, apiGet } from "../../utils/api";
 import DLCWarning from "../features/dlc/DLCWarning";
+import PackSongWarnings from "../features/pack/PackSongWarnings";
 
 const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
   const [loading, setLoading] = useState(false);
@@ -426,6 +427,16 @@ Queen – Bohemian Rhapsody`}
           {/* DLC Warning - only show in single song mode */}
           {!isMultipleMode && (
             <DLCWarning title={formData.title} artist={formData.artist} />
+          )}
+
+          {/* Bulk warnings - only show in multiple song mode */}
+          {isMultipleMode && (
+            <PackSongWarnings
+              songsText={multipleSongs}
+              mode="mixed"
+              artistName={null}
+              showWarning={!loading}
+            />
           )}
 
           {/* Buttons */}

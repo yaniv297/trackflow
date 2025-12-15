@@ -14,9 +14,9 @@ export const useWipReleaseOperations = (
   const handlePackReleaseComplete = useCallback(
     async (packId, releaseData) => {
       try {
-        // Call the new pack release endpoint with metadata
-        const response = await apiPost(`/packs/${packId}/release`, releaseData);
-
+        // NOTE: The ReleaseModal has already made the API call to release the pack
+        // This callback is just for post-release actions (UI updates, notifications, etc.)
+        
         // Get pack name for notifications
         const packName = releaseModalData?.itemName || "Pack";
 
@@ -33,7 +33,7 @@ export const useWipReleaseOperations = (
         // Show notification
         if (window.showNotification) {
           window.showNotification(
-            response.message || `Pack "${packName}" released successfully!`,
+            `Pack "${packName}" released successfully!`,
             "success"
           );
         }

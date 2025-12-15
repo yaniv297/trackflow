@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from database import get_db
-from models import Song, User, Artist, CollaborationRequest
+from models import Song, User, Artist, CollaborationRequest, RockBandDLC
 from api.auth import get_current_active_user
 from api.activity_logger import log_activity
 from api.public_profiles import get_artist_images_batch
@@ -673,3 +673,161 @@ def check_song_duplicates(
     ]
     
     return {"matches": matches}
+
+class SongCheckRequest(BaseModel):
+    title: str
+    artist: str
+
+class BulkSongCheckRequest(BaseModel):
+    songs: List[SongCheckRequest]
+
+class SongCheckResult(BaseModel):
+    title: str
+    artist: str
+    dlc_status: Optional[dict] = None
+    trackflow_matches: List[dict] = []
+
+@router.post("/check-duplicates-batch", response_model=List[SongCheckResult])
+def check_song_duplicates_batch(
+    request: BulkSongCheckRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Check multiple songs for duplicates, DLC status, and collaboration opportunities.
+    
+    Returns per-song results with:
+    - dlc_status: DLC check result (if song is official DLC)
+    - trackflow_matches: List of matches from other users (Released, In Progress, Future Plans)
+    """
+    results = []
+    
+    for song_req in request.songs:
+        title = song_req.title.strip()
+        artist = song_req.artist.strip()
+        
+        if not title or not artist:
+            results.append(SongCheckResult(
+                title=title,
+                artist=artist,
+                dlc_status=None,
+                trackflow_matches=[]
+            ))
+            continue
+        
+        # Check DLC status
+        dlc_status = None
+        try:
+            # Search for exact matches first (case insensitive)
+            exact_match = db.query(RockBandDLC).filter(
+                RockBandDLC.title.ilike(title),
+                RockBandDLC.artist.ilike(artist)
+            ).first()
+            
+            if exact_match:
+                dlc_status = {
+                    "is_dlc": True,
+                    "origin": exact_match.origin,
+                    "match_type": "exact",
+                    "dlc_entry": {
+                        "id": exact_match.id,
+                        "title": exact_match.title,
+                        "artist": exact_match.artist,
+                        "origin": exact_match.origin
+                    }
+                }
+            else:
+                # Search for partial matches
+                partial_matches = db.query(RockBandDLC).filter(
+                    RockBandDLC.title.ilike(f"%{title}%"),
+                    RockBandDLC.artist.ilike(f"%{artist}%")
+                ).limit(5).all()
+                
+                if partial_matches:
+                    dlc_status = {
+                        "is_dlc": True,
+                        "origin": partial_matches[0].origin,
+                        "match_type": "partial",
+                        "dlc_entry": {
+                            "id": partial_matches[0].id,
+                            "title": partial_matches[0].title,
+                            "artist": partial_matches[0].artist,
+                            "origin": partial_matches[0].origin
+                        },
+                        "similar_matches": [
+                            {
+                                "id": match.id,
+                                "title": match.title,
+                                "artist": match.artist,
+                                "origin": match.origin
+                            }
+                            for match in partial_matches
+                        ]
+                    }
+                else:
+                    dlc_status = {
+                        "is_dlc": False,
+                        "origin": None,
+                        "match_type": None,
+                        "dlc_entry": None
+                    }
+        except Exception as e:
+            # If DLC check fails, continue without DLC status
+            print(f"Error checking DLC for {title} by {artist}: {e}")
+            dlc_status = {
+                "is_dlc": False,
+                "origin": None,
+                "match_type": None,
+                "dlc_entry": None
+            }
+        
+        # Check TrackFlow matches (released songs and public WIP/collaboration opportunities)
+        trackflow_matches = []
+        try:
+            # Query for exact matches (case-insensitive)
+            # For Released songs: always visible regardless of is_public flag
+            # For WIP/Future Plans: only if is_public is True
+            # Exclude current user's songs
+            query = db.query(Song, User).join(User, Song.user_id == User.id).filter(
+                Song.title.ilike(title),
+                Song.artist.ilike(artist),
+                Song.user_id != current_user.id  # Exclude current user's songs
+            ).filter(
+                or_(
+                    Song.status == "Released",  # Released songs are always visible
+                    and_(
+                        Song.is_public == True,  # WIP/Future Plans only if public
+                        Song.status.in_(["In Progress", "Future Plans"])
+                    )
+                )
+            )
+            
+            query_results = query.all()
+            
+            trackflow_matches = [
+                {
+                    "id": song.id,
+                    "title": song.title,
+                    "artist": song.artist,
+                    "status": song.status,
+                    "user_id": song.user_id,
+                    "username": user.username,
+                    "display_name": user.display_name,
+                    "profile_image_url": user.profile_image_url,
+                    "created_at": song.created_at,
+                    "updated_at": song.updated_at
+                }
+                for song, user in query_results
+            ]
+        except Exception as e:
+            # If TrackFlow check fails, continue without matches
+            print(f"Error checking TrackFlow matches for {title} by {artist}: {e}")
+            trackflow_matches = []
+        
+        results.append(SongCheckResult(
+            title=title,
+            artist=artist,
+            dlc_status=dlc_status,
+            trackflow_matches=trackflow_matches
+        ))
+    
+    return results

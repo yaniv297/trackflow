@@ -192,18 +192,36 @@ class AchievementsRepository:
         return sum(point[0] for point in user_achievements)
     
     def get_wip_completion_count(self, db: Session, user_id: int) -> int:
-        """Get count of WIP completions from activity log."""
-        wip_completion_count = db.query(ActivityLog).filter(
-            ActivityLog.user_id == user_id,
-            ActivityLog.activity_type == "change_status",
-            ActivityLog.metadata_json.like('%"from":"In Progress"%'),
-            ActivityLog.metadata_json.like('%"to":"Released"%')
-        ).count()
+        """Get count of WIP completions: released songs with all workflow steps completed.
         
-        # Fallback estimation if no activity log data
-        if wip_completion_count == 0:
-            released_count = self.count_songs_by_status(db, user_id, SongStatus.released)
-            wip_completion_count = max(1, int(released_count * 0.7)) if released_count > 0 else 0
+        This counts songs that have all required workflow steps completed and are in Released status.
+        This is more accurate than activity logs because it works regardless of how the song was completed
+        (manually marking parts vs. "mark all done" feature).
+        """
+        required_steps = self.get_user_workflow_steps(db, user_id)
+        
+        if not required_steps:
+            return 0
+        
+        # Create IN clause for SQLite compatibility
+        steps_placeholders = ','.join(f':step{i}' for i in range(len(required_steps)))
+        step_params = {f'step{i}': step for i, step in enumerate(required_steps)}
+        
+        # Get all released songs and their completion data in bulk
+        songs_with_progress = db.execute(
+            text(f"""
+                SELECT s.id, COUNT(CASE WHEN sp.is_completed = 1 THEN 1 END) as completed_count
+                FROM songs s
+                LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN ({steps_placeholders})
+                WHERE s.user_id = :uid AND s.status = :released_status
+                GROUP BY s.id
+            """),
+            {"uid": user_id, "released_status": SongStatus.released.value, **step_params}
+        ).fetchall()
+        
+        # Count songs that have all required steps completed and are released
+        required_count = len(required_steps)
+        wip_completion_count = sum(1 for _, completed_count in songs_with_progress if completed_count == required_count)
         
         return wip_completion_count
     
@@ -521,3 +539,59 @@ class AchievementsRepository:
         if user and user.preferred_contact_method:
             return 1
         return 0
+    
+    def update_login_streak(self, db: Session, user_id: int, commit: bool = True) -> int:
+        """Update user's login streak based on last login date.
+        
+        Logic:
+        - If last_login_date is None (first login), set streak to 1
+        - If last_login_date is yesterday, increment streak by 1
+        - If last_login_date is today, don't change streak (already logged in today)
+        - If last_login_date is more than 1 day ago, reset streak to 1
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            commit: If True, commit the transaction. If False, caller is responsible for committing.
+        
+        Returns:
+            The updated login streak value
+        """
+        from datetime import date, timedelta
+        
+        stats = self.get_user_stats(db, user_id)
+        if not stats:
+            stats = self.create_user_stats(db, user_id, commit=False)
+        
+        today = date.today()
+        current_streak = stats.login_streak or 0
+        
+        if stats.last_login_date is None:
+            # First login - set streak to 1
+            new_streak = 1
+        else:
+            # Convert last_login_date to date if it's a datetime
+            if isinstance(stats.last_login_date, datetime):
+                last_login = stats.last_login_date.date()
+            else:
+                last_login = stats.last_login_date
+            
+            if last_login == today:
+                # Already logged in today - don't change streak
+                new_streak = current_streak
+            elif last_login == today - timedelta(days=1):
+                # Logged in yesterday - increment streak
+                new_streak = current_streak + 1
+            else:
+                # More than 1 day ago - reset streak to 1
+                new_streak = 1
+        
+        # Update stats
+        stats.login_streak = new_streak
+        stats.last_login_date = datetime.utcnow()
+        stats.updated_at = datetime.utcnow()
+        
+        if commit:
+            db.commit()
+        
+        return new_streak

@@ -49,8 +49,8 @@ const ReleaseModal = ({
         }
         setSongDownloadLinks(songLinks);
         
-        // Set homepage visibility (if released_at is null, it's hidden)
-        setHideFromHomepage(!initialData.released_at);
+        // Set homepage visibility using the explicit show_on_homepage field
+        setHideFromHomepage(!initialData.show_on_homepage);
         
         // Show individual links section if any song has download links
         setShowIndividualLinks(Object.keys(songLinks).length > 0);
@@ -183,7 +183,8 @@ const ReleaseModal = ({
         const packReleaseData = {
           ...releaseData,
           song_download_links: songDownloadLinks,
-          hide_from_homepage: hideFromHomepage,
+          hide_from_homepage: hideFromHomepage,  // Keep for backward compatibility
+          show_on_homepage: !hideFromHomepage,   // Use new explicit field
         };
         
         

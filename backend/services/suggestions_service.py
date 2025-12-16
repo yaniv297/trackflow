@@ -308,22 +308,36 @@ class SuggestionsService:
         )
         suggestions = []
         for pack in packs_data:
+            # Backward-compat mapping: compute_packs_near_completion now returns
+            # pack_id, pack_name, completion_percentage, incomplete_songs, total_songs.
             completion = pack.get("completion_percentage")
             if completion is None or completion < 70:
                 continue
-            remaining = pack["total_songs"] - pack["completed_songs"]
+
+            total_songs = pack.get("total_songs") or 0
+            # Some callers used completed_songs; derive it when only incomplete_songs is present.
+            completed_songs = pack.get("completed_songs")
+            if completed_songs is None:
+                incomplete = pack.get("incomplete_songs") or 0
+                completed_songs = max(total_songs - incomplete, 0)
+
+            remaining = max(total_songs - completed_songs, 0)
+
+            pack_id = pack.get("id") or pack.get("pack_id")
+            title = pack.get("display_name") or pack.get("name") or pack.get("pack_name")
+
             suggestions.append(
                 {
-                    "id": f"pack-{pack['id']}",
+                    "id": f"pack-{pack_id}",
                     "type": "pack",
-                    "pack_id": pack["id"],
-                    "title": pack["display_name"] or pack["name"],
-                    "album_cover": pack["album_cover"],
+                    "pack_id": pack_id,
+                    "title": title,
+                    "album_cover": pack.get("album_cover"),
                     "tags": ["Pack almost done"],
                     "priority": 5 + (completion / 100) * 2,
                     "completion": completion,
-                    "total_songs": pack["total_songs"],
-                    "completed_songs": pack["completed_songs"],
+                    "total_songs": total_songs,
+                    "completed_songs": completed_songs,
                     "message": self._message_for_pack(remaining),
                 }
             )

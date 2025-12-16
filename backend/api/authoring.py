@@ -52,7 +52,8 @@ def get_recent_authoring_activity(
                 OR c_song.id IS NOT NULL
                 OR c_pack.id IS NOT NULL
             )
-            AND (sp.is_completed = 1 OR sp.is_completed = TRUE)
+            -- Postgres uses real booleans; filter only completed steps
+            AND sp.is_completed IS TRUE
             AND sp.completed_at IS NOT NULL
             ORDER BY sp.completed_at DESC
             LIMIT :limit

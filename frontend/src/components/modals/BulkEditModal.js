@@ -185,7 +185,7 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
             try {
               const makePublic = inputValue === "public";
               // Use the same bulk API endpoint that was used in handleBulkTogglePublic
-              await apiPost('/api/public-songs/songs/bulk-toggle-public', {
+              await apiPost("/api/public-songs/songs/bulk-toggle-public", {
                 song_ids: [id],
                 make_public: makePublic,
               });
@@ -262,18 +262,20 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
               setProgress({
                 current: selectedSongs.length,
                 total: selectedSongs.length,
-                message: response && response.total_enhanced !== undefined
-                  ? `Complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Cleanup finished.`
-                  : "Enhancement and cleanup complete!",
+                message:
+                  response && response.total_enhanced !== undefined
+                    ? `Complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Cleanup finished.`
+                    : "Enhancement and cleanup complete!",
               });
             } catch (cleanupError) {
               console.error("Cleanup error after enhancement:", cleanupError);
               setProgress({
                 current: selectedSongs.length,
                 total: selectedSongs.length,
-                message: response && response.total_enhanced !== undefined
-                  ? `Enhancement complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Cleanup failed.`
-                  : "Enhancement complete! Cleanup failed.",
+                message:
+                  response && response.total_enhanced !== undefined
+                    ? `Enhancement complete! ${response.total_enhanced} enhanced, ${response.total_failed} failed. Cleanup failed.`
+                    : "Enhancement complete! Cleanup failed.",
               });
             }
 
@@ -332,16 +334,31 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
               message: "Cleaning complete!",
             });
           } catch (error) {
-            failed = selectedSongs.length;
-            setProgress({ current: 0, total: 0, message: "" });
-            if (error instanceof ApiError) {
-              const errorMsg = error.detail || error.message;
-              if (errorMsg && !errorMessages.includes(errorMsg)) {
-                errorMessages.push(errorMsg);
-              }
-            } else if (error.message) {
-              if (!errorMessages.includes(error.message)) {
-                errorMessages.push(error.message);
+            console.error("Bulk clean remaster tags error:", error);
+
+            // For network errors, the backend may have still processed the request
+            // (e.g. temporary connection hiccup after commit). In that case we
+            // avoid showing a scary "Bulk edit failed" popup.
+            const isNetworkApiError =
+              error instanceof ApiError &&
+              typeof error.message === "string" &&
+              error.message.includes(
+                "Network error: Could not reach the server"
+              );
+
+            if (!isNetworkApiError) {
+              failed = selectedSongs.length;
+              setProgress({ current: 0, total: 0, message: "" });
+
+              if (error instanceof ApiError) {
+                const errorMsg = error.detail || error.message;
+                if (errorMsg && !errorMessages.includes(errorMsg)) {
+                  errorMessages.push(errorMsg);
+                }
+              } else if (error.message) {
+                if (!errorMessages.includes(error.message)) {
+                  errorMessages.push(error.message);
+                }
               }
             }
           }
@@ -360,32 +377,34 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
       } else {
         // Build a user-friendly error message
         let errorMessage = `Failed to update ${failed} of ${selectedSongs.length} song(s).`;
-        
+
         if (errorMessages.length > 0) {
           // Show the first error message (or combine if multiple unique errors)
           const primaryError = errorMessages[0];
           if (errorMessages.length === 1) {
             errorMessage = `Bulk edit failed: ${primaryError}`;
           } else {
-            errorMessage = `Bulk edit failed: ${primaryError} (and ${errorMessages.length - 1} other error${errorMessages.length - 1 > 1 ? 's' : ''})`;
+            errorMessage = `Bulk edit failed: ${primaryError} (and ${
+              errorMessages.length - 1
+            } other error${errorMessages.length - 1 > 1 ? "s" : ""})`;
           }
         } else {
           // Fallback if we couldn't extract error messages
           errorMessage = `Bulk edit failed for ${failed} song(s). Please try again.`;
         }
-        
+
         window.showNotification(errorMessage, "error");
       }
     } catch (error) {
       // Handle top-level errors (e.g., from bulk_enhance, bulk_delete, etc.)
       let errorMessage = "Bulk edit action failed.";
-      
+
       if (error instanceof ApiError) {
         errorMessage = error.detail || error.message || errorMessage;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       window.showNotification(errorMessage, "error");
     }
 

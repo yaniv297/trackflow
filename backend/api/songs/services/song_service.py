@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, Set
 from fastapi import HTTPException
 from datetime import datetime
 
-from models import Song, SongStatus, User, Pack, AlbumSeries, CollaborationType, NotificationType
+from models import Song, SongStatus, User, Pack, AlbumSeries, CollaborationType, NotificationType, Collaboration
 from schemas import SongCreate, SongOut
 from api.data_access import create_song_in_db, delete_song_from_db
 from api.activity_logger import log_activity
@@ -69,20 +69,78 @@ class SongService:
         order: Optional[str] = None,
         limit: Optional[int] = None
     ) -> List[SongOut]:
-        """Get filtered songs with proper access control and formatting."""
+        """Get filtered songs with proper access control and formatting.
+
+        Optimized for remote databases (e.g. Supabase) by avoiding
+        per-song access-control queries. Instead we batch-load all
+        relevant collaborations for the current user and the returned
+        songs, then compute access flags in memory.
+        """
         songs = self.song_repo.get_filtered_songs(
             current_user.id, status, query, pack_id, completion_threshold, order, limit
         )
-        
+
+        if not songs:
+            return []
+
         # Handle pack and series data efficiently
         pack_map = self._get_pack_map(songs)
         series_map = self._get_series_map(songs)
-        
-        results = []
+
+        # --- Bulk-load collaboration data for access control ---
+        song_ids: List[int] = [s.id for s in songs]
+        pack_ids: List[int] = [s.pack_id for s in songs if s.pack_id]
+
+        song_edit_ids: Set[int] = set()
+        pack_edit_ids: Set[int] = set()
+        pack_collab_ids: Set[int] = set()
+
+        if song_ids:
+            # All SONG_EDIT collaborations for these songs
+            rows = (
+                self.db.query(Collaboration.song_id)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+                    Collaboration.song_id.in_(song_ids),
+                )
+                .all()
+            )
+            song_edit_ids = {row.song_id for row in rows}
+
+        if pack_ids:
+            # PACK_VIEW / PACK_EDIT collaborations for these packs
+            rows = (
+                self.db.query(Collaboration.pack_id, Collaboration.collaboration_type)
+                .filter(
+                    Collaboration.user_id == current_user.id,
+                    Collaboration.collaboration_type.in_(
+                        [CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT]
+                    ),
+                    Collaboration.pack_id.in_(pack_ids),
+                )
+                .all()
+            )
+            for pack_id_val, collab_type in rows:
+                if pack_id_val is None:
+                    continue
+                pack_collab_ids.add(pack_id_val)
+                if collab_type == CollaborationType.PACK_EDIT:
+                    pack_edit_ids.add(pack_id_val)
+
+        results: List[SongOut] = []
         for song in songs:
-            song_dict = self._build_song_response(song, current_user, pack_map, series_map)
+            song_dict = self._build_song_response(
+                song,
+                current_user,
+                pack_map=pack_map,
+                series_map=series_map,
+                song_edit_ids=song_edit_ids,
+                pack_edit_ids=pack_edit_ids,
+                pack_collab_ids=pack_collab_ids,
+            )
             results.append(SongOut(**song_dict))
-        
+
         return results
     
     def update_song(self, song_id: int, updates: Dict[str, Any], current_user: User) -> SongOut:
@@ -128,6 +186,17 @@ class SongService:
                 if old_status != "In Progress" and old_status != SongStatus.wip:
                     self.achievements_repo.increment_wip_creation_count(self.db, current_user.id, commit=False)
                     print(f"🎯 Incremented WIP creation count for user {current_user.id} (status change: {old_status} → {new_status})")
+
+                    # When moving songs from Future Plans to WIP (e.g., "Start work" on a pack),
+                    # clear any existing optional flags so that WIP counts and visibility
+                    # only consider songs the user explicitly marks as optional in WIP.
+                    # This prevents Future Plans optional markings (which are irrelevant there)
+                    # from causing songs to disappear in WIP views.
+                    old_status_str = old_status.value if isinstance(old_status, SongStatus) else str(old_status)
+                    if old_status_str == "Future Plans":
+                        if getattr(song, "optional", None):
+                            song.optional = False
+                            print(f"🔧 Cleared optional flag for song {song.id} when starting work (Future Plans → In Progress)")
             
             # Set released_at timestamp when status changes to Released
             # Handle both string and enum values
@@ -477,7 +546,10 @@ class SongService:
         song: Song,
         current_user: User,
         pack_map: Optional[Dict[int, Pack]] = None,
-        series_map: Optional[Dict[int, AlbumSeries]] = None
+        series_map: Optional[Dict[int, AlbumSeries]] = None,
+        song_edit_ids: Optional[Set[int]] = None,
+        pack_edit_ids: Optional[Set[int]] = None,
+        pack_collab_ids: Optional[Set[int]] = None,
     ) -> Dict[str, Any]:
         """Build a complete song response dictionary."""
         song_dict = song.__dict__.copy()
@@ -500,8 +572,15 @@ class SongService:
         # Add pack data
         self._add_pack_data(song_dict, song, pack_map)
         
-        # Add access control information
-        self._add_access_control_data(song_dict, song, current_user)
+        # Add access control information (can use bulk-precomputed sets)
+        self._add_access_control_data(
+            song_dict,
+            song,
+            current_user,
+            song_edit_ids=song_edit_ids,
+            pack_edit_ids=pack_edit_ids,
+            pack_collab_ids=pack_collab_ids,
+        )
         
         # Ensure timestamp formatting
         if song.created_at:
@@ -553,20 +632,49 @@ class SongService:
             song_dict["pack_owner_id"] = pack.user_id
             song_dict["pack_owner_username"] = pack.user.username if pack.user else None
     
-    def _add_access_control_data(self, song_dict: Dict[str, Any], song: Song, current_user: User):
-        """Add access control information to song dict."""
+    def _add_access_control_data(
+        self,
+        song_dict: Dict[str, Any],
+        song: Song,
+        current_user: User,
+        song_edit_ids: Optional[Set[int]] = None,
+        pack_edit_ids: Optional[Set[int]] = None,
+        pack_collab_ids: Optional[Set[int]] = None,
+    ):
+        """Add access control information to song dict.
+
+        If song_edit_ids / pack_edit_ids / pack_collab_ids are provided,
+        they are used to avoid per-song database lookups (important for
+        remote databases). If they are None, we fall back to the
+        existing per-song checks for backwards compatibility.
+        """
         is_owner = song.user_id == current_user.id
-        is_song_collaborator = self.collab_repo.collaboration_exists(
-            current_user.id, CollaborationType.SONG_EDIT, song_id=song.id
-        )
-        has_pack_edit = song.pack_id and self.collab_repo.collaboration_exists(
-            current_user.id, CollaborationType.PACK_EDIT, pack_id=song.pack_id
-        )
-        has_pack_collaboration = song.pack_id and (
-            self.collab_repo.collaboration_exists(
-                current_user.id, CollaborationType.PACK_VIEW, pack_id=song.pack_id
-            ) or has_pack_edit
-        )
+        # Song-level collaboration
+        if song_edit_ids is not None:
+            is_song_collaborator = song.id in song_edit_ids
+        else:
+            is_song_collaborator = self.collab_repo.collaboration_exists(
+                current_user.id, CollaborationType.SONG_EDIT, song_id=song.id
+            )
+
+        # Pack-level collaboration / edit permissions
+        if song.pack_id:
+            if pack_edit_ids is not None:
+                has_pack_edit = song.pack_id in pack_edit_ids
+            else:
+                has_pack_edit = self.collab_repo.collaboration_exists(
+                    current_user.id, CollaborationType.PACK_EDIT, pack_id=song.pack_id
+                )
+
+            if pack_collab_ids is not None:
+                has_pack_collaboration = song.pack_id in pack_collab_ids
+            else:
+                has_pack_collaboration = self.collab_repo.collaboration_exists(
+                    current_user.id, CollaborationType.PACK_VIEW, pack_id=song.pack_id
+                ) or has_pack_edit
+        else:
+            has_pack_edit = False
+            has_pack_collaboration = False
         
         song_dict["is_editable"] = is_owner or is_song_collaborator or has_pack_edit
         

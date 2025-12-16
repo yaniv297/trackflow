@@ -275,14 +275,19 @@ def get_recent_pack_releases_count(
     cutoff_date = datetime.utcnow() - timedelta(days=days_back)
     
     # Count unique packs that have been released within the time period AND are visible on homepage
-    pack_count = db.query(Pack).join(Song).filter(
-        Song.status == "Released",
-        Song.released_at.isnot(None),
-        Song.released_at != '',
-        Pack.released_at.isnot(None),
-        Pack.released_at != '',
-        Pack.released_at >= cutoff_date,
-        Pack.show_on_homepage == True  # Only count packs visible on homepage
-    ).group_by(Pack.id).count()
+    # In Postgres, released_at is a proper timestamp, so we only check for NOT NULL and cutoff date.
+    pack_count = (
+        db.query(Pack)
+        .join(Song)
+        .filter(
+            Song.status == "Released",
+            Song.released_at.isnot(None),
+            Pack.released_at.isnot(None),
+            Pack.released_at >= cutoff_date,
+            Pack.show_on_homepage.is_(True),  # Only count packs visible on homepage
+        )
+        .group_by(Pack.id)
+        .count()
+    )
     
     return {"count": pack_count}

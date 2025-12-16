@@ -6,7 +6,7 @@ from models import Base
 import os
 import logging
 
-SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./songs.db")
+SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres.vhydslrserhdzzqmytie:vyhzwSBNFCVgj2oR@aws-0-eu-west-3.pooler.supabase.com:6543/postgres")
 
 # Only use check_same_thread for SQLite
 connect_args = {}

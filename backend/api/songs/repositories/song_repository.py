@@ -35,6 +35,11 @@ class SongRepository:
         user_song_collab_ids = self._get_user_song_collaboration_ids(user_id)
         user_pack_collab_ids, user_pack_edit_ids = self._get_user_pack_collaboration_ids(user_id)
         user_owned_pack_ids = self._get_user_owned_pack_ids(user_id)
+        # Packs where user has at least one SONG_EDIT collaboration.
+        # This ensures that if a pack has ANY collab songs, both users
+        # see the entire pack on views like WIP, while still limiting
+        # visibility to that specific pack only.
+        song_collab_pack_ids = self._get_user_song_collaboration_pack_ids(user_id)
         
         # Build base query
         q = self.db.query(Song).options(
@@ -51,6 +56,7 @@ class SongRepository:
                 Song.user_id == user_id,
                 Song.id.in_(user_song_collab_ids),
                 Song.pack_id.in_(user_pack_collab_ids),
+                Song.pack_id.in_(song_collab_pack_ids),
                 Song.pack_id.in_(user_owned_pack_ids)
             )
         )
@@ -356,4 +362,26 @@ class SongRepository:
         """Get pack IDs owned by user."""
         user_owned_packs = self.db.query(Pack.id).filter(Pack.user_id == user_id).all()
         return {p.id for p in user_owned_packs}
+
+    def _get_user_song_collaboration_pack_ids(self, user_id: int) -> Set[int]:
+        """
+        Get pack IDs for songs where user has SONG_EDIT collaboration.
+
+        This is used purely for visibility (not edit permissions): if the user
+        collaborates on ANY song in a pack, they should see the rest of the
+        songs in that same pack (e.g. for WIP "Songs by Collaborators"),
+        but NOT songs from the collaborator's other packs.
+        """
+        rows = (
+            self.db.query(Song.pack_id)
+            .join(Collaboration, Collaboration.song_id == Song.id)
+            .filter(
+                Collaboration.user_id == user_id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
+                Song.pack_id.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        return {row.pack_id for row in rows if getattr(row, "pack_id", None) is not None}
     

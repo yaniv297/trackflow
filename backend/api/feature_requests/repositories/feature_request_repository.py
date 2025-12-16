@@ -2,7 +2,7 @@
 Feature Requests repository - handles data access for feature request operations.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -170,6 +170,82 @@ class FeatureRequestRepository:
     def get_user_by_id(self, db: Session, user_id: int) -> Optional[User]:
         """Get user by ID."""
         return db.query(User).filter(User.id == user_id).first()
+    
+    def get_users_by_ids(self, db: Session, user_ids: List[int]) -> dict:
+        """Get multiple users by IDs, returns dict mapping user_id -> User."""
+        if not user_ids:
+            return {}
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        return {user.id: user for user in users}
+    
+    def get_all_votes_by_feature_requests(self, db: Session, feature_request_ids: List[int]) -> dict:
+        """Get all votes for multiple feature requests, returns dict mapping feature_request_id -> list of votes."""
+        if not feature_request_ids:
+            return {}
+        votes = db.query(FeatureRequestVote).filter(
+            FeatureRequestVote.feature_request_id.in_(feature_request_ids)
+        ).all()
+        result = {}
+        for vote in votes:
+            if vote.feature_request_id not in result:
+                result[vote.feature_request_id] = []
+            result[vote.feature_request_id].append(vote)
+        return result
+    
+    def get_vote_counts_by_feature_requests(self, db: Session, feature_request_ids: List[int], current_user_id: int) -> dict:
+        """Get vote counts and user votes for multiple feature requests efficiently.
+        
+        Returns dict with:
+        - 'counts': {feature_request_id: {'upvotes': int, 'downvotes': int}}
+        - 'user_votes': {feature_request_id: vote_type or None}
+        """
+        if not feature_request_ids:
+            return {'counts': {}, 'user_votes': {}}
+        
+        # Get all votes for these feature requests
+        votes = db.query(FeatureRequestVote).filter(
+            FeatureRequestVote.feature_request_id.in_(feature_request_ids)
+        ).all()
+        
+        # Aggregate counts
+        counts = {}
+        user_votes = {}
+        for vote in votes:
+            fr_id = vote.feature_request_id
+            if fr_id not in counts:
+                counts[fr_id] = {'upvotes': 0, 'downvotes': 0}
+            
+            if vote.vote_type == 'upvote':
+                counts[fr_id]['upvotes'] += 1
+            elif vote.vote_type == 'downvote':
+                counts[fr_id]['downvotes'] += 1
+            
+            # Track user's vote
+            if vote.user_id == current_user_id:
+                user_votes[fr_id] = vote.vote_type
+        
+        # Set None for feature requests where user hasn't voted
+        for fr_id in feature_request_ids:
+            if fr_id not in user_votes:
+                user_votes[fr_id] = None
+            if fr_id not in counts:
+                counts[fr_id] = {'upvotes': 0, 'downvotes': 0}
+        
+        return {'counts': counts, 'user_votes': user_votes}
+    
+    def get_all_comments_by_feature_requests(self, db: Session, feature_request_ids: List[int]) -> dict:
+        """Get all comments for multiple feature requests, returns dict mapping feature_request_id -> list of comments."""
+        if not feature_request_ids:
+            return {}
+        comments = db.query(FeatureRequestComment).filter(
+            FeatureRequestComment.feature_request_id.in_(feature_request_ids)
+        ).order_by(FeatureRequestComment.created_at).all()
+        result = {}
+        for comment in comments:
+            if comment.feature_request_id not in result:
+                result[comment.feature_request_id] = []
+            result[comment.feature_request_id].append(comment)
+        return result
     
     def auto_upvote_by_creator(self, db: Session, feature_request_id: int, user_id: int) -> FeatureRequestVote:
         """Auto-upvote feature request by creator."""

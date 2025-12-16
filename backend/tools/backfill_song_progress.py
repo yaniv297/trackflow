@@ -35,14 +35,14 @@ def main():
             # Map legacy fields to song_progress
             for field in LEGACY_FIELDS:
                 val = a._mapping.get(field, 0)
-                is_completed = 1 if val else 0
+                is_completed = bool(val)
                 conn.execute(text(
                     """
                     INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                    VALUES (:sid, :step, :done, CASE WHEN :done=1 THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    VALUES (:sid, :step, :done, CASE WHEN :done THEN CURRENT_TIMESTAMP ELSE NULL END, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT(song_id, step_name) DO UPDATE SET
                       is_completed = :done,
-                      completed_at = CASE WHEN :done=1 THEN CURRENT_TIMESTAMP ELSE completed_at END,
+                      completed_at = CASE WHEN :done THEN CURRENT_TIMESTAMP ELSE completed_at END,
                       updated_at = CURRENT_TIMESTAMP
                     """
                 ), {"sid": song_id, "step": field, "done": is_completed})
@@ -62,9 +62,9 @@ def main():
                     conn.execute(text(
                         """
                         INSERT INTO song_progress (song_id, step_name, is_completed, completed_at, created_at, updated_at)
-                        VALUES (:sid, :step, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        VALUES (:sid, :step, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                         ON CONFLICT(song_id, step_name) DO UPDATE SET
-                          is_completed = 1,
+                          is_completed = true,
                           completed_at = CURRENT_TIMESTAMP,
                           updated_at = CURRENT_TIMESTAMP
                         """

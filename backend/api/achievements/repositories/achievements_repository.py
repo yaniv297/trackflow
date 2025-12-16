@@ -25,7 +25,10 @@ class AchievementsRepository:
     
     def get_user_achievements(self, db: Session, user_id: int) -> List[UserAchievement]:
         """Get all user achievements with achievement data."""
-        return db.query(UserAchievement).join(Achievement).filter(
+        from sqlalchemy.orm import joinedload
+        return db.query(UserAchievement).options(
+            joinedload(UserAchievement.achievement)
+        ).filter(
             UserAchievement.user_id == user_id
         ).order_by(UserAchievement.earned_at.desc()).all()
     
@@ -210,7 +213,7 @@ class AchievementsRepository:
         # Get all released songs and their completion data in bulk
         songs_with_progress = db.execute(
             text(f"""
-                SELECT s.id, COUNT(CASE WHEN sp.is_completed = 1 THEN 1 END) as completed_count
+                SELECT s.id, COUNT(CASE WHEN sp.is_completed = true THEN 1 END) as completed_count
                 FROM songs s
                 LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN ({steps_placeholders})
                 WHERE s.user_id = :uid AND s.status = :released_status
@@ -329,7 +332,7 @@ class AchievementsRepository:
         # Get all user songs and their completion data in bulk
         songs_with_progress = db.execute(
             text(f"""
-                SELECT s.id, COUNT(CASE WHEN sp.is_completed = 1 THEN 1 END) as completed_count
+                SELECT s.id, COUNT(CASE WHEN sp.is_completed = true THEN 1 END) as completed_count
                 FROM songs s
                 LEFT JOIN song_progress sp ON s.id = sp.song_id AND sp.step_name IN ({steps_placeholders})
                 WHERE s.user_id = :uid
@@ -359,7 +362,7 @@ class AchievementsRepository:
         pack_completion_data = db.execute(
             text(f"""
                 SELECT p.id as pack_id, s.id as song_id, s.user_id,
-                       COUNT(CASE WHEN sp.is_completed = 1 THEN 1 END) as completed_count,
+                       COUNT(CASE WHEN sp.is_completed = true THEN 1 END) as completed_count,
                        COUNT(s.id) as total_songs_in_pack
                 FROM packs p
                 LEFT JOIN songs s ON s.pack_id = p.id
@@ -409,11 +412,52 @@ class AchievementsRepository:
         return [row[0] for row in rows]
     
     def get_released_songs_for_diversity(self, db: Session, user_id: int):
-        """Get released songs for diversity calculations (artist, year, decade metrics)."""
+        """Get released songs for diversity calculations (artist, year, decade metrics).
+        
+        Note: This method loads all songs into memory. For better performance with many songs,
+        use the optimized count methods instead: count_unique_artists, count_unique_years, count_unique_decades.
+        """
         return db.query(Song).filter(
             Song.user_id == user_id,
             Song.status == SongStatus.released
         ).all()
+    
+    def count_unique_artists(self, db: Session, user_id: int) -> int:
+        """Count unique artists from released songs using SQL aggregation (optimized)."""
+        from sqlalchemy import func
+        result = db.query(func.count(func.distinct(func.lower(Song.artist)))).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.released,
+            Song.artist.isnot(None),
+            Song.artist != ""
+        ).scalar()
+        return result or 0
+    
+    def count_unique_years(self, db: Session, user_id: int) -> int:
+        """Count unique years from released songs using SQL aggregation (optimized)."""
+        from sqlalchemy import func
+        result = db.query(func.count(func.distinct(Song.year))).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.released,
+            Song.year.isnot(None)
+        ).scalar()
+        return result or 0
+    
+    def count_unique_decades(self, db: Session, user_id: int) -> int:
+        """Count unique decades from released songs using SQL aggregation (optimized)."""
+        from sqlalchemy import func
+        # Use SQL to calculate decades: (year // 10) * 10
+        result = db.execute(
+            text("""
+                SELECT COUNT(DISTINCT (year / 10) * 10) as decade_count
+                FROM songs
+                WHERE user_id = :user_id
+                  AND status = :released_status
+                  AND year IS NOT NULL
+            """),
+            {"user_id": user_id, "released_status": SongStatus.released.value}
+        ).fetchone()
+        return result[0] if result else 0
     
     def update_user_total_points(self, db: Session, user_id: int, points_to_add: int, commit: bool = True) -> None:
         """Update user's cached total points by adding the given points.
@@ -475,6 +519,13 @@ class AchievementsRepository:
         from models import CollaborationRequest
         return db.query(CollaborationRequest).filter(
             CollaborationRequest.requester_id == user_id
+        ).count()
+    
+    def count_bug_reports(self, db: Session, user_id: int) -> int:
+        """Count bug reports submitted by user (feature requests with specific tags/keywords)."""
+        return db.query(FeatureRequest).filter(
+            FeatureRequest.user_id == user_id,
+            FeatureRequest.title.ilike('%bug%')
         ).count()
     
     def count_alphabet_coverage(self, db: Session, user_id: int) -> int:
@@ -595,3 +646,50 @@ class AchievementsRepository:
             db.commit()
         
         return new_streak
+    
+    def get_points_breakdown_optimized(self, db: Session, user_id: int) -> Dict[str, int]:
+        """Get detailed points breakdown for user with optimized queries."""
+        try:
+            # Single optimized query for achievement points
+            achievement_result = db.execute(text("""
+                SELECT COALESCE(SUM(a.points), 0) as achievement_points
+                FROM user_achievements ua
+                JOIN achievements a ON ua.achievement_id = a.id
+                WHERE ua.user_id = :user_id
+            """), {"user_id": user_id}).fetchone()
+            
+            achievement_points = achievement_result[0] if achievement_result else 0
+            
+            # Single optimized query for released songs count
+            released_result = db.execute(text("""
+                SELECT COUNT(*) as released_count
+                FROM songs 
+                WHERE user_id = :user_id 
+                  AND status = 'Released' 
+                  AND released_at IS NOT NULL
+            """), {"user_id": user_id}).fetchone()
+            
+            released_count = released_result[0] if released_result else 0
+            release_points = released_count * 10
+            total_points = achievement_points + release_points
+            
+            return {
+                "achievement_points": achievement_points,
+                "release_points": release_points,
+                "released_songs_count": released_count,
+                "total_points": total_points,
+                "breakdown": {
+                    "achievements": achievement_points,
+                    "released_songs": f"{released_count} × 10 = {release_points}"
+                }
+            }
+            
+        except Exception as e:
+            print(f"❌ Error getting points breakdown for user {user_id}: {e}")
+            return {
+                "achievement_points": 0,
+                "release_points": 0, 
+                "released_songs_count": 0,
+                "total_points": 0,
+                "breakdown": {"achievements": 0, "released_songs": "0 × 10 = 0"}
+            }

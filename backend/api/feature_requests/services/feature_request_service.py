@@ -2,10 +2,10 @@
 Feature Requests service - contains business logic for feature request operations.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 
-from models import FeatureRequest, User
+from models import FeatureRequest, FeatureRequestComment, User
 from ..repositories.feature_request_repository import FeatureRequestRepository
 from ..validators.feature_request_validators import (
     FeatureRequestOut, FeatureRequestCreate, FeatureRequestUpdate,
@@ -58,10 +58,41 @@ class FeatureRequestService:
         """List all feature requests, sorted by specified criteria."""
         feature_requests = self.repository.get_all_feature_requests(db)
         
-        # Build response with vote counts and user vote status
+        if not feature_requests:
+            return []
+        
+        # Bulk load all data to avoid N+1 queries
+        feature_request_ids = [fr.id for fr in feature_requests]
+        
+        # Get all votes and counts in bulk
+        vote_data = self.repository.get_vote_counts_by_feature_requests(db, feature_request_ids, current_user.id)
+        
+        # Get all comments in bulk
+        comments_by_fr = self.repository.get_all_comments_by_feature_requests(db, feature_request_ids)
+        
+        # Collect all user IDs we need
+        user_ids = set()
+        user_ids.add(current_user.id)  # Current user
+        for fr in feature_requests:
+            user_ids.add(fr.user_id)  # Creators
+        for fr_id, comments in comments_by_fr.items():
+            for comment in comments:
+                user_ids.add(comment.user_id)  # Comment authors
+                if comment.parent_comment_id:
+                    # Find parent comment in the same list
+                    parent_comment = next((c for c in comments if c.id == comment.parent_comment_id), None)
+                    if parent_comment:
+                        user_ids.add(parent_comment.user_id)
+        
+        # Bulk load all users
+        users_by_id = self.repository.get_users_by_ids(db, list(user_ids))
+        
+        # Build response with pre-loaded data
         results = []
         for fr in feature_requests:
-            results.append(self._build_feature_request_response(fr, current_user.id, db))
+            results.append(self._build_feature_request_response_optimized(
+                fr, current_user.id, db, vote_data, comments_by_fr.get(fr.id, []), users_by_id
+            ))
         
         # Sort based on sort_by parameter
         results = self._sort_feature_requests(results, sort_by)
@@ -383,6 +414,70 @@ class FeatureRequestService:
         
         # Get creator username
         creator = self.repository.get_user_by_id(db, feature_request.user_id)
+        
+        return FeatureRequestOut(
+            id=feature_request.id,
+            title=feature_request.title,
+            description=feature_request.description,
+            user_id=feature_request.user_id,
+            username=creator.username if creator else "Unknown",
+            is_done=feature_request.is_done,
+            is_rejected=feature_request.is_rejected,
+            rejection_reason=feature_request.rejection_reason,
+            created_at=feature_request.created_at,
+            updated_at=feature_request.updated_at,
+            upvotes=upvotes,
+            downvotes=downvotes,
+            user_vote=user_vote,
+            comments=comment_outs,
+            comment_count=len(comment_outs)
+        )
+    
+    def _build_feature_request_response_optimized(self, feature_request: FeatureRequest, current_user_id: int, 
+                                                 db: Session, vote_data: dict, comments: List, users_by_id: dict) -> FeatureRequestOut:
+        """Optimized version that uses pre-loaded data to avoid N+1 queries."""
+        fr_id = feature_request.id
+        
+        # Get vote counts from pre-loaded data
+        counts = vote_data['counts'].get(fr_id, {'upvotes': 0, 'downvotes': 0})
+        upvotes = counts['upvotes']
+        downvotes = counts['downvotes']
+        user_vote = vote_data['user_votes'].get(fr_id)
+        
+        # Build comments from pre-loaded data
+        comment_outs = []
+        for comment in comments:
+            user = users_by_id.get(comment.user_id)
+            
+            # Get parent comment info if this is a reply
+            parent_comment_username = None
+            parent_comment_text = None
+            if comment.parent_comment_id:
+                # Find parent comment in the same list
+                parent_comment = next((c for c in comments if c.id == comment.parent_comment_id), None)
+                if parent_comment:
+                    parent_user = users_by_id.get(parent_comment.user_id)
+                    parent_comment_username = parent_user.username if parent_user else "Unknown"
+                    parent_comment_text = parent_comment.comment
+            
+            comment_outs.append(FeatureRequestCommentOut(
+                id=comment.id,
+                feature_request_id=comment.feature_request_id,
+                user_id=comment.user_id,
+                username=user.username if user else "Unknown",
+                is_admin=user.is_admin if user else False,
+                parent_comment_id=comment.parent_comment_id,
+                parent_comment_username=parent_comment_username,
+                parent_comment_text=parent_comment_text,
+                comment=comment.comment,
+                is_edited=comment.is_edited,
+                is_deleted=comment.is_deleted,
+                created_at=comment.created_at,
+                updated_at=comment.updated_at
+            ))
+        
+        # Get creator from pre-loaded users
+        creator = users_by_id.get(feature_request.user_id)
         
         return FeatureRequestOut(
             id=feature_request.id,

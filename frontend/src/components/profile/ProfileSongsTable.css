@@ -283,3 +283,22 @@
   font-weight: 600;
   color: #495057;
 }
+
+/* Sortable table headers */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.sortable-header:hover {
+  background-color: #e9ecef !important;
+}
+
+.sort-indicator {
+  margin-left: 0.25rem;
+  color: #007bff;
+  font-weight: bold;
+  font-size: 0.9em;
+}

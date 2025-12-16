@@ -204,9 +204,7 @@ def get_recent_pack_releases(
     ).join(Song).filter(
         Song.status == "Released",
         Song.released_at.isnot(None),
-        Song.released_at != '',
         Pack.released_at.isnot(None),  # Pack must be released
-        Pack.released_at != '',
         Pack.released_at >= cutoff_date,
         Pack.show_on_homepage == True  # Explicit homepage visibility check
     ).group_by(Pack.id).order_by(Pack.released_at.desc()).offset(offset).limit(limit).all()

@@ -22,8 +22,9 @@ export async function initializeAchievements() {
 /**
  * Check for newly earned achievements and show toasts
  * Call this after actions that might trigger achievements
+ * @param {boolean} skipBackendCheck - If true, skip the slow /achievements/check call (useful when backend already checks in background)
  */
-export async function checkAndShowNewAchievements() {
+export async function checkAndShowNewAchievements(skipBackendCheck = false) {
   if (!isInitialized) {
     await initializeAchievements();
     // After initialization, don't return - continue to check for any new achievements
@@ -34,8 +35,11 @@ export async function checkAndShowNewAchievements() {
     // Store the previous state before any changes
     const previousCodes = new Set(lastKnownAchievements);
     
-    // Trigger backend achievement check first to ensure everything is calculated
-    const result = await apiPost("/achievements/check", {});
+    // Only trigger backend achievement check if not skipped (backend may already be checking in background)
+    let result = { newly_awarded: [] };
+    if (!skipBackendCheck) {
+      result = await apiPost("/achievements/check", {});
+    }
     
     // Get current achievements after backend processing
     const currentAchievements = await apiGet("/achievements/me");
@@ -126,6 +130,110 @@ export async function checkAndShowNewAchievements() {
 export async function refreshAchievements() {
   await initializeAchievements();
   await checkAndShowNewAchievements();
+}
+
+/**
+ * Check for newly earned customization achievements only (profile pic, website, contact method)
+ * Lightweight version that only checks the 3 relevant customization achievements
+ * @param {number} delayMs - Delay before checking (to let backend process)
+ */
+export async function checkCustomizationAchievements(delayMs = 1000) {
+  return new Promise((resolve) => {
+    setTimeout(async () => {
+      try {
+        if (!isInitialized) {
+          await initializeAchievements();
+        }
+
+        // Store previous state
+        const previousCodes = new Set(lastKnownAchievements);
+        
+        // Get current achievements (lightweight - just user's achievements)
+        const currentAchievements = await apiGet("/achievements/me");
+        const currentCodes = new Set(currentAchievements.map(ua => ua.achievement.code));
+        
+        // Find newly earned achievements
+        const newlyEarnedCodes = [...currentCodes].filter(code => !previousCodes.has(code));
+        
+        if (newlyEarnedCodes.length === 0) {
+          // Update tracking even if no new achievements
+          lastKnownAchievements = new Set(currentCodes);
+          resolve([]);
+          return;
+        }
+
+        // Get achievement details only for newly earned ones (not all achievements)
+        // Filter to only customization achievements by checking metric_type
+        const customizationCodes = [];
+        for (const ua of currentAchievements) {
+          if (newlyEarnedCodes.includes(ua.achievement.code)) {
+            // Check if this is a customization achievement
+            const metricType = ua.achievement.metric_type;
+            if (metricType === "profile_pic" || metricType === "personal_link" || metricType === "contact_method") {
+              customizationCodes.push(ua.achievement.code);
+            }
+          }
+        }
+
+        if (customizationCodes.length === 0) {
+          // Update tracking
+          lastKnownAchievements = new Set(currentCodes);
+          resolve([]);
+          return;
+        }
+
+        // Fetch achievement details only for customization achievements
+        const allAchievements = await apiGet("/achievements/");
+        const achievementMap = new Map(
+          allAchievements.map((ach) => [ach.code, ach])
+        );
+
+        // Get current user score
+        let currentScore = null;
+        try {
+          const userResponse = await apiGet("/auth/me");
+          currentScore = userResponse?.achievement_score || null;
+        } catch (error) {
+          console.warn("Could not fetch current score:", error);
+        }
+
+        // Show toasts for customization achievements only
+        customizationCodes.forEach((code) => {
+          const achievement = achievementMap.get(code);
+          if (achievement) {
+            if (window.showAchievementToast) {
+              window.showAchievementToast(achievement, currentScore);
+            } else if (window.showNotification) {
+              window.showNotification(`🏆 Achievement Unlocked: ${achievement.name}`, "success");
+            }
+            
+            dispatchAchievementEarnedEvent(achievement);
+          }
+        });
+
+        // Update tracking
+        lastKnownAchievements = new Set(currentCodes);
+
+        // Trigger events
+        window.dispatchEvent(new CustomEvent('achievements-updated'));
+        window.dispatchEvent(new CustomEvent('achievement-earned', {
+          detail: { 
+            count: customizationCodes.length,
+            achievements: customizationCodes.map(code => achievementMap.get(code)).filter(Boolean)
+          }
+        }));
+        
+        if (customizationCodes.length > 0) {
+          dispatchNewNotificationEvent();
+        }
+
+        resolve(customizationCodes);
+      } catch (error) {
+        console.error("Failed to check customization achievements:", error);
+        resolve([]);
+      }
+    }, delayMs);
+  });
 }
 
 /**

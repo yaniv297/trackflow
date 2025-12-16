@@ -69,7 +69,8 @@ const PageHeader = ({
               fontWeight: "500",
               color: "#333",
               outline: "none",
-              background: "white url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\" viewBox=\"0 0 8 8\"><polygon points=\"0,0 8,0 4,8\" fill=\"%23666\"/></svg>') no-repeat right 12px center",
+              background:
+                'white url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8"><polygon points="0,0 8,0 4,8" fill="%23666"/></svg>\') no-repeat right 12px center',
               backgroundSize: "8px",
             }}
           >
@@ -99,13 +100,18 @@ const PageHeader = ({
                 fontWeight: "500",
                 color: "#333",
                 outline: "none",
-                background: "white url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\" viewBox=\"0 0 8 8\"><polygon points=\"0,0 8,0 4,8\" fill=\"%23666\"/></svg>') no-repeat right 12px center",
+                background:
+                  'white url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8"><polygon points="0,0 8,0 4,8" fill="%23666"/></svg>\') no-repeat right 12px center',
                 backgroundSize: "8px",
               }}
             >
               <option value="alphabetical">Sort: A-Z</option>
-              {status !== "Released" && <option value="priority">Sort: Priority</option>}
-              {status === "In Progress" && <option value="completion">Sort: Completion</option>}
+              {status !== "Released" && (
+                <option value="priority">Sort: Priority</option>
+              )}
+              {status === "In Progress" && (
+                <option value="completion">Sort: Completion</option>
+              )}
             </select>
           </div>
         )}
@@ -117,8 +123,10 @@ const PageHeader = ({
             style={{
               padding: "0.5rem 1rem",
               borderRadius: "999px",
-              border: "1px solid #28a745",
-              backgroundColor: "#28a745",
+              border: allFuturePlansPublic
+                ? "1px solid #dc3545"
+                : "1px solid #28a745",
+              backgroundColor: allFuturePlansPublic ? "#dc3545" : "#28a745",
               color: "white",
               cursor: "pointer",
               fontSize: "1rem",
@@ -130,12 +138,22 @@ const PageHeader = ({
               transition: "all 0.2s ease",
             }}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#218838";
-              e.target.style.borderColor = "#1e7e34";
+              if (allFuturePlansPublic) {
+                e.target.style.backgroundColor = "#c82333";
+                e.target.style.borderColor = "#bd2130";
+              } else {
+                e.target.style.backgroundColor = "#218838";
+                e.target.style.borderColor = "#1e7e34";
+              }
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#28a745";
-              e.target.style.borderColor = "#28a745";
+              if (allFuturePlansPublic) {
+                e.target.style.backgroundColor = "#dc3545";
+                e.target.style.borderColor = "#dc3545";
+              } else {
+                e.target.style.backgroundColor = "#28a745";
+                e.target.style.borderColor = "#28a745";
+              }
             }}
             title={
               allFuturePlansPublic
@@ -143,13 +161,17 @@ const PageHeader = ({
                 : "Make all Future Plans songs public"
             }
           >
-            {allFuturePlansPublic ? "🔒 Make All Private" : "🌐 Make All Public"}
+            {allFuturePlansPublic
+              ? "🔒 Make All Private"
+              : "🌐 Make All Public"}
           </button>
         ) : (
           <div style={{ position: "relative" }}>
             <select
               value={publicFilter || "all"}
-              onChange={(e) => setPublicFilter && setPublicFilter(e.target.value)}
+              onChange={(e) =>
+                setPublicFilter && setPublicFilter(e.target.value)
+              }
               style={{
                 appearance: "none",
                 WebkitAppearance: "none",
@@ -165,7 +187,8 @@ const PageHeader = ({
                 fontWeight: "500",
                 color: "#333",
                 outline: "none",
-                background: "white url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\" viewBox=\"0 0 8 8\"><polygon points=\"0,0 8,0 4,8\" fill=\"%23666\"/></svg>') no-repeat right 12px center",
+                background:
+                  'white url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8"><polygon points="0,0 8,0 4,8" fill="%23666"/></svg>\') no-repeat right 12px center',
                 backgroundSize: "8px",
               }}
             >
@@ -175,7 +198,6 @@ const PageHeader = ({
             </select>
           </div>
         )}
-
 
         {/* Collapse Toggle */}
         <button

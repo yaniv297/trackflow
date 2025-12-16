@@ -28,8 +28,15 @@ function SongPage({ status }) {
   const [search, setSearch] = useState("");
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [publicFilter, setPublicFilter] = useState("all");
-  const [showMakeAllPublicConfirm, setShowMakeAllPublicConfirm] = useState(false);
+  const [showMakeAllPublicConfirm, setShowMakeAllPublicConfirm] =
+    useState(false);
+  const [makeAllPublicOperation, setMakeAllPublicOperation] =
+    useState("public"); // "public" or "private"
   const [showPackRandomizer, setShowPackRandomizer] = useState(false);
+  const [showMakeAllPublicWorking, setShowMakeAllPublicWorking] =
+    useState(false);
+  const [makeAllPublicStatus, setMakeAllPublicStatus] = useState("working"); // "working" or "success"
+  const [makeAllPublicMessage, setMakeAllPublicMessage] = useState("");
 
   // Alert/Prompt state
   const [alertConfig, setAlertConfig] = useState({
@@ -66,7 +73,9 @@ function SongPage({ status }) {
   const [sortDirection, setSortDirection] = useState("asc");
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [groupBy, setGroupBy] = useState("pack");
-  const [packSortBy, setPackSortBy] = useState(status === "Released" ? "alphabetical" : "priority");
+  const [packSortBy, setPackSortBy] = useState(
+    status === "Released" ? "alphabetical" : "priority"
+  );
   const [visibleColumns, setVisibleColumns] = useState({});
 
   const handleSort = (key) => {
@@ -88,10 +97,22 @@ function SongPage({ status }) {
   // Filter songs based on public status
   const filteredSongs = useMemo(() => {
     if (publicFilter === "all") return songs;
-    if (publicFilter === "public") return songs.filter(song => song.is_public === true);
-    if (publicFilter === "private") return songs.filter(song => song.is_public !== true);
+    if (publicFilter === "public")
+      return songs.filter((song) => song.is_public === true);
+    if (publicFilter === "private")
+      return songs.filter((song) => song.is_public !== true);
     return songs;
   }, [songs, publicFilter]);
+
+  // Check if all Future Plans songs are public (for button text)
+  const allFuturePlansPublic = useMemo(() => {
+    if (status !== "Future Plans" || !user) return false;
+    const futurePlansSongs = songs.filter(
+      (song) => song.user_id === user.id && song.status === "Future Plans"
+    );
+    if (futurePlansSongs.length === 0) return false;
+    return futurePlansSongs.every((song) => song.is_public === true);
+  }, [songs, status, user]);
 
   // Sorting and grouping
   const { groupedSongs } = useSongSortingAndGrouping(
@@ -225,8 +246,8 @@ function SongPage({ status }) {
 
   // Handle song updates (e.g., public status toggle)
   const handleSongUpdate = (songId, updates) => {
-    setSongs(prevSongs => 
-      prevSongs.map(song => 
+    setSongs((prevSongs) =>
+      prevSongs.map((song) =>
         song.id === songId ? { ...song, ...updates } : song
       )
     );
@@ -235,98 +256,170 @@ function SongPage({ status }) {
   // Handle bulk public status toggle
   const handleBulkTogglePublic = async (makePublic) => {
     try {
-      let successCount = 0;
-      
-      // Call API for each selected song that needs to change
-      for (const songId of selectedSongs) {
-        const song = songs.find(s => s.id === songId);
-        if (song && song.is_public !== makePublic) {
-          const result = await publicSongsService.toggleSongPublic(songId);
-          if (result.success) {
-            handleSongUpdate(songId, { is_public: result.data.is_public });
-            successCount++;
-          }
+      // Filter to only songs that actually need a change
+      const songIdsToUpdate = selectedSongs.filter((songId) => {
+        const song = songs.find((s) => s.id === songId);
+        return song && song.is_public !== makePublic;
+      });
+
+      if (songIdsToUpdate.length === 0) {
+        if (window.showNotification) {
+          window.showNotification(
+            `Selected songs are already ${makePublic ? "public" : "private"}`,
+            "info",
+            3000
+          );
         }
+        return;
+      }
+
+      const result = await publicSongsService.bulkToggleSongsPublic(
+        songIdsToUpdate,
+        makePublic
+      );
+
+      if (!result.success) {
+        if (window.showNotification) {
+          window.showNotification(
+            result.error || "Failed to update some songs",
+            "error",
+            5000
+          );
+        }
+        return;
+      }
+
+      const {
+        success_count: successCount = 0,
+        failed_song_ids: failedSongIds = [],
+      } = result.data || {};
+
+      const failedSet = new Set(failedSongIds || []);
+      const successfulIds = songIdsToUpdate.filter((id) => !failedSet.has(id));
+
+      if (successfulIds.length > 0) {
+        setSongs((prevSongs) =>
+          prevSongs.map((song) =>
+            successfulIds.includes(song.id)
+              ? { ...song, is_public: makePublic }
+              : song
+          )
+        );
       }
 
       // Show success notification
       if (window.showNotification) {
         window.showNotification(
-          `Successfully made ${successCount} songs ${makePublic ? 'public' : 'private'}`,
-          'success',
+          failedSongIds && failedSongIds.length > 0
+            ? `Updated ${successCount} songs, ${failedSongIds.length} failed`
+            : `Successfully made ${successCount} songs ${
+                makePublic ? "public" : "private"
+              }`,
+          "success",
           3000
         );
       }
 
       // Clear selection
       setSelectedSongs([]);
-
     } catch (error) {
-      console.error('Error toggling bulk public status:', error);
+      console.error("Error toggling bulk public status:", error);
       if (window.showNotification) {
-        window.showNotification(
-          'Failed to update some songs',
-          'error',
-          5000
-        );
+        window.showNotification("Failed to update some songs", "error", 5000);
       }
     }
   };
 
-  // Handle making all Future Plans songs public
+  // Handle making all Future Plans songs public or private
   const handleMakeAllPublic = () => {
+    setMakeAllPublicOperation(allFuturePlansPublic ? "private" : "public");
     setShowMakeAllPublicConfirm(true);
   };
 
   const confirmMakeAllPublic = async () => {
+    const isMakingPublic = makeAllPublicOperation === "public";
+
     try {
       // Use all songs, not filtered songs, to get accurate count
-      const futurePlansPrivateSongs = songs.filter(song => 
-        song.user_id === user?.id && !song.is_public
+      const futurePlansSongsToUpdate = songs.filter(
+        (song) =>
+          song.user_id === user?.id &&
+          song.status === "Future Plans" &&
+          song.is_public === !isMakingPublic
       );
 
-      if (futurePlansPrivateSongs.length === 0) {
-        if (window.showNotification) {
-          window.showNotification(
-            'All your Future Plans songs are already public!',
-            'info',
-            3000
-          );
-        }
+      if (futurePlansSongsToUpdate.length === 0) {
         setShowMakeAllPublicConfirm(false);
         return;
       }
 
-      let successCount = 0;
-      
-      // Call API for each private song
-      for (const song of futurePlansPrivateSongs) {
-        const result = await publicSongsService.toggleSongPublic(song.id);
-        if (result.success) {
-          handleSongUpdate(song.id, { is_public: true });
-          successCount++;
-        }
-      }
-
-      // Show success notification
-      if (window.showNotification) {
-        window.showNotification(
-          `Successfully made ${successCount} Future Plans songs public!`,
-          'success',
-          4000
-        );
-      }
-
       setShowMakeAllPublicConfirm(false);
 
-    } catch (error) {
-      console.error('Error making all songs public:', error);
-      if (window.showNotification) {
-        window.showNotification(
-          'Failed to make some songs public',
-          'error',
-          5000
+      // Show working modal
+      setShowMakeAllPublicWorking(true);
+      setMakeAllPublicStatus("working");
+      setMakeAllPublicMessage(
+        `Making all Future Plans songs ${
+          isMakingPublic ? "public" : "private"
+        }...`
+      );
+
+      // Use the new efficient endpoint
+      const result = isMakingPublic
+        ? await publicSongsService.makeAllFuturePlansPublic()
+        : await publicSongsService.makeAllFuturePlansPrivate();
+
+      if (!result.success) {
+        console.error(
+          `Error making all songs ${isMakingPublic ? "public" : "private"}:`,
+          result.error
         );
+        setShowMakeAllPublicWorking(false);
+        if (window.showNotification) {
+          window.showNotification(
+            result.error ||
+              `Failed to make some songs ${
+                isMakingPublic ? "public" : "private"
+              }`,
+            "error",
+            5000
+          );
+        }
+        return;
+      }
+
+      const { success_count: successCount = 0 } = result.data || {};
+
+      // Update all Future Plans songs in the UI
+      setSongs((prevSongs) =>
+        prevSongs.map((song) =>
+          song.user_id === user?.id &&
+          song.status === "Future Plans" &&
+          song.is_public === !isMakingPublic
+            ? { ...song, is_public: isMakingPublic }
+            : song
+        )
+      );
+
+      // Show success message
+      setMakeAllPublicStatus("success");
+      setMakeAllPublicMessage(
+        `Successfully made ${successCount} Future Plans songs ${
+          isMakingPublic ? "public" : "private"
+        }!`
+      );
+    } catch (error) {
+      console.error(
+        `Error making all songs ${isMakingPublic ? "public" : "private"}:`,
+        error
+      );
+      setShowMakeAllPublicWorking(false);
+      if (window.showNotification) {
+        const errorMessage =
+          error?.response?.data?.detail ||
+          error?.message ||
+          `Failed to make some songs ${isMakingPublic ? "public" : "private"}`;
+        window.showNotification(errorMessage, "error", 5000);
       }
     }
   };
@@ -380,9 +473,16 @@ function SongPage({ status }) {
         setPublicFilter={setPublicFilter}
         selectedSongs={selectedSongs}
         onBulkTogglePublic={handleBulkTogglePublic}
-        onMakeAllPublic={status === "Future Plans" ? handleMakeAllPublic : undefined}
+        onMakeAllPublic={
+          status === "Future Plans" ? handleMakeAllPublic : undefined
+        }
+        allFuturePlansPublic={
+          status === "Future Plans" ? allFuturePlansPublic : undefined
+        }
         onRandomizerClick={
-          status === "Future Plans" ? () => setShowPackRandomizer(true) : undefined
+          status === "Future Plans"
+            ? () => setShowPackRandomizer(true)
+            : undefined
         }
       />
 
@@ -551,13 +651,25 @@ function SongPage({ status }) {
         onCancel={() => setPromptConfig({ ...promptConfig, isOpen: false })}
       />
 
-      {/* Make All Public Confirmation Modal */}
+      {/* Make All Public/Private Confirmation Modal */}
       <CustomAlert
         isOpen={showMakeAllPublicConfirm}
-        title="Make All Future Plans Public"
-        message={`Are you sure you want to make ALL your Future Plans songs public? This will make them visible to other users in the Community section. You can still make individual songs private afterward if needed.`}
+        title={
+          makeAllPublicOperation === "public"
+            ? "Make All Future Plans Public"
+            : "Make All Future Plans Private"
+        }
+        message={
+          makeAllPublicOperation === "public"
+            ? `Are you sure you want to make ALL your Future Plans songs public? This will make them visible to other users in the Community section. This will also enable default public sharing for new songs. You can still make individual songs private afterward if needed.`
+            : `Are you sure you want to make ALL your Future Plans songs private? This will hide them from other users in the Community section. This will also disable default public sharing for new songs. You can still make individual songs public afterward if needed.`
+        }
         type="warning"
-        confirmText="Yes, Make All Public"
+        confirmText={
+          makeAllPublicOperation === "public"
+            ? "Yes, Make All Public"
+            : "Yes, Make All Private"
+        }
         cancelText="Cancel"
         onConfirm={confirmMakeAllPublic}
         onClose={() => setShowMakeAllPublicConfirm(false)}
@@ -570,6 +682,126 @@ function SongPage({ status }) {
           onClose={() => setShowPackRandomizer(false)}
           randomizer={packRandomizer}
         />
+      )}
+
+      {/* Make All Public/Private Working/Success Modal */}
+      {status === "Future Plans" && showMakeAllPublicWorking && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "10px",
+              padding: "24px 28px",
+              minWidth: "360px",
+              maxWidth: "440px",
+              boxShadow:
+                "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              position: "relative",
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              {makeAllPublicStatus === "working" ? (
+                <>
+                  <div
+                    style={{
+                      fontSize: "48px",
+                      marginBottom: "16px",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  >
+                    ⏳
+                  </div>
+                  <h3
+                    style={{
+                      margin: "0 0 8px 0",
+                      fontSize: "18px",
+                      fontWeight: 600,
+                      color: "#111827",
+                    }}
+                  >
+                    Working...
+                  </h3>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "14px",
+                      color: "#4b5563",
+                    }}
+                  >
+                    {makeAllPublicMessage}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      fontSize: "48px",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    ✅
+                  </div>
+                  <h3
+                    style={{
+                      margin: "0 0 8px 0",
+                      fontSize: "18px",
+                      fontWeight: 600,
+                      color: "#111827",
+                    }}
+                  >
+                    Operation Completed Successfully
+                  </h3>
+                  <p
+                    style={{
+                      margin: "0 0 20px 0",
+                      fontSize: "14px",
+                      color: "#4b5563",
+                    }}
+                  >
+                    {makeAllPublicMessage}
+                  </p>
+                  <button
+                    onClick={() => setShowMakeAllPublicWorking(false)}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "999px",
+                      border: "none",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      backgroundColor: "#111827",
+                      color: "white",
+                    }}
+                  >
+                    Close
+                  </button>
+                </>
+              )}
+            </div>
+            <style>
+              {`
+                @keyframes spin {
+                  from {
+                    transform: rotate(0deg);
+                  }
+                  to {
+                    transform: rotate(360deg);
+                  }
+                }
+              `}
+            </style>
+          </div>
+        </div>
       )}
 
       <Fireworks />

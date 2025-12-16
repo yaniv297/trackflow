@@ -279,7 +279,7 @@ def get_recently_authored_parts(
             FROM song_progress sp
             JOIN songs s ON sp.song_id = s.id
             JOIN users u ON s.user_id = u.id
-            WHERE sp.is_completed = 1
+            WHERE sp.is_completed = true
               AND sp.completed_at IS NOT NULL
             ORDER BY sp.completed_at DESC
             LIMIT :limit

@@ -153,3 +153,30 @@
   color: #333;
 }
 
+/* Sortable header styles */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 1.5rem !important;
+  transition: background-color 0.2s ease;
+}
+
+.sortable-header:hover {
+  background-color: #f8f9fa;
+}
+
+.sort-indicator {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: #6c757d;
+  opacity: 0.6;
+  font-weight: normal;
+}
+
+.sortable-header:hover .sort-indicator {
+  opacity: 1;
+  color: #667eea;
+}
+

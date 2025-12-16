@@ -144,16 +144,33 @@ def update_user_settings(
         db.commit()
         db.refresh(user)
         
-        # Check for customization achievements after successful update
+        # Check for customization achievements after successful update (async, non-blocking)
+        # Use a background task or fire-and-forget to avoid blocking the response
         try:
-            print(f"🔍 Checking customization achievements for user {user.id}")
-            achievements_service = AchievementsService()
-            achievements_service.check_customization_achievements(db, user.id)
-            print(f"✅ Customization achievement check completed for user {user.id}")
+            # Import here to avoid circular dependencies
+            import threading
+            def check_achievements_async():
+                try:
+                    # Create a new database session for the background task
+                    from database import SessionLocal
+                    background_db = SessionLocal()
+                    try:
+                        print(f"🔍 Checking customization achievements for user {user.id} (background)")
+                        achievements_service = AchievementsService()
+                        achievements_service.check_customization_achievements(background_db, user.id)
+                        print(f"✅ Customization achievement check completed for user {user.id}")
+                    finally:
+                        background_db.close()
+                except Exception as e:
+                    print(f"❌ Error checking customization achievements for user {user.id}: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Run in background thread (fire-and-forget)
+            thread = threading.Thread(target=check_achievements_async, daemon=True)
+            thread.start()
         except Exception as e:
-            print(f"❌ Error checking customization achievements for user {user.id}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ Error starting achievement check thread: {e}")
             # Don't fail the user settings update if achievement check fails
         
         # Convert datetime to string for created_at

@@ -70,6 +70,30 @@ def run_migration():
                 
                 # Notifications - for unread count queries
                 ("idx_notifications_user_unread", "notifications", "user_id, is_read, created_at DESC"),
+                
+                # Critical missing indexes for performance
+                ("idx_songs_public_status", "songs", "is_public, status"),
+                ("idx_songs_status_public", "songs", "status, is_public"),
+                ("idx_collaborations_type_user", "collaborations", "collaboration_type, user_id"),
+                ("idx_collaborations_user_type", "collaborations", "user_id, collaboration_type"),
+                ("idx_song_progress_song_completed", "song_progress", "song_id, is_completed"),
+                ("idx_song_progress_completed_song", "song_progress", "is_completed, song_id"),
+                ("idx_user_achievements_user_earned", "user_achievements", "user_id, earned_at DESC"),
+                ("idx_rock_band_dlc_artist_title_lower", "rock_band_dlc", "LOWER(artist), LOWER(title)" if is_postgres else "artist COLLATE NOCASE, title COLLATE NOCASE"),
+                ("idx_songs_user_released_at", "songs", "user_id, released_at DESC"),
+                ("idx_songs_released_status", "songs", "released_at DESC, status"),
+                ("idx_packs_released_show", "packs", "released_at DESC, show_on_homepage"),
+                ("idx_collaborations_song_type", "collaborations", "song_id, collaboration_type"),
+                ("idx_collaborations_pack_type", "collaborations", "pack_id, collaboration_type"),
+                
+                # Song listing optimizations (WIP/Released pages)
+                ("idx_songs_user_status", "songs", "user_id, status"),
+                ("idx_songs_status_updated", "songs", "status, updated_at DESC"),
+                ("idx_songs_title_user", "songs", "title, user_id"),
+                ("idx_songs_artist_user", "songs", "artist, user_id"),
+                ("idx_songs_user_updated", "songs", "user_id, updated_at DESC"),
+                ("idx_songs_user_title", "songs", "user_id, title"),
+                ("idx_songs_pack_status", "songs", "pack_id, status"),
             ]
             
             success_count = 0
@@ -108,6 +132,16 @@ def run_migration():
             connection.commit()
             print()
             print(f"🎉 Migration complete! Created {success_count} indexes, skipped {skip_count} existing indexes")
+            print(f"📈 Total indexes processed: {success_count + skip_count}")
+            
+            if success_count > 0:
+                print("\n✅ Performance improvements added:")
+                print("   - Public songs browsing")
+                print("   - Collaboration queries")
+                print("   - Song progress tracking") 
+                print("   - Achievement lookups")
+                print("   - DLC duplicate checking")
+                print("   - Released songs pagination")
             
     except Exception as e:
         print(f"❌ Migration failed: {e}")

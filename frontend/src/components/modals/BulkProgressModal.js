@@ -1,28 +1,39 @@
-import React from 'react';
-import './BulkProgressModal.css';
+import React from "react";
+import "./BulkProgressModal.css";
 
-const BulkProgressModal = ({ 
-  isOpen, 
-  title, 
-  message, 
-  progress, 
-  total, 
+const BulkProgressModal = ({
+  isOpen,
+  title = "Processing",
+  message = "",
+  description = "",
+  progress = 0,
+  completed = 0,
+  total = 0,
   isComplete = false,
-  onClose = null 
+  isProcessing = false,
+  onClose = null,
 }) => {
   if (!isOpen) return null;
 
-  const percentage = total > 0 ? Math.round((progress / total) * 100) : 0;
+  // Support both 'progress' and 'completed' props
+  const actualProgress = completed !== undefined ? completed : progress;
+  const actualIsComplete = isComplete || (!isProcessing && actualProgress > 0);
+  const percentage =
+    total > 0
+      ? Math.round((actualProgress / total) * 100)
+      : isProcessing
+      ? 0
+      : 100;
 
   return (
     <div className="modal-overlay">
       <div className="modal bulk-progress-modal">
         <div className="modal-header">
           <h3>{title}</h3>
-          {isComplete && onClose && (
-            <button 
-              type="button" 
-              className="modal-close-btn" 
+          {actualIsComplete && onClose && (
+            <button
+              type="button"
+              className="modal-close-btn"
               onClick={onClose}
               aria-label="Close"
             >
@@ -30,37 +41,44 @@ const BulkProgressModal = ({
             </button>
           )}
         </div>
-        
+
         <div className="modal-body">
-          <p className="progress-message">{message}</p>
-          
+          {(message || description) && (
+            <p className="progress-message">{message || description}</p>
+          )}
+
           <div className="progress-container">
             <div className="progress-bar">
-              <div 
+              <div
                 className="progress-fill"
                 style={{ width: `${percentage}%` }}
               />
             </div>
-            
+
             <div className="progress-text">
-              {progress} / {total} ({percentage}%)
+              {actualProgress} / {total} ({percentage}%)
             </div>
           </div>
-          
-          {isComplete && (
+
+          {actualIsComplete && (
             <div className="progress-complete">
               ✅ Operation completed successfully!
             </div>
           )}
-        </div>
-        
-        {isComplete && onClose && (
-          <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn btn-primary" 
-              onClick={onClose}
+
+          {isProcessing && !actualIsComplete && (
+            <div
+              className="progress-message"
+              style={{ marginTop: "8px", fontSize: "0.9em", color: "#666" }}
             >
+              Processing... Please wait.
+            </div>
+          )}
+        </div>
+
+        {actualIsComplete && onClose && (
+          <div className="modal-footer">
+            <button type="button" className="btn btn-primary" onClick={onClose}>
               Close
             </button>
           </div>

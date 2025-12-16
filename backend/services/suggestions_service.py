@@ -18,7 +18,9 @@ class SuggestionsService:
         self.current_user = current_user
 
     def get_suggestions(self, limit: int = 6) -> List[Dict[str, Any]]:
-        songs, song_map = self._fetch_songs(limit=100)
+        # Reduce initial fetch from 100 to 30 for better performance
+        # We only need 6 suggestions, so 30 songs should be plenty
+        songs, song_map = self._fetch_songs(limit=30)
 
         completion_data = build_song_completion_data(self.db, songs)
         song_enriched = {song.id: self._enrich_song(song, completion_data) for song in songs}
@@ -40,7 +42,10 @@ class SuggestionsService:
         used_ids.update(s["id"] for s in almost_done_suggestions)
 
         # 3. Recently worked on songs
-        recent_suggestions = self._get_recently_worked_songs(song_map, used_ids)
+        # Pass completion_data and song_enriched to avoid redundant queries
+        recent_suggestions = self._get_recently_worked_songs(
+            song_map, used_ids, completion_data, song_enriched
+        )
         suggestions.extend(recent_suggestions)
         used_ids.update(s["id"] for s in recent_suggestions)
 
@@ -54,9 +59,16 @@ class SuggestionsService:
         suggestions.extend(long_time_suggestions)
         used_ids.update(s["id"] for s in long_time_suggestions)
 
-        # 6. Packs near completion
-        pack_suggestions = self._get_pack_suggestions(used_ids)
-        suggestions.extend(pack_suggestions)
+        # 6. Packs near completion (optional - skip if we already have enough suggestions)
+        # Pack completion can be slow, so only fetch if we need more suggestions
+        if len(suggestions) < limit:
+            try:
+                pack_suggestions = self._get_pack_suggestions(used_ids)
+                suggestions.extend(pack_suggestions)
+            except Exception as e:
+                # If pack suggestions fail or are slow, continue without them
+                print(f"⚠️ Pack suggestions failed: {e}")
+                pass
 
         # Fill with fallback songs if we have fewer than requested
         remaining = max(0, limit - len(suggestions))
@@ -102,7 +114,7 @@ class SuggestionsService:
 
     # --- internal helpers ---
 
-    def _fetch_songs(self, limit: int = 100) -> Tuple[List[Song], Dict[int, Song]]:
+    def _fetch_songs(self, limit: int = 30) -> Tuple[List[Song], Dict[int, Song]]:
         from sqlalchemy import or_
         songs = (
             self.db.query(Song)
@@ -194,7 +206,9 @@ class SuggestionsService:
             items.append(enriched)
         return items
 
-    def _get_recently_worked_songs(self, song_map, used_ids):
+    def _get_recently_worked_songs(
+        self, song_map, used_ids, completion_data, song_enriched
+    ):
         recent_parts = get_recent_authoring_activity(
             limit=20, db=self.db, current_user=self.current_user
         )
@@ -204,6 +218,32 @@ class SuggestionsService:
             grouped.setdefault(sid, {"parts": [], **part})
             grouped[sid]["parts"].append(part["part_name"])
 
+        # Find songs that aren't in our initial fetch
+        missing_song_ids = [
+            sid for sid in grouped.keys()
+            if sid not in song_map and f"song-{sid}" not in used_ids
+        ]
+        
+        # Fetch missing songs and compute their completion data in one batch
+        if missing_song_ids:
+            from sqlalchemy import or_
+            missing_songs = (
+                self.db.query(Song)
+                .filter(Song.id.in_(missing_song_ids))
+                .filter(Song.status == "In Progress")
+                .filter(or_(Song.optional.is_(False), Song.optional.is_(None)))  # Exclude optional songs
+                .all()
+            )
+            if missing_songs:
+                # Build completion data for all missing songs at once
+                missing_completion_data = build_song_completion_data(self.db, missing_songs)
+                # Merge into existing completion_data
+                completion_data.update(missing_completion_data)
+                # Add to song_map and song_enriched
+                for song in missing_songs:
+                    song_map[song.id] = song
+                    song_enriched[song.id] = self._enrich_song(song, completion_data)
+
         suggestions = []
         for sid, info in grouped.items():
             if f"song-{sid}" in used_ids:
@@ -211,10 +251,16 @@ class SuggestionsService:
             base_song = song_map.get(sid)
             if not base_song:
                 continue
-            completion_info = build_song_completion_data(self.db, [base_song])
-            enriched = self._enrich_song(base_song, completion_info)
+            # Use already-computed completion data instead of calling build_song_completion_data again
+            enriched = song_enriched.get(sid)
+            if not enriched:
+                # Fallback: compute if somehow missing (shouldn't happen)
+                completion_info = build_song_completion_data(self.db, [base_song])
+                enriched = self._enrich_song(base_song, completion_info)
+                song_enriched[sid] = enriched
             if enriched["completion"] is None or enriched["completion"] >= 100:
                 continue
+            enriched = {**enriched}  # Clone to avoid mutating shared dict
             enriched["tags"] = enriched.get("tags", []) + ["Recently worked on"]
             enriched["priority"] = 6
             enriched["message"] = self._message_for_song(enriched, recent_parts=info["parts"])
@@ -303,8 +349,10 @@ class SuggestionsService:
         return filler
 
     def _get_pack_suggestions(self, used_ids):
+        # Reduce limit from 10 to 3 since we only need a few pack suggestions
+        # This reduces the number of packs we need to process
         packs_data = compute_packs_near_completion(
-            self.db, self.current_user, limit=10, threshold=70
+            self.db, self.current_user, limit=3, threshold=70
         )
         suggestions = []
         for pack in packs_data:

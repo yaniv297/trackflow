@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import './ProfileSongsTable.css';
 
 const ProfileSongsTable = ({ 
@@ -14,6 +14,14 @@ const ProfileSongsTable = ({
   itemsPerPage = 10
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortColumn, setSortColumn] = useState(null); // null means random/default
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
+  
+  // Reset sort when songs change (e.g., when switching profiles)
+  useEffect(() => {
+    setSortColumn(null);
+    setSortDirection('asc');
+  }, [songs]);
   
   // Filter songs based on search term
   const filteredSongs = useMemo(() => {
@@ -59,6 +67,60 @@ const ProfileSongsTable = ({
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  };
+
+  // Sort songs by column
+  const sortSongs = (songs, column, direction) => {
+    if (!column) return songs;
+    
+    const sorted = [...songs].sort((a, b) => {
+      let aVal, bVal;
+      
+      switch (column) {
+        case 'title':
+          aVal = (a.title || '').toLowerCase();
+          bVal = (b.title || '').toLowerCase();
+          break;
+        case 'artist':
+          aVal = (a.artist || '').toLowerCase();
+          bVal = (b.artist || '').toLowerCase();
+          break;
+        case 'album':
+          aVal = (a.album || '').toLowerCase();
+          bVal = (b.album || '').toLowerCase();
+          break;
+        case 'pack':
+          aVal = (a.pack_name || '').toLowerCase();
+          bVal = (b.pack_name || '').toLowerCase();
+          break;
+        case 'status':
+          aVal = (a.status || '').toLowerCase();
+          bVal = (b.status || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
+  };
+
+  // Handle column header click
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      // Toggle direction if clicking the same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new column and default to ascending
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    // Reset to first page when sorting changes
+    onPageChange(1);
   };
 
   // Toggle artist expand state
@@ -152,9 +214,14 @@ const ProfileSongsTable = ({
     groupedArtists = groupSongsByArtist(filteredSongs);
     paginatedData = paginate(groupedArtists, currentPage);
   } else {
-    // When showing table view, randomize order then paginate
-    const shuffledSongs = shuffleArray(filteredSongs);
-    paginatedData = paginate(shuffledSongs, currentPage);
+    // When showing table view, apply sorting if a column is selected, otherwise randomize
+    let processedSongs;
+    if (sortColumn) {
+      processedSongs = sortSongs(filteredSongs, sortColumn, sortDirection);
+    } else {
+      processedSongs = shuffleArray(filteredSongs);
+    }
+    paginatedData = paginate(processedSongs, currentPage);
   }
 
   return (
@@ -308,11 +375,63 @@ const ProfileSongsTable = ({
               <thead>
                 <tr>
                   <th className="artwork-col"></th>
-                  <th>Title</th>
-                  <th>Artist</th>
-                  <th>Album</th>
-                  <th>Pack</th>
-                  {showStatus && <th>Status</th>}
+                  <th 
+                    className="sortable-header"
+                    onClick={() => handleSort('title')}
+                  >
+                    Title
+                    {sortColumn === 'title' && (
+                      <span className="sort-indicator">
+                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                      </span>
+                    )}
+                  </th>
+                  <th 
+                    className="sortable-header"
+                    onClick={() => handleSort('artist')}
+                  >
+                    Artist
+                    {sortColumn === 'artist' && (
+                      <span className="sort-indicator">
+                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                      </span>
+                    )}
+                  </th>
+                  <th 
+                    className="sortable-header"
+                    onClick={() => handleSort('album')}
+                  >
+                    Album
+                    {sortColumn === 'album' && (
+                      <span className="sort-indicator">
+                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                      </span>
+                    )}
+                  </th>
+                  <th 
+                    className="sortable-header"
+                    onClick={() => handleSort('pack')}
+                  >
+                    Pack
+                    {sortColumn === 'pack' && (
+                      <span className="sort-indicator">
+                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                      </span>
+                    )}
+                  </th>
+                  {showStatus && (
+                    <th 
+                      className="sortable-header"
+                      onClick={() => handleSort('status')}
+                    >
+                      Status
+                      {sortColumn === 'status' && (
+                        <span className="sort-indicator">
+                          {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                        </span>
+                      )}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>

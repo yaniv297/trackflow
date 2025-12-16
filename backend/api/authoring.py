@@ -190,6 +190,14 @@ def update_authoring(song_id: int, updates: dict, db: Session = Depends(get_db),
     
     db.commit()
     db.refresh(song)
+    
+    # Invalidate completion cache for this song
+    try:
+        from services.completion_cache import invalidate_song_cache
+        invalidate_song_cache(song_id)
+    except Exception as e:
+        # Don't fail the request if cache invalidation fails
+        print(f"⚠️ Failed to invalidate cache for song {song_id}: {e}")
 
     # Collaboration authoring notifications:
     # Notify other collaborators when a part is newly authored/completed on a collaboration song.

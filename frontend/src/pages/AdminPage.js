@@ -28,6 +28,7 @@ function AdminPage() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
 
@@ -126,11 +127,23 @@ function AdminPage() {
     }
   };
 
-  // Sorting logic
-  const sortedUsers = React.useMemo(() => {
-    if (!sortConfig.key) return users;
+  // Filter and sort logic
+  const filteredAndSortedUsers = React.useMemo(() => {
+    // First filter by search query
+    let filtered = users;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = users.filter((user) => {
+        const username = (user.username || "").toLowerCase();
+        const email = (user.email || "").toLowerCase();
+        return username.includes(query) || email.includes(query);
+      });
+    }
 
-    return [...users].sort((a, b) => {
+    // Then sort
+    if (!sortConfig.key) return filtered;
+
+    return [...filtered].sort((a, b) => {
       let aValue = a[sortConfig.key];
       let bValue = b[sortConfig.key];
 
@@ -138,6 +151,18 @@ function AdminPage() {
       if (sortConfig.key.includes("_at")) {
         aValue = aValue ? new Date(aValue) : new Date(0);
         bValue = bValue ? new Date(bValue) : new Date(0);
+      }
+
+      // Handle null/undefined values for string fields
+      if (sortConfig.key === "email" || sortConfig.key === "username") {
+        aValue = aValue || "";
+        bValue = bValue || "";
+      }
+
+      // Handle numeric fields (song_count)
+      if (sortConfig.key === "song_count") {
+        aValue = aValue || 0;
+        bValue = bValue || 0;
       }
 
       if (aValue < bValue) {
@@ -148,7 +173,7 @@ function AdminPage() {
       }
       return 0;
     });
-  }, [users, sortConfig]);
+  }, [users, sortConfig, searchQuery]);
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -157,12 +182,25 @@ function AdminPage() {
     }));
   };
 
-  const paginatedUsers = sortedUsers.slice(
+  const paginatedUsers = filteredAndSortedUsers.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
 
-  const totalPages = Math.ceil(sortedUsers.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / ITEMS_PER_PAGE);
+
+  // Reset to page 1 when sorting or search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [sortConfig.key, sortConfig.direction, searchQuery]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      // Scroll to top of table
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "Never";
@@ -309,25 +347,64 @@ function AdminPage() {
     <div className="admin-users-section">
       {/* User Table */}
       <div className="users-table-container">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3>User Management ({users.length} users)</h3>
-          <button onClick={loadUsers} style={{ padding: '0.5rem 1rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            Refresh
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <h3>User Management ({searchQuery.trim() ? `${filteredAndSortedUsers.length} of ${users.length}` : users.length} users)</h3>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Search by username or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '0.9rem',
+                minWidth: '250px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = '#dee2e6'}
+            />
+            {searchQuery.trim() && (
+              <button
+                onClick={() => setSearchQuery("")}
+                style={{
+                  padding: '0.5rem 0.75rem',
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+            <button onClick={loadUsers} style={{ padding: '0.5rem 1rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div className="table-responsive">
           <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <thead>
               <tr style={{ background: '#f8f9fa' }}>
-                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer' }} onClick={() => handleSort('username')}>
+                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('username')}>
                   Username {sortConfig.key === 'username' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Email</th>
-                <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Songs</th>
+                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('email')}>
+                  Email {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('song_count')}>
+                  Songs {sortConfig.key === 'song_count' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Admin</th>
                 <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Active</th>
-                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer' }} onClick={() => handleSort('last_login_at')}>
+                <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '2px solid #dee2e6', cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('last_login_at')}>
                   Last Login {sortConfig.key === 'last_login_at' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th style={{ padding: '1rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Actions</th>
@@ -393,6 +470,105 @@ function AdminPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginTop: '1.5rem',
+            padding: '1rem',
+            background: '#f8f9fa',
+            borderRadius: '8px'
+          }}>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                background: currentPage === 1 ? '#e9ecef' : 'white',
+                color: currentPage === 1 ? '#6c757d' : '#333',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+            >
+              Previous
+            </button>
+
+            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Show first page, last page, current page, and pages around current
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      style={{
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #dee2e6',
+                        borderRadius: '4px',
+                        background: currentPage === page ? '#007bff' : 'white',
+                        color: currentPage === page ? 'white' : '#333',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: currentPage === page ? '600' : '400',
+                        minWidth: '2.5rem'
+                      }}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (
+                  page === currentPage - 2 ||
+                  page === currentPage + 2
+                ) {
+                  return (
+                    <span key={page} style={{ padding: '0 0.25rem', color: '#6c757d' }}>
+                      ...
+                    </span>
+                  );
+                }
+                return null;
+              })}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                background: currentPage === totalPages ? '#e9ecef' : 'white',
+                color: currentPage === totalPages ? '#6c757d' : '#333',
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+            >
+              Next
+            </button>
+
+            <div style={{
+              marginLeft: '1rem',
+              paddingLeft: '1rem',
+              borderLeft: '1px solid #dee2e6',
+              color: '#6c757d',
+              fontSize: '0.9rem'
+            }}>
+              Page {currentPage} of {totalPages}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

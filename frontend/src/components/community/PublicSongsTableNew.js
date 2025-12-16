@@ -22,6 +22,8 @@ const PublicSongsTableNew = ({
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [hideMySongs, setHideMySongs] = useState(false);
+  const [sortColumn, setSortColumn] = useState("title");
+  const [sortDirection, setSortDirection] = useState("asc");
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   // Filter songs based on search term, exclude released songs, and optionally hide current user's songs
@@ -53,6 +55,63 @@ const PublicSongsTableNew = ({
 
   if (!songs || songs.length === 0) return null;
 
+  // Handle column sorting
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      // Toggle direction if clicking the same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new column and default to ascending
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+    // Reset to first page when sorting changes
+    onPageChange(1);
+  };
+
+  // Sort songs based on current sort settings
+  const sortSongs = (songs) => {
+    return [...songs].sort((a, b) => {
+      let aValue, bValue;
+
+      switch (sortColumn) {
+        case "artist":
+          aValue = (a.artist || "").toLowerCase();
+          bValue = (b.artist || "").toLowerCase();
+          break;
+        case "title":
+          aValue = (a.title || "").toLowerCase();
+          bValue = (b.title || "").toLowerCase();
+          break;
+        case "owner":
+          aValue = (a.username || "").toLowerCase();
+          bValue = (b.username || "").toLowerCase();
+          break;
+        case "status":
+          aValue = (a.status || "").toLowerCase();
+          bValue = (b.status || "").toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+
+      const comparison = aValue.localeCompare(bValue);
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  };
+
+  // Render sort indicator
+  const renderSortIndicator = (column) => {
+    if (sortColumn !== column) {
+      return <span className="sort-indicator">⇅</span>;
+    }
+    return (
+      <span className="sort-indicator">
+        {sortDirection === "asc" ? "↑" : "↓"}
+      </span>
+    );
+  };
+
   // Group songs by artist
   const groupSongsByArtist = (songs) => {
     const grouped = songs.reduce((acc, song) => {
@@ -79,7 +138,7 @@ const PublicSongsTableNew = ({
       .sort((a, b) => b[1].length - a[1].length)
       .map(([artist, songs]) => ({
         artist,
-        songs: songs.sort((a, b) => a.title.localeCompare(b.title)),
+        songs: sortSongs(songs),
         songCount: songs.length,
       }));
   };
@@ -99,13 +158,7 @@ const PublicSongsTableNew = ({
       .sort((a, b) => b[1].length - a[1].length)
       .map(([username, songs]) => ({
         username,
-        songs: songs.sort((a, b) => {
-          // Sort by artist first, then title
-          if (a.artist !== b.artist) {
-            return (a.artist || "").localeCompare(b.artist || "");
-          }
-          return (a.title || "").localeCompare(b.title || "");
-        }),
+        songs: sortSongs(songs),
         songCount: songs.length,
       }));
   };
@@ -200,12 +253,8 @@ const PublicSongsTableNew = ({
     groupedData = groupSongsByUser(filteredSongs);
     paginatedData = paginate(groupedData, currentPage);
   } else {
-    // Sort A to Z by title when no grouping
-    const sortedSongs = [...filteredSongs].sort((a, b) => {
-      const titleA = (a.title || "").toLowerCase();
-      const titleB = (b.title || "").toLowerCase();
-      return titleA.localeCompare(titleB);
-    });
+    // Apply sorting when no grouping
+    const sortedSongs = sortSongs(filteredSongs);
     paginatedData = paginate(sortedSongs, currentPage);
   }
 
@@ -349,9 +398,24 @@ const PublicSongsTableNew = ({
                           <thead>
                             <tr>
                               <th></th>
-                              <th>Title</th>
-                              <th>Owner</th>
-                              <th>Status</th>
+                              <th
+                                className="sortable-header"
+                                onClick={() => handleSort("title")}
+                              >
+                                Title {renderSortIndicator("title")}
+                              </th>
+                              <th
+                                className="sortable-header"
+                                onClick={() => handleSort("owner")}
+                              >
+                                Owner {renderSortIndicator("owner")}
+                              </th>
+                              <th
+                                className="sortable-header"
+                                onClick={() => handleSort("status")}
+                              >
+                                Status {renderSortIndicator("status")}
+                              </th>
                               <th>Updated</th>
                               <th>Actions</th>
                             </tr>
@@ -440,9 +504,24 @@ const PublicSongsTableNew = ({
                           <thead>
                             <tr>
                               <th></th>
-                              <th>Title</th>
-                              <th>Artist</th>
-                              <th>Status</th>
+                              <th
+                                className="sortable-header"
+                                onClick={() => handleSort("title")}
+                              >
+                                Title {renderSortIndicator("title")}
+                              </th>
+                              <th
+                                className="sortable-header"
+                                onClick={() => handleSort("artist")}
+                              >
+                                Artist {renderSortIndicator("artist")}
+                              </th>
+                              <th
+                                className="sortable-header"
+                                onClick={() => handleSort("status")}
+                              >
+                                Status {renderSortIndicator("status")}
+                              </th>
                               <th>Updated</th>
                               <th>Actions</th>
                             </tr>
@@ -473,10 +552,30 @@ const PublicSongsTableNew = ({
               <thead>
                 <tr>
                   <th></th>
-                  <th>Title</th>
-                  <th>Artist</th>
-                  <th>Owner</th>
-                  <th>Status</th>
+                  <th
+                    className="sortable-header"
+                    onClick={() => handleSort("title")}
+                  >
+                    Title {renderSortIndicator("title")}
+                  </th>
+                  <th
+                    className="sortable-header"
+                    onClick={() => handleSort("artist")}
+                  >
+                    Artist {renderSortIndicator("artist")}
+                  </th>
+                  <th
+                    className="sortable-header"
+                    onClick={() => handleSort("owner")}
+                  >
+                    Owner {renderSortIndicator("owner")}
+                  </th>
+                  <th
+                    className="sortable-header"
+                    onClick={() => handleSort("status")}
+                  >
+                    Status {renderSortIndicator("status")}
+                  </th>
                   <th>Updated</th>
                   <th>Actions</th>
                 </tr>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import SmartDiscovery from '../components/community/SmartDiscovery';
-import PublicSongFilters from '../components/community/PublicSongFilters';
 import PublicSongsTableNew from '../components/community/PublicSongsTableNew';
 import CollaborationRequestModal from '../components/community/CollaborationRequestModal';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -163,13 +162,6 @@ const CommunityPage = () => {
 
         {/* Smart Discovery Section */}
         <SmartDiscovery />
-
-        {/* Filters Section */}
-        <PublicSongFilters
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          isLoading={isLoading}
-        />
 
         {/* Results Section */}
         <div className="results-section">

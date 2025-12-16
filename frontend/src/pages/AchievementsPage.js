@@ -71,8 +71,7 @@ export default function AchievementsPage() {
   const [expandedCategories, setExpandedCategories] = useState({});
 
   useEffect(() => {
-    fetchAchievements();
-    fetchPointsBreakdown();
+    fetchAchievementsAndBreakdown();
   }, []);
 
   const toggleCategory = (category) => {
@@ -82,24 +81,32 @@ export default function AchievementsPage() {
     }));
   };
 
-  const fetchAchievements = async () => {
+  const fetchAchievementsAndBreakdown = async () => {
     try {
-      const achievementsWithProgress = await apiGet("/achievements/with-progress");
-      setAchievementsWithProgress(achievementsWithProgress);
+      // Use the optimized combined endpoint
+      const response = await apiGet("/achievements/with-progress-and-breakdown");
+      setAchievementsWithProgress(response.achievements);
+      setPointsBreakdown(response.points_breakdown);
       setLoading(false);
     } catch (error) {
       console.error("Failed to load achievements:", error);
-      setLoading(false);
-    }
-  };
-
-  const fetchPointsBreakdown = async () => {
-    try {
-      const breakdown = await apiGet("/achievements/points-breakdown");
-      console.log("Points breakdown received:", breakdown);
-      setPointsBreakdown(breakdown);
-    } catch (error) {
-      console.error("Failed to load points breakdown:", error);
+      // Fallback to separate endpoints if combined endpoint fails
+      try {
+        const achievementsWithProgress = await apiGet("/achievements/with-progress");
+        setAchievementsWithProgress(achievementsWithProgress);
+        setLoading(false);
+        
+        // Try to get points breakdown separately
+        try {
+          const breakdown = await apiGet("/achievements/points-breakdown");
+          setPointsBreakdown(breakdown);
+        } catch (breakdownError) {
+          console.error("Failed to load points breakdown:", breakdownError);
+        }
+      } catch (fallbackError) {
+        console.error("Failed to load achievements (fallback):", fallbackError);
+        setLoading(false);
+      }
     }
   };
 
@@ -122,14 +129,6 @@ export default function AchievementsPage() {
   // Use breakdown data if available, otherwise fall back to achievement points only
   const totalPoints = pointsBreakdown ? pointsBreakdown.total_points : achievementPoints;
   const releasePoints = pointsBreakdown ? pointsBreakdown.release_points : 0;
-  
-  // Debug logging
-  console.log("Current state:", { 
-    pointsBreakdown, 
-    achievementPoints, 
-    totalPoints, 
-    releasePoints 
-  });
 
   // Group achievements by category and sort by points (difficulty)
   const achievementsByCategory = {};

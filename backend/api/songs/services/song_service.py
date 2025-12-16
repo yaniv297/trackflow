@@ -14,6 +14,7 @@ from api.achievements import (
 )
 from api.achievements.repositories.achievements_repository import AchievementsRepository
 from api.notifications.services.notification_service import NotificationService
+from utils.cache import invalidate_user_caches, invalidate_leaderboard_cache
 
 from ..repositories.song_repository import SongRepository
 from ..repositories.collaboration_repository import CollaborationRepository
@@ -95,38 +96,38 @@ class SongService:
         pack_edit_ids: Set[int] = set()
         pack_collab_ids: Set[int] = set()
 
-        if song_ids:
-            # All SONG_EDIT collaborations for these songs
-            rows = (
-                self.db.query(Collaboration.song_id)
-                .filter(
-                    Collaboration.user_id == current_user.id,
-                    Collaboration.collaboration_type == CollaborationType.SONG_EDIT,
-                    Collaboration.song_id.in_(song_ids),
-                )
-                .all()
-            )
-            song_edit_ids = {row.song_id for row in rows}
-
-        if pack_ids:
-            # PACK_VIEW / PACK_EDIT collaborations for these packs
-            rows = (
-                self.db.query(Collaboration.pack_id, Collaboration.collaboration_type)
-                .filter(
-                    Collaboration.user_id == current_user.id,
-                    Collaboration.collaboration_type.in_(
-                        [CollaborationType.PACK_VIEW, CollaborationType.PACK_EDIT]
-                    ),
-                    Collaboration.pack_id.in_(pack_ids),
-                )
-                .all()
-            )
-            for pack_id_val, collab_type in rows:
-                if pack_id_val is None:
-                    continue
-                pack_collab_ids.add(pack_id_val)
-                if collab_type == CollaborationType.PACK_EDIT:
-                    pack_edit_ids.add(pack_id_val)
+        # Optimized: Single query for all collaboration types
+        from sqlalchemy import text
+        
+        if song_ids or pack_ids:
+            # Single optimized query to get all collaboration data
+            collaboration_rows = self.db.execute(text("""
+                SELECT 
+                    song_id,
+                    pack_id,
+                    collaboration_type
+                FROM collaborations
+                WHERE user_id = :user_id
+                  AND (
+                    (song_id IN :song_ids AND collaboration_type = 'SONG_EDIT') OR
+                    (pack_id IN :pack_ids AND collaboration_type IN ('PACK_VIEW', 'PACK_EDIT'))
+                  )
+            """), {
+                "user_id": current_user.id,
+                "song_ids": tuple(song_ids) if song_ids else (0,),  # Dummy value if empty
+                "pack_ids": tuple(pack_ids) if pack_ids else (0,)   # Dummy value if empty
+            }).fetchall()
+            
+            # Process results efficiently
+            for row in collaboration_rows:
+                song_id, pack_id, collab_type = row
+                
+                if song_id and collab_type == 'SONG_EDIT':
+                    song_edit_ids.add(song_id)
+                elif pack_id:
+                    pack_collab_ids.add(pack_id)
+                    if collab_type == 'PACK_EDIT':
+                        pack_edit_ids.add(pack_id)
 
         results: List[SongOut] = []
         for song in songs:
@@ -268,6 +269,17 @@ class SongService:
         # Log activity and check achievements
         self._log_song_update(updated_song, current_user)
         self._check_update_achievements(updated_song, current_user)
+        
+        # Invalidate caches if important fields changed
+        try:
+            cache_invalidation_fields = ['status', 'released_at', 'artist', 'title']
+            if any(field in updates for field in cache_invalidation_fields):
+                invalidate_user_caches(updated_song.user_id)
+                # If song was released, it affects leaderboard (release points)
+                if 'status' in updates and updates['status'] in [SongStatus.released, "Released"]:
+                    invalidate_leaderboard_cache()
+        except Exception as cache_err:
+            print(f"⚠️ Failed to invalidate caches after song update: {cache_err}")
         
         return SongOut(**song_dict)
     

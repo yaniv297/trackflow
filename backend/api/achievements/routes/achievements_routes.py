@@ -11,7 +11,8 @@ from api.auth import get_current_active_user, get_optional_user
 from ..services.achievements_service import AchievementsService
 from ..validators.achievements_validators import (
     AchievementResponse, UserAchievementResponse, AchievementProgressSummary,
-    AchievementCheckResponse, LeaderboardResponse, AchievementWithProgress
+    AchievementCheckResponse, LeaderboardResponse, AchievementWithProgress,
+    AchievementsWithProgressResponse, PointsBreakdown
 )
 
 
@@ -66,6 +67,38 @@ def get_achievements_with_progress(
     except Exception as e:
         print(f"❌ Error getting achievements with progress: {e}")
         raise HTTPException(status_code=500, detail="Failed to get achievements with progress")
+
+
+@router.get("/with-progress-and-breakdown", response_model=AchievementsWithProgressResponse)
+def get_achievements_with_progress_and_breakdown(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get all achievements with progress data and points breakdown for current user (optimized single call)."""
+    try:
+        user_id = current_user.id
+        
+        # Get achievements
+        achievements = achievements_service.get_all_achievements_with_progress(db, user_id)
+        
+        # Get points breakdown efficiently from repository layer
+        points_data = achievements_service.repository.get_points_breakdown_optimized(db, user_id)
+        
+        points_breakdown = PointsBreakdown(
+            achievement_points=points_data["achievement_points"],
+            release_points=points_data["release_points"],
+            released_songs_count=points_data["released_songs_count"],
+            total_points=points_data["total_points"],
+            breakdown=points_data["breakdown"]
+        )
+        
+        return AchievementsWithProgressResponse(
+            achievements=achievements,
+            points_breakdown=points_breakdown
+        )
+    except Exception as e:
+        print(f"❌ Error getting achievements with progress and breakdown: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get achievements with progress and breakdown")
 
 
 @router.post("/check", response_model=AchievementCheckResponse)
@@ -135,42 +168,9 @@ def get_points_breakdown(db: Session = Depends(get_db), current_user=Depends(get
     try:
         user_id = current_user.id
         
-        # Get achievement points
-        from sqlalchemy import text
-        achievement_result = db.execute(text("""
-            SELECT COALESCE(SUM(a.points), 0) as achievement_points
-            FROM user_achievements ua
-            JOIN achievements a ON ua.achievement_id = a.id
-            WHERE ua.user_id = :user_id
-        """), {"user_id": user_id}).fetchone()
-        
-        achievement_points = achievement_result[0] if achievement_result else 0
-        
-        # Get TrackFlow released songs count (only songs with released_at timestamp)
-        released_result = db.execute(text("""
-            SELECT COUNT(*) as released_count
-            FROM songs 
-            WHERE user_id = :user_id 
-              AND status = 'Released' 
-              AND released_at IS NOT NULL
-        """), {"user_id": user_id}).fetchone()
-        
-        released_count = released_result[0] if released_result else 0
-        release_points = released_count * 10
-        
-        # Get total points from user stats
-        total_points = achievement_points + release_points
-        
-        return {
-            "achievement_points": achievement_points,
-            "release_points": release_points,
-            "released_songs_count": released_count,
-            "total_points": total_points,
-            "breakdown": {
-                "achievements": achievement_points,
-                "released_songs": f"{released_count} × 10 = {release_points}"
-            }
-        }
+        # Get points breakdown from repository layer (optimized)
+        points_data = achievements_service.repository.get_points_breakdown_optimized(db, user_id)
+        return points_data
         
     except Exception as e:
         print(f"❌ Error getting points breakdown: {e}")

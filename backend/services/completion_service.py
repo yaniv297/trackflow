@@ -1,6 +1,11 @@
 from typing import Dict, List, Iterable, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from services.completion_cache import (
+    get_cached_completion_data,
+    set_cached_completion_data,
+    invalidate_song_cache,
+)
 
 DEFAULT_WORKFLOW_FIELDS = [
     "demucs",
@@ -128,10 +133,23 @@ def build_song_completion_data(
     db: Session,
     songs: Iterable[Any],
     include_remaining_steps: bool = True,
+    use_cache: bool = True,
 ) -> Dict[int, Dict[str, Any]]:
 
     songs = list(songs)
     song_ids = [_get_value(song, "id") for song in songs if _get_value(song, "id")]
+    
+    if not song_ids:
+        return {}
+    
+    # Try to get from cache first
+    if use_cache:
+        cached_data = get_cached_completion_data(song_ids, include_remaining_steps)
+        if cached_data is not None:
+            # Return cached data, but only for songs that were requested
+            return {sid: cached_data[sid] for sid in song_ids if sid in cached_data}
+    
+    # Cache miss - fetch from database
     owner_ids = {_get_value(song, "user_id") for song in songs if _get_value(song, "user_id")}
 
     workflow_fields_map = fetch_workflow_fields_map(db, owner_ids)
@@ -184,6 +202,10 @@ def build_song_completion_data(
             "remaining_steps": remaining_steps,
             "workflow_fields": workflow_fields,
         }
+    
+    # Cache the results
+    if use_cache and completion_data:
+        set_cached_completion_data(song_ids, include_remaining_steps, completion_data)
 
     return completion_data
 

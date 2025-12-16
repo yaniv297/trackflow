@@ -18,12 +18,24 @@ class PackCompletionService:
     
     def get_packs_near_completion(self, user_id: int, limit: int = 3, threshold: int = 70) -> List[PackCompletionResponse]:
         """Get packs that are close to completion."""
-        # Use the exact logic from the original implementation
-        packs = self.db.query(Pack).filter(Pack.user_id == user_id).all()
+        # Optimization: Only query packs that have in-progress songs
+        # This avoids loading all packs when most might not have in-progress songs
+        packs_with_songs = (
+            self.db.query(Pack)
+            .join(Song, Song.pack_id == Pack.id)
+            .filter(
+                Pack.user_id == user_id,
+                Song.status == "In Progress",
+                or_(Song.optional.is_(False), Song.optional.is_(None)),
+            )
+            .distinct()
+            .limit(limit * 3)  # Check up to 3x the limit to find enough qualifying packs
+            .all()
+        )
         
         pack_completions = []
         
-        for pack in packs:
+        for pack in packs_with_songs:
             # Get only "In Progress" songs in the pack (core songs only - filter out optional)
             pack_songs = (
                 self.db.query(Song)
@@ -44,6 +56,10 @@ class PackCompletionService:
             # Only include packs that meet the threshold and aren't 100% complete
             if threshold <= completion_percentage < 100:
                 pack_completions.append((pack, completion_data))
+                
+                # Early exit if we have enough qualifying packs
+                if len(pack_completions) >= limit * 2:
+                    break
         
         # Sort by completion percentage descending
         pack_completions.sort(key=lambda x: x[1]['completion_percentage'], reverse=True)

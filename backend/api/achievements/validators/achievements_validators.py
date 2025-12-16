@@ -92,3 +92,16 @@ class LeaderboardResponse(BaseModel):
     leaderboard: List[LeaderboardEntry]
     current_user_rank: Optional[int] = None
     total_users: int
+
+
+class PointsBreakdown(BaseModel):
+    achievement_points: int
+    release_points: int
+    released_songs_count: int
+    total_points: int
+    breakdown: Dict[str, Any]
+
+
+class AchievementsWithProgressResponse(BaseModel):
+    achievements: List[AchievementWithProgress]
+    points_breakdown: PointsBreakdown

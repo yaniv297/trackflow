@@ -14,6 +14,7 @@ from ..validators.achievements_validators import (
     AchievementWithProgress
 )
 from api.notifications.services.notification_service import NotificationService
+from utils.cache import cached, cache_key_for_user_data, invalidate_user_caches, invalidate_leaderboard_cache
 
 
 class AchievementsService:
@@ -38,6 +39,7 @@ class AchievementsService:
             for a in achievements
         ]
     
+    @cached(ttl=30, key_func=lambda self, db, user_id: cache_key_for_user_data(user_id, "achievements_progress"))
     def get_all_achievements_with_progress(self, db: Session, user_id: int) -> List[AchievementWithProgress]:
         """Get all achievements with progress data for the user."""
         try:
@@ -48,8 +50,31 @@ class AchievementsService:
             earned_achievements = self.repository.get_user_achievements(db, user_id)
             earned_codes = {ua.achievement.code: ua for ua in earned_achievements}
             
-            # Get user stats for progress calculation
-            stats = self.update_user_stats(db, user_id)
+            # Use cached stats instead of recalculating - much faster!
+            stats = self.get_or_create_user_stats(db, user_id)
+            
+            # Only calculate metrics for unearned achievements to save time
+            unearned_achievements = [
+                ach for ach in all_achievements 
+                if ach.code not in earned_codes and ach.metric_type and ach.target_value
+            ]
+            
+            # Pre-calculate metric values only for unearned achievements
+            unique_metric_types = {ach.metric_type for ach in unearned_achievements if ach.metric_type}
+            
+            # Bulk calculate all metric values in a single efficient call
+            metric_cache = self._bulk_calculate_metrics(db, user_id, unique_metric_types, stats)
+            
+            # Pre-fetch alphabet details if needed (only once, only for unearned)
+            alphabet_details_cache = None
+            needs_alphabet_details = any(
+                ach.code == 'alphabet_collector' for ach in unearned_achievements
+            )
+            if needs_alphabet_details:
+                try:
+                    alphabet_details_cache = self.repository.get_alphabet_coverage_details(db, user_id)
+                except Exception as e:
+                    print(f"⚠️ Error getting alphabet details: {e}")
             
             result = []
             for achievement in all_achievements:
@@ -58,20 +83,17 @@ class AchievementsService:
                 # Calculate progress for unearned achievements with target values
                 progress = None
                 if not is_earned and achievement.target_value and achievement.metric_type:
-                    current_value = self._calculate_metric_value(achievement.metric_type, stats, db, user_id)
-                    percentage = min((current_value / achievement.target_value) * 100, 100)
+                    # Use cached metric value
+                    current_value = metric_cache.get(achievement.metric_type, 0)
+                    percentage = min((current_value / achievement.target_value) * 100, 100) if achievement.target_value > 0 else 0
                     
                     # Add special details for alphabet collector achievement
                     details = None
-                    if achievement.code == 'alphabet_collector':
-                        try:
-                            alphabet_details = self.repository.get_alphabet_coverage_details(db, user_id)
-                            details = {
-                                'missing_letters': alphabet_details['missing_letters'],
-                                'found_letters': alphabet_details['found_letters']
-                            }
-                        except Exception as e:
-                            print(f"⚠️ Error getting alphabet details: {e}")
+                    if achievement.code == 'alphabet_collector' and alphabet_details_cache:
+                        details = {
+                            'missing_letters': alphabet_details_cache['missing_letters'],
+                            'found_letters': alphabet_details_cache['found_letters']
+                        }
                     
                     progress = AchievementProgressItem(
                         current=current_value,
@@ -281,6 +303,13 @@ class AchievementsService:
             # Single commit for atomicity - achievement and points update together
             db.commit()
             
+            # Invalidate caches after successful achievement award
+            try:
+                invalidate_user_caches(user_id)
+                invalidate_leaderboard_cache()  # Points changed, update leaderboard
+            except Exception as cache_err:
+                print(f"⚠️ Failed to invalidate caches after achievement award: {cache_err}")
+            
             # Create notification for the new achievement (non-blocking, outside transaction)
             try:
                 notification_service = NotificationService(db)
@@ -457,10 +486,46 @@ class AchievementsService:
         self.check_metric_based_achievements(db, user_id, "collaborations_total")
     
     def check_customization_achievements(self, db: Session, user_id: int):
-        """Check achievements for customizing user profile."""
-        self.check_metric_based_achievements(db, user_id, "profile_pic")
-        self.check_metric_based_achievements(db, user_id, "personal_link")
-        self.check_metric_based_achievements(db, user_id, "contact_method")
+        """Check achievements for customizing user profile.
+        
+        Optimized version that checks user object directly without updating stats.
+        """
+        try:
+            # Get user directly - no need to update stats for customization achievements
+            from models import User
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                return
+            
+            # Get unearned customization achievements
+            customization_metrics = ["profile_pic", "personal_link", "contact_method"]
+            for metric_type in customization_metrics:
+                try:
+                    # Get unearned achievements for this metric
+                    unearned_achievements = self.repository.get_unearned_achievements(db, user_id, metric_type)
+                    if not unearned_achievements:
+                        continue
+                    
+                    # Calculate current value directly from user object (no stats needed)
+                    current_value = 0
+                    if metric_type == "profile_pic":
+                        current_value = 1 if user.profile_image_url else 0
+                    elif metric_type == "personal_link":
+                        current_value = 1 if user.website_url else 0
+                    elif metric_type == "contact_method":
+                        current_value = 1 if user.preferred_contact_method else 0
+                    
+                    # Check each achievement
+                    for achievement in unearned_achievements:
+                        if current_value >= achievement.target_value:
+                            awarded = self.award_achievement(db, user_id, achievement.code)
+                            if awarded:
+                                print(f"🏆 Auto-awarded {achievement.name} (metric: {metric_type}, value: {current_value}/{achievement.target_value})")
+                except Exception as e:
+                    print(f"⚠️ Error checking {metric_type} achievements for user {user_id}: {e}")
+                    continue
+        except Exception as e:
+            print(f"❌ Error in check_customization_achievements for user {user_id}: {e}")
 
     # Legacy function that delegates to unified checker
     def check_all_achievements(self, db: Session, user_id: int) -> List[str]:
@@ -469,88 +534,144 @@ class AchievementsService:
 
     # Private helper methods
 
-    def _calculate_metric_value(self, metric_type: str, stats: UserStats, db: Session, user_id: int) -> int:
-        """Calculate the current value for a specific metric type."""
-        if metric_type == "total_future_created":
-            return stats.total_future_created
-        elif metric_type == "total_wip":
-            return stats.total_wip
-        elif metric_type == "total_released":
-            return stats.total_released
-        elif metric_type == "total_packs":
-            return stats.total_packs
-        elif metric_type == "total_collaborations":
-            return stats.total_collaborations
-        elif metric_type == "total_spotify_imports":
-            return stats.total_spotify_imports
-        elif metric_type == "total_feature_requests":
-            return stats.total_feature_requests
-        elif metric_type == "login_streak":
-            return stats.login_streak
-        elif metric_type == "wip_completions":
-            return self.repository.get_wip_completion_count(db, user_id)
-        elif metric_type == "wip_creations":
-            return self.repository.get_wip_creation_count(db, user_id)
-        elif metric_type == "completed_songs":
-            return self.repository.get_completed_songs_optimized(db, user_id)
-        elif metric_type == "completed_packs":
-            return self.repository.get_completed_packs_optimized(db, user_id)
-        elif metric_type == "collaborations_added":
-            return self.repository.count_collaborations_added(db, user_id)
-        elif metric_type == "bug_reports":
-            return self.repository.count_bug_reports(db, user_id)
-        elif metric_type == "series_created":
-            return self.repository.count_series_created(db, user_id)
-        elif metric_type == "completed_series":
-            return self.repository.count_completed_series(db, user_id)
-        elif metric_type == "public_wips":
-            return self.repository.count_public_wips(db, user_id)
-        elif metric_type == "collab_requests_sent":
-            return self.repository.count_collab_requests_sent(db, user_id)
-        elif metric_type == "collaborations_total":
-            # Count both being added as collaborator AND adding others
-            added = self.repository.count_collaborations_added(db, user_id)
-            sent = self.repository.count_user_collaborations(db, user_id)
-            return added + sent
-        elif metric_type in ["unique_artists", "unique_years", "unique_decades", "alphabet_coverage"]:
-            # Calculate diversity metrics
-            if metric_type == "alphabet_coverage":
-                return self.repository.count_alphabet_coverage(db, user_id)
-            
-            released_songs = self.repository.get_released_songs_for_diversity(db, user_id)
-            
-            if metric_type == "unique_artists":
-                artists = set()
-                for song in released_songs:
-                    if song.artist:
-                        artists.add(song.artist.lower())
-                return len(artists)
-            elif metric_type == "unique_years":
-                years = set()
-                for song in released_songs:
-                    if song.year:
-                        years.add(song.year)
-                return len(years)
-            elif metric_type == "unique_decades":
-                decades = set()
-                for song in released_songs:
-                    if song.year:
-                        decade = (song.year // 10) * 10
-                        decades.add(decade)
-                return len(decades)
-        elif metric_type == "profile_pic":
-            # Check if user has profile picture set
-            return self.repository.has_profile_pic(db, user_id)
-        elif metric_type == "personal_link":
-            # Check if user has personal website/link set
-            return self.repository.has_personal_link(db, user_id)
-        elif metric_type == "contact_method":
-            # Check if user has contact method set
-            return self.repository.has_contact_method(db, user_id)
+    def _bulk_calculate_metrics(self, db: Session, user_id: int, metric_types: set, stats: UserStats) -> Dict[str, int]:
+        """Bulk calculate multiple metrics in a single optimized operation."""
+        metric_cache = {}
         
-        # Unknown metric type
-        print(f"⚠️ Unknown metric type: {metric_type}")
+        # Group metrics by calculation type to minimize database calls
+        stats_metrics = {'total_future_created', 'total_wip', 'total_released', 'total_packs', 
+                        'total_collaborations', 'total_spotify_imports', 'total_feature_requests', 'login_streak'}
+        diversity_metrics = {'unique_artists', 'unique_years', 'unique_decades', 'alphabet_coverage'}
+        expensive_metrics = {'wip_completions', 'completed_songs', 'completed_packs', 'completed_series'}
+        simple_count_metrics = {'collaborations_added', 'series_created', 'public_wips', 'collab_requests_sent'}
+        user_profile_metrics = {'profile_pic', 'personal_link', 'contact_method'}
+        
+        # 1. Handle stats-based metrics (already available in memory)
+        for metric_type in metric_types.intersection(stats_metrics):
+            try:
+                metric_cache[metric_type] = getattr(stats, metric_type, 0) or 0
+            except Exception as e:
+                print(f"⚠️ Error getting stats metric {metric_type}: {e}")
+                metric_cache[metric_type] = 0
+        
+        # 2. Handle diversity metrics with optimized SQL aggregations
+        diversity_needed = metric_types.intersection(diversity_metrics)
+        if diversity_needed:
+            try:
+                for metric_type in diversity_needed:
+                    if metric_type == "unique_artists":
+                        metric_cache[metric_type] = self.repository.count_unique_artists(db, user_id)
+                    elif metric_type == "unique_years":
+                        metric_cache[metric_type] = self.repository.count_unique_years(db, user_id)
+                    elif metric_type == "unique_decades":
+                        metric_cache[metric_type] = self.repository.count_unique_decades(db, user_id)
+                    elif metric_type == "alphabet_coverage":
+                        metric_cache[metric_type] = self.repository.count_alphabet_coverage(db, user_id)
+            except Exception as e:
+                print(f"⚠️ Error calculating diversity metrics: {e}")
+                for metric_type in diversity_needed:
+                    metric_cache[metric_type] = 0
+        
+        # 3. Handle expensive workflow-based metrics (only if needed)
+        expensive_needed = metric_types.intersection(expensive_metrics)
+        if expensive_needed:
+            try:
+                for metric_type in expensive_needed:
+                    if metric_type == "wip_completions":
+                        metric_cache[metric_type] = self.repository.get_wip_completion_count(db, user_id)
+                    elif metric_type == "completed_songs":
+                        metric_cache[metric_type] = self.repository.get_completed_songs_optimized(db, user_id)
+                    elif metric_type == "completed_packs":
+                        metric_cache[metric_type] = self.repository.get_completed_packs_optimized(db, user_id)
+                    elif metric_type == "completed_series":
+                        metric_cache[metric_type] = self.repository.count_completed_series(db, user_id)
+            except Exception as e:
+                print(f"⚠️ Error calculating expensive metrics: {e}")
+                for metric_type in expensive_needed:
+                    metric_cache[metric_type] = 0
+        
+        # 4. Handle simple count metrics in batch
+        simple_needed = metric_types.intersection(simple_count_metrics)
+        if simple_needed:
+            try:
+                for metric_type in simple_needed:
+                    if metric_type == "collaborations_added":
+                        metric_cache[metric_type] = self.repository.count_collaborations_added(db, user_id)
+                    elif metric_type == "series_created":
+                        metric_cache[metric_type] = self.repository.count_series_created(db, user_id)
+                    elif metric_type == "public_wips":
+                        metric_cache[metric_type] = self.repository.count_public_wips(db, user_id)
+                    elif metric_type == "collab_requests_sent":
+                        metric_cache[metric_type] = self.repository.count_collab_requests_sent(db, user_id)
+            except Exception as e:
+                print(f"⚠️ Error calculating simple count metrics: {e}")
+                for metric_type in simple_needed:
+                    metric_cache[metric_type] = 0
+        
+        # 5. Handle user profile metrics (single user query)
+        profile_needed = metric_types.intersection(user_profile_metrics)
+        if profile_needed:
+            try:
+                # Single user query for all profile metrics
+                from models import User
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    for metric_type in profile_needed:
+                        if metric_type == "profile_pic":
+                            metric_cache[metric_type] = 1 if user.profile_image_url else 0
+                        elif metric_type == "personal_link":
+                            metric_cache[metric_type] = 1 if user.website_url else 0
+                        elif metric_type == "contact_method":
+                            metric_cache[metric_type] = 1 if user.preferred_contact_method else 0
+                else:
+                    for metric_type in profile_needed:
+                        metric_cache[metric_type] = 0
+            except Exception as e:
+                print(f"⚠️ Error calculating profile metrics: {e}")
+                for metric_type in profile_needed:
+                    metric_cache[metric_type] = 0
+        
+        # 6. Handle special combined metrics
+        if "collaborations_total" in metric_types:
+            try:
+                added = metric_cache.get("collaborations_added", self.repository.count_collaborations_added(db, user_id))
+                sent = self.repository.count_user_collaborations(db, user_id)
+                metric_cache["collaborations_total"] = added + sent
+            except Exception as e:
+                print(f"⚠️ Error calculating collaborations_total: {e}")
+                metric_cache["collaborations_total"] = 0
+        
+        # 7. Handle special metrics that weren't covered
+        remaining_metrics = metric_types - set(metric_cache.keys())
+        for metric_type in remaining_metrics:
+            try:
+                metric_cache[metric_type] = self._calculate_single_metric_value(metric_type, stats, db, user_id)
+            except Exception as e:
+                print(f"⚠️ Error calculating remaining metric {metric_type}: {e}")
+                metric_cache[metric_type] = 0
+        
+        return metric_cache
+    
+    def _calculate_single_metric_value(self, metric_type: str, stats: UserStats, db: Session, user_id: int) -> int:
+        """Calculate a single metric value (fallback for edge cases)."""
+        # This is a simplified version for special cases not handled in bulk calculation
+        if hasattr(stats, metric_type):
+            return getattr(stats, metric_type, 0) or 0
+        
+        # Handle special cases
+        if metric_type == "wip_creations":
+            return self.repository.get_wip_creation_count(db, user_id)
+        elif metric_type == "bug_reports":
+            return self.repository.count_bug_reports(db, user_id) if hasattr(self.repository, 'count_bug_reports') else 0
+        
+        print(f"⚠️ Unknown metric type in fallback: {metric_type}")
         return 0
+    
+    def _calculate_metric_value(self, metric_type: str, stats: UserStats, db: Session, user_id: int) -> int:
+        """Calculate the current value for a specific metric type (legacy method for compatibility)."""
+        # Use the new bulk calculation for single metrics
+        result = self._bulk_calculate_metrics(db, user_id, {metric_type}, stats)
+        return result.get(metric_type, 0)
 
     def _get_achievement_progress_data(self, stats: UserStats, db: Session, user_id: int) -> Dict[str, AchievementProgressItem]:
         """Calculate progress data for count-based achievements."""
@@ -596,18 +717,16 @@ class AchievementsService:
             print(f"❌ Error in _get_achievement_progress_data: {e}")
             return {}
 
+    @cached(ttl=60, key_func=lambda self, db, current_user_id, limit=50: f"leaderboard:{limit}:{current_user_id or 'anon'}")
     def get_leaderboard(self, db: Session, current_user_id: Optional[int], limit: int = 50) -> LeaderboardResponse:
         """Get leaderboard with user rankings by total achievement points."""
         try:
-            # Get all users with their cached total points and achievement counts
-            leaderboard_data = []
-            
-            # This query gets all users with their cached points and achievement count
-            from sqlalchemy import func
+            # Optimized leaderboard query with proper ordering and limits
+            from sqlalchemy import func, desc
             from models import User, UserAchievement, UserStats
             
-            # Get all users with their cached stats and achievement counts
-            users_query = db.query(
+            # Get top users with pagination - much more efficient
+            top_users_query = db.query(
                 User.id,
                 User.username,
                 func.coalesce(UserStats.total_points, 0).label('total_points'),
@@ -616,14 +735,25 @@ class AchievementsService:
                 UserStats, User.id == UserStats.user_id
             ).outerjoin(
                 UserAchievement, User.id == UserAchievement.user_id
-            ).group_by(User.id, User.username, UserStats.total_points).all()
+            ).group_by(User.id, User.username, UserStats.total_points).having(
+                func.coalesce(UserStats.total_points, 0) > 0
+            ).order_by(
+                desc(func.coalesce(UserStats.total_points, 0)),
+                User.username
+            ).limit(limit)
             
-            # Convert to list and sort by points (descending), then by username (ascending)
-            sorted_users = sorted(users_query, key=lambda x: (-x.total_points, x.username))
+            top_users = top_users_query.all()
             
-            # Create leaderboard entries with ranks
+            # Get total count efficiently (only count users with points > 0)
+            total_users = db.query(func.count(User.id)).join(
+                UserStats, User.id == UserStats.user_id
+            ).filter(UserStats.total_points > 0).scalar() or 0
+            
+            # Create leaderboard entries
+            leaderboard_data = []
             current_user_rank = None
-            for i, user_data in enumerate(sorted_users[:limit], 1):
+            
+            for i, user_data in enumerate(top_users, 1):
                 entry = LeaderboardEntry(
                     user_id=user_data.id,
                     username=user_data.username,
@@ -633,18 +763,13 @@ class AchievementsService:
                 )
                 leaderboard_data.append(entry)
                 
-                # Track current user's rank
+                # Track current user's rank if in top results
                 if current_user_id and user_data.id == current_user_id:
                     current_user_rank = i
             
-            # If current user is not in top results, find their rank
+            # If current user not in top results, get their rank separately
             if current_user_id and current_user_rank is None:
-                for i, user_data in enumerate(sorted_users, 1):
-                    if user_data.id == current_user_id:
-                        current_user_rank = i
-                        break
-            
-            total_users = len(sorted_users)
+                current_user_rank = self._get_user_rank_optimized(db, current_user_id)
             
             return LeaderboardResponse(
                 leaderboard=leaderboard_data,
@@ -655,3 +780,26 @@ class AchievementsService:
         except Exception as e:
             print(f"❌ Error getting leaderboard: {e}")
             raise Exception("Failed to get leaderboard")
+    
+    def _get_user_rank_optimized(self, db: Session, user_id: int) -> Optional[int]:
+        """Get user's rank in leaderboard efficiently."""
+        try:
+            from sqlalchemy import func, text
+            
+            # Get user's points first
+            user_stats = self.repository.get_user_stats(db, user_id)
+            if not user_stats or not user_stats.total_points:
+                return None
+            
+            user_points = user_stats.total_points
+            
+            # Count users with higher points (more efficient than full sort)
+            higher_ranked_count = db.query(func.count(UserStats.user_id)).filter(
+                UserStats.total_points > user_points
+            ).scalar() or 0
+            
+            return higher_ranked_count + 1
+            
+        except Exception as e:
+            print(f"⚠️ Error getting user rank for user {user_id}: {e}")
+            return None

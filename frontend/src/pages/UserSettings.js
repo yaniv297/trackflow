@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiGet, apiPut } from "../utils/api";
-import { checkAndShowNewAchievements } from "../utils/achievements";
+import { checkCustomizationAchievements } from "../utils/achievements";
 import "./UserSettings.css";
 
 function UserSettings() {
@@ -139,13 +139,16 @@ function UserSettings() {
         );
       }
 
-      // Check for newly earned achievements (profile picture, website, contact method)
-      try {
-        await checkAndShowNewAchievements();
-      } catch (achievementError) {
-        console.error("Error checking achievements:", achievementError);
+      // Set saving to false immediately so button becomes clickable
+      setSaving(false);
+
+      // Check for customization achievements only (profile pic, website, contact method)
+      // Backend already checks these in background, so we just poll for results
+      // This is lightweight - only checks 3 achievement types, not all achievements
+      checkCustomizationAchievements(1000).catch((error) => {
+        console.error("Error checking customization achievements:", error);
         // Don't show error to user since achievements are non-critical
-      }
+      });
     } catch (error) {
       console.error("Error saving user settings:", error);
       // Show error notification using the global notification system
@@ -156,7 +159,6 @@ function UserSettings() {
           5000
         );
       }
-    } finally {
       setSaving(false);
     }
   };

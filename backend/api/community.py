@@ -19,8 +19,8 @@ def get_public_wips(
     Only shows songs that users have explicitly made public.
     """
     
-    # Get public songs from Future Plans and WIP status (excluding current user if authenticated)
-    query = db.query(
+    # Get public songs from Future Plans and WIP status
+    base_query = db.query(
         Song.id,
         Song.title,
         Song.artist,
@@ -38,7 +38,8 @@ def get_public_wips(
         Song.artist.isnot(None)
     )
     
-    # Exclude current user's songs if authenticated
+    # First try to get WIPs excluding current user if authenticated
+    query = base_query
     if current_user:
         query = query.filter(Song.user_id != current_user.id)
     
@@ -49,6 +50,13 @@ def get_public_wips(
     except:
         # Fallback: order by id desc and take latest
         wips = query.order_by(desc(Song.id)).limit(limit).all()
+    
+    # If no results and user is authenticated, fall back to including their own WIPs
+    if len(wips) == 0 and current_user:
+        try:
+            wips = base_query.order_by(func.random()).limit(limit).all()
+        except:
+            wips = base_query.order_by(desc(Song.id)).limit(limit).all()
     
     # Calculate completion percentage based on status
     result = []

@@ -5,11 +5,13 @@ import NotificationManager from "./components/notifications/NotificationManager"
 import AppNavigation from "./components/navigation/AppNavigation";
 import ImpersonationBanner from "./components/navigation/ImpersonationBanner";
 import AppRoutes from "./routes/AppRoutes";
+import WelcomeModal from "./components/modals/WelcomeModal";
 import { useAppDropdowns } from "./hooks/app/useAppDropdowns";
 import { useAppAchievements } from "./hooks/app/useAppAchievements";
 import { useAppImpersonation } from "./hooks/app/useAppImpersonation";
 import { useAppOnlineUsers } from "./hooks/app/useAppOnlineUsers";
 import { useAppEffects } from "./hooks/app/useAppEffects";
+import { useWelcomePopup } from "./hooks/app/useWelcomePopup";
 import "./App.css";
 
 function AppContent() {
@@ -33,6 +35,12 @@ function AppContent() {
 
   // Various app-level effects
   useAppEffects(isAuthenticated, user);
+
+  // Welcome popup for first-time v2.0 users
+  const { showWelcomePopup, dismissWelcomePopup } = useWelcomePopup(
+    isAuthenticated,
+    loading
+  );
 
   const handleLogout = () => {
     // Clear auth state first
@@ -79,6 +87,12 @@ function AppContent() {
         <div className="main-content">
           <AppRoutes />
         </div>
+
+        {/* Welcome popup for new v2.0 users */}
+        <WelcomeModal
+          isOpen={showWelcomePopup}
+          onClose={dismissWelcomePopup}
+        />
       </div>
     </NotificationManager>
   );

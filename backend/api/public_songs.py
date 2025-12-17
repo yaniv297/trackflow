@@ -1,209 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func, update, text
+from sqlalchemy import and_, or_, func
 from database import get_db
-from models import Song, User, Artist, CollaborationRequest, RockBandDLC
+from models import Song, User, Artist, CollaborationRequest
 from api.auth import get_current_active_user
 from api.activity_logger import log_activity
 from api.public_profiles import get_artist_images_batch
-from utils.cache import cached, cache_key_for_public_songs
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
 router = APIRouter(prefix="/public-songs", tags=["Public Songs"])
-
-def _build_base_query(db: Session, search: Optional[str] = None, status: Optional[str] = None):
-    """Build the base query with filters applied."""
-    query = db.query(Song, User).join(User, Song.user_id == User.id).filter(Song.is_public == True)
-    
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            or_(
-                Song.title.ilike(search_term),
-                Song.artist.ilike(search_term),
-                User.username.ilike(search_term)
-            )
-        )
-        
-    if status:
-        query = query.filter(Song.status == status)
-    
-    return query
-
-def _apply_sorting(query, sort_by: str, sort_direction: str):
-    """Apply sorting to the query."""
-    sort_field_map = {
-        'title': Song.title,
-        'artist': Song.artist,
-        'username': User.username,
-        'status': Song.status,
-        'updated_at': Song.updated_at
-    }
-    
-    if sort_by not in sort_field_map:
-        sort_by = 'updated_at'  # Default fallback
-    
-    sort_field = sort_field_map[sort_by]
-    
-    if sort_direction.lower() == 'asc':
-        return query.order_by(sort_field.asc())
-    else:
-        return query.order_by(sort_field.desc())
-
-def _build_song_response(song, user, artist_images):
-    """Build a PublicSongResponse object."""
-    return PublicSongResponse(
-        id=song.id,
-        title=song.title,
-        artist=song.artist,
-        album=song.album,
-        year=song.year,
-        status=song.status,
-        album_cover=song.album_cover,
-        artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
-        user_id=song.user_id,
-        username=user.username,
-        display_name=user.display_name,
-        profile_image_url=user.profile_image_url,
-        created_at=song.created_at,
-        updated_at=song.updated_at
-    )
-
-def _handle_default_query(db: Session, search: Optional[str], status: Optional[str], 
-                         sort_by: str, sort_direction: str, limit: int, offset: int):
-    """Handle default (non-grouped) query with proper pagination."""
-    query = _build_base_query(db, search, status)
-    query = _apply_sorting(query, sort_by, sort_direction)
-    
-    # Optimize count query - use estimated count for better performance
-    total_count = _get_optimized_count(db, query, search, status)
-    
-    # Apply pagination at database level
-    results = query.offset(offset).limit(limit).all()
-    
-    # Calculate pagination info
-    page = (offset // limit) + 1
-    total_pages = (total_count + limit - 1) // limit
-    
-    # Get artist images in batch
-    artist_names = [song.artist for song, _ in results if song.artist]
-    artist_images = get_artist_images_batch(db, artist_names)
-    
-    songs = [
-        _build_song_response(song, user, artist_images)
-        for song, user in results
-    ]
-    
-    return PaginatedPublicSongsResponse(
-        songs=songs,
-        total_count=total_count,
-        page=page,
-        per_page=limit,
-        total_pages=total_pages
-    )
-
-def _get_optimized_count(db: Session, query, search: Optional[str], status: Optional[str]) -> int:
-    """Get optimized count that avoids expensive operations for large datasets."""
-    # For simple queries without search, use estimated count from database statistics
-    if not search and not status:
-        # Use PostgreSQL/SQLite table statistics for rough count (much faster)
-        try:
-            # For PostgreSQL, use pg_class.reltuples for estimation
-            if "postgresql" in str(db.bind.url).lower():
-                result = db.execute(text("""
-                    SELECT reltuples::bigint AS estimate
-                    FROM pg_class 
-                    WHERE relname = 'songs'
-                """)).fetchone()
-                if result and result[0] > 0:
-                    # Estimate public songs as ~30% of total (adjust based on your data)
-                    estimated_total = int(result[0] * 0.3)
-                    return max(estimated_total, 100)  # Minimum reasonable count
-        except Exception:
-            pass  # Fallback to actual count
-    
-    # For complex queries or small datasets, use actual count
-    # But limit the count query to prevent timeouts
-    try:
-        return query.limit(10000).count()  # Limit count operation
-    except Exception:
-        return query.count()  # Fallback to normal count
-
-def _handle_grouped_query(db: Session, group_by: str, search: Optional[str], status: Optional[str],
-                         sort_by: str, sort_direction: str, limit: int, offset: int):
-    """Handle grouped queries (artist/user) with efficient database operations."""
-    # For now, we'll use a simplified approach that's still much better than loading everything
-    # This could be further optimized with window functions in the future
-    
-    # Build base query with sorting
-    query = _build_base_query(db, search, status)
-    query = _apply_sorting(query, sort_by, sort_direction)
-    
-    # For grouped results, we still need to be careful about memory usage
-    # Use a reasonable max limit to prevent memory issues
-    max_results = min(limit * 10, 1000)  # Load at most 1000 records for grouping
-    
-    # Get limited results for grouping
-    results = query.limit(max_results).all()
-    
-    # Group results in memory (this is much smaller dataset now)
-    if group_by == "artist":
-        grouped = {}
-        for song, user in results:
-            artist_key = song.artist or "Unknown Artist"
-            if artist_key not in grouped:
-                grouped[artist_key] = []
-            grouped[artist_key].append((song, user))
-        
-        # Flatten grouped results maintaining sort order
-        flattened_results = []
-        for artist in grouped:
-            flattened_results.extend(grouped[artist])
-    
-    elif group_by == "user":
-        grouped = {}
-        for song, user in results:
-            user_key = user.username or "Unknown User"
-            if user_key not in grouped:
-                grouped[user_key] = []
-            grouped[user_key].append((song, user))
-        
-        # Flatten grouped results maintaining sort order
-        flattened_results = []
-        for username in grouped:
-            flattened_results.extend(grouped[username])
-    
-    else:
-        flattened_results = results
-    
-    # Apply pagination to the grouped/flattened results
-    total_count = len(flattened_results)
-    start_index = offset
-    end_index = offset + limit
-    paginated_results = flattened_results[start_index:end_index]
-    
-    # Calculate pagination info
-    page = (offset // limit) + 1
-    total_pages = (total_count + limit - 1) // limit
-    
-    # Get artist images in batch
-    artist_names = [song.artist for song, _ in paginated_results if song.artist]
-    artist_images = get_artist_images_batch(db, artist_names)
-    
-    songs = [
-        _build_song_response(song, user, artist_images)
-        for song, user in paginated_results
-    ]
-    
-    return PaginatedPublicSongsResponse(
-        songs=songs,
-        total_count=total_count,
-        page=page,
-        per_page=limit,
-        total_pages=total_pages
-    )
 
 class PublicSongResponse(BaseModel):
     id: int
@@ -254,129 +61,382 @@ def browse_public_songs(
 ):
     """Browse all public songs with optional filtering and search"""
     
-    if group_by in ["artist", "user"]:
-        # Use database-level grouping and pagination instead of loading everything into memory
-        return _handle_grouped_query(db, group_by, search, status, sort_by, sort_direction, limit, offset)
+    if group_by == "artist":
+        # Optimized grouping - limit data loading to prevent memory issues
+        songs_query = db.query(Song, User).join(User, Song.user_id == User.id).filter(Song.is_public == True).distinct()
+        
+        # Apply filters to song query
+        if search:
+            search_term = f"%{search}%"
+            songs_query = songs_query.filter(
+                or_(
+                    Song.title.ilike(search_term),
+                    Song.artist.ilike(search_term),
+                    User.username.ilike(search_term)
+                )
+            )
+            
+        if status:
+            songs_query = songs_query.filter(Song.status == status)
+        
+        # Apply sorting - this happens BEFORE grouping and pagination
+        sort_field_map = {
+            'title': Song.title,
+            'artist': Song.artist,
+            'username': User.username,
+            'status': Song.status,
+            'updated_at': Song.updated_at
+        }
+        
+        if sort_by not in sort_field_map:
+            sort_by = 'updated_at'  # Default fallback
+        
+        sort_field = sort_field_map[sort_by]
+        
+        if sort_direction.lower() == 'asc':
+            songs_query = songs_query.order_by(sort_field.asc())
+        else:
+            songs_query = songs_query.order_by(sort_field.desc())
+        
+        # Get filtered and sorted results with reasonable limit for grouping
+        # Limit to prevent memory issues while still providing good grouping coverage
+        max_results = min(limit * 20, 1000)  # Max 1000 songs for grouping operations
+        all_results = songs_query.limit(max_results).all()
+        
+        # Get artist images for all songs in batch
+        artist_names = [song.artist for song, _ in all_results if song.artist]
+        artist_images = get_artist_images_batch(db, artist_names)
+        
+        # Build response objects
+        all_songs = [
+            PublicSongResponse(
+                id=song.id,
+                title=song.title,
+                artist=song.artist,
+                album=song.album,
+                year=song.year,
+                status=song.status,
+                album_cover=song.album_cover,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
+                user_id=song.user_id,
+                username=user.username,
+                display_name=user.display_name,
+                profile_image_url=user.profile_image_url,
+                created_at=song.created_at,
+                updated_at=song.updated_at
+            )
+            for song, user in all_results
+        ]
+        
+        # Apply pagination to the final sorted list
+        total_count = len(all_songs)
+        start_index = offset
+        end_index = offset + limit
+        paginated_songs = all_songs[start_index:end_index]
+        
+        # Calculate pagination info
+        page = (offset // limit) + 1
+        total_pages = (total_count + limit - 1) // limit
+        
+        return PaginatedPublicSongsResponse(
+            songs=paginated_songs,
+            total_count=total_count,
+            page=page,
+            per_page=limit,
+            total_pages=total_pages
+        )
     
-    # Default: song-based pagination with proper database-level operations
-    return _handle_default_query(db, search, status, sort_by, sort_direction, limit, offset)
+    elif group_by == "user":
+        # Optimized grouping - limit data loading to prevent memory issues
+        songs_query = db.query(Song, User).join(User, Song.user_id == User.id).filter(Song.is_public == True).distinct()
+        
+        # Apply filters to song query
+        if search:
+            search_term = f"%{search}%"
+            songs_query = songs_query.filter(
+                or_(
+                    Song.title.ilike(search_term),
+                    Song.artist.ilike(search_term),
+                    User.username.ilike(search_term)
+                )
+            )
+            
+        if status:
+            songs_query = songs_query.filter(Song.status == status)
+        
+        # Apply sorting - this happens BEFORE grouping and pagination
+        sort_field_map = {
+            'title': Song.title,
+            'artist': Song.artist,
+            'username': User.username,
+            'status': Song.status,
+            'updated_at': Song.updated_at
+        }
+        
+        if sort_by not in sort_field_map:
+            sort_by = 'updated_at'  # Default fallback
+        
+        sort_field = sort_field_map[sort_by]
+        
+        if sort_direction.lower() == 'asc':
+            songs_query = songs_query.order_by(sort_field.asc())
+        else:
+            songs_query = songs_query.order_by(sort_field.desc())
+        
+        # Get filtered and sorted results with reasonable limit for grouping
+        # Limit to prevent memory issues while still providing good grouping coverage
+        max_results = min(limit * 20, 1000)  # Max 1000 songs for grouping operations
+        all_results = songs_query.limit(max_results).all()
+        
+        # Get artist images for all songs in batch
+        artist_names = [song.artist for song, _ in all_results if song.artist]
+        artist_images = get_artist_images_batch(db, artist_names)
+        
+        # Build response objects
+        all_songs = [
+            PublicSongResponse(
+                id=song.id,
+                title=song.title,
+                artist=song.artist,
+                album=song.album,
+                year=song.year,
+                status=song.status,
+                album_cover=song.album_cover,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
+                user_id=song.user_id,
+                username=user.username,
+                display_name=user.display_name,
+                profile_image_url=user.profile_image_url,
+                created_at=song.created_at,
+                updated_at=song.updated_at
+            )
+            for song, user in all_results
+        ]
+        
+        # Apply pagination to the final sorted list
+        total_count = len(all_songs)
+        start_index = offset
+        end_index = offset + limit
+        paginated_songs = all_songs[start_index:end_index]
+        
+        # Calculate pagination info
+        page = (offset // limit) + 1
+        total_pages = (total_count + limit - 1) // limit
+        
+        return PaginatedPublicSongsResponse(
+            songs=paginated_songs,
+            total_count=total_count,
+            page=page,
+            per_page=limit,
+            total_pages=total_pages
+        )
+    
+    else:
+        # Optimized song-based pagination with DISTINCT
+        # Base query for public songs
+        query = db.query(Song, User).join(User, Song.user_id == User.id).filter(Song.is_public == True)
+        
+        # Add DISTINCT to prevent duplicates from JOIN
+        query = query.distinct()
+        
+        # Apply filters
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    Song.title.ilike(search_term),
+                    Song.artist.ilike(search_term),
+                    User.username.ilike(search_term)
+                )
+            )
+            
+        if status:
+            query = query.filter(Song.status == status)
+        
+        # Apply sorting with consistent secondary ordering
+        sort_field_map = {
+            'title': Song.title,
+            'artist': Song.artist,
+            'username': User.username,
+            'status': Song.status,
+            'updated_at': Song.updated_at
+        }
+        
+        if sort_by not in sort_field_map:
+            sort_by = 'updated_at'  # Default fallback
+        
+        sort_field = sort_field_map[sort_by]
+        
+        if sort_direction.lower() == 'asc':
+            query = query.order_by(sort_field.asc(), Song.id)
+        else:
+            query = query.order_by(sort_field.desc(), Song.id)
+        
+        # Get total count before pagination (optimized)
+        if not search and not status:
+            # For simple queries, use a faster count method
+            total_count = db.query(Song).filter(Song.is_public == True).count()
+        else:
+            total_count = query.count()
+        
+        # Apply pagination at database level
+        results = query.offset(offset).limit(limit).all()
+        
+        # Calculate pagination info
+        page = (offset // limit) + 1
+        total_pages = (total_count + limit - 1) // limit  # Ceiling division
+        
+        # Get artist images for all songs in batch
+        artist_names = [song.artist for song, _ in results if song.artist]
+        artist_images = get_artist_images_batch(db, artist_names)
+        
+        songs = [
+            PublicSongResponse(
+                id=song.id,
+                title=song.title,
+                artist=song.artist,
+                album=song.album,
+                year=song.year,
+                status=song.status,
+                album_cover=song.album_cover,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
+                user_id=song.user_id,
+                username=user.username,
+                display_name=user.display_name,
+                profile_image_url=user.profile_image_url,
+                created_at=song.created_at,
+                updated_at=song.updated_at
+            )
+            for song, user in results
+        ]
+        
+        return PaginatedPublicSongsResponse(
+            songs=songs,
+            total_count=total_count,
+            page=page,
+            per_page=limit,
+            total_pages=total_pages
+        )
 
 @router.get("/shared-connections", response_model=SharedConnectionsResponse)
-@cached(ttl=180, key_func=lambda db, current_user: f"shared_connections:{current_user.id}")
 def get_shared_connections(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get songs and artists shared between current user and other users with optimized queries."""
+    """Get songs and artists shared between current user and other users"""
     
-    # Single optimized query for shared songs using EXISTS instead of joins
-    shared_songs_results = db.execute(text("""
-        SELECT DISTINCT
-            u.username,
-            s.id,
-            s.title,
-            s.artist,
-            s.album_cover,
-            s.status,
-            s.album,
-            s.year
-        FROM songs s
-        JOIN users u ON s.user_id = u.id
-        WHERE s.user_id != :user_id
-          AND s.is_public = true
-          AND EXISTS (
-              SELECT 1 FROM songs my_s
-              WHERE my_s.user_id = :user_id
-                AND LOWER(my_s.title) = LOWER(s.title)
-                AND LOWER(my_s.artist) = LOWER(s.artist)
-          )
-        ORDER BY s.updated_at DESC
-        LIMIT 10
-    """), {"user_id": current_user.id}).fetchall()
+    # Get current user's songs for comparison
+    my_songs = db.query(Song.title, Song.artist).filter(Song.user_id == current_user.id).subquery()
     
-    # Single optimized query for shared artists with all data
-    shared_artists_results = db.execute(text("""
-        WITH my_artists AS (
-            SELECT artist, COUNT(*) as my_count
-            FROM songs
-            WHERE user_id = :user_id AND artist IS NOT NULL
-            GROUP BY artist
-        ),
-        other_artists AS (
-            SELECT 
-                u.username,
-                s.artist,
-                COUNT(*) as other_count
-            FROM songs s
-            JOIN users u ON s.user_id = u.id
-            JOIN my_artists ma ON LOWER(s.artist) = LOWER(ma.artist)
-            WHERE s.user_id != :user_id
-              AND s.is_public = true
-              AND s.artist IS NOT NULL
-            GROUP BY u.username, s.artist
-        )
-        SELECT 
-            oa.username,
-            oa.artist,
-            oa.other_count,
-            ma.my_count,
-            COALESCE(shared_songs.shared_count, 0) as shared_songs_count
-        FROM other_artists oa
-        JOIN my_artists ma ON LOWER(oa.artist) = LOWER(ma.artist)
-        LEFT JOIN (
-            SELECT 
-                s.artist,
-                COUNT(*) as shared_count
-            FROM songs s
-            WHERE s.user_id != :user_id
-              AND s.is_public = true
-              AND EXISTS (
-                  SELECT 1 FROM songs my_s
-                  WHERE my_s.user_id = :user_id
-                    AND LOWER(my_s.title) = LOWER(s.title)
-                    AND LOWER(my_s.artist) = LOWER(s.artist)
-              )
-            GROUP BY s.artist
-        ) shared_songs ON LOWER(oa.artist) = LOWER(shared_songs.artist)
-        ORDER BY oa.other_count DESC
-        LIMIT 10
-    """), {"user_id": current_user.id}).fetchall()
+    # Find shared songs (same title + artist) - get song_id, album_cover, status, album, year
+    shared_songs_query = db.query(
+        User.username,
+        Song.id,
+        Song.title,
+        Song.artist,
+        Song.album_cover,
+        Song.status,
+        Song.album,
+        Song.year
+    ).select_from(Song)\
+    .join(User, Song.user_id == User.id)\
+    .join(my_songs, and_(Song.title == my_songs.c.title, Song.artist == my_songs.c.artist))\
+    .filter(
+        Song.user_id != current_user.id,
+        Song.is_public == True
+    ).distinct().limit(10)
     
-    # Build shared songs response
-    shared_songs_list = [
-        {
-            "song_id": row[1],
-            "username": row[0],
-            "title": row[2],
-            "artist": row[3],
-            "album_cover": row[4],
-            "status": row[5],
-            "album": row[6],
-            "year": row[7]
-        }
-        for row in shared_songs_results
-    ]
+    shared_songs_results = shared_songs_query.all()
+    
+    # Debug: Print first result to see what we're getting
+    if shared_songs_results:
+        print(f"DEBUG: First shared song result: {shared_songs_results[0]}")
+        print(f"DEBUG: Result type: {type(shared_songs_results[0])}")
+        print(f"DEBUG: Result length: {len(shared_songs_results[0]) if hasattr(shared_songs_results[0], '__len__') else 'N/A'}")
+    
+    # SIMPLIFIED APPROACH: Get artists where current user has songs
+    my_artist_counts = db.query(
+        Song.artist,
+        func.count(Song.id).label('my_count')
+    ).filter(
+        Song.user_id == current_user.id
+    ).group_by(Song.artist).subquery()
+    
+    # Find other users who have public songs by the same artists
+    shared_artists_query = db.query(
+        User.username,
+        Song.artist,
+        func.count(Song.id).label('other_user_count'),
+        my_artist_counts.c.my_count
+    ).select_from(Song)\
+    .join(User, Song.user_id == User.id)\
+    .join(my_artist_counts, Song.artist == my_artist_counts.c.artist)\
+    .filter(
+        Song.user_id != current_user.id,
+        Song.is_public == True
+    ).group_by(User.username, Song.artist, my_artist_counts.c.my_count)\
+    .order_by(func.count(Song.id).desc())\
+    .limit(10).all()
     
     # Get artist images for shared artists
-    shared_artist_names = [row[1] for row in shared_artists_results if row[1]]
+    shared_artist_names = [artist for _, artist, _, _ in shared_artists_query if artist]
     artist_images = get_artist_images_batch(db, shared_artist_names)
     
-    # Build shared artists response
-    shared_artists_list = [
-        {
-            "username": row[0],
-            "artist": row[1],
-            "song_count": row[2],
-            "my_songs_count": row[3],
-            "shared_songs_count": row[4],
-            "artist_image_url": artist_images.get(row[1].lower()) if row[1] else None
-        }
-        for row in shared_artists_results
-    ]
+    # Build detailed artist breakdown
+    shared_artists = []
+    for username, artist, other_user_count, my_songs_count in shared_artists_query:
+        # Count shared songs (same title + artist between current user and this other user)
+        shared_songs_count = db.query(func.count(Song.id)).select_from(Song)\
+        .join(my_songs, and_(Song.title == my_songs.c.title, Song.artist == my_songs.c.artist))\
+        .filter(
+            Song.user_id != current_user.id,
+            Song.artist == artist,
+            Song.is_public == True
+        ).scalar() or 0
+        
+        shared_artists.append((username, artist, other_user_count, shared_songs_count, my_songs_count))
+    
+    # Build response with proper field mapping - always include all fields
+    shared_songs_list = []
+    for result in shared_songs_results:
+        # Access by index since SQLAlchemy returns tuples for multi-column queries
+        username = result[0] if len(result) > 0 else None
+        song_id = result[1] if len(result) > 1 else None
+        title = result[2] if len(result) > 2 else None
+        artist = result[3] if len(result) > 3 else None
+        album_cover = result[4] if len(result) > 4 else None
+        status = result[5] if len(result) > 5 else None
+        album = result[6] if len(result) > 6 else None
+        year = result[7] if len(result) > 7 else None
+        
+        shared_songs_list.append({
+            "song_id": song_id,
+            "username": username,
+            "title": title,
+            "artist": artist,
+            "album_cover": album_cover,
+            "status": status,
+            "album": album,
+            "year": year
+        })
+    
+    # Debug: Print the first item in the list
+    if shared_songs_list:
+        print(f"DEBUG: First shared song dict: {shared_songs_list[0]}")
     
     return SharedConnectionsResponse(
         shared_songs=shared_songs_list,
-        shared_artists=shared_artists_list
+        shared_artists=[
+            {
+                "username": username,
+                "artist": artist,
+                "song_count": other_user_count,
+                "shared_songs_count": shared_songs_count,
+                "my_songs_count": my_songs_count,
+                "artist_image_url": artist_images.get(artist.lower()) if artist else None
+            }
+            for username, artist, other_user_count, shared_songs_count, my_songs_count in shared_artists
+        ]
     )
 
 @router.post("/songs/{song_id}/toggle-public")
@@ -575,173 +635,6 @@ def bulk_toggle_songs_public(
         message=f"Successfully updated {success_count} out of {total_count} songs"
     )
 
-class MakeAllFuturePlansPublicResponse(BaseModel):
-    success_count: int
-    message: str
-
-@router.post("/make-all-future-plans-public", response_model=MakeAllFuturePlansPublicResponse)
-def make_all_future_plans_public(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Efficiently make all Future Plans songs public for the current user using a single SQL UPDATE."""
-    
-    # Count how many songs will be affected (for response)
-    count_query = db.query(func.count(Song.id)).filter(
-        Song.user_id == current_user.id,
-        Song.status == "Future Plans",
-        Song.is_public == False
-    )
-    songs_to_update_count = count_query.scalar() or 0
-    
-    if songs_to_update_count == 0:
-        return MakeAllFuturePlansPublicResponse(
-            success_count=0,
-            message="No Future Plans songs to make public"
-        )
-    
-    # Use a single SQL UPDATE query - much faster than looping
-    stmt = (
-        update(Song)
-        .where(
-            and_(
-                Song.user_id == current_user.id,
-                Song.status == "Future Plans",
-                Song.is_public == False
-            )
-        )
-        .values(is_public=True)
-    )
-    
-    try:
-        result = db.execute(stmt)
-        updated_count = result.rowcount
-        
-        # Check if all Future Plans songs are now public, and if so, enable default_public_sharing
-        total_future_plans = db.query(func.count(Song.id)).filter(
-            Song.user_id == current_user.id,
-            Song.status == "Future Plans"
-        ).scalar() or 0
-        
-        public_future_plans = db.query(func.count(Song.id)).filter(
-            Song.user_id == current_user.id,
-            Song.status == "Future Plans",
-            Song.is_public == True
-        ).scalar() or 0
-        
-        # If all Future Plans songs are public, enable default_public_sharing
-        # Need to fetch the actual User model from DB to update it
-        db_user = db.query(User).filter(User.id == current_user.id).first()
-        if total_future_plans > 0 and public_future_plans == total_future_plans:
-            if db_user and not db_user.default_public_sharing:
-                db_user.default_public_sharing = True
-                print(f"✅ Enabled default_public_sharing for user {current_user.id} (all Future Plans songs are public)")
-        
-        # Commit both song updates and user setting change together
-        db.commit()
-        
-        # Log the activity (single log entry for bulk operation)
-        try:
-            log_activity(
-                db=db,
-                user_id=current_user.id,
-                activity_type="make_all_future_plans_public",
-                description=f"Made {updated_count} Future Plans songs public",
-                metadata={
-                    "song_count": updated_count,
-                    "bulk_operation": True
-                }
-            )
-        except Exception as log_err:
-            print(f"⚠️ Failed to log make_all_future_plans_public activity: {log_err}")
-        
-        # Check public WIP achievements if songs were made public
-        if updated_count > 0:
-            try:
-                from api.achievements import check_public_wip_achievements
-                check_public_wip_achievements(db, current_user.id)
-            except Exception as ach_err:
-                print(f"⚠️ Failed to check public WIP achievements: {ach_err}")
-        
-        return MakeAllFuturePlansPublicResponse(
-            success_count=updated_count,
-            message=f"Successfully made {updated_count} Future Plans songs public"
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update songs: {str(e)}")
-
-@router.post("/make-all-future-plans-private", response_model=MakeAllFuturePlansPublicResponse)
-def make_all_future_plans_private(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Efficiently make all Future Plans songs private for the current user using a single SQL UPDATE."""
-    
-    # Count how many songs will be affected (for response)
-    count_query = db.query(func.count(Song.id)).filter(
-        Song.user_id == current_user.id,
-        Song.status == "Future Plans",
-        Song.is_public == True
-    )
-    songs_to_update_count = count_query.scalar() or 0
-    
-    if songs_to_update_count == 0:
-        return MakeAllFuturePlansPublicResponse(
-            success_count=0,
-            message="No Future Plans songs to make private"
-        )
-    
-    # Use a single SQL UPDATE query - much faster than looping
-    stmt = (
-        update(Song)
-        .where(
-            and_(
-                Song.user_id == current_user.id,
-                Song.status == "Future Plans",
-                Song.is_public == True
-            )
-        )
-        .values(is_public=False)
-    )
-    
-    try:
-        result = db.execute(stmt)
-        updated_count = result.rowcount
-        
-        # Disable default_public_sharing when making all songs private
-        # Need to fetch the actual User model from DB to update it
-        db_user = db.query(User).filter(User.id == current_user.id).first()
-        if db_user and db_user.default_public_sharing:
-            db_user.default_public_sharing = False
-            print(f"✅ Disabled default_public_sharing for user {current_user.id} (all Future Plans songs are now private)")
-        
-        # Commit both song updates and user setting change together
-        db.commit()
-        
-        # Log the activity (single log entry for bulk operation)
-        try:
-            log_activity(
-                db=db,
-                user_id=current_user.id,
-                activity_type="make_all_future_plans_private",
-                description=f"Made {updated_count} Future Plans songs private",
-                metadata={
-                    "song_count": updated_count,
-                    "bulk_operation": True
-                }
-            )
-        except Exception as log_err:
-            print(f"⚠️ Failed to log make_all_future_plans_private activity: {log_err}")
-        
-        return MakeAllFuturePlansPublicResponse(
-            success_count=updated_count,
-            message=f"Successfully made {updated_count} Future Plans songs private"
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to update songs: {str(e)}")
-
 @router.get("/check-duplicates")
 def check_song_duplicates(
     title: str = Query(..., description="Song title to check"),
@@ -791,161 +684,3 @@ def check_song_duplicates(
     ]
     
     return {"matches": matches}
-
-class SongCheckRequest(BaseModel):
-    title: str
-    artist: str
-
-class BulkSongCheckRequest(BaseModel):
-    songs: List[SongCheckRequest]
-
-class SongCheckResult(BaseModel):
-    title: str
-    artist: str
-    dlc_status: Optional[dict] = None
-    trackflow_matches: List[dict] = []
-
-@router.post("/check-duplicates-batch", response_model=List[SongCheckResult])
-def check_song_duplicates_batch(
-    request: BulkSongCheckRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Check multiple songs for duplicates, DLC status, and collaboration opportunities.
-    
-    Returns per-song results with:
-    - dlc_status: DLC check result (if song is official DLC)
-    - trackflow_matches: List of matches from other users (Released, In Progress, Future Plans)
-    """
-    results = []
-    
-    for song_req in request.songs:
-        title = song_req.title.strip()
-        artist = song_req.artist.strip()
-        
-        if not title or not artist:
-            results.append(SongCheckResult(
-                title=title,
-                artist=artist,
-                dlc_status=None,
-                trackflow_matches=[]
-            ))
-            continue
-        
-        # Check DLC status
-        dlc_status = None
-        try:
-            # Search for exact matches first (case insensitive)
-            exact_match = db.query(RockBandDLC).filter(
-                RockBandDLC.title.ilike(title),
-                RockBandDLC.artist.ilike(artist)
-            ).first()
-            
-            if exact_match:
-                dlc_status = {
-                    "is_dlc": True,
-                    "origin": exact_match.origin,
-                    "match_type": "exact",
-                    "dlc_entry": {
-                        "id": exact_match.id,
-                        "title": exact_match.title,
-                        "artist": exact_match.artist,
-                        "origin": exact_match.origin
-                    }
-                }
-            else:
-                # Search for partial matches
-                partial_matches = db.query(RockBandDLC).filter(
-                    RockBandDLC.title.ilike(f"%{title}%"),
-                    RockBandDLC.artist.ilike(f"%{artist}%")
-                ).limit(5).all()
-                
-                if partial_matches:
-                    dlc_status = {
-                        "is_dlc": True,
-                        "origin": partial_matches[0].origin,
-                        "match_type": "partial",
-                        "dlc_entry": {
-                            "id": partial_matches[0].id,
-                            "title": partial_matches[0].title,
-                            "artist": partial_matches[0].artist,
-                            "origin": partial_matches[0].origin
-                        },
-                        "similar_matches": [
-                            {
-                                "id": match.id,
-                                "title": match.title,
-                                "artist": match.artist,
-                                "origin": match.origin
-                            }
-                            for match in partial_matches
-                        ]
-                    }
-                else:
-                    dlc_status = {
-                        "is_dlc": False,
-                        "origin": None,
-                        "match_type": None,
-                        "dlc_entry": None
-                    }
-        except Exception as e:
-            # If DLC check fails, continue without DLC status
-            print(f"Error checking DLC for {title} by {artist}: {e}")
-            dlc_status = {
-                "is_dlc": False,
-                "origin": None,
-                "match_type": None,
-                "dlc_entry": None
-            }
-        
-        # Check TrackFlow matches (released songs and public WIP/collaboration opportunities)
-        trackflow_matches = []
-        try:
-            # Query for exact matches (case-insensitive)
-            # For Released songs: always visible regardless of is_public flag
-            # For WIP/Future Plans: only if is_public is True
-            # Exclude current user's songs
-            query = db.query(Song, User).join(User, Song.user_id == User.id).filter(
-                Song.title.ilike(title),
-                Song.artist.ilike(artist),
-                Song.user_id != current_user.id  # Exclude current user's songs
-            ).filter(
-                or_(
-                    Song.status == "Released",  # Released songs are always visible
-                    and_(
-                        Song.is_public == True,  # WIP/Future Plans only if public
-                        Song.status.in_(["In Progress", "Future Plans"])
-                    )
-                )
-            )
-            
-            query_results = query.all()
-            
-            trackflow_matches = [
-                {
-                    "id": song.id,
-                    "title": song.title,
-                    "artist": song.artist,
-                    "status": song.status,
-                    "user_id": song.user_id,
-                    "username": user.username,
-                    "display_name": user.display_name,
-                    "profile_image_url": user.profile_image_url,
-                    "created_at": song.created_at,
-                    "updated_at": song.updated_at
-                }
-                for song, user in query_results
-            ]
-        except Exception as e:
-            # If TrackFlow check fails, continue without matches
-            print(f"Error checking TrackFlow matches for {title} by {artist}: {e}")
-            trackflow_matches = []
-        
-        results.append(SongCheckResult(
-            title=title,
-            artist=artist,
-            dlc_status=dlc_status,
-            trackflow_matches=trackflow_matches
-        ))
-    
-    return results

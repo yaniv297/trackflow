@@ -22,20 +22,14 @@ const CommunityPage = () => {
   const [groupBy, setGroupBy] = useState('none'); // 'none', 'artist', or 'user'
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   
-  // Filters state
-  const [filters, setFilters] = useState({
-    search: ''
-  });
   
   // Pagination - handled by component now
   const [currentPage, setCurrentPage] = useState(1);
   const SONGS_PER_PAGE = 20;
 
-  // Debounced filter loading
-  const [filterTimeout, setFilterTimeout] = useState(null);
 
   // Load songs function - fetches all songs in batches
-  const loadSongs = useCallback(async (newFilters = filters) => {
+  const loadSongs = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -48,7 +42,7 @@ const CommunityPage = () => {
       // Fetch all songs in batches
       while (hasMore) {
         const result = await publicSongsService.browsePublicSongs({
-          search: newFilters.search,
+          search: '',
           sort_by: 'updated_at',
           sort_direction: 'desc',
           group_by: null, // Frontend handles grouping now
@@ -98,30 +92,13 @@ const CommunityPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   // Initial load
   useEffect(() => {
     loadSongs();
   }, [loadSongs]);
 
-  // Handle filter changes with debouncing
-  const handleFiltersChange = useCallback((newFilters) => {
-    setFilters(newFilters);
-    
-    // Clear existing timeout
-    if (filterTimeout) {
-      clearTimeout(filterTimeout);
-    }
-    
-    // Set new timeout for debounced search
-    const timeout = setTimeout(() => {
-      setCurrentPage(1);
-      loadSongs(newFilters);
-    }, 500);
-    
-    setFilterTimeout(timeout);
-  }, [filterTimeout, loadSongs]);
 
   // Handle collaboration request
   const handleCollaborationRequest = (song) => {
@@ -143,14 +120,6 @@ const CommunityPage = () => {
     loadSongs();
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (filterTimeout) {
-        clearTimeout(filterTimeout);
-      }
-    };
-  }, [filterTimeout]);
 
   return (
     <div className="community-page">
@@ -162,6 +131,7 @@ const CommunityPage = () => {
 
         {/* Smart Discovery Section */}
         <SmartDiscovery />
+
 
         {/* Results Section */}
         <div className="results-section">
@@ -182,12 +152,7 @@ const CommunityPage = () => {
             <div className="no-results">
               <div className="no-results-icon">🔍</div>
               <h3>No public songs found</h3>
-              <p>
-                {Object.values(filters).some(f => f) ? 
-                  'Try adjusting your filters to see more results.' :
-                  'No users have shared songs publicly yet.'
-                }
-              </p>
+              <p>No users have shared songs publicly yet.</p>
             </div>
           )}
 

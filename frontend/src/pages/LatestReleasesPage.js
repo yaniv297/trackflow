@@ -22,7 +22,7 @@ const LatestReleasesPage = () => {
   const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
   
   const currentPage = parseInt(searchParams.get('page') || '1') - 1; // Convert to 0-based
-  const limit = 12; // More items per page for dedicated page
+  const limit = 10; // Items per page for all releases view
 
   useEffect(() => {
     fetchReleases();
@@ -34,7 +34,7 @@ const LatestReleasesPage = () => {
       setError(null);
       
       const offset = currentPage * limit;
-      const releasesData = await apiGet(`/songs/recent-pack-releases?limit=${limit}&offset=${offset}`);
+      const releasesData = await apiGet(`/songs/recent-pack-releases?limit=${limit}&offset=${offset}&days_back=365`); // Maximum allowed
       setReleases(releasesData || []);
       
       // For pagination, estimate total count
@@ -105,7 +105,7 @@ const LatestReleasesPage = () => {
     return (
       <div className="releases-page">
         <div className="releases-header">
-          <h1>Latest Releases</h1>
+          <h1>All Releases</h1>
         </div>
         <LoadingSpinner message="Loading releases..." />
       </div>
@@ -116,7 +116,7 @@ const LatestReleasesPage = () => {
     return (
       <div className="releases-page">
         <div className="releases-header">
-          <h1>Latest Releases</h1>
+          <h1>All Releases</h1>
         </div>
         <div className="error-state">
           <p>{error}</p>
@@ -133,8 +133,8 @@ const LatestReleasesPage = () => {
       <div className="releases-header">
         <div className="header-content">
           <div className="title-section">
-            <h1>Latest Releases</h1>
-            <p className="subtitle">Discover the newest music from our community</p>
+            <h1>All Releases</h1>
+            <p className="subtitle">Explore all music releases from our community</p>
             {totalReleases > 0 && (
               <div className="release-stats">
                 <span className="total-count">{totalReleases} total releases</span>
@@ -158,10 +158,10 @@ const LatestReleasesPage = () => {
         </div>
       )}
 
-      <div className="releases-list">
+      <div className="releases-list-view">
         {packReleases.length > 0 ? (
           packReleases.map((pack, index) => (
-            <PackReleaseCard 
+            <PackReleaseListItem 
               key={pack.pack_id || `single-${index}`} 
               pack={pack} 
               formatDate={formatDate}
@@ -425,7 +425,8 @@ const AlbumCoverCarousel = ({ covers }) => {
   );
 };
 
-const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, onUsernameLeave, currentUser, onEditRelease }) => {
+const PackReleaseListItem = ({ pack, formatDate, onUsernameClick, onUsernameHover, onUsernameLeave, currentUser, onEditRelease }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [songsPage, setSongsPage] = useState(0);
   const SONGS_PER_PAGE = 10;
   
@@ -441,8 +442,16 @@ const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, o
   };
 
   const albumCovers = getUniqueCovers();
-  const totalSongPages = Math.ceil(pack.songs.length / SONGS_PER_PAGE);
-  const paginatedSongs = pack.songs.slice(
+  
+  // Sort songs by album
+  const sortedSongs = [...pack.songs].sort((a, b) => {
+    const albumA = a.album || '';
+    const albumB = b.album || '';
+    return albumA.localeCompare(albumB);
+  });
+  
+  const totalSongPages = Math.ceil(sortedSongs.length / SONGS_PER_PAGE);
+  const paginatedSongs = sortedSongs.slice(
     songsPage * SONGS_PER_PAGE,
     (songsPage + 1) * SONGS_PER_PAGE
   );
@@ -470,143 +479,206 @@ const PackReleaseCard = ({ pack, formatDate, onUsernameClick, onUsernameHover, o
     return isPackOwner || hasPackEditPermission;
   };
 
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+    if (!isExpanded) {
+      setSongsPage(0); // Reset to first page when expanding
+    }
+  };
+
   return (
-    <article className="pack-release">
-      <div className="pack-header">
-        <AlbumCoverCarousel covers={albumCovers} />
-        <div className="pack-info">
-          <div className="pack-title-section">
-            <h3 className="pack-name">{pack.release_title || pack.pack_name}</h3>
-            <div className="pack-credits">
-              <span className="pack-author-highlight">by <span 
-                onClick={onUsernameClick ? () => onUsernameClick(pack.author) : undefined}
-                onMouseEnter={onUsernameHover ? () => onUsernameHover(pack.author) : undefined}
-                onMouseLeave={onUsernameLeave}
-                style={onUsernameClick ? { 
-                  cursor: 'pointer', 
-                  color: '#667eea',
-                  transition: 'opacity 0.2s ease'
-                } : {}}
-                title={onUsernameClick ? "Hover for quick info, click to view full profile" : undefined}
-              >
-                {pack.author}
-              </span></span>
+    <article className={`pack-release-list-item ${isExpanded ? 'expanded' : 'collapsed'}`}>
+      {/* Compact Row */}
+      <div className="pack-list-row" onClick={toggleExpanded}>
+        <div className="pack-cover-container">
+          {albumCovers.length > 0 ? (
+            <img 
+              src={albumCovers[0]} 
+              alt="Album cover"
+              className="pack-cover-thumbnail"
+            />
+          ) : (
+            <div className="pack-cover-placeholder">
+              <span className="music-icon">♪</span>
             </div>
-          </div>
-          <div className="pack-meta">
-            <span className="song-count">{pack.songs.length} song{pack.songs.length !== 1 ? 's' : ''}</span>
-            <span className="release-date">{formatDate(pack.released_at)}</span>
-          </div>
-          {canEditRelease() && (
-            <button 
-              className="edit-release-btn"
-              onClick={() => onEditRelease && onEditRelease(pack)}
-              title="Edit release information"
-            >
-              ✏️ Edit Release
-            </button>
           )}
         </div>
-      </div>
-
-      {/* Release Description - Blog-like */}
-      {releaseDescription && (
-        <div className="release-description-section">
-          <ReadMore text={releaseDescription} maxLength={300} />
-        </div>
-      )}
-
-      {/* Download Link */}
-      {pack.release_download_link && (
-        <div className="release-actions">
-          <a 
-            href={pack.release_download_link} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="release-action-btn download-btn"
-          >
-            <span className="btn-icon">⬇</span>
-            Download Pack
-          </a>
-        </div>
-      )}
-      
-      {/* Songs List with Album Covers and Artists */}
-      <div className="pack-songs-section">
-        <h4 className="songs-section-title">Songs ({pack.songs.length})</h4>
-        <div className="pack-songs">
-          {paginatedSongs.map((song, index) => (
-            <div key={song.id} className="song-item">
-              <span className="song-number">{songsPage * SONGS_PER_PAGE + index + 1}.</span>
-              {song.album_cover && (
-                <img 
-                  src={song.album_cover} 
-                  alt={`${song.artist} - ${song.title} cover`}
-                  className="song-album-cover"
-                />
-              )}
-              <div className="song-info">
-                <span className="song-title">{song.title}</span>
-                {song.artist && (
-                  <span className="song-artist">{song.artist}</span>
-                )}
-              </div>
-              {song.release_download_link && (
-                <a 
-                  href={song.release_download_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="song-download-link"
-                  title="Download song"
-                >
-                  <span className="download-icon">⬇</span>
-                  <span className="download-text">Download</span>
-                </a>
-              )}
-            </div>
-          ))}
+        
+        <div className="pack-basic-info">
+          <h3 className="pack-title">{pack.release_title || pack.pack_name}</h3>
+          <div className="pack-subtitle">
+            <span 
+              className="pack-author"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUsernameClick && onUsernameClick(pack.author);
+              }}
+              onMouseEnter={() => onUsernameHover && onUsernameHover(pack.author)}
+              onMouseLeave={onUsernameLeave}
+              style={onUsernameClick ? { 
+                cursor: 'pointer', 
+                color: '#667eea'
+              } : {}}
+            >
+              {pack.author}
+            </span>
+            <span className="separator">•</span>
+            <span className="song-count">{pack.songs.length} song{pack.songs.length !== 1 ? 's' : ''}</span>
+          </div>
         </div>
         
-        {/* Songs Pagination */}
-        {totalSongPages > 1 && (
-          <div className="songs-pagination">
-            <button 
-              onClick={() => setSongsPage(prev => Math.max(0, prev - 1))}
-              disabled={songsPage === 0}
-              className="songs-nav-btn"
-            >
-              ← Previous
-            </button>
-            <span className="songs-page-info">
-              Page {songsPage + 1} of {totalSongPages}
-            </span>
-            <button 
-              onClick={() => setSongsPage(prev => Math.min(totalSongPages - 1, prev + 1))}
-              disabled={songsPage >= totalSongPages - 1}
-              className="songs-nav-btn"
-            >
-              Next →
-            </button>
+        <div className="pack-meta-info">
+          <span className="release-date">{formatDate(pack.released_at)}</span>
+          <div className="expand-indicator">
+            {isExpanded ? '▼' : '▶'}
           </div>
-        )}
+        </div>
       </div>
-      
-      {/* YouTube Video Embed - Compact */}
-      {videoId && (
-        <div className="youtube-embed compact">
-          <div className="youtube-wrapper">
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            ></iframe>
+
+      {/* Expanded Details */}
+      {isExpanded && (
+        <div className="pack-expanded-content">
+          {/* Actions Row */}
+          <div className="pack-actions-row">
+            {pack.release_download_link && (
+              <a 
+                href={pack.release_download_link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="action-btn download-btn"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="btn-icon">⬇</span>
+                Download Pack
+              </a>
+            )}
+            {canEditRelease() && (
+              <button 
+                className="action-btn edit-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditRelease && onEditRelease(pack);
+                }}
+                title="Edit release information"
+              >
+                ✏️ Edit Release
+              </button>
+            )}
           </div>
+
+          {/* Release Description */}
+          {releaseDescription && (
+            <div className="release-description">
+              <div className="release-description-text">{releaseDescription}</div>
+            </div>
+          )}
+
+          {/* Album Covers Carousel */}
+          {albumCovers.length > 1 && (
+            <div className="expanded-covers">
+              <h5>Album Covers ({albumCovers.length})</h5>
+              <div className="covers-grid">
+                {albumCovers.map((cover, index) => (
+                  <img 
+                    key={index}
+                    src={cover} 
+                    alt={`Album cover ${index + 1}`}
+                    className="album-cover-grid-item"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Songs List */}
+          <div className="songs-section">
+            <h5>Songs ({pack.songs.length})</h5>
+            <div className="songs-list">
+              {paginatedSongs.map((song, index) => (
+                <div key={song.id} className="song-item">
+                  <span className="song-number">{songsPage * SONGS_PER_PAGE + index + 1}.</span>
+                  {song.album_cover && (
+                    <img 
+                      src={song.album_cover} 
+                      alt={`${song.artist} - ${song.title} cover`}
+                      className="song-album-cover"
+                    />
+                  )}
+                  <div className="song-info">
+                    <div className="song-title">{song.title}</div>
+                    {song.artist && (
+                      <div className="song-artist">{song.artist}</div>
+                    )}
+                  </div>
+                  {song.release_download_link && (
+                    <a 
+                      href={song.release_download_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="song-download-link"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Download song"
+                    >
+                      <span className="download-icon">⬇</span>
+                      <span className="download-text">Download</span>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {/* Songs Pagination */}
+            {totalSongPages > 1 && (
+              <div className="songs-pagination">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSongsPage(prev => Math.max(0, prev - 1));
+                  }}
+                  disabled={songsPage === 0}
+                  className="songs-nav-btn"
+                >
+                  ← Previous
+                </button>
+                <span className="songs-page-info">
+                  Page {songsPage + 1} of {totalSongPages}
+                </span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSongsPage(prev => Math.min(totalSongPages - 1, prev + 1));
+                  }}
+                  disabled={songsPage >= totalSongPages - 1}
+                  className="songs-nav-btn"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* YouTube Video Embed */}
+          {videoId && (
+            <div className="youtube-section">
+              <h5>Video</h5>
+              <div className="youtube-embed">
+                <div className="youtube-wrapper">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${videoId}`}
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </article>
   );
 };
+
 
 export default LatestReleasesPage;

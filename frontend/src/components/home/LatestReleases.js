@@ -395,8 +395,16 @@ const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLea
   };
 
   const albumCovers = getUniqueCovers();
-  const totalSongPages = Math.ceil(pack.songs.length / SONGS_PER_PAGE);
-  const paginatedSongs = pack.songs.slice(
+  
+  // Sort songs by album
+  const sortedSongs = [...pack.songs].sort((a, b) => {
+    const albumA = a.album || '';
+    const albumB = b.album || '';
+    return albumA.localeCompare(albumB);
+  });
+  
+  const totalSongPages = Math.ceil(sortedSongs.length / SONGS_PER_PAGE);
+  const paginatedSongs = sortedSongs.slice(
     songsPage * SONGS_PER_PAGE,
     (songsPage + 1) * SONGS_PER_PAGE
   );

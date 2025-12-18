@@ -77,6 +77,7 @@ app.add_middleware(
         "http://localhost:3001",
         "https://trackflow-front.onrender.com",
         "https://frontend-production-4e01.up.railway.app",
+        "https://frontend-copy-production-3b1e.up.railway.app",
         "https://trackflow-frontend.up.railway.app",
         "https://trackflow-frontend.railway.app",
         "https://site-production-8de8.up.railway.app",

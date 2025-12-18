@@ -18,6 +18,8 @@ COPY workflow_schemas.py .
 COPY auth.py .
 COPY api/ ./api/
 COPY migrations/ ./migrations/
+COPY utils/ ./utils/
+COPY services/ ./services/
 COPY __init__.py .
 
 # Expose port (will be overridden by Railway)

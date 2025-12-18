@@ -92,7 +92,7 @@ const WelcomeModal = ({ isOpen, onClose }) => {
             fontSize: "1.8rem",
             fontWeight: "bold" 
           }}>
-            🎉 Welcome to Trackflow v2.0!
+            Welcome to Trackflow v2.0!
           </h2>
           <p style={{ 
             margin: "0", 
@@ -126,7 +126,7 @@ const WelcomeModal = ({ isOpen, onClose }) => {
               alignItems: "center",
               gap: "0.5rem"
             }}>
-              🌟 Public WIP Songs
+              Public WIP Songs
             </h3>
             <p style={{ 
               margin: "0 0 0.8rem 0", 
@@ -163,13 +163,13 @@ const WelcomeModal = ({ isOpen, onClose }) => {
               lineHeight: "1.6"
             }}>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong>🏠 New Homepage:</strong> We now have a community front page! Including: "Pick up where you left off" dashboard, collaboration invites, and quick access to features
+                <strong>New Homepage:</strong> We now have a community front page! Including: "Pick up where you left off" dashboard, collaboration invites, and quick access to features
               </li>
               <li style={{ marginBottom: "0.5rem" }}>
-                <strong>🏆 Achievements & Leaderboards:</strong> You will now be rewarded for your work! Earn achievements, collect points and see how you rank in the community leaderboard.
+                <strong>Achievements & Leaderboards:</strong> You will now be rewarded for your work! Earn achievements, collect points and see how you rank in the community leaderboard.
               </li>
               <li style={{ marginBottom: "0" }}>
-                <strong>🔔 New Notifications:</strong> Stay updated with collaboration requests, community activity, and important updates
+                <strong>New Notifications:</strong> Stay updated with collaboration requests, community activity, and important updates
               </li>
               <li style={{ marginBottom: "0" }}>
                 And more new features waiting to be discovered!

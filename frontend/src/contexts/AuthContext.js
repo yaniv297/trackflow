@@ -16,76 +16,138 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginTimestamp, setLoginTimestamp] = useState(null);
+
+  // Store error in localStorage for debugging
+  const storeAuthError = (errorData) => {
+    try {
+      const errorLog = {
+        timestamp: new Date().toISOString(),
+        ...errorData,
+      };
+      localStorage.setItem("auth_error_log", JSON.stringify(errorLog));
+      // Also keep last 5 errors
+      const errorHistory = JSON.parse(localStorage.getItem("auth_error_history") || "[]");
+      errorHistory.unshift(errorLog);
+      if (errorHistory.length > 5) {
+        errorHistory.pop();
+      }
+      localStorage.setItem("auth_error_history", JSON.stringify(errorHistory));
+    } catch (e) {
+      console.error("Failed to store auth error:", e);
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
       if (token) {
+        // Skip auth check if we just logged in (within last 5 seconds) and already have user data
+        const timeSinceLogin = loginTimestamp ? Date.now() - loginTimestamp : Infinity;
+        if (isLoggingIn && user && timeSinceLogin < 5000) {
+          console.log("[AuthContext] Skipping auth check - just logged in and have user data");
+          setLoading(false);
+          return;
+        }
+
         try {
-          console.log(
-            `[AuthContext] Checking auth with ${API_BASE_URL}/auth/me`,
-            {
-              isLoggingIn,
-              hasUser: !!user,
-            }
-          );
+          const errorData = {
+            apiUrl: API_BASE_URL,
+            tokenPreview: token.substring(0, 20) + "...",
+            isLoggingIn,
+            hasUser: !!user,
+            timeSinceLogin: loginTimestamp ? Date.now() - loginTimestamp : null,
+          };
+
+          console.log(`[AuthContext] Checking auth with ${API_BASE_URL}/auth/me`, errorData);
+          
           const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           });
+          
           if (response.ok) {
             const userData = await response.json();
             console.log(
               `[AuthContext] Auth check successful for user: ${userData.username}`
             );
             setUser(userData);
+            // Clear any stored errors on success
+            localStorage.removeItem("auth_error_log");
           } else {
-            // Token is invalid, clear it
+            // Token is invalid
             const errorText = await response.text();
+            const fullErrorData = {
+              ...errorData,
+              status: response.status,
+              statusText: response.statusText,
+              body: errorText,
+              errorType: "http_error",
+            };
+            
             console.error(
               `[AuthContext] Auth check failed: ${response.status} ${response.statusText}`,
-              {
-                status: response.status,
-                statusText: response.statusText,
-                body: errorText,
-                apiUrl: API_BASE_URL,
-                tokenPreview: token.substring(0, 20) + "...",
-                isLoggingIn,
-              }
+              fullErrorData
             );
-            // Don't clear token immediately after login - give it a chance
-            if (!isLoggingIn) {
-              console.log(
-                `[AuthContext] Clearing token due to failed auth check`
-              );
+            
+            // Store error persistently
+            storeAuthError(fullErrorData);
+            
+            // Show alert that stays visible
+            alert(
+              `Auth Error (check localStorage.auth_error_log for details):\n` +
+              `Status: ${response.status} ${response.statusText}\n` +
+              `API: ${API_BASE_URL}\n` +
+              `Error: ${errorText.substring(0, 200)}`
+            );
+            
+            // Don't clear token immediately after login - give it a longer chance
+            const shouldClear = !isLoggingIn && timeSinceLogin > 10000; // 10 seconds grace period
+            if (shouldClear) {
+              console.log(`[AuthContext] Clearing token due to failed auth check`);
               localStorage.removeItem("token");
               setToken(null);
             } else {
               console.log(
-                `[AuthContext] Skipping token clear because isLoggingIn=true`
+                `[AuthContext] Skipping token clear - isLoggingIn=${isLoggingIn}, timeSinceLogin=${timeSinceLogin}ms`
               );
             }
           }
         } catch (error) {
-          console.error(
-            "[AuthContext] Auth check failed with exception:",
-            error,
-            {
-              apiUrl: API_BASE_URL,
-              tokenPreview: token ? token.substring(0, 20) + "..." : "no token",
-              errorMessage: error.message,
-              errorStack: error.stack,
-              isLoggingIn,
-            }
+          const fullErrorData = {
+            apiUrl: API_BASE_URL,
+            tokenPreview: token ? token.substring(0, 20) + "..." : "no token",
+            errorMessage: error.message,
+            errorStack: error.stack,
+            errorType: "exception",
+            isLoggingIn,
+            hasUser: !!user,
+            timeSinceLogin: loginTimestamp ? Date.now() - loginTimestamp : null,
+          };
+          
+          console.error("[AuthContext] Auth check failed with exception:", error, fullErrorData);
+          
+          // Store error persistently
+          storeAuthError(fullErrorData);
+          
+          // Show alert that stays visible
+          alert(
+            `Auth Exception (check localStorage.auth_error_log for details):\n` +
+            `API: ${API_BASE_URL}\n` +
+            `Error: ${error.message}\n` +
+            `Check console for full details`
           );
-          // Don't clear token immediately after login - give it a chance
-          if (!isLoggingIn) {
+          
+          // Don't clear token immediately after login - give it a longer chance
+          const timeSinceLogin = loginTimestamp ? Date.now() - loginTimestamp : Infinity;
+          const shouldClear = !isLoggingIn && timeSinceLogin > 10000; // 10 seconds grace period
+          if (shouldClear) {
             console.log(`[AuthContext] Clearing token due to exception`);
             localStorage.removeItem("token");
             setToken(null);
           } else {
             console.log(
-              `[AuthContext] Skipping token clear because isLoggingIn=true`
+              `[AuthContext] Skipping token clear - isLoggingIn=${isLoggingIn}, timeSinceLogin=${timeSinceLogin}ms`
             );
           }
         }
@@ -94,7 +156,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     checkAuth();
-  }, [token, isLoggingIn]);
+  }, [token, isLoggingIn, loginTimestamp]);
 
   // Auto-refresh token every 23 hours (before the 24-hour expiration)
   useEffect(() => {
@@ -109,6 +171,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     setIsLoggingIn(true);
+    setLoginTimestamp(Date.now());
     try {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
@@ -121,6 +184,7 @@ export const AuthProvider = ({ children }) => {
       if (!response.ok) {
         const error = await response.json();
         setIsLoggingIn(false);
+        setLoginTimestamp(null);
         throw new Error(error.detail || "Login failed");
       }
 
@@ -152,29 +216,37 @@ export const AuthProvider = ({ children }) => {
           }
         } else {
           const errorText = await userResponse.text();
-          console.error(
-            `Failed to fetch user data after login: ${userResponse.status}`,
-            {
-              status: userResponse.status,
-              statusText: userResponse.statusText,
-              body: errorText,
-              apiUrl: API_BASE_URL,
-            }
-          );
+          const errorData = {
+            status: userResponse.status,
+            statusText: userResponse.statusText,
+            body: errorText,
+            apiUrl: API_BASE_URL,
+            errorType: "login_me_failed",
+          };
+          console.error(`Failed to fetch user data after login: ${userResponse.status}`, errorData);
+          storeAuthError(errorData);
         }
       } catch (userError) {
         // If fetching user data fails, don't fail the login - user can still use the token
-        console.error("Failed to fetch user data after login:", userError);
+        const errorData = {
+          errorMessage: userError.message,
+          errorStack: userError.stack,
+          apiUrl: API_BASE_URL,
+          errorType: "login_me_exception",
+        };
+        console.error("Failed to fetch user data after login:", userError, errorData);
+        storeAuthError(errorData);
       }
 
-      // Give a moment for the token to be validated before allowing auth checks to clear it
+      // Give a longer grace period for the token to be validated before allowing auth checks to clear it
       setTimeout(() => {
         setIsLoggingIn(false);
-      }, 2000);
+      }, 10000); // 10 seconds grace period
 
       return data;
     } catch (error) {
       setIsLoggingIn(false);
+      setLoginTimestamp(null);
       throw error;
     }
   };

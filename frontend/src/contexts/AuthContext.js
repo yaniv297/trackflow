@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import API_BASE_URL from "../config";
 
 const AuthContext = createContext();
@@ -13,10 +13,50 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(() => {
+    const storedToken = localStorage.getItem("token");
+    console.log("[AuthContext] Initial token from localStorage", { hasToken: !!storedToken });
+    return storedToken;
+  });
   const [loading, setLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginTimestamp, setLoginTimestamp] = useState(null);
+
+  // Wrapper for setToken to track when it's cleared
+  // We need to use a ref to avoid stale closure issues
+  const tokenRef = React.useRef(token);
+  tokenRef.current = token;
+  
+  const setTokenWithLogging = React.useCallback((newToken) => {
+    const oldToken = tokenRef.current;
+    const stackTrace = new Error().stack;
+    
+    console.log("[AuthContext] setToken called", {
+      oldTokenExists: !!oldToken,
+      newTokenExists: !!newToken,
+      clearing: !newToken && !!oldToken,
+      setting: !!newToken && !oldToken,
+      updating: !!newToken && !!oldToken,
+      stackTrace: stackTrace?.split('\n').slice(0, 5).join('\n'),
+    });
+    
+    // If clearing token, store why
+    if (!newToken && oldToken) {
+      try {
+        localStorage.setItem("token_cleared", JSON.stringify({
+          timestamp: new Date().toISOString(),
+          hadToken: true,
+          stackTrace: stackTrace?.split('\n').slice(0, 10).join('\n'),
+        }));
+        console.error("[AuthContext] TOKEN CLEARED!", { stackTrace });
+      } catch (e) {
+        console.error("Failed to store token cleared:", e);
+      }
+    }
+    
+    setToken(newToken);
+    tokenRef.current = newToken;
+  }, []);
 
   // Store error in localStorage for debugging
   const storeAuthError = (errorData) => {
@@ -167,7 +207,7 @@ export const AuthProvider = ({ children }) => {
             if (shouldClear) {
               console.log(`[AuthContext] Clearing token due to failed auth check`);
               localStorage.removeItem("token");
-              setToken(null);
+              setTokenWithLogging(null);
             } else {
               console.log(
                 `[AuthContext] Skipping token clear - isLoggingIn=${isLoggingIn}, timeSinceLogin=${timeSinceLogin}ms`
@@ -213,7 +253,7 @@ export const AuthProvider = ({ children }) => {
           if (shouldClear) {
             console.log(`[AuthContext] Clearing token due to exception`);
             localStorage.removeItem("token");
-            setToken(null);
+            setTokenWithLogging(null);
           } else {
             console.log(
               `[AuthContext] Skipping token clear - isLoggingIn=${isLoggingIn}, timeSinceLogin=${timeSinceLogin}ms`
@@ -241,9 +281,23 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   const login = async (username, password) => {
+    console.log("[AuthContext] Login started", { username, apiUrl: API_BASE_URL });
+    
+    // Store login attempt
+    try {
+      localStorage.setItem("login_attempt", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        username,
+        apiUrl: API_BASE_URL,
+      }));
+    } catch (e) {
+      console.error("Failed to store login attempt:", e);
+    }
+    
     setIsLoggingIn(true);
     setLoginTimestamp(Date.now());
     try {
+      console.log(`[AuthContext] Calling ${API_BASE_URL}/auth/login`);
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
@@ -252,16 +306,79 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ username, password }),
       });
 
+      console.log(`[AuthContext] Login response status: ${response.status}`);
+      
+      // Store response status
+      try {
+        localStorage.setItem("login_response", JSON.stringify({
+          status: response.status,
+          ok: response.ok,
+          timestamp: new Date().toISOString(),
+        }));
+      } catch (e) {
+        console.error("Failed to store login response:", e);
+      }
+
       if (!response.ok) {
         const error = await response.json();
+        console.error("[AuthContext] Login failed", { status: response.status, error });
         setIsLoggingIn(false);
         setLoginTimestamp(null);
         throw new Error(error.detail || "Login failed");
       }
 
       const data = await response.json();
-      setToken(data.access_token);
+      console.log("[AuthContext] Login successful, received token", {
+        tokenPreview: data.access_token?.substring(0, 20) + "...",
+        tokenLength: data.access_token?.length,
+      });
+      
+      // Store token info BEFORE setting it
+      try {
+        localStorage.setItem("token_before_set", JSON.stringify({
+          tokenPreview: data.access_token?.substring(0, 20) + "...",
+          tokenLength: data.access_token?.length,
+          timestamp: new Date().toISOString(),
+        }));
+      } catch (e) {
+        console.error("Failed to store token before set:", e);
+      }
+      
+      console.log("[AuthContext] Setting token in state and localStorage");
+      setTokenWithLogging(data.access_token);
       localStorage.setItem("token", data.access_token);
+      
+      // Check immediately after setting
+      setTimeout(() => {
+        const checkToken = localStorage.getItem("token");
+        console.log("[AuthContext] Token check 100ms after set", {
+          tokenStillExists: !!checkToken,
+          tokenMatches: checkToken === data.access_token,
+        });
+        if (!checkToken) {
+          console.error("[AuthContext] TOKEN WAS CLEARED IMMEDIATELY AFTER SET!");
+          alert("CRITICAL: Token was cleared immediately after login! Check console.");
+        }
+      }, 100);
+      
+      // Verify token was set
+      const verifyToken = localStorage.getItem("token");
+      console.log("[AuthContext] Token verification after set", {
+        tokenSet: !!verifyToken,
+        tokenMatches: verifyToken === data.access_token,
+        tokenPreview: verifyToken?.substring(0, 20) + "...",
+      });
+      
+      // Store verification
+      try {
+        localStorage.setItem("token_after_set", JSON.stringify({
+          tokenSet: !!verifyToken,
+          tokenMatches: verifyToken === data.access_token,
+          timestamp: new Date().toISOString(),
+        }));
+      } catch (e) {
+        console.error("Failed to store token after set:", e);
+      }
 
       // Fetch user data separately since backend doesn't include it in login response
       try {
@@ -338,7 +455,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      setToken(data.access_token);
+      setTokenWithLogging(data.access_token);
       setUser(data.user);
       localStorage.setItem("token", data.access_token);
       return data;
@@ -348,8 +465,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    console.log("[AuthContext] Logout called");
     setUser(null);
-    setToken(null);
+    setTokenWithLogging(null);
     localStorage.removeItem("token");
   };
 
@@ -366,7 +484,7 @@ export const AuthProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setToken(data.access_token);
+        setTokenWithLogging(data.access_token);
         localStorage.setItem("token", data.access_token);
       } else {
         logout();
@@ -383,7 +501,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateAuth = async (newToken, username) => {
     // Update token
-    setToken(newToken);
+    setTokenWithLogging(newToken);
     localStorage.setItem("token", newToken);
 
     // Fetch user data with the new token

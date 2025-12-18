@@ -114,17 +114,6 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true, onEditRelease }) =>
       ? pack.release_title.trim()
       : null;
     
-    // Debug logging for pack 111
-    if (pack.pack_id === 111) {
-      console.log('Pack 111 data:', {
-        pack_id: pack.pack_id,
-        pack_name: pack.pack_name,
-        release_title_raw: pack.release_title,
-        release_title_cleaned: cleanTitle,
-        full_pack: pack
-      });
-    }
-    
     return {
       pack_id: pack.pack_id,
       pack_name: pack.pack_name,

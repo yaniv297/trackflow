@@ -39,6 +39,29 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Log immediately when useEffect runs
+    console.log("[AuthContext] useEffect triggered", {
+      hasToken: !!token,
+      isLoggingIn,
+      hasUser: !!user,
+      loginTimestamp,
+      apiUrl: API_BASE_URL,
+    });
+    
+    // Store initial state for debugging
+    try {
+      localStorage.setItem("auth_debug_state", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        hasToken: !!token,
+        isLoggingIn,
+        hasUser: !!user,
+        loginTimestamp,
+        apiUrl: API_BASE_URL,
+      }));
+    } catch (e) {
+      console.error("Failed to store debug state:", e);
+    }
+
     const checkAuth = async () => {
       if (token) {
         // Skip auth check if we just logged in (within last 5 seconds) and already have user data
@@ -49,22 +72,44 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
+        // Store error BEFORE making the request
+        const errorData = {
+          apiUrl: API_BASE_URL,
+          tokenPreview: token.substring(0, 20) + "...",
+          isLoggingIn,
+          hasUser: !!user,
+          timeSinceLogin: loginTimestamp ? Date.now() - loginTimestamp : null,
+          timestamp: new Date().toISOString(),
+        };
+        
+        // Store this BEFORE the fetch
         try {
-          const errorData = {
-            apiUrl: API_BASE_URL,
-            tokenPreview: token.substring(0, 20) + "...",
-            isLoggingIn,
-            hasUser: !!user,
-            timeSinceLogin: loginTimestamp ? Date.now() - loginTimestamp : null,
-          };
+          localStorage.setItem("auth_check_started", JSON.stringify(errorData));
+        } catch (e) {
+          console.error("Failed to store check start:", e);
+        }
 
-          console.log(`[AuthContext] Checking auth with ${API_BASE_URL}/auth/me`, errorData);
-          
+        console.log(`[AuthContext] Checking auth with ${API_BASE_URL}/auth/me`, errorData);
+        
+        try {
           const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           });
+          
+          // Store response immediately
+          const responseData = {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            timestamp: new Date().toISOString(),
+          };
+          try {
+            localStorage.setItem("auth_check_response", JSON.stringify(responseData));
+          } catch (e) {
+            console.error("Failed to store response:", e);
+          }
           
           if (response.ok) {
             const userData = await response.json();
@@ -74,6 +119,8 @@ export const AuthProvider = ({ children }) => {
             setUser(userData);
             // Clear any stored errors on success
             localStorage.removeItem("auth_error_log");
+            localStorage.removeItem("auth_check_started");
+            localStorage.removeItem("auth_check_response");
           } else {
             // Token is invalid
             const errorText = await response.text();
@@ -90,15 +137,29 @@ export const AuthProvider = ({ children }) => {
               fullErrorData
             );
             
-            // Store error persistently
+            // Store error persistently IMMEDIATELY
             storeAuthError(fullErrorData);
+            
+            // Also store in a simple format
+            try {
+              localStorage.setItem("auth_error_simple", JSON.stringify({
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText.substring(0, 500),
+                apiUrl: API_BASE_URL,
+                timestamp: new Date().toISOString(),
+              }));
+            } catch (e) {
+              console.error("Failed to store simple error:", e);
+            }
             
             // Show alert that stays visible
             alert(
-              `Auth Error (check localStorage.auth_error_log for details):\n` +
+              `Auth Error:\n` +
               `Status: ${response.status} ${response.statusText}\n` +
               `API: ${API_BASE_URL}\n` +
-              `Error: ${errorText.substring(0, 200)}`
+              `Error: ${errorText.substring(0, 200)}\n\n` +
+              `Check localStorage.auth_error_log or auth_error_simple`
             );
             
             // Don't clear token immediately after login - give it a longer chance
@@ -115,27 +176,35 @@ export const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           const fullErrorData = {
-            apiUrl: API_BASE_URL,
-            tokenPreview: token ? token.substring(0, 20) + "..." : "no token",
+            ...errorData,
             errorMessage: error.message,
             errorStack: error.stack,
             errorType: "exception",
-            isLoggingIn,
-            hasUser: !!user,
-            timeSinceLogin: loginTimestamp ? Date.now() - loginTimestamp : null,
           };
           
           console.error("[AuthContext] Auth check failed with exception:", error, fullErrorData);
           
-          // Store error persistently
+          // Store error persistently IMMEDIATELY
           storeAuthError(fullErrorData);
+          
+          // Also store in a simple format
+          try {
+            localStorage.setItem("auth_error_simple", JSON.stringify({
+              errorMessage: error.message,
+              errorStack: error.stack?.substring(0, 500),
+              apiUrl: API_BASE_URL,
+              timestamp: new Date().toISOString(),
+            }));
+          } catch (e) {
+            console.error("Failed to store simple error:", e);
+          }
           
           // Show alert that stays visible
           alert(
-            `Auth Exception (check localStorage.auth_error_log for details):\n` +
+            `Auth Exception:\n` +
             `API: ${API_BASE_URL}\n` +
-            `Error: ${error.message}\n` +
-            `Check console for full details`
+            `Error: ${error.message}\n\n` +
+            `Check localStorage.auth_error_log or auth_error_simple`
           );
           
           // Don't clear token immediately after login - give it a longer chance
@@ -151,6 +220,8 @@ export const AuthProvider = ({ children }) => {
             );
           }
         }
+      } else {
+        console.log("[AuthContext] No token, skipping auth check");
       }
       setLoading(false);
     };

@@ -169,6 +169,7 @@ class AlbumSeriesResponse(BaseModel):
     cover_image_url: Optional[str] = None
     status: str
     description: Optional[str] = None
+    rgw_post_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     song_count: int = 0
@@ -186,6 +187,7 @@ class AlbumSeriesDetailResponse(BaseModel):
     cover_image_url: Optional[str] = None
     status: str
     description: Optional[str] = None
+    rgw_post_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     pack_id: Optional[int] = None

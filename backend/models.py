@@ -196,6 +196,7 @@ class AlbumSeries(Base):
     cover_image_url = Column(String)
     status = Column(String)
     description = Column(String)
+    rgw_post_url = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     pack_id = Column(Integer, ForeignKey("packs.id"))

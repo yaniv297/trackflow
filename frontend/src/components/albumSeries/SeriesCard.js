@@ -218,6 +218,48 @@ const SeriesCard = ({
         </div>
       )}
 
+      {/* RGW Post Link */}
+      {series.rgw_post_url && (
+        <div
+          style={{
+            marginBottom: "1rem",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <a
+            href={series.rgw_post_url}
+            target="_blank"
+            rel="noreferrer noopener"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.9rem",
+              color: "#1976d2",
+              textDecoration: "none",
+              fontWeight: 500,
+              padding: "0.5rem 0.75rem",
+              borderRadius: "6px",
+              border: "1px solid #e0e0e0",
+              backgroundColor: "#f8f9fa",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#e3f2fd";
+              e.currentTarget.style.borderColor = "#1976d2";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#f8f9fa";
+              e.currentTarget.style.borderColor = "#e0e0e0";
+            }}
+          >
+            <span>📝</span>
+            <span>RGW post</span>
+            <span style={{ fontSize: "0.75rem" }}>↗</span>
+          </a>
+        </div>
+      )}
+
       {/* Completion Progress for In Progress series */}
       {series.status === "in_progress" &&
         (() => {

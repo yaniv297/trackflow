@@ -347,6 +347,8 @@ export const AuthProvider = ({ children }) => {
       console.log("[AuthContext] Setting token in state and localStorage");
       setTokenWithLogging(data.access_token);
       localStorage.setItem("token", data.access_token);
+      // Store login timestamp for api.js to check
+      localStorage.setItem("login_timestamp", Date.now().toString());
       
       // Check immediately after setting
       setTimeout(() => {

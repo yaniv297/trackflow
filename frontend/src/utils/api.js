@@ -83,6 +83,29 @@ export const apiCall = async (endpoint, options = {}) => {
 
     // Handle 401 Unauthorized - token might be expired
     if (response.status === 401) {
+      // Check if we just logged in (within last 10 seconds) - don't clear token immediately
+      const loginTimestamp = localStorage.getItem("login_timestamp");
+      const timeSinceLogin = loginTimestamp ? Date.now() - parseInt(loginTimestamp) : Infinity;
+      const justLoggedIn = timeSinceLogin < 10000; // 10 seconds grace period
+      
+      console.log("[api.js] 401 error", {
+        justLoggedIn,
+        timeSinceLogin,
+        endpoint: url,
+      });
+      
+      // Store the 401 error for debugging
+      try {
+        localStorage.setItem("api_401_error", JSON.stringify({
+          timestamp: new Date().toISOString(),
+          endpoint: url,
+          justLoggedIn,
+          timeSinceLogin,
+        }));
+      } catch (e) {
+        console.error("Failed to store 401 error:", e);
+      }
+      
       // Try to refresh the token first
       try {
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -117,10 +140,16 @@ export const apiCall = async (endpoint, options = {}) => {
         console.error("Token refresh failed:", refreshError);
       }
 
-      // If refresh failed, redirect to login
-      localStorage.removeItem("token");
-      window.location.href = "/";
-      throw new Error("Authentication required");
+      // If refresh failed and we didn't just log in, redirect to login
+      if (!justLoggedIn) {
+        console.log("[api.js] Clearing token and redirecting - not just logged in");
+        localStorage.removeItem("token");
+        window.location.href = "/";
+        throw new Error("Authentication required");
+      } else {
+        console.log("[api.js] Skipping token clear - just logged in, throwing error instead");
+        throw new Error("Authentication required - please try again in a moment");
+      }
     }
 
     if (!response.ok) {

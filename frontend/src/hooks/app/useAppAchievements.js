@@ -16,14 +16,17 @@ export const useAppAchievements = (isAuthenticated, user) => {
     }
   }, [isAuthenticated, user]);
 
-  // Fetch user's total points (achievements + releases)
+  // Fetch user's achievement points from UserStats.total_points (same source as leaderboard)
+  // Currently: achievement points only (no release bonus)
+  // Future: will include release bonus when migration is updated
   const fetchAchievementPoints = async () => {
     try {
-      const pointsBreakdown = await apiGet("/achievements/points-breakdown");
-      setAchievementPoints(pointsBreakdown.total_points);
+      // Use progress endpoint which returns UserStats.total_points directly (same as leaderboard)
+      const progress = await apiGet("/achievements/me/progress");
+      setAchievementPoints(progress.stats.total_points);
     } catch (error) {
-      console.error("Failed to fetch total points:", error);
-      // Fallback to achievement points only if breakdown fails
+      console.error("Failed to fetch achievement points:", error);
+      // Fallback to calculating from achievements if progress endpoint fails
       try {
         const achievements = await apiGet("/achievements/me");
         const totalPoints = achievements.reduce(

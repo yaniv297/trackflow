@@ -202,6 +202,25 @@ class PackReleaseService:
                     if release_data.song_download_links and str(song.id) in release_data.song_download_links:
                         song.release_download_link = release_data.song_download_links[str(song.id)]
                     
+                    # Award 10 points for releasing a song
+                    try:
+                        from api.achievements.repositories.achievements_repository import AchievementsRepository
+                        from api.notifications.services.notification_service import NotificationService
+                        
+                        achievements_repo = AchievementsRepository()
+                        achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
+                        print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (pack release)")
+                        
+                        # Create notification
+                        notification_service = NotificationService(self.db)
+                        notification_service.create_general_notification(
+                            user_id=song.user_id,
+                            title="🎯 Song Released!",
+                            message=f"You earned 10 points for releasing '{song.title}'"
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Failed to award release points: {e}")
+                    
                     released_count += 1
                 else:
                     # Optional song - move to "Future Plans" with new pack name
@@ -231,8 +250,11 @@ class PackReleaseService:
                     moved_count += 1
             elif song.status == "Released":
                 # Song already released - ensure it has release timestamp
+                # Note: We don't award points here because the song was already released
+                # Points would have been awarded when the song was first released
                 if not song.released_at:
                     song.released_at = datetime.utcnow()
+                    print(f"🔧 Fixed missing released_at timestamp for already-released song {song.id}: {song.title}")
                 
                 # Set song download link if provided
                 if release_data.song_download_links and str(song.id) in release_data.song_download_links:

@@ -18,9 +18,22 @@ import secrets
 DEFAULT_SECRET_KEY = secrets.token_urlsafe(32)  # 256-bit key
 SECRET_KEY = os.getenv("SECRET_KEY", DEFAULT_SECRET_KEY)
 
-# Warn if using default secret in production
-if SECRET_KEY == DEFAULT_SECRET_KEY and os.getenv("RAILWAY_ENVIRONMENT") == "production":
-    print("WARNING: Using auto-generated JWT secret. Set SECRET_KEY environment variable for production!")
+# CRITICAL: Warn if using default secret (this breaks token validation across instances/restarts)
+if SECRET_KEY == DEFAULT_SECRET_KEY:
+    import sys
+    env_name = os.getenv("RAILWAY_ENVIRONMENT", "unknown")
+    print("=" * 80, file=sys.stderr)
+    print("CRITICAL WARNING: SECRET_KEY environment variable is not set!", file=sys.stderr)
+    print(f"Environment: {env_name}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("This will cause authentication failures because:", file=sys.stderr)
+    print("1. Each server instance generates a different random SECRET_KEY", file=sys.stderr)
+    print("2. Tokens created by one instance cannot be validated by another", file=sys.stderr)
+    print("3. All tokens become invalid when the server restarts", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("SOLUTION: Set SECRET_KEY environment variable to the same value across all instances", file=sys.stderr)
+    print("Example: SECRET_KEY=$(openssl rand -base64 32)", file=sys.stderr)
+    print("=" * 80, file=sys.stderr)
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours

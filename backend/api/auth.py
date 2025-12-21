@@ -6,9 +6,13 @@ from .auth.router import router
 # Import dependencies for backward compatibility
 from .auth.dependencies import (
     get_current_user,
-    get_current_active_user,
-    get_optional_user
+    get_current_active_user as _get_current_active_user_response,
+    get_optional_user,
+    get_current_user_model,
+    get_current_active_user_model
 )
+# Most routes need User model, so export model version as default
+get_current_active_user = get_current_active_user_model
 
 # Import schemas for backward compatibility
 from .auth.schemas import (

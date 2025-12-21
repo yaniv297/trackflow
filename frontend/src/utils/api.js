@@ -12,7 +12,11 @@ export class ApiError extends Error {
 
 // Get token from localStorage
 const getToken = () => {
-  return localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:15',message:'getToken called',data:{hasToken:!!token,tokenLength:token?.length,tokenPreview:token?.substring(0,20)+'...'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
+  return token;
 };
 
 // Create headers with authentication
@@ -25,6 +29,13 @@ const createHeaders = (customHeaders = {}) => {
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:27',message:'Authorization header set',data:{hasToken:!!token,tokenLength:token.length,headerValue:`Bearer ${token.substring(0,20)}...`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+  } else {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:30',message:'No token in headers',data:{hasToken:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
   }
 
   return headers;
@@ -79,7 +90,14 @@ export const apiCall = async (endpoint, options = {}) => {
   };
 
   try {
+    // #region agent log
+    const requestToken = getToken();
+    fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:82',message:'API call starting',data:{endpoint:url,hasToken:!!requestToken,tokenLength:requestToken?.length,hasAuthHeader:!!config.headers?.Authorization},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B,C'})}).catch(()=>{});
+    // #endregion
     const response = await fetch(url, config);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:85',message:'API response received',data:{endpoint:url,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
 
     // Handle 401 Unauthorized - token might be expired
     if (response.status === 401) {

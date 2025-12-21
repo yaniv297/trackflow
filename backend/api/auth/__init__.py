@@ -1,8 +1,18 @@
 # Auth API module - refactored into clean architecture layers
 
 from .router import router
-from .dependencies import get_current_user, get_current_active_user, get_optional_user
+from .dependencies import (
+    get_current_user, 
+    get_current_active_user as _get_current_active_user_response, 
+    get_optional_user, 
+    get_current_user_model, 
+    get_current_active_user_model
+)
 from .services.auth_service import AuthService
+
+# Most routes need the User model, so make that the default
+# Routes that need UserResponse should import _get_current_active_user_response directly
+get_current_active_user = get_current_active_user_model
 
 # Backward compatibility functions
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -35,6 +45,8 @@ __all__ = [
     "get_current_user", 
     "get_current_active_user", 
     "get_optional_user",
+    "get_current_user_model",
+    "get_current_active_user_model",
     "verify_password",
     "get_password_hash",
     "create_access_token", 

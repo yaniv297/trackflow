@@ -7,7 +7,7 @@ from database import get_db
 from models import User
 from ..schemas import UserCreate, UserResponse, Token
 from ..services.auth_service import AuthService
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user as _get_current_active_user_response
 from ..repositories.user_repository import UserRepository
 
 router = APIRouter()
@@ -185,7 +185,7 @@ def register(registration_data: dict, db: Session = Depends(get_db)):
 
 @router.get("/users/")
 def get_users(
-    current_user: UserResponse = Depends(get_current_active_user), 
+    current_user: UserResponse = Depends(_get_current_active_user_response), 
     db: Session = Depends(get_db)
 ):
     """Get all users (admin only)."""

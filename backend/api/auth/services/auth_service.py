@@ -59,13 +59,53 @@ class AuthService:
     
     def verify_token(self, token: str) -> Optional[dict]:
         """Verify JWT token and return payload."""
+        import json
+        import os
+        log_path = "/Users/yanivbin/code/random/trackflow/.cursor/debug.log"
         try:
+            # Check if SECRET_KEY is from env var or auto-generated
+            secret_key_source = "env_var" if os.getenv("SECRET_KEY") else "auto_generated"
+            # #region agent log
+            try:
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"location":"auth_service.py:60","message":"verify_token called","data":{"tokenLength":len(token) if token else 0,"tokenPreview":token[:20]+"..." if token else None,"secretKeySource":secret_key_source,"algorithm":ALGORITHM},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
+            except:
+                pass  # Don't fail if logging fails
+            # #endregion
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             username: str = payload.get("sub")
             if username is None:
+                # #region agent log
+                try:
+                    with open(log_path, "a") as f:
+                        f.write(json.dumps({"location":"auth_service.py:66","message":"verify_token failed - no username in payload","data":{"hasPayload":True},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
+                except:
+                    pass
+                # #endregion
                 return None
+            # #region agent log
+            try:
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"location":"auth_service.py:68","message":"verify_token success","data":{"username":username},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
+            except:
+                pass
+            # #endregion
             return payload
-        except JWTError:
+        except JWTError as e:
+            # #region agent log
+            try:
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"location":"auth_service.py:69","message":"verify_token failed - JWTError","data":{"errorType":type(e).__name__,"errorMsg":str(e)[:200],"secretKeySource":secret_key_source},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
+            except:
+                pass
+            # #endregion
+            # If SECRET_KEY is auto-generated, log a warning
+            if secret_key_source == "auto_generated":
+                import sys
+                print(f"WARNING: Token validation failed. SECRET_KEY is auto-generated, which means:", file=sys.stderr)
+                print(f"  - Each server instance has a different SECRET_KEY", file=sys.stderr)
+                print(f"  - Tokens created by one instance cannot be validated by another", file=sys.stderr)
+                print(f"  - Set SECRET_KEY environment variable to fix this", file=sys.stderr)
             return None
     
     def authenticate_user(self, username: str, password: str) -> Optional[User]:

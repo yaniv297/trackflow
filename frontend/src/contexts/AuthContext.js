@@ -345,8 +345,15 @@ export const AuthProvider = ({ children }) => {
       }
       
       console.log("[AuthContext] Setting token in state and localStorage");
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.js:348',message:'Setting token in localStorage',data:{tokenLength:data.access_token?.length,tokenPreview:data.access_token?.substring(0,20)+'...'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
+      // #endregion
       setTokenWithLogging(data.access_token);
       localStorage.setItem("token", data.access_token);
+      // #region agent log
+      const verifySet = localStorage.getItem("token");
+      fetch('http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.js:350',message:'Token set verification',data:{tokenSet:!!verifySet,tokenMatches:verifySet===data.access_token,tokenLength:verifySet?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C,D'})}).catch(()=>{});
+      // #endregion
       // Store login timestamp for api.js to check
       localStorage.setItem("login_timestamp", Date.now().toString());
       

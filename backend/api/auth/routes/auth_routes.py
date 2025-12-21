@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from ..schemas import UserLogin, UserResponse, Token, ClaimUserRequest
 from ..services.auth_service import AuthService
-from ..dependencies import get_current_active_user, get_current_user
+from ..dependencies import get_current_active_user as _get_current_active_user_response, get_current_user
 
 router = APIRouter()
 
@@ -82,7 +82,7 @@ def login(user_credentials: UserLogin, request: Request, db: Session = Depends(g
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(current_user: UserResponse = Depends(get_current_active_user)):
+def refresh_token(current_user: UserResponse = Depends(_get_current_active_user_response)):
     """Refresh user access token."""
     auth_service = AuthService(None)  # No DB needed for token creation
     
@@ -266,6 +266,6 @@ def ping():
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(current_user: UserResponse = Depends(get_current_active_user)):
+def get_current_user_info(current_user: UserResponse = Depends(_get_current_active_user_response)):
     """Get current user information."""
     return current_user

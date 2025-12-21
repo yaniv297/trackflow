@@ -5,7 +5,7 @@ from typing import List, Optional
 from database import get_db
 from schemas import SongCreate, SongOut
 from models import SongStatus, User, Song, Pack
-from api.auth import get_current_active_user
+from api.auth import get_current_active_user_model as get_current_active_user
 
 from ..services.song_service import SongService
 from ..validators.song_validators import SongValidator

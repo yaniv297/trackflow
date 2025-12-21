@@ -337,8 +337,12 @@ class SongRepository:
         """Update status for multiple songs."""
         from api.achievements.repositories.achievements_repository import AchievementsRepository
         from datetime import datetime
+        from collections import defaultdict
         
         achievements_repo = AchievementsRepository()
+        
+        # Track points and songs per user for aggregated notifications
+        user_releases = defaultdict(lambda: {'points': 0, 'song_count': 0})
         
         for song in songs:
             old_status = song.status
@@ -348,21 +352,40 @@ class SongRepository:
             if status == SongStatus.released and old_status != SongStatus.released:
                 song.released_at = datetime.utcnow()
                 
-                # Award 10 points for releasing a song
+                # Award 10 points for releasing a song (but don't send notification yet)
                 try:
                     achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
                     print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (album series)")
                     
-                    # Create notification
-                    from api.notifications.services.notification_service import NotificationService
-                    notification_service = NotificationService(self.db)
-                    notification_service.create_general_notification(
-                        user_id=song.user_id,
-                        title="🎯 Song Released!",
-                        message=f"You earned 10 points for releasing '{song.title}' (album series)"
-                    )
+                    # Track for aggregated notification
+                    user_releases[song.user_id]['points'] += 10
+                    user_releases[song.user_id]['song_count'] += 1
                 except Exception as e:
                     print(f"⚠️ Failed to award release points: {e}")
+        
+        # Send aggregated notifications for each user
+        if user_releases:
+            try:
+                from api.notifications.services.notification_service import NotificationService
+                notification_service = NotificationService(self.db)
+                
+                for release_user_id, release_info in user_releases.items():
+                    points = release_info['points']
+                    song_count = release_info['song_count']
+                    
+                    if song_count == 1:
+                        message = f"You earned {points} points for releasing 1 song"
+                    else:
+                        message = f"You earned {points} points for releasing {song_count} songs"
+                    
+                    notification_service.create_general_notification(
+                        user_id=release_user_id,
+                        title="🎉 Album Series Released!",
+                        message=message
+                    )
+                    print(f"✅ Sent aggregated notification to user {release_user_id}: {message}")
+            except Exception as e:
+                print(f"⚠️ Failed to create aggregated album series release notification: {e}")
     
     def get_user_songs_in_series(self, series_id: int, user_id: int) -> List[Song]:
         """Get user's songs in a specific series."""

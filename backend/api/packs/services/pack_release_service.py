@@ -189,6 +189,10 @@ class PackReleaseService:
         released_count = 0
         moved_count = 0
         
+        # Track points and songs per user for aggregated notifications
+        from collections import defaultdict
+        user_releases = defaultdict(lambda: {'points': 0, 'song_count': 0})
+        
         for song in songs:
             print(f"🔧 Processing song {song.id}: '{song.title}' status='{song.status}' optional={song.optional}")
             if song.status == "In Progress":
@@ -202,22 +206,17 @@ class PackReleaseService:
                     if release_data.song_download_links and str(song.id) in release_data.song_download_links:
                         song.release_download_link = release_data.song_download_links[str(song.id)]
                     
-                    # Award 10 points for releasing a song
+                    # Award 10 points for releasing a song (but don't send notification yet)
                     try:
                         from api.achievements.repositories.achievements_repository import AchievementsRepository
-                        from api.notifications.services.notification_service import NotificationService
                         
                         achievements_repo = AchievementsRepository()
                         achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
                         print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (pack release)")
                         
-                        # Create notification
-                        notification_service = NotificationService(self.db)
-                        notification_service.create_general_notification(
-                            user_id=song.user_id,
-                            title="🎯 Song Released!",
-                            message=f"You earned 10 points for releasing '{song.title}'"
-                        )
+                        # Track for aggregated notification
+                        user_releases[song.user_id]['points'] += 10
+                        user_releases[song.user_id]['song_count'] += 1
                     except Exception as e:
                         print(f"⚠️ Failed to award release points: {e}")
                     
@@ -261,6 +260,30 @@ class PackReleaseService:
                     song.release_download_link = release_data.song_download_links[str(song.id)]
                 
                 released_count += 1
+        
+        # Send aggregated notifications for each user
+        if user_releases:
+            try:
+                from api.notifications.services.notification_service import NotificationService
+                notification_service = NotificationService(self.db)
+                
+                for release_user_id, release_info in user_releases.items():
+                    points = release_info['points']
+                    song_count = release_info['song_count']
+                    
+                    if song_count == 1:
+                        message = f"You earned {points} points for releasing 1 song"
+                    else:
+                        message = f"You earned {points} points for releasing {song_count} songs"
+                    
+                    notification_service.create_general_notification(
+                        user_id=release_user_id,
+                        title="🎉 Pack Released!",
+                        message=message
+                    )
+                    print(f"✅ Sent aggregated notification to user {release_user_id}: {message}")
+            except Exception as e:
+                print(f"⚠️ Failed to create aggregated pack release notification: {e}")
         
         print(f"Pack release: {released_count} songs released, {moved_count} optional songs moved to bonus pack")
     

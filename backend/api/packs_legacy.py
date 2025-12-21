@@ -592,6 +592,10 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
     # If changing to Released, set released_at timestamp
     release_timestamp = datetime.utcnow() if status_update.status == "Released" else None
     
+    # Track points and songs per user for aggregated notifications
+    from collections import defaultdict
+    user_releases = defaultdict(lambda: {'points': 0, 'song_count': 0})
+    
     for song in songs:
         old_status = song.status
         song.status = new_status
@@ -602,22 +606,17 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
                 song.released_at = release_timestamp
                 print(f"🚀 Pack Release: Set released_at for song {song.id} '{song.title}' - status change from {old_status} to Released")
                 
-                # Award 10 points for releasing a song
+                # Award 10 points for releasing a song (but don't send notification yet)
                 try:
                     from api.achievements.repositories.achievements_repository import AchievementsRepository
-                    from api.notifications.services.notification_service import NotificationService
                     
                     achievements_repo = AchievementsRepository()
                     achievements_repo.update_user_total_points(db, song.user_id, 10, commit=False)
                     print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (bulk pack release)")
                     
-                    # Create notification
-                    notification_service = NotificationService(db)
-                    notification_service.create_general_notification(
-                        user_id=song.user_id,
-                        title="🎯 Song Released!",
-                        message=f"You earned 10 points for releasing '{song.title}'"
-                    )
+                    # Track for aggregated notification
+                    user_releases[song.user_id]['points'] += 10
+                    user_releases[song.user_id]['song_count'] += 1
                 except Exception as e:
                     print(f"⚠️ Failed to award release points: {e}")
                     
@@ -627,6 +626,30 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
                 print(f"🔧 Pack Release: Fixed missing released_at for song {song.id} '{song.title}' (was already Released)")
             else:
                 print(f"ℹ️ Pack Release: Song {song.id} '{song.title}' already released with timestamp {song.released_at}")
+    
+    # Send aggregated notifications for each user
+    if user_releases:
+        try:
+            from api.notifications.services.notification_service import NotificationService
+            notification_service = NotificationService(db)
+            
+            for release_user_id, release_info in user_releases.items():
+                points = release_info['points']
+                song_count = release_info['song_count']
+                
+                if song_count == 1:
+                    message = f"You earned {points} points for releasing 1 song"
+                else:
+                    message = f"You earned {points} points for releasing {song_count} songs"
+                
+                notification_service.create_general_notification(
+                    user_id=release_user_id,
+                    title="🎉 Pack Released!",
+                    message=message
+                )
+                print(f"✅ Sent aggregated notification to user {release_user_id}: {message}")
+        except Exception as e:
+            print(f"⚠️ Failed to create aggregated pack release notification: {e}")
     
     # Also set released_at for the pack itself
     if status_update.status == "Released":

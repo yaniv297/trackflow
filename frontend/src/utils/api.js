@@ -199,6 +199,43 @@ export const apiCall = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
+      // Handle 403 Forbidden - likely SECRET_KEY mismatch across workers
+      if (response.status === 403) {
+        const loginTimestamp = localStorage.getItem("login_timestamp");
+        const timeSinceLogin = loginTimestamp ? Date.now() - parseInt(loginTimestamp) : Infinity;
+        const justLoggedIn = timeSinceLogin < 15000; // 15 seconds grace period
+        
+        console.error("[api.js] 403 Forbidden error", {
+          justLoggedIn,
+          timeSinceLogin,
+          endpoint: url,
+          message: "This usually indicates SECRET_KEY mismatch across backend workers",
+        });
+        
+        // Store the 403 error for debugging
+        try {
+          localStorage.setItem("api_403_error", JSON.stringify({
+            timestamp: new Date().toISOString(),
+            endpoint: url,
+            justLoggedIn,
+            timeSinceLogin,
+            status: response.status,
+            statusText: response.statusText,
+            message: "SECRET_KEY mismatch - each backend worker has different key",
+          }));
+        } catch (e) {
+          console.error("Failed to store 403 error:", e);
+        }
+        
+        if (!justLoggedIn) {
+          console.error("[api.js] CRITICAL: 403 Forbidden errors indicate SECRET_KEY mismatch.");
+          console.error("[api.js] Backend has multiple workers, each with different SECRET_KEY.");
+          console.error("[api.js] SOLUTION: Set SECRET_KEY environment variable in Railway backend.");
+        }
+        
+        throw new Error("Forbidden - SECRET_KEY mismatch detected");
+      }
+      
       // Try to parse error response as JSON
       let errorData = {};
       let errorMessage = `HTTP error! status: ${response.status}`;

@@ -61,7 +61,7 @@ class AuthService:
         """Verify JWT token and return payload."""
         import json
         import os
-        log_path = "/Users/yanivbin/code/random/trackflow/.cursor/debug.log"
+        log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
         try:
             # Check if SECRET_KEY is from env var or auto-generated
             secret_key_source = "env_var" if os.getenv("SECRET_KEY") else "auto_generated"

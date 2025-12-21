@@ -29,16 +29,26 @@ def get_current_user(
     
     import json
     import time
-    log_path = "/Users/yanivbin/code/random/trackflow/.cursor/debug.log"
+    import os
+    # Use environment-specific log path or skip logging in production
+    log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
     # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location":"dependencies.py:30","message":"get_current_user called","data":{"hasCredentials":bool(credentials),"hasToken":bool(credentials.credentials if credentials else False),"tokenLength":len(credentials.credentials) if credentials and credentials.credentials else 0,"tokenPreview":credentials.credentials[:20]+"..." if credentials and credentials.credentials else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,B,E"})+"\n")
+    try:
+        with open(log_path, "a") as f:
+            f.write(json.dumps({"location":"dependencies.py:30","message":"get_current_user called","data":{"hasCredentials":bool(credentials),"hasToken":bool(credentials.credentials if credentials else False),"tokenLength":len(credentials.credentials) if credentials and credentials.credentials else 0,"tokenPreview":credentials.credentials[:20]+"..." if credentials and credentials.credentials else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,B,E"})+"\n")
+    except:
+        pass
     # #endregion
     auth_service = AuthService(db)
     user = auth_service.get_user_by_token(credentials.credentials)
     # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location":"dependencies.py:33","message":"get_user_by_token result","data":{"userFound":bool(user),"username":user.username if user else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
+    try:
+        import os
+        log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
+        with open(log_path, "a") as f:
+            f.write(json.dumps({"location":"dependencies.py:33","message":"get_user_by_token result","data":{"userFound":bool(user),"username":user.username if user else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
+    except:
+        pass
     # #endregion
     
     if not user:
@@ -81,7 +91,9 @@ def get_current_user_model(
     from models import User
     import json
     import time
-    log_path = "/Users/yanivbin/code/random/trackflow/.cursor/debug.log"
+    import os
+    # Use environment-specific log path or skip logging in production
+    log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

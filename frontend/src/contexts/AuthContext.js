@@ -193,9 +193,9 @@ export const AuthProvider = ({ children }) => {
               console.error("Failed to store simple error:", e);
             }
             
-            // Show alert that stays visible
-            alert(
-              `Auth Error:\n` +
+            // Log error to console (removed alert - too annoying)
+            console.error(
+              `[AuthContext] Auth Error:\n` +
               `Status: ${response.status} ${response.statusText}\n` +
               `API: ${API_BASE_URL}\n` +
               `Error: ${errorText.substring(0, 200)}\n\n` +
@@ -239,9 +239,9 @@ export const AuthProvider = ({ children }) => {
             console.error("Failed to store simple error:", e);
           }
           
-          // Show alert that stays visible
-          alert(
-            `Auth Exception:\n` +
+          // Log error to console (removed alert - too annoying)
+          console.error(
+            `[AuthContext] Auth Exception:\n` +
             `API: ${API_BASE_URL}\n` +
             `Error: ${error.message}\n\n` +
             `Check localStorage.auth_error_log or auth_error_simple`
@@ -366,7 +366,7 @@ export const AuthProvider = ({ children }) => {
         });
         if (!checkToken) {
           console.error("[AuthContext] TOKEN WAS CLEARED IMMEDIATELY AFTER SET!");
-          alert("CRITICAL: Token was cleared immediately after login! Check console.");
+          console.error("[AuthContext] CRITICAL: Token was cleared immediately after login! Check console.");
         }
       }, 100);
       

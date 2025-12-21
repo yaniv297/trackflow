@@ -14,37 +14,55 @@ for env_path in env_paths:
         break
 
 # Now import everything else after .env is loaded
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from sqlalchemy import text
+# Import traceback first (it's a standard library module)
+import traceback
 
-from api.songs import router as songs_router
-from api import authoring as authoring
-from api import tools as tools
-from api import stats as stats
-from api.album_series import router as album_series_router
-from api.auth import router as auth_router
-from api.packs import router as packs_router
-from api import dashboard as dashboard
-from api import collaborations as collaborations
-from api import user_settings as user_settings
-from api import file_links as file_links
-from api.spotify import router as spotify_router
-from api import rockband_dlc as rockband_dlc
-from api import workflows as workflows
-from api import bug_reports as bug_reports
-from api import admin as admin
-from api.feature_requests import router as feature_requests_router
-from api.achievements import router as achievements_router
-from api.notifications import router as notifications_router
-from api.public_songs import router as public_songs_router
-from api.collaboration_requests import router as collaboration_requests_router
-from api.community import router as community_router
-from api.public_profiles import router as public_profiles_router
-from database import engine, SQLALCHEMY_DATABASE_URL, get_db
-from models import Base
+# Wrap imports in try/except to catch import errors and provide helpful messages
+try:
+    from fastapi import FastAPI, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.middleware.gzip import GZipMiddleware
+    from fastapi.middleware.trustedhost import TrustedHostMiddleware
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+except ImportError as e:
+    print(f"CRITICAL: Failed to import core dependencies: {e}")
+    print(f"Traceback: {traceback.format_exc()}")
+    import sys
+    sys.exit(1)
+
+# Import route modules with error handling
+try:
+    from api.songs import router as songs_router
+    from api import authoring as authoring
+    from api import tools as tools
+    from api import stats as stats
+    from api.album_series import router as album_series_router
+    from api.auth import router as auth_router
+    from api.packs import router as packs_router
+    from api import dashboard as dashboard
+    from api import collaborations as collaborations
+    from api import user_settings as user_settings
+    from api import file_links as file_links
+    from api.spotify import router as spotify_router
+    from api import rockband_dlc as rockband_dlc
+    from api import workflows as workflows
+    from api import bug_reports as bug_reports
+    from api import admin as admin
+    from api.feature_requests import router as feature_requests_router
+    from api.achievements import router as achievements_router
+    from api.notifications import router as notifications_router
+    from api.public_songs import router as public_songs_router
+    from api.collaboration_requests import router as collaboration_requests_router
+    from api.community import router as community_router
+    from api.public_profiles import router as public_profiles_router
+    from database import engine, SQLALCHEMY_DATABASE_URL, get_db
+    from models import Base
+except ImportError as e:
+    print(f"CRITICAL: Failed to import route modules: {e}")
+    print(f"Traceback: {traceback.format_exc()}")
+    import sys
+    sys.exit(1)
 
 
 
@@ -70,9 +88,13 @@ app.add_middleware(
 )
 
 # Add CORS middleware FIRST (before routes)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Dynamic CORS origin checker to allow all Railway.app subdomains
+def is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed for CORS."""
+    if not origin:
+        return False
+    
+    allowed_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
         "https://trackflow-front.onrender.com",
@@ -83,7 +105,17 @@ app.add_middleware(
         "https://site-production-8de8.up.railway.app",
         "https://www.trackflow.site",
         "https://trackflow.site",
-    ],
+    ]
+    
+    # Allow all Railway.app subdomains (for staging/preview deployments)
+    if ".railway.app" in origin or ".up.railway.app" in origin:
+        return True
+    
+    return origin in allowed_origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_func=is_allowed_origin,  # Use function for dynamic checking
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
@@ -132,7 +164,31 @@ app.include_router(public_profiles_router, prefix="/api")
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    init_db()
+    try:
+        print("🚀 Starting TrackFlow API...")
+        init_db()
+        print("✅ TrackFlow API started successfully")
+    except Exception as e:
+        print(f"❌ CRITICAL: Failed to start TrackFlow API: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        # Don't exit - let the server start anyway, but log the error
+
+# Global exception handler to prevent crashes (but don't catch HTTPExceptions)
+from fastapi.exceptions import HTTPException as FastAPIHTTPException
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch all unhandled exceptions to prevent server crashes."""
+    # Don't catch HTTPExceptions - let FastAPI handle those normally
+    if isinstance(exc, FastAPIHTTPException):
+        raise exc
+    
+    print(f"❌ Unhandled exception: {exc}")
+    print(f"Traceback: {traceback.format_exc()}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)}
+    )
 
 @app.get("/")
 async def root():

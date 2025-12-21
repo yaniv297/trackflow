@@ -184,8 +184,8 @@ export const apiCall = async (endpoint, options = {}) => {
         // The real fix is to set SECRET_KEY in both environments
         console.error("[api.js] CRITICAL: All API calls returning 401. This suggests SECRET_KEY mismatch between staging and production.");
         console.error("[api.js] Solution: Set the same SECRET_KEY environment variable in both staging and production backends.");
-        alert(
-          "Authentication Error:\n\n" +
+        console.error(
+          "[api.js] Authentication Error:\n\n" +
           "All API calls are failing with 401 errors. This typically means the backend SECRET_KEY doesn't match.\n\n" +
           "Please set the same SECRET_KEY environment variable in both staging and production backends.\n\n" +
           "The token will not be cleared to allow debugging."

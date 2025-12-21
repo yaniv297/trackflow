@@ -88,34 +88,30 @@ app.add_middleware(
 )
 
 # Add CORS middleware FIRST (before routes)
-# Dynamic CORS origin checker to allow all Railway.app subdomains
-def is_allowed_origin(origin: str) -> bool:
-    """Check if origin is allowed for CORS."""
-    if not origin:
-        return False
-    
-    allowed_origins = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://trackflow-front.onrender.com",
-        "https://frontend-production-4e01.up.railway.app",
-        "https://frontend-copy-production-3b1e.up.railway.app",
-        "https://trackflow-frontend.up.railway.app",
-        "https://trackflow-frontend.railway.app",
-        "https://site-production-8de8.up.railway.app",
-        "https://www.trackflow.site",
-        "https://trackflow.site",
-    ]
-    
-    # Allow all Railway.app subdomains (for staging/preview deployments)
-    if ".railway.app" in origin or ".up.railway.app" in origin:
-        return True
-    
-    return origin in allowed_origins
+# Use regex pattern to allow all Railway.app subdomains (for staging/preview deployments)
+import re
+
+# Build list of allowed origins
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://trackflow-front.onrender.com",
+    "https://frontend-production-4e01.up.railway.app",
+    "https://frontend-copy-production-3b1e.up.railway.app",
+    "https://trackflow-frontend.up.railway.app",
+    "https://trackflow-frontend.railway.app",
+    "https://site-production-8de8.up.railway.app",
+    "https://www.trackflow.site",
+    "https://trackflow.site",
+]
+
+# Regex pattern to match any Railway.app subdomain
+railway_regex = r"https?://.*\.railway\.app$|https?://.*\.up\.railway\.app$"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_func=is_allowed_origin,  # Use function for dynamic checking
+    allow_origins=allowed_origins,
+    allow_origin_regex=railway_regex,  # Allow all Railway subdomains via regex
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],

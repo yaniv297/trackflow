@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { apiGet, apiDelete, apiPost } from "../utils/api";
+import { apiGet, apiDelete, apiPost, apiPut } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import ActivityFeed from "../components/shared/ActivityFeed";
 import RecentlyAuthoredParts from "../components/shared/RecentlyAuthoredParts";
@@ -31,6 +31,16 @@ function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const ITEMS_PER_PAGE = 10;
   const { updateAuth } = useAuth();
+  const [updates, setUpdates] = useState([]);
+  const [loadingUpdates, setLoadingUpdates] = useState(false);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [editingUpdate, setEditingUpdate] = useState(null);
+  const [updateForm, setUpdateForm] = useState({
+    title: "",
+    content: "",
+    type: "announcement",
+    date: new Date().toISOString().split('T')[0]
+  });
 
   // Determine current admin section from URL
   const currentSection = location.pathname === '/admin' ? 'dashboard' : 
@@ -39,6 +49,9 @@ function AdminPage() {
   useEffect(() => {
     if (currentSection === 'users' || currentSection === 'dashboard') {
       loadUsers();
+    }
+    if (currentSection === 'updates') {
+      loadUpdates();
     }
   }, [currentSection]);
 
@@ -237,6 +250,7 @@ function AdminPage() {
         { id: 'dashboard', label: 'Dashboard', path: '/admin/dashboard' },
         { id: 'users', label: 'Users', path: '/admin/users' },
         { id: 'release-posts', label: 'Release Posts', path: '/admin/release-posts' },
+        { id: 'updates', label: 'Updates', path: '/admin/updates' },
         { id: 'notifications', label: 'Notifications', path: '/admin/notifications' },
         { id: 'tools', label: 'Tools', path: '/admin/tools' }
       ].map(tab => (
@@ -597,6 +611,312 @@ function AdminPage() {
     </div>
   );
 
+  const loadUpdates = async () => {
+    try {
+      setLoadingUpdates(true);
+      const data = await apiGet("/admin/updates?limit=100");
+      setUpdates(data || []);
+    } catch (error) {
+      console.error("Failed to load updates:", error);
+      setError("Failed to load updates");
+    } finally {
+      setLoadingUpdates(false);
+    }
+  };
+
+  const handleCreateUpdate = async () => {
+    try {
+      await apiPost("/admin/updates", updateForm);
+      setShowUpdateForm(false);
+      setUpdateForm({ title: "", content: "", type: "announcement", date: new Date().toISOString().split('T')[0] });
+      loadUpdates();
+    } catch (error) {
+      console.error("Failed to create update:", error);
+      alert("Failed to create update: " + (error.message || "Unknown error"));
+    }
+  };
+
+  const handleUpdateUpdate = async () => {
+    try {
+      await apiPut(`/admin/updates/${editingUpdate.id}`, updateForm);
+      setEditingUpdate(null);
+      setShowUpdateForm(false);
+      setUpdateForm({ title: "", content: "", type: "announcement", date: new Date().toISOString().split('T')[0] });
+      loadUpdates();
+    } catch (error) {
+      console.error("Failed to update update:", error);
+      alert("Failed to update update: " + (error.message || "Unknown error"));
+    }
+  };
+
+  const handleDeleteUpdate = async (updateId) => {
+    if (!window.confirm("Are you sure you want to delete this update?")) {
+      return;
+    }
+    try {
+      await apiDelete(`/admin/updates/${updateId}`);
+      loadUpdates();
+    } catch (error) {
+      console.error("Failed to delete update:", error);
+      alert("Failed to delete update: " + (error.message || "Unknown error"));
+    }
+  };
+
+  const handleEditUpdate = (update) => {
+    setEditingUpdate(update);
+    setUpdateForm({
+      title: update.title,
+      content: update.content,
+      type: update.type,
+      date: update.date.split('T')[0]
+    });
+    setShowUpdateForm(true);
+  };
+
+  const renderUpdates = () => (
+    <div className="admin-updates-section">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div>
+          <h3>Latest Updates Management</h3>
+          <p style={{ color: '#666', marginTop: '0.5rem' }}>
+            Create and manage updates that appear in the "Latest Updates" section on the home page.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setEditingUpdate(null);
+            setUpdateForm({ title: "", content: "", type: "announcement", date: new Date().toISOString().split('T')[0] });
+            setShowUpdateForm(true);
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '600'
+          }}
+        >
+          + New Update
+        </button>
+      </div>
+
+      {showUpdateForm && (
+        <div style={{
+          background: '#f8f9fa',
+          padding: '2rem',
+          borderRadius: '8px',
+          marginBottom: '2rem'
+        }}>
+          <h4 style={{ marginBottom: '1.5rem' }}>
+            {editingUpdate ? 'Edit Update' : 'Create New Update'}
+          </h4>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+              Title:
+            </label>
+            <input
+              type="text"
+              value={updateForm.title}
+              onChange={(e) => setUpdateForm({ ...updateForm, title: e.target.value })}
+              placeholder="Update title..."
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+              Content:
+            </label>
+            <textarea
+              value={updateForm.content}
+              onChange={(e) => setUpdateForm({ ...updateForm, content: e.target.value })}
+              placeholder="Update content..."
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+              Type:
+            </label>
+            <select
+              value={updateForm.type}
+              onChange={(e) => setUpdateForm({ ...updateForm, type: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '1rem'
+              }}
+            >
+              <option value="announcement">Announcement</option>
+              <option value="feature">Feature</option>
+              <option value="update">Update</option>
+              <option value="bugfix">Bug Fix</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
+              Date:
+            </label>
+            <input
+              type="date"
+              value={updateForm.date}
+              onChange={(e) => setUpdateForm({ ...updateForm, date: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button
+              onClick={editingUpdate ? handleUpdateUpdate : handleCreateUpdate}
+              disabled={!updateForm.title || !updateForm.content}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: editingUpdate ? '#28a745' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: (!updateForm.title || !updateForm.content) ? 'not-allowed' : 'pointer',
+                fontSize: '1rem',
+                fontWeight: '600',
+                opacity: (!updateForm.title || !updateForm.content) ? 0.5 : 1
+              }}
+            >
+              {editingUpdate ? 'Update' : 'Create'}
+            </button>
+            <button
+              onClick={() => {
+                setShowUpdateForm(false);
+                setEditingUpdate(null);
+                setUpdateForm({ title: "", content: "", type: "announcement", date: new Date().toISOString().split('T')[0] });
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loadingUpdates ? (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>Loading updates...</div>
+      ) : updates.length === 0 ? (
+        <div style={{
+          background: '#f8f9fa',
+          padding: '3rem',
+          borderRadius: '8px',
+          textAlign: 'center',
+          color: '#666'
+        }}>
+          <p>No updates yet. Create your first update!</p>
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gap: '1rem'
+        }}>
+          {updates.map(update => (
+            <div
+              key={update.id}
+              style={{
+                background: 'white',
+                border: '1px solid #dee2e6',
+                borderRadius: '8px',
+                padding: '1.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                    <h4 style={{ margin: 0 }}>{update.title}</h4>
+                    <span style={{
+                      padding: '0.25rem 0.75rem',
+                      background: '#e9ecef',
+                      borderRadius: '12px',
+                      fontSize: '0.875rem',
+                      textTransform: 'capitalize'
+                    }}>
+                      {update.type}
+                    </span>
+                  </div>
+                  <p style={{ color: '#666', margin: 0, whiteSpace: 'pre-wrap' }}>{update.content}</p>
+                  <div style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: '#999' }}>
+                    By {update.author} • {new Date(update.date).toLocaleDateString()}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
+                  <button
+                    onClick={() => handleEditUpdate(update)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUpdate(update.id)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const renderNotifications = () => (
     <div className="admin-notifications-section">
       <h3>Broadcast Notifications</h3>
@@ -704,6 +1024,7 @@ function AdminPage() {
           {currentSection === 'dashboard' && 'Overview and quick actions'}
           {currentSection === 'users' && 'Manage users and permissions'}
           {currentSection === 'release-posts' && 'Create and manage release announcements'}
+          {currentSection === 'updates' && 'Manage Latest Updates for the home page'}
           {currentSection === 'notifications' && 'Send system messages to users'}
           {currentSection === 'tools' && 'Maintenance and system tools'}
         </p>
@@ -714,6 +1035,7 @@ function AdminPage() {
       {currentSection === 'dashboard' && renderDashboard()}
       {currentSection === 'users' && renderUsers()}
       {currentSection === 'release-posts' && renderReleasePosts()}
+      {currentSection === 'updates' && renderUpdates()}
       {currentSection === 'notifications' && renderNotifications()}
       {currentSection === 'tools' && renderTools()}
     </div>

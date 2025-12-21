@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from models import SongStatus, PostType
+from models import SongStatus, PostType, UpdateType
 from typing import Optional, List
 from datetime import datetime
 import json
@@ -382,6 +382,32 @@ class ReleasePostOut(BaseModel):
     linked_songs: Optional[List[SongOut]] = None
     slug: Optional[str] = None
     tags: Optional[List[str]] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class UpdateCreate(BaseModel):
+    title: str
+    content: str
+    type: UpdateType
+    date: Optional[datetime] = None  # If not provided, uses current time
+
+class UpdateUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    type: Optional[UpdateType] = None
+    date: Optional[datetime] = None
+
+class UpdateOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    type: UpdateType
+    author_id: int
+    author: str  # Author username
+    date: datetime
     created_at: datetime
     updated_at: datetime
     

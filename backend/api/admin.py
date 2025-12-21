@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text
+from sqlalchemy import text, desc
 from database import get_db
 from auth import get_current_user
-from models import User, Song, Artist, ActivityLog, ReleasePost, Pack, PostType
+from models import User, Song, Artist, ActivityLog, ReleasePost, Pack, PostType, Update
 from schemas import (
     UserOut,
     ActivityLogOut,
@@ -12,6 +12,9 @@ from schemas import (
     ReleasePostUpdate,
     ReleasePostOut,
     SongOut,
+    UpdateCreate,
+    UpdateUpdate,
+    UpdateOut,
 )
 from typing import List, Optional
 from datetime import timedelta, datetime
@@ -624,3 +627,130 @@ def format_song_for_release_post(song: Song) -> SongOut:
         optional=song.optional,
         released_at=song.released_at
     )
+
+
+# ==================== UPDATE MANAGEMENT ====================
+
+@router.get("/updates", response_model=List[UpdateOut])
+def list_updates(
+    limit: Optional[int] = Query(100, le=200),
+    offset: Optional[int] = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """List all updates (admin only)"""
+    updates = db.query(Update).options(
+        joinedload(Update.author)
+    ).order_by(
+        desc(Update.date),
+        desc(Update.created_at)
+    ).offset(offset).limit(limit).all()
+    
+    result = []
+    for update in updates:
+        result.append(UpdateOut(
+            id=update.id,
+            title=update.title,
+            content=update.content,
+            type=update.type,
+            author_id=update.author_id,
+            author=update.author.username if update.author else "Unknown",
+            date=update.date,
+            created_at=update.created_at,
+            updated_at=update.updated_at
+        ))
+    
+    return result
+
+@router.post("/updates", response_model=UpdateOut)
+def create_update(
+    update_data: UpdateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Create a new update (admin only)"""
+    date = update_data.date if update_data.date else datetime.utcnow()
+    
+    new_update = Update(
+        title=update_data.title,
+        content=update_data.content,
+        type=update_data.type,
+        author_id=current_user.id,
+        date=date
+    )
+    
+    db.add(new_update)
+    db.commit()
+    db.refresh(new_update)
+    
+    # Load author relationship
+    update_with_author = db.query(Update).options(
+        joinedload(Update.author)
+    ).filter(Update.id == new_update.id).first()
+    
+    return UpdateOut(
+        id=update_with_author.id,
+        title=update_with_author.title,
+        content=update_with_author.content,
+        type=update_with_author.type,
+        author_id=update_with_author.author_id,
+        author=update_with_author.author.username if update_with_author.author else "Unknown",
+        date=update_with_author.date,
+        created_at=update_with_author.created_at,
+        updated_at=update_with_author.updated_at
+    )
+
+@router.put("/updates/{update_id}", response_model=UpdateOut)
+def update_update(
+    update_id: int,
+    update_data: UpdateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Update an existing update (admin only)"""
+    update = db.query(Update).options(
+        joinedload(Update.author)
+    ).filter(Update.id == update_id).first()
+    if not update:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    # Update fields if provided
+    if update_data.title is not None:
+        update.title = update_data.title
+    if update_data.content is not None:
+        update.content = update_data.content
+    if update_data.type is not None:
+        update.type = update_data.type
+    if update_data.date is not None:
+        update.date = update_data.date
+    
+    db.commit()
+    db.refresh(update)
+    
+    return UpdateOut(
+        id=update.id,
+        title=update.title,
+        content=update.content,
+        type=update.type,
+        author_id=update.author_id,
+        author=update.author.username if update.author else "Unknown",
+        date=update.date,
+        created_at=update.created_at,
+        updated_at=update.updated_at
+    )
+
+@router.delete("/updates/{update_id}")
+def delete_update(
+    update_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Delete an update (admin only)"""
+    update = db.query(Update).filter(Update.id == update_id).first()
+    if not update:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    db.delete(update)
+    db.commit()
+    
+    return {"message": "Update deleted successfully"}

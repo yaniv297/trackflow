@@ -18,9 +18,9 @@ class SuggestionsService:
         self.current_user = current_user
 
     def get_suggestions(self, limit: int = 6) -> List[Dict[str, Any]]:
-        # Reduce initial fetch from 100 to 30 for better performance
-        # We only need 6 suggestions, so 30 songs should be plenty
-        songs, song_map = self._fetch_songs(limit=30)
+        # Fetch more songs to ensure we have enough variety for randomization
+        # We need at least 2x limit (12) for true randomization, so fetch more initially
+        songs, song_map = self._fetch_songs(limit=50)
 
         completion_data = build_song_completion_data(self.db, songs)
         song_enriched = {song.id: self._enrich_song(song, completion_data) for song in songs}
@@ -80,12 +80,30 @@ class SuggestionsService:
             used_ids.update(item["id"] for item in filler)
 
         # Ensure we have enough variety for randomization (target 2x limit, min 10)
+        # This is critical: we need MORE candidates than the limit to get true randomization
         target_pool_size = max(limit * 2, 10)
         if len(suggestions) < target_pool_size:
             extra_needed = target_pool_size - len(suggestions)
+            # Start with 70% completion threshold, but lower it if we don't have enough
             extra = self._get_fallback_songs(
                 song_enriched, used_ids, extra_needed, min_completion=70
             )
+            # If we still don't have enough, lower the threshold to get more variety
+            if len(extra) < extra_needed:
+                still_needed = extra_needed - len(extra)
+                extra_lower = self._get_fallback_songs(
+                    song_enriched, used_ids, still_needed, min_completion=50
+                )
+                extra.extend(extra_lower)
+                used_ids.update(item["id"] for item in extra_lower)
+            # If still not enough, lower even more
+            if len(extra) < extra_needed:
+                still_needed = extra_needed - len(extra)
+                extra_lower = self._get_fallback_songs(
+                    song_enriched, used_ids, still_needed, min_completion=0
+                )
+                extra.extend(extra_lower)
+                used_ids.update(item["id"] for item in extra_lower)
             suggestions.extend(extra)
             used_ids.update(item["id"] for item in extra)
 
@@ -104,13 +122,32 @@ class SuggestionsService:
         # Collect a candidate pool (up to 20) and shuffle to rotate entries
         pool_size = max(limit * 2, 10)
         candidate_pool = deduplicated[:pool_size]
+        
+        # #region agent log
+        import json
+        log_path = "/Users/yanivbin/code/random/trackflow/.cursor/debug.log"
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "randomization-check", "hypothesisId": "F", "location": "suggestions_service.py:get_suggestions:randomization", "message": "Randomization pool info", "data": {"total_suggestions": len(suggestions), "deduplicated_count": len(deduplicated), "pool_size": pool_size, "candidate_pool_size": len(candidate_pool), "limit": limit, "candidate_ids": [item.get("id") for item in candidate_pool]}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         random.shuffle(candidate_pool)
 
         sample_size = min(limit, len(candidate_pool))
         if sample_size == 0:
             return candidate_pool
 
-        return random.sample(candidate_pool, sample_size)
+        result = random.sample(candidate_pool, sample_size)
+        
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "randomization-check", "hypothesisId": "F", "location": "suggestions_service.py:get_suggestions:result", "message": "Final sampled result", "data": {"result_count": len(result), "result_ids": [item.get("id") for item in result]}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
+        return result
 
     # --- internal helpers ---
 
@@ -272,6 +309,15 @@ class SuggestionsService:
 
     def _get_long_time_no_work_songs(self, songs, song_enriched, used_ids):
         """Find songs that have some progress but haven't been updated in a while."""
+        # #region agent log
+        import json
+        log_path = "/Users/yanivbin/code/random/trackflow/.cursor/debug.log"
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "A", "location": "suggestions_service.py:_get_long_time_no_work_songs:entry", "message": "Method entry", "data": {"song_count": len(songs), "user_id": self.current_user.id}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         candidates = []
         for song in songs:
             enriched = song_enriched.get(song.id)
@@ -285,37 +331,117 @@ class SuggestionsService:
                 continue
             candidates.append((song, enriched))
 
-        # Sort by updated_at ascending (oldest first)
-        candidates.sort(
-            key=lambda x: x[0].updated_at or x[0].created_at or datetime.min
-        )
+        if not candidates:
+            return []
+
+        # Query song_progress to get actual last work date for all candidate songs
+        from sqlalchemy import text
+        song_ids = [song.id for song, _ in candidates]
+        placeholders = ",".join([f":song_id_{i}" for i in range(len(song_ids))])
+        params = {f"song_id_{i}": sid for i, sid in enumerate(song_ids)}
+        
+        progress_results = self.db.execute(
+            text(f"""
+                SELECT song_id, MAX(updated_at) as max_updated_at
+                FROM song_progress
+                WHERE song_id IN ({placeholders})
+                GROUP BY song_id
+            """),
+            params
+        ).fetchall()
+        
+        # Build a map of song_id -> max updated_at from song_progress
+        progress_map = {row[0]: row[1] for row in progress_results if row[1] is not None}
+
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "B", "location": "suggestions_service.py:_get_long_time_no_work_songs:progress_query", "message": "Song progress query results", "data": {"candidate_count": len(candidates), "progress_map_size": len(progress_map), "sample_progress": {sid: str(ts) for sid, ts in list(progress_map.items())[:3]}}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+
+        # Sort by actual last work date (from song_progress) ascending (oldest first)
+        # Fall back to song.updated_at or song.created_at if no progress exists
+        def get_sort_key(item):
+            song, _ = item
+            # Prefer song_progress.updated_at, then song.updated_at, then song.created_at
+            if song.id in progress_map:
+                return progress_map[song.id] or datetime.min
+            return song.updated_at or song.created_at or datetime.min
+        
+        candidates.sort(key=get_sort_key)
+
+        # Filter to only include songs that haven't been worked on for at least 30 days
+        # This ensures "long time no work" actually means long time
+        MIN_DAYS_THRESHOLD = 30
+        now = datetime.utcnow()
+        long_time_candidates = []
+        
+        for song, enriched in candidates:
+            # Get actual last work date
+            last_updated = progress_map.get(song.id) or song.updated_at or song.created_at
+            if not last_updated:
+                # If no date at all, skip (shouldn't happen for songs with progress)
+                continue
+            
+            # Ensure last_updated is naive for comparison
+            if last_updated.tzinfo is not None:
+                last_updated = last_updated.replace(tzinfo=None)
+            
+            days_ago = (now - last_updated).days
+            
+            # #region agent log
+            try:
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "threshold-fix", "hypothesisId": "E", "location": "suggestions_service.py:_get_long_time_no_work_songs:threshold_check", "message": "Checking threshold for song", "data": {"song_id": song.id, "song_title": song.title, "days_ago": days_ago, "threshold": MIN_DAYS_THRESHOLD, "meets_threshold": days_ago >= MIN_DAYS_THRESHOLD}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+            except: pass
+            # #endregion
+            
+            # Only include if it's been at least MIN_DAYS_THRESHOLD days
+            if days_ago >= MIN_DAYS_THRESHOLD:
+                long_time_candidates.append((song, enriched, days_ago))
 
         suggestions = []
-        for song, enriched in candidates[:3]:  # Limit to top 3 oldest
+        for song, enriched, days_ago in long_time_candidates[:3]:  # Limit to top 3 oldest
+            # #region agent log
+            try:
+                max_sp_updated = progress_map.get(song.id)
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "threshold-fix", "hypothesisId": "B", "location": "suggestions_service.py:_get_long_time_no_work_songs:comparison", "message": "Comparing song.updated_at vs song_progress.updated_at", "data": {"song_id": song.id, "song_title": song.title, "song_updated_at": str(song.updated_at), "song_created_at": str(song.created_at), "max_song_progress_updated_at": str(max_sp_updated)}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+            except: pass
+            # #endregion
+            
             cloned = {**enriched}
             cloned["tags"] = cloned.get("tags", []) + ["Long time no work"]
             cloned["priority"] = 4
             
-            # Calculate days since last work
-            last_updated = song.updated_at or song.created_at
-            if last_updated:
-                # Database stores naive UTC datetimes, so compare with UTC now
-                now = datetime.utcnow()
-                # Ensure last_updated is naive for comparison
-                if last_updated.tzinfo is not None:
-                    last_updated = last_updated.replace(tzinfo=None)
-                days_ago = (now - last_updated).days
-                
-                if days_ago == 0:
-                    cloned["message"] = "It was today since you last worked on this song"
-                elif days_ago == 1:
-                    cloned["message"] = "It was 1 day since you last worked on this song"
-                else:
-                    cloned["message"] = f"It was {days_ago} days since you last worked on this song"
+            # Calculate days since last work - use song_progress.updated_at if available
+            # This correctly reflects actual work done, including by collaborators
+            last_updated = progress_map.get(song.id) or song.updated_at or song.created_at
+            
+            # #region agent log
+            try:
+                with open(log_path, "a") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "threshold-fix", "hypothesisId": "C", "location": "suggestions_service.py:_get_long_time_no_work_songs:calculation", "message": "Days calculation using actual last work date", "data": {"song_id": song.id, "last_updated": str(last_updated), "days_ago": days_ago, "source": "song_progress" if song.id in progress_map else "song.updated_at"}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+            except: pass
+            # #endregion
+            
+            if days_ago == 0:
+                cloned["message"] = "It was today since you last worked on this song"
+            elif days_ago == 1:
+                cloned["message"] = "It was 1 day since you last worked on this song"
             else:
-                cloned["message"] = self._message_for_song(cloned, include_recent=False)
+                cloned["message"] = f"It was {days_ago} days since you last worked on this song"
             
             suggestions.append(cloned)
+        
+        # #region agent log
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "post-fix", "hypothesisId": "D", "location": "suggestions_service.py:_get_long_time_no_work_songs:exit", "message": "Method exit", "data": {"suggestions_count": len(suggestions), "suggestions": [{"song_id": s.get("song_id"), "title": s.get("title"), "message": s.get("message")} for s in suggestions]}, "timestamp": int(datetime.utcnow().timestamp() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         return suggestions
 
     def _get_fallback_songs(self, song_enriched, used_ids, needed, min_completion=0):

@@ -20,41 +20,12 @@ const LatestUpdates = ({ limit = 5 }) => {
       setLoading(true);
       setError(null);
       
-      // For now, using mock data. Replace with actual API call when available
-      const mockUpdates = [
-        {
-          id: 1,
-          title: "Welcome to TrackFlow!",
-          content: "TrackFlow is your complete music production management system. Track your projects, collaborate with others, and see how you rank on the community leaderboard!",
-          author: "TrackFlow Team",
-          date: "2024-11-20",
-          type: "announcement"
-        },
-        {
-          id: 2,
-          title: "New Achievement System",
-          content: "Earn points and unlock achievements as you complete projects and reach milestones. Check out the leaderboard to see how you rank!",
-          author: "Admin",
-          date: "2024-11-15",
-          type: "feature"
-        },
-        {
-          id: 3,
-          title: "Collaboration Features Released",
-          content: "Work seamlessly with other artists using our new collaboration tools. Share projects, assign tasks, and track progress together.",
-          author: "Development Team",
-          date: "2024-11-10",
-          type: "feature"
-        }
-      ];
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const data = await apiGet(`/api/updates?limit=${limit}`);
+      const updates = data || [];
       
-      const limitedUpdates = mockUpdates.slice(0, limit);
-      setUpdates(limitedUpdates);
-      if (limitedUpdates.length > 0) {
-        setCurrentUpdate(limitedUpdates[0]);
+      setUpdates(updates);
+      if (updates.length > 0) {
+        setCurrentUpdate(updates[0]);
         setCurrentIndex(0);
       }
     } catch (error) {

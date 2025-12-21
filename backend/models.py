@@ -44,7 +44,7 @@ class SafeDateTime(DateTime):
 
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'PasswordResetToken', 'CollaborationRequest', 'SongProgress']
+__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'SongProgress']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -459,6 +459,33 @@ class PostType(str, enum.Enum):
     FEATURE_UPDATE = "feature_update"  # New app features
     COMMUNITY_NEWS = "community_news"  # General community updates
     CURATED = "curated"               # Custom admin posts
+
+class UpdateType(str, enum.Enum):
+    announcement = "announcement"  # General announcements
+    feature = "feature"           # New features
+    update = "update"             # General updates
+    bugfix = "bugfix"             # Bug fixes
+
+class Update(Base):
+    """Admin-managed updates for the Latest Updates section on home page"""
+    __tablename__ = "updates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)  # Update content/description
+    type = Column(String, nullable=False, index=True)  # UpdateType enum value
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True, default=datetime.utcnow)  # Display date
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    author = relationship("User", foreign_keys=[author_id])
+    
+    __table_args__ = (
+        Index('idx_update_date', 'date'),
+        Index('idx_update_type_date', 'type', 'date'),
+    )
 
 class Notification(Base):
     __tablename__ = "notifications"

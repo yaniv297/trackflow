@@ -91,28 +91,40 @@ def get_current_user_model(
     
     if not credentials or not credentials.credentials:
         # #region agent log
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"No credentials","data":{}},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"No credentials","data":{},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+        except:
+            pass
         # #endregion
         raise credentials_exception
     
     # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"Validating token","data":{"tokenLength":len(credentials.credentials),"tokenPreview":credentials.credentials[:20]+"..."},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+    try:
+        with open(log_path, "a") as f:
+            f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"Validating token","data":{"tokenLength":len(credentials.credentials),"tokenPreview":credentials.credentials[:20]+"..."},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+    except:
+        pass
     # #endregion
     
     auth_service = AuthService(db)
     user = auth_service.get_user_by_token(credentials.credentials)
     
     # #region agent log
-    with open(log_path, "a") as f:
-        f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"Token validation result","data":{"userFound":bool(user),"username":user.username if user else None,"isActive":user.is_active if user else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+    try:
+        with open(log_path, "a") as f:
+            f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"Token validation result","data":{"userFound":bool(user),"username":user.username if user else None,"isActive":user.is_active if user else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+    except:
+        pass
     # #endregion
     
     if not user:
         # #region agent log
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"User not found - raising 401","data":{}},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+        try:
+            with open(log_path, "a") as f:
+                f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"User not found - raising 401","data":{},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
+        except:
+            pass
         # #endregion
         raise credentials_exception
     

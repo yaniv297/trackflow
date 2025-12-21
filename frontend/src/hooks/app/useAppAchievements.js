@@ -21,21 +21,28 @@ export const useAppAchievements = (isAuthenticated, user) => {
   // Future: will include release bonus when migration is updated
   const fetchAchievementPoints = async () => {
     try {
-      // Use progress endpoint which returns UserStats.total_points directly (same as leaderboard)
-      const progress = await apiGet("/achievements/me/progress");
-      setAchievementPoints(progress.stats.total_points);
+      // Use lightweight points endpoint (fast - just reads UserStats.total_points)
+      const pointsData = await apiGet("/achievements/points");
+      setAchievementPoints(pointsData.total_points);
     } catch (error) {
       console.error("Failed to fetch achievement points:", error);
-      // Fallback to calculating from achievements if progress endpoint fails
+      // Fallback to progress endpoint if lightweight endpoint fails
       try {
-        const achievements = await apiGet("/achievements/me");
-        const totalPoints = achievements.reduce(
-          (sum, ua) => sum + (ua.achievement?.points || 0),
-          0
-        );
-        setAchievementPoints(totalPoints);
+        const progress = await apiGet("/achievements/me/progress");
+        setAchievementPoints(progress.stats.total_points);
       } catch (fallbackError) {
         console.error("Failed to fetch achievement points fallback:", fallbackError);
+        // Last resort: calculate from achievements
+        try {
+          const achievements = await apiGet("/achievements/me");
+          const totalPoints = achievements.reduce(
+            (sum, ua) => sum + (ua.achievement?.points || 0),
+            0
+          );
+          setAchievementPoints(totalPoints);
+        } catch (finalError) {
+          console.error("Failed to fetch achievement points final fallback:", finalError);
+        }
       }
     }
   };

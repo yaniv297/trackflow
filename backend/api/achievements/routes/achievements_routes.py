@@ -140,6 +140,22 @@ def get_leaderboard(
         raise HTTPException(status_code=500, detail="Failed to get leaderboard")
 
 
+@router.get("/points")
+def get_my_points(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get current user's total achievement points (lightweight endpoint for top nav)."""
+    try:
+        from models import UserStats
+        user_stats = db.query(UserStats).filter(UserStats.user_id == current_user.id).first()
+        total_points = user_stats.total_points if user_stats else 0
+        return {"total_points": total_points}
+    except Exception as e:
+        print(f"❌ Error getting user points: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get user points")
+
+
 @router.get("/info")
 def get_achievement_info():
     """Get general information about the achievement and points system."""

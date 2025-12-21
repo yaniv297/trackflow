@@ -88,10 +88,26 @@ export const apiCall = async (endpoint, options = {}) => {
       const timeSinceLogin = loginTimestamp ? Date.now() - parseInt(loginTimestamp) : Infinity;
       const justLoggedIn = timeSinceLogin < 10000; // 10 seconds grace period
       
-      console.log("[api.js] 401 error", {
+      // Try to get the actual error message from the response
+      let errorDetail = "Unknown error";
+      try {
+        const errorText = await response.clone().text();
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetail = errorJson.detail || errorJson.message || errorText;
+        } catch {
+          errorDetail = errorText;
+        }
+      } catch (e) {
+        errorDetail = "Could not read error response";
+      }
+      
+      console.error("[api.js] 401 error", {
         justLoggedIn,
         timeSinceLogin,
         endpoint: url,
+        errorDetail,
+        headers: Object.fromEntries(response.headers.entries()),
       });
       
       // Store the 401 error for debugging
@@ -101,6 +117,9 @@ export const apiCall = async (endpoint, options = {}) => {
           endpoint: url,
           justLoggedIn,
           timeSinceLogin,
+          errorDetail,
+          status: response.status,
+          statusText: response.statusText,
         }));
       } catch (e) {
         console.error("Failed to store 401 error:", e);
@@ -143,9 +162,18 @@ export const apiCall = async (endpoint, options = {}) => {
       // If refresh failed and we didn't just log in, redirect to login
       if (!justLoggedIn) {
         console.log("[api.js] Clearing token and redirecting - not just logged in");
-        localStorage.removeItem("token");
-        window.location.href = "/";
-        throw new Error("Authentication required");
+        // Don't clear token immediately - give user a chance to see the error
+        // The real fix is to set SECRET_KEY in both environments
+        console.error("[api.js] CRITICAL: All API calls returning 401. This suggests SECRET_KEY mismatch between staging and production.");
+        console.error("[api.js] Solution: Set the same SECRET_KEY environment variable in both staging and production backends.");
+        alert(
+          "Authentication Error:\n\n" +
+          "All API calls are failing with 401 errors. This typically means the backend SECRET_KEY doesn't match.\n\n" +
+          "Please set the same SECRET_KEY environment variable in both staging and production backends.\n\n" +
+          "The token will not be cleared to allow debugging."
+        );
+        // Still throw error but don't clear token or redirect
+        throw new Error("Authentication required - SECRET_KEY mismatch detected");
       } else {
         console.log("[api.js] Skipping token clear - just logged in, throwing error instead");
         throw new Error("Authentication required - please try again in a moment");

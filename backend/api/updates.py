@@ -27,11 +27,6 @@ def get_latest_updates(
     
     result = []
     for update in updates:
-        # Ensure author is loaded
-        if not hasattr(update, 'author') or update.author is None:
-            # Reload if not already loaded
-            db.refresh(update, ["author"])
-        
         result.append(UpdateOut(
             id=update.id,
             title=update.title,

@@ -220,14 +220,6 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/admin/release-posts"
-        element={
-          <ProtectedRoute>
-            <AdminPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/admin/updates"
         element={
           <ProtectedRoute>

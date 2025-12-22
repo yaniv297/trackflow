@@ -598,6 +598,7 @@
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 0.75rem;
 }
 
 .release-action-btn {
@@ -639,6 +640,33 @@
 
 .btn-icon {
   font-size: 0.9rem;
+}
+
+/* Compact download icon for pack */
+.download-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+.download-link-icon:hover {
+  background: rgba(40, 167, 69, 0.15);
+  color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
+}
+
+.download-link-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .song-item {
@@ -1046,6 +1074,35 @@
 
 .song-download-link .download-text {
   white-space: nowrap;
+}
+
+/* Compact download icon for individual songs */
+.song-download-link-icon {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(40, 167, 69, 0.2);
+  flex-shrink: 0;
+}
+
+.song-download-link-icon:hover {
+  background: rgba(40, 167, 69, 0.15);
+  color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.song-download-link-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* Songs Pagination */

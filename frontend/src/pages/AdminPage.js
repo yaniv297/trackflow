@@ -46,6 +46,19 @@ function AdminPage() {
   const currentSection = location.pathname === '/admin' ? 'dashboard' : 
                         location.pathname.split('/admin/')[1] || 'dashboard';
 
+  const loadUpdates = async () => {
+    try {
+      setLoadingUpdates(true);
+      const data = await apiGet("/admin/updates?limit=100");
+      setUpdates(data || []);
+    } catch (error) {
+      console.error("Failed to load updates:", error);
+      setError("Failed to load updates");
+    } finally {
+      setLoadingUpdates(false);
+    }
+  };
+
   useEffect(() => {
     if (currentSection === 'users' || currentSection === 'dashboard') {
       loadUsers();
@@ -249,7 +262,6 @@ function AdminPage() {
       {[
         { id: 'dashboard', label: 'Dashboard', path: '/admin/dashboard' },
         { id: 'users', label: 'Users', path: '/admin/users' },
-        { id: 'release-posts', label: 'Release Posts', path: '/admin/release-posts' },
         { id: 'updates', label: 'Updates', path: '/admin/updates' },
         { id: 'notifications', label: 'Notifications', path: '/admin/notifications' },
         { id: 'tools', label: 'Tools', path: '/admin/tools' }
@@ -306,21 +318,6 @@ function AdminPage() {
         <div className="admin-card">
           <h3>Quick Actions</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <button 
-              onClick={() => navigate('/admin/release-posts')}
-              className="admin-action-btn"
-              style={{
-                padding: '0.75rem 1rem',
-                background: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'background 0.2s'
-              }}
-            >
-              Create Release Post
-            </button>
             <button 
               onClick={() => navigate('/admin/notifications')}
               className="admin-action-btn"
@@ -610,19 +607,6 @@ function AdminPage() {
       </div>
     </div>
   );
-
-  const loadUpdates = async () => {
-    try {
-      setLoadingUpdates(true);
-      const data = await apiGet("/admin/updates?limit=100");
-      setUpdates(data || []);
-    } catch (error) {
-      console.error("Failed to load updates:", error);
-      setError("Failed to load updates");
-    } finally {
-      setLoadingUpdates(false);
-    }
-  };
 
   const handleCreateUpdate = async () => {
     try {
@@ -1023,7 +1007,6 @@ function AdminPage() {
         <p className="admin-subtitle">
           {currentSection === 'dashboard' && 'Overview and quick actions'}
           {currentSection === 'users' && 'Manage users and permissions'}
-          {currentSection === 'release-posts' && 'Create and manage release announcements'}
           {currentSection === 'updates' && 'Manage Latest Updates for the home page'}
           {currentSection === 'notifications' && 'Send system messages to users'}
           {currentSection === 'tools' && 'Maintenance and system tools'}
@@ -1034,7 +1017,6 @@ function AdminPage() {
       
       {currentSection === 'dashboard' && renderDashboard()}
       {currentSection === 'users' && renderUsers()}
-      {currentSection === 'release-posts' && renderReleasePosts()}
       {currentSection === 'updates' && renderUpdates()}
       {currentSection === 'notifications' && renderNotifications()}
       {currentSection === 'tools' && renderTools()}

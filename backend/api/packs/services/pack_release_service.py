@@ -48,19 +48,14 @@ class PackReleaseService:
             'release_youtube_url': release_data.youtube_url
         }
         
-        # Handle homepage visibility with new explicit boolean field
-        if release_data.show_on_homepage is not None:
-            # Use the explicit show_on_homepage field if provided
-            update_data['show_on_homepage'] = release_data.show_on_homepage
-            print(f"🔧 Setting show_on_homepage to {release_data.show_on_homepage}")
-        elif release_data.hide_from_homepage is not None:
-            # Backward compatibility: convert hide_from_homepage to show_on_homepage
-            update_data['show_on_homepage'] = not release_data.hide_from_homepage
-            print(f"🔧 Converting hide_from_homepage={release_data.hide_from_homepage} to show_on_homepage={not release_data.hide_from_homepage}")
+        # Handle homepage visibility - simple logic: default to True unless explicitly hidden
+        # Frontend sends show_on_homepage: !hideFromHomepage, so we use that directly
+        # If user explicitly checked "hide from homepage", set to False, otherwise True
+        if release_data.hide_from_homepage is True:
+            # User explicitly checked "hide from homepage"
+            update_data['show_on_homepage'] = False
         else:
-            # Default behavior: show on homepage
             update_data['show_on_homepage'] = True
-            print("🔧 Using default show_on_homepage=True")
         
         # Always set released_at timestamp for released packs (separate from homepage visibility)
         update_data['released_at'] = datetime.utcnow()

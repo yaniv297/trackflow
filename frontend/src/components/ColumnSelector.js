@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 
 const DEFAULT_COLUMNS = {
   cover: { label: "Cover", enabled: true, required: true },
@@ -14,7 +14,7 @@ const DEFAULT_COLUMNS = {
   actions: { label: "Actions", enabled: true, required: true },
 };
 
-const ColumnSelector = ({ onColumnChange, groupBy }) => {
+const ColumnSelector = ({ onColumnChange, groupBy, status }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const dropdownRef = useRef(null);
@@ -32,13 +32,39 @@ const ColumnSelector = ({ onColumnChange, groupBy }) => {
     }
   }, []);
 
+  // Filter out columns that shouldn't be shown based on groupBy or status
+  const getVisibleColumns = useMemo(() => {
+    const visibleColumns = { ...columns };
+    
+    // Hide artist column when grouped by artist
+    if (groupBy === "artist") {
+      visibleColumns.artist = { ...visibleColumns.artist, groupHidden: true };
+    }
+    
+    // Hide pack column when grouped by pack
+    if (groupBy === "pack") {
+      visibleColumns.pack = { ...visibleColumns.pack, groupHidden: true };
+    }
+    
+    // Hide visibility column for released songs (only relevant for future plans)
+    if (status === "Released") {
+      visibleColumns.visibility = { ...visibleColumns.visibility, groupHidden: true };
+    }
+    
+    return visibleColumns;
+  }, [columns, groupBy, status]);
+
   // Save column preferences when they change
   useEffect(() => {
     localStorage.setItem('songTableColumns', JSON.stringify(columns));
+  }, [columns]);
+
+  // Notify parent of visible columns (including status-based hiding) when they change
+  useEffect(() => {
     if (onColumnChange) {
-      onColumnChange(columns);
+      onColumnChange(getVisibleColumns);
     }
-  }, [columns, onColumnChange]);
+  }, [getVisibleColumns, onColumnChange]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -68,24 +94,7 @@ const ColumnSelector = ({ onColumnChange, groupBy }) => {
     setColumns(DEFAULT_COLUMNS);
   };
 
-  // Filter out columns that shouldn't be shown based on groupBy
-  const getVisibleColumns = () => {
-    const visibleColumns = { ...columns };
-    
-    // Hide artist column when grouped by artist
-    if (groupBy === "artist") {
-      visibleColumns.artist = { ...visibleColumns.artist, groupHidden: true };
-    }
-    
-    // Hide pack column when grouped by pack
-    if (groupBy === "pack") {
-      visibleColumns.pack = { ...visibleColumns.pack, groupHidden: true };
-    }
-    
-    return visibleColumns;
-  };
-
-  const visibleColumns = getVisibleColumns();
+  const visibleColumns = getVisibleColumns;
   const enabledCount = Object.values(visibleColumns).filter(col => 
     col.enabled && !col.groupHidden
   ).length;

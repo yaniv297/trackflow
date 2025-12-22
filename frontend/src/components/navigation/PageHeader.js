@@ -217,7 +217,11 @@ const PageHeader = ({
         </button>
 
         {/* Column Selector */}
-        <ColumnSelector onColumnChange={onColumnChange} groupBy={groupBy} />
+        <ColumnSelector
+          onColumnChange={onColumnChange}
+          groupBy={groupBy}
+          status={status}
+        />
 
         {/* Randomizer Button - only show for Future Plans */}
         {status === "Future Plans" && onRandomizerClick && (

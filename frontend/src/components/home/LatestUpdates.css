@@ -8,10 +8,17 @@
   max-width: 100%;
 }
 
-/* Compact view - limit height */
+/* Compact view - limit height, but allow expansion when content is expanded */
 .latest-updates.compact {
   max-height: 200px;
   overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+/* When content inside is expanded, allow the container to grow */
+.latest-updates.compact.content-expanded {
+  max-height: none;
+  overflow: visible;
 }
 
 /* Expanded view - allow full height */
@@ -123,11 +130,18 @@
   margin: 0 0 0.5rem 0;
   font-size: 0.9rem;
   line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.compact-updates .update-item.compact .update-content.truncated {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
 .compact-updates .update-item.compact .update-footer {
@@ -159,11 +173,17 @@
   line-height: 1.4;
   color: #555;
   font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.update-content.truncated {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: normal;
 }
 
 .update-footer {
@@ -254,6 +274,22 @@
 
 .retry-button:hover {
   background: #c82333;
+}
+
+.expand-toggle-btn {
+  background: transparent;
+  color: #007bff;
+  border: none;
+  padding: 0.25rem 0;
+  margin: 0.25rem 0 0.5rem 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.expand-toggle-btn:hover {
+  color: #0056b3;
 }
 
 /* Responsive Design */

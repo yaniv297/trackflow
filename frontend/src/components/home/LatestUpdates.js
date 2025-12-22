@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiGet } from '../../utils/api';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import './LatestUpdates.css';
@@ -10,6 +10,7 @@ const LatestUpdates = ({ limit = 5 }) => {
   const [currentUpdate, setCurrentUpdate] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAllUpdates, setShowAllUpdates] = useState(false);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
 
   useEffect(() => {
     fetchUpdates();
@@ -41,6 +42,7 @@ const LatestUpdates = ({ limit = 5 }) => {
       const nextIndex = (currentIndex + 1) % updates.length;
       setCurrentIndex(nextIndex);
       setCurrentUpdate(updates[nextIndex]);
+      setIsContentExpanded(false); // Reset expansion when switching updates
     }
   };
 
@@ -76,7 +78,7 @@ const LatestUpdates = ({ limit = 5 }) => {
   }
 
   return (
-    <section className={`latest-updates ${showAllUpdates ? 'expanded' : 'compact'}`}>
+    <section className={`latest-updates ${showAllUpdates ? 'expanded' : 'compact'} ${isContentExpanded ? 'content-expanded' : ''}`}>
       <div className="updates-header">
         <h2 className="section-title">Latest Updates</h2>
         {updates.length > 0 && (
@@ -105,6 +107,7 @@ const LatestUpdates = ({ limit = 5 }) => {
                   update={currentUpdate} 
                   compact={true} 
                   onNext={updates.length > 1 ? handleNextUpdate : null}
+                  onExpandChange={setIsContentExpanded}
                 />
               )}
             </div>
@@ -117,7 +120,22 @@ const LatestUpdates = ({ limit = 5 }) => {
   );
 };
 
-const UpdateItem = ({ update, compact = false, onNext = null }) => {
+const UpdateItem = ({ update, compact = false, onNext = null, onExpandChange = null }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const contentRef = useRef(null);
+  
+  // Simple check: if content is longer than ~150 characters, it probably needs truncation
+  const needsTruncation = compact && update.content && update.content.length > 150;
+
+  const handleExpandToggle = (e) => {
+    e.preventDefault();
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    if (onExpandChange) {
+      onExpandChange(newExpanded);
+    }
+  };
+
   const getUpdateIcon = (type) => {
     switch (type) {
       case 'announcement': return '▶';
@@ -137,7 +155,7 @@ const UpdateItem = ({ update, compact = false, onNext = null }) => {
   };
 
   return (
-    <article className={`update-item ${compact ? 'compact' : ''}`}>
+    <article className={`update-item ${compact ? 'compact' : ''} ${isExpanded ? 'expanded' : ''}`}>
       <div className="update-header">
         <span className="update-icon">{getUpdateIcon(update.type)}</span>
         <h3 className="update-title">{update.title}</h3>
@@ -154,7 +172,20 @@ const UpdateItem = ({ update, compact = false, onNext = null }) => {
           )}
         </div>
       </div>
-      <p className="update-content">{update.content}</p>
+      <p 
+        ref={contentRef}
+        className={`update-content ${compact && !isExpanded ? 'truncated' : ''}`}
+      >
+        {update.content}
+      </p>
+      {needsTruncation && (
+        <button 
+          className="expand-toggle-btn"
+          onClick={handleExpandToggle}
+        >
+          {isExpanded ? 'Read less' : 'Read more'}
+        </button>
+      )}
       <div className="update-footer">
         <span className="update-author">By {update.author}</span>
         <span className="update-type-badge" data-type={update.type}>

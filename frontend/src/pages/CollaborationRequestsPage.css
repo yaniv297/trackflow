@@ -184,6 +184,8 @@
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 500;
+  width: auto;
+  max-width: fit-content;
 }
 
 .request-meta {
@@ -365,6 +367,18 @@
 
 .btn-reopen:hover:not(:disabled) {
   background: #e0a800;
+}
+
+.btn-delete {
+  background: #dc3545;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  min-height: auto;
+}
+
+.btn-delete:hover:not(:disabled) {
+  background: #c82333;
 }
 
 .empty-state {

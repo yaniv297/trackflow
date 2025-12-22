@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import collaborationRequestsService from '../services/collaborationRequestsService';
 import { useUserProfilePopup } from '../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../components/shared/UserProfilePopup';
+import CustomAlert from '../components/ui/CustomAlert';
 import './CollaborationRequestsPage.css';
 
 const CollaborationRequestsPage = () => {
@@ -12,6 +13,10 @@ const CollaborationRequestsPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('received');
   const [responding, setResponding] = useState({});
+  const [deleteAlert, setDeleteAlert] = useState({
+    isOpen: false,
+    requestId: null,
+  });
   const { isAuthenticated } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
@@ -79,6 +84,46 @@ const CollaborationRequestsPage = () => {
       );
     } finally {
       setResponding(prev => ({ ...prev, [requestId]: false }));
+    }
+  };
+
+  const handleDeleteRequest = (requestId) => {
+    setDeleteAlert({ isOpen: true, requestId });
+  };
+
+  const confirmDeleteRequest = async () => {
+    const { requestId } = deleteAlert;
+    if (!requestId) return;
+
+    try {
+      setResponding(prev => ({ ...prev, [requestId]: true }));
+      
+      const result = await collaborationRequestsService.cancelRequest(requestId);
+      
+      if (result.success) {
+        // Refresh the lists
+        await fetchCollaborationRequests();
+        
+        window.showNotification && window.showNotification(
+          'Collaboration request deleted successfully.', 
+          'success'
+        );
+      } else {
+        window.showNotification && window.showNotification(
+          result.error || 'Failed to delete request. Please try again.', 
+          'error'
+        );
+      }
+      
+    } catch (error) {
+      console.error('Failed to delete collaboration request:', error);
+      window.showNotification && window.showNotification(
+        'Failed to delete request. Please try again.', 
+        'error'
+      );
+    } finally {
+      setResponding(prev => ({ ...prev, [requestId]: false }));
+      setDeleteAlert({ isOpen: false, requestId: null });
     }
   };
 
@@ -262,6 +307,18 @@ const CollaborationRequestsPage = () => {
             className="btn btn-reject"
           >
             {responding[request.id] ? 'Processing...' : 'Decline'}
+          </button>
+        </div>
+      )}
+      
+      {!isReceived && request.status === 'pending' && (
+        <div className="request-actions">
+          <button 
+            onClick={() => handleDeleteRequest(request.id)}
+            disabled={responding[request.id]}
+            className="btn btn-delete"
+          >
+            {responding[request.id] ? 'Deleting...' : 'Delete Request'}
           </button>
         </div>
       )}
@@ -458,6 +515,18 @@ const CollaborationRequestsPage = () => {
         isVisible={popupState.isVisible}
         position={popupState.position}
         onClose={hidePopup}
+      />
+
+      {/* Custom Alert for deleting collaboration requests */}
+      <CustomAlert
+        isOpen={deleteAlert.isOpen}
+        onClose={() => setDeleteAlert({ isOpen: false, requestId: null })}
+        onConfirm={confirmDeleteRequest}
+        title="Delete Collaboration Request"
+        message="Are you sure you want to delete this collaboration request? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
       />
     </div>
   );

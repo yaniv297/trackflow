@@ -291,28 +291,6 @@ const ReadMore = ({ text, maxLength = 300 }) => {
 const AlbumCoverCarousel = ({ covers }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   
-  if (!covers || covers.length === 0) {
-    return (
-      <div className="pack-cover">
-        <div className="cover-placeholder">
-          <span className="music-icon">♪</span>
-        </div>
-      </div>
-    );
-  }
-  
-  if (covers.length === 1) {
-    return (
-      <div className="pack-cover">
-        <img 
-          src={covers[0]} 
-          alt="Album cover"
-          className="cover-image"
-        />
-      </div>
-    );
-  }
-  
   const nextCover = () => {
     setCurrentIndex((prev) => (prev + 1) % covers.length);
   };
@@ -321,40 +299,53 @@ const AlbumCoverCarousel = ({ covers }) => {
     setCurrentIndex((prev) => (prev - 1 + covers.length) % covers.length);
   };
   
+  const hasMultipleCovers = covers && covers.length > 1;
+  const displayIndex = hasMultipleCovers ? currentIndex : 0;
+  
   return (
     <div className="pack-cover-carousel">
-      <button 
-        className="cover-arrow cover-arrow-left" 
-        onClick={prevCover}
-        aria-label="Previous cover"
-      >
-        ‹
-      </button>
+      {hasMultipleCovers && (
+        <button 
+          className="cover-arrow cover-arrow-left" 
+          onClick={prevCover}
+          aria-label="Previous cover"
+        >
+          ‹
+        </button>
+      )}
       <div className="pack-cover">
-        <img 
-          src={covers[currentIndex]} 
-          alt={`Album cover ${currentIndex + 1} of ${covers.length}`}
-          className="cover-image"
-        />
+        {!covers || covers.length === 0 ? (
+          <div className="cover-placeholder">
+            <span className="music-icon">♪</span>
+          </div>
+        ) : (
+          <img 
+            src={covers[displayIndex]} 
+            alt={hasMultipleCovers ? `Album cover ${displayIndex + 1} of ${covers.length}` : "Album cover"}
+            className="cover-image"
+          />
+        )}
       </div>
-      <button 
-        className="cover-arrow cover-arrow-right" 
-        onClick={nextCover}
-        aria-label="Next cover"
-      >
-        ›
-      </button>
-      {covers.length > 1 && (
-        <div className="cover-indicators">
-          {covers.map((_, index) => (
-            <button
-              key={index}
-              className={`cover-indicator ${index === currentIndex ? 'active' : ''}`}
-              onClick={() => setCurrentIndex(index)}
-              aria-label={`Go to cover ${index + 1}`}
-            />
-          ))}
-        </div>
+      {hasMultipleCovers && (
+        <>
+          <button 
+            className="cover-arrow cover-arrow-right" 
+            onClick={nextCover}
+            aria-label="Next cover"
+          >
+            ›
+          </button>
+          <div className="cover-indicators">
+            {covers.map((_, index) => (
+              <button
+                key={index}
+                className={`cover-indicator ${index === currentIndex ? 'active' : ''}`}
+                onClick={() => setCurrentIndex(index)}
+                aria-label={`Go to cover ${index + 1}`}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

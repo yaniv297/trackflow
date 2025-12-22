@@ -505,7 +505,11 @@ const PackReleaseListItem = ({ pack, formatDate, onUsernameClick, onUsernameHove
         </div>
         
         <div className="pack-basic-info">
-          <h3 className="pack-title">{pack.release_title || pack.pack_name}</h3>
+          <h3 className="pack-title">
+            {pack.album_series_number && pack.album_series_name
+              ? `Album Series #${pack.album_series_number}: ${pack.album_series_name}`
+              : pack.release_title || pack.pack_name}
+          </h3>
           <div className="pack-subtitle">
             <span 
               className="pack-author"

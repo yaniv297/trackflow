@@ -220,6 +220,10 @@ def get_recent_pack_releases(
         # Use the pack's released_at timestamp
         pack_released_at = pack.released_at
         
+        # Check if pack has associated album series
+        from models import AlbumSeries
+        album_series = db.query(AlbumSeries).filter(AlbumSeries.pack_id == pack.id).first()
+        
         pack_info = {
             "pack_id": pack.id,
             "pack_name": pack.name,
@@ -231,7 +235,12 @@ def get_recent_pack_releases(
             "release_description": pack.release_description,
             "release_download_link": pack.release_download_link,
             "release_youtube_url": pack.release_youtube_url,
-            "songs": []
+            "songs": [],
+            # Include album series data if available
+            "album_series_id": album_series.id if album_series else None,
+            "album_series_number": album_series.series_number if album_series else None,
+            "album_series_name": album_series.album_name if album_series else None,
+            "album_series_status": album_series.status if album_series else None
         }
         
         # Add song data

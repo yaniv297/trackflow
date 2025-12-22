@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models import Song, Pack
+from models import Song, Pack, AlbumSeries
 from ..repositories.pack_repository import PackRepository
 from ..schemas import PackReleaseData, PackResponse
 
@@ -66,6 +66,27 @@ class PackReleaseService:
         # Handle song status changes (CRITICAL - this was missing!)
         print(f"🔧 About to release songs for pack {pack_id}")
         self._release_pack_songs(pack_id, release_data, user_id)
+        
+        # Check if this pack is associated with an album series and release it
+        album_series = self.db.query(AlbumSeries).filter(AlbumSeries.pack_id == pack_id).first()
+        if album_series:
+            print(f"🔧 Found album series {album_series.id} associated with pack {pack_id}")
+            # Only release the series if it's not already released
+            if album_series.status != "released":
+                print(f"🔧 Releasing album series {album_series.id} and assigning series number")
+                try:
+                    from api.album_series.services.album_series_service import AlbumSeriesService
+                    album_series_service = AlbumSeriesService(self.db)
+                    result = album_series_service.release_series(album_series.id)
+                    print(f"✅ Album series released: {result.get('message', 'Success')}")
+                except ValueError as e:
+                    # Series already released or not found - log but don't fail the pack release
+                    print(f"⚠️ Could not release album series: {e}")
+                except Exception as e:
+                    # Log error but don't fail the pack release
+                    print(f"⚠️ Error releasing album series: {e}")
+            else:
+                print(f"ℹ️ Album series {album_series.id} is already released (series #{album_series.series_number})")
         
         print("🔧 About to commit changes to database")
         self.pack_repo.commit()

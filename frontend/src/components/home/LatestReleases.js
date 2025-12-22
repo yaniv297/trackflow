@@ -427,7 +427,11 @@ const PackReleaseItem = ({ pack, onUsernameClick, onUsernameHover, onUsernameLea
         <AlbumCoverCarousel covers={albumCovers} />
         <div className="pack-info">
           <div className="pack-title-section">
-            <h3 className="pack-name">{pack.release_title || pack.pack_name}</h3>
+            <h3 className="pack-name">
+              {pack.album_series_number && pack.album_series_name
+                ? `Album Series #${pack.album_series_number}: ${pack.album_series_name}`
+                : pack.release_title || pack.pack_name}
+            </h3>
             <div className="pack-credits">
               <span className="pack-author-highlight">by <span 
                 onClick={onUsernameClick ? () => onUsernameClick(pack.author) : undefined}

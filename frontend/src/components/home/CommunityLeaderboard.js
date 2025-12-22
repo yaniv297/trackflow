@@ -84,10 +84,6 @@ const CommunityLeaderboard = ({ limit = 8 }) => {
     return `#${rank}`;
   };
 
-  const handleJoinCommunity = () => {
-    navigate('/');
-  };
-
   if (loading) {
     return (
       <section className="community-leaderboard">
@@ -143,16 +139,6 @@ const CommunityLeaderboard = ({ limit = 8 }) => {
           </div>
         ) : (
           <EmptyLeaderboard />
-        )}
-        {!isAuthenticated && (
-          <div className="section-footer">
-            <button 
-              onClick={handleJoinCommunity}
-              className="join-community-btn"
-            >
-              Join the Community →
-            </button>
-          </div>
         )}
         <div className="section-footer">
           <button 

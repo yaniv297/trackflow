@@ -41,6 +41,8 @@ const AppRoutes = () => {
       <Route path="/profile/:username" element={<ProfilePage />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/resources" element={<ResourcesPage />} />
+      <Route path="/leaderboard" element={<Leaderboard />} />
 
       {/* Protected Routes */}
       <Route
@@ -124,14 +126,6 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/leaderboard"
-        element={
-          <ProtectedRoute>
-            <Leaderboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/community"
         element={
           <ProtectedRoute>
@@ -144,14 +138,6 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <CollaborationRequestsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/resources"
-        element={
-          <ProtectedRoute>
-            <ResourcesPage />
           </ProtectedRoute>
         }
       />

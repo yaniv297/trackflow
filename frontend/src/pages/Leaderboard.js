@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { apiGet } from '../utils/api';
+import { apiGet, publicApiGet } from '../utils/api';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [leaderboard, setLeaderboard] = useState([]);
   const [currentUserRank, setCurrentUserRank] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -14,13 +14,16 @@ const Leaderboard = () => {
 
   useEffect(() => {
     fetchLeaderboard();
-  }, []);
+  }, [isAuthenticated]);
 
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiGet('/achievements/leaderboard?limit=50');
+      // Use public API when not authenticated, authenticated API when logged in
+      const data = isAuthenticated 
+        ? await apiGet('/achievements/leaderboard?limit=50')
+        : await publicApiGet('/achievements/leaderboard?limit=50');
       setLeaderboard(data.leaderboard);
       setCurrentUserRank(data.current_user_rank);
       setTotalUsers(data.total_users);

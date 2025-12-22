@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authoringResources } from '../../data/resources';
 
 function RandomResourceWidget() {
   const [randomResource, setRandomResource] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Pick a random resource on component mount
@@ -13,6 +15,10 @@ function RandomResourceWidget() {
   const getNewResource = () => {
     const randomIndex = Math.floor(Math.random() * authoringResources.length);
     setRandomResource(authoringResources[randomIndex]);
+  };
+
+  const handleViewAll = () => {
+    navigate('/resources');
   };
 
   if (!randomResource) {
@@ -149,18 +155,19 @@ function RandomResourceWidget() {
           >
             Visit ↗
           </a>
-          <a
-            href="/resources"
+          <button
+            onClick={handleViewAll}
             style={{
               display: "inline-flex",
               alignItems: "center",
               color: "#007bff",
               padding: "0.4rem 0.75rem",
               borderRadius: "4px",
-              textDecoration: "none",
               fontSize: "0.8rem",
               fontWeight: "500",
               border: "1px solid #007bff",
+              background: "transparent",
+              cursor: "pointer",
               transition: "all 0.2s ease"
             }}
             onMouseEnter={(e) => {
@@ -173,7 +180,7 @@ function RandomResourceWidget() {
             }}
           >
             View All
-          </a>
+          </button>
         </div>
       </div>
     </div>

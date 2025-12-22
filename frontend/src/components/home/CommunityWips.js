@@ -20,7 +20,7 @@ const CommunityWips = () => {
   const [showStatusPopup, setShowStatusPopup] = useState(false);
   const [statusPopupSong, setStatusPopupSong] = useState(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { popupState, handleUsernameClick, handleUsernameHover, hidePopup, delayedHidePopup, cancelHideTimeout } = useUserProfilePopup();
 
   // Load collaboration status for logged-in users
@@ -262,11 +262,13 @@ const CommunityWips = () => {
           </div>
         )}
         
-        <div className="section-footer">
-          <button onClick={handleViewCommunity} className="view-all-btn">
-            View Community →
-          </button>
-        </div>
+        {isAuthenticated && (
+          <div className="section-footer">
+            <button onClick={handleViewCommunity} className="view-all-btn">
+              View Public WIPs →
+            </button>
+          </div>
+        )}
       </div>
       
       {/* User Profile Popup */}

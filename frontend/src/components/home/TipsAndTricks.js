@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 import "./TipsAndTricks.css";
 
 const TipsAndTricks = () => {
   const [currentTip, setCurrentTip] = useState(null);
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   // Parse tips from the markdown content
   const createTips = () => {
@@ -241,6 +243,7 @@ const TipsAndTricks = () => {
               getCategoryColor={getCategoryColor}
               onNext={getNextTip}
               navigate={navigate}
+              isAuthenticated={isAuthenticated}
             />
           ) : (
             <div className="loading-tip">Loading tip...</div>
@@ -251,7 +254,7 @@ const TipsAndTricks = () => {
   );
 };
 
-const TipCard = ({ tip, getCategoryColor, onNext, navigate }) => (
+const TipCard = ({ tip, getCategoryColor, onNext, navigate, isAuthenticated }) => (
   <article className="tip-card compact">
     <div className="tip-header">
       <div className="tip-title-section">
@@ -270,7 +273,7 @@ const TipCard = ({ tip, getCategoryColor, onNext, navigate }) => (
 
     <div className="tip-content">
       <p className="tip-summary">{tip.summary}</p>
-      {tip.link && (
+      {tip.link && isAuthenticated && (
         <button
           className="tip-link-button"
           onClick={() => navigate(tip.link)}

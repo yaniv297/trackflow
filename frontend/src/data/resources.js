@@ -99,7 +99,7 @@ export const authoringResources = [
   },
   {
     title: "Rhythm Gaming World",
-    description: "Community blog featuring custom song releases, authoring tutorials, and rhythm gaming news. Archive of valuable resources and community discussions (currently inactive).",
+    description: "Community blog featuring custom song releases, authoring tutorials, and rhythm gaming news. Archive of valuable resources and community discussions.",
     url: "https://rhythmgamingworld.com/",
     type: "Blog",
     icon: "📰"

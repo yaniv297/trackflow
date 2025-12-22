@@ -13,6 +13,7 @@ const PublicSongsTableNew = ({
   onPageChange,
   onCollaborationRequest,
   currentUserId,
+  collaborationStatusMap = new Map(), // song_id -> status
   groupBy = "none", // 'none', 'artist', or 'user'
   setGroupBy,
   expandedGroups,
@@ -427,6 +428,7 @@ const PublicSongsTableNew = ({
                                 song={song}
                                 onCollaborationRequest={onCollaborationRequest}
                                 currentUserId={currentUserId}
+                                collaborationStatus={collaborationStatusMap.get(song.id) || null}
                                 hideArtistColumn={true}
                               />
                             ))}
@@ -533,6 +535,7 @@ const PublicSongsTableNew = ({
                                 song={song}
                                 onCollaborationRequest={onCollaborationRequest}
                                 currentUserId={currentUserId}
+                                collaborationStatus={collaborationStatusMap.get(song.id) || null}
                                 hideUserColumn={true}
                               />
                             ))}
@@ -587,6 +590,7 @@ const PublicSongsTableNew = ({
                     song={song}
                     onCollaborationRequest={onCollaborationRequest}
                     currentUserId={currentUserId}
+                    collaborationStatus={collaborationStatusMap.get(song.id) || null}
                   />
                 ))}
               </tbody>

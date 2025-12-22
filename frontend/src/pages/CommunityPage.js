@@ -5,6 +5,7 @@ import PublicSongsTableNew from '../components/community/PublicSongsTableNew';
 import CollaborationRequestModal from '../components/community/CollaborationRequestModal';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import publicSongsService from '../services/publicSongsService';
+import collaborationRequestsService from '../services/collaborationRequestsService';
 import './CommunityPage.css';
 
 /**
@@ -21,7 +22,7 @@ const CommunityPage = () => {
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [groupBy, setGroupBy] = useState('none'); // 'none', 'artist', or 'user'
   const [expandedGroups, setExpandedGroups] = useState(new Set());
-  
+  const [collaborationStatusMap, setCollaborationStatusMap] = useState(new Map()); // song_id -> status
   
   // Pagination - handled by component now
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,10 +95,34 @@ const CommunityPage = () => {
     }
   }, []);
 
+  // Load collaboration requests once (only if user is logged in)
+  const loadCollaborationRequests = useCallback(async () => {
+    if (!user?.id) {
+      setCollaborationStatusMap(new Map());
+      return;
+    }
+
+    try {
+      const result = await collaborationRequestsService.getSentRequests();
+      if (result.success) {
+        // Create a map of song_id -> status
+        const statusMap = new Map();
+        result.data.forEach(req => {
+          statusMap.set(req.song_id, req.status);
+        });
+        setCollaborationStatusMap(statusMap);
+      }
+    } catch (error) {
+      console.error('Failed to load collaboration requests:', error);
+      // Don't set error state here, just log it - collaboration status is not critical
+    }
+  }, [user?.id]);
+
   // Initial load
   useEffect(() => {
     loadSongs();
-  }, [loadSongs]);
+    loadCollaborationRequests();
+  }, [loadSongs, loadCollaborationRequests]);
 
 
   // Handle collaboration request
@@ -115,8 +140,9 @@ const CommunityPage = () => {
   // Handle successful collaboration request
   const handleCollaborationSuccess = () => {
     handleCloseCollaborationModal();
-    // Trigger a re-render of components by updating the key or refreshing data
-    // This will cause components to re-check collaboration status
+    // Refresh collaboration status to show the new request
+    loadCollaborationRequests();
+    // Also refresh songs in case anything changed
     loadSongs();
   };
 
@@ -163,6 +189,7 @@ const CommunityPage = () => {
               onPageChange={setCurrentPage}
               onCollaborationRequest={handleCollaborationRequest}
               currentUserId={user?.id}
+              collaborationStatusMap={collaborationStatusMap}
               groupBy={groupBy}
               setGroupBy={setGroupBy}
               expandedGroups={expandedGroups}

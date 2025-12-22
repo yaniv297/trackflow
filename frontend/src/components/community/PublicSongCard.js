@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../shared/UserProfilePopup';
-import collaborationRequestsService from '../../services/collaborationRequestsService';
 import './PublicSongCard.css';
 
 /**
@@ -10,11 +9,10 @@ import './PublicSongCard.css';
 const PublicSongCard = ({ 
   song, 
   onCollaborationRequest,
-  currentUserId 
+  currentUserId,
+  collaborationStatus = null
 }) => {
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
-  const [collaborationStatus, setCollaborationStatus] = useState(null); // null, 'pending', 'accepted', 'declined'
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showStatusPopup, setShowStatusPopup] = useState(false);
   const getStatusIcon = (status) => {
     switch (status) {
@@ -53,28 +51,6 @@ const PublicSongCard = ({
 
   const isOwnSong = song.user_id === currentUserId;
 
-  // Check collaboration status when component mounts
-  useEffect(() => {
-    const checkCollaborationStatus = async () => {
-      if (isOwnSong || !currentUserId) return;
-      
-      setIsCheckingStatus(true);
-      try {
-        const result = await collaborationRequestsService.getSentRequests();
-        if (result.success) {
-          const existingRequest = result.data.find(req => req.song_id === song.id);
-          setCollaborationStatus(existingRequest ? existingRequest.status : null);
-        }
-      } catch (error) {
-        console.error('Failed to check collaboration status:', error);
-      } finally {
-        setIsCheckingStatus(false);
-      }
-    };
-
-    checkCollaborationStatus();
-  }, [song.id, currentUserId, isOwnSong]);
-
   const handleCollaborationClick = () => {
     if (collaborationStatus === 'pending') {
       setShowStatusPopup(true);
@@ -83,9 +59,6 @@ const PublicSongCard = ({
     }
   };
 
-  const handleCollaborationSuccess = () => {
-    setCollaborationStatus('pending');
-  };
 
   const getCollaborationButtonText = () => {
     switch (collaborationStatus) {
@@ -198,9 +171,9 @@ const PublicSongCard = ({
             className={getCollaborationButtonClass()}
             onClick={handleCollaborationClick}
             title={collaborationStatus === 'pending' ? "View collaboration request status" : "Suggest Collaboration"}
-            disabled={isCheckingStatus || collaborationStatus === 'declined'}
+            disabled={collaborationStatus === 'declined'}
           >
-            {isCheckingStatus ? '⏳ Checking...' : getCollaborationButtonText()}
+            {getCollaborationButtonText()}
           </button>
         )}
         {isOwnSong && (

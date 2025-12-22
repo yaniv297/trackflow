@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUserProfilePopup } from '../../hooks/ui/useUserProfilePopup';
 import UserProfilePopup from '../shared/UserProfilePopup';
-import collaborationRequestsService from '../../services/collaborationRequestsService';
 
 /**
  * Compact row component for displaying public songs in a table format
  */
-const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtistColumn = false, hideUserColumn = false }) => {
+const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, collaborationStatus = null, hideArtistColumn = false, hideUserColumn = false }) => {
   
   // Generate a consistent color for each username based on hash
   const getUsernameColor = (username) => {
@@ -38,33 +37,9 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtist
     return colors[colorIndex];
   };
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
-  const [collaborationStatus, setCollaborationStatus] = useState(null); // null, 'pending', 'accepted', 'declined'
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showStatusPopup, setShowStatusPopup] = useState(false);
 
   const canCollaborate = currentUserId && song.user_id !== currentUserId && song.status !== 'Released';
-
-  // Check collaboration status when component mounts
-  useEffect(() => {
-    const checkCollaborationStatus = async () => {
-      if (!canCollaborate) return;
-      
-      setIsCheckingStatus(true);
-      try {
-        const result = await collaborationRequestsService.getSentRequests();
-        if (result.success) {
-          const existingRequest = result.data.find(req => req.song_id === song.id);
-          setCollaborationStatus(existingRequest ? existingRequest.status : null);
-        }
-      } catch (error) {
-        console.error('Failed to check collaboration status:', error);
-      } finally {
-        setIsCheckingStatus(false);
-      }
-    };
-
-    checkCollaborationStatus();
-  }, [song.id, canCollaborate]);
 
   const handleCollaborationClick = () => {
     if (collaborationStatus === 'pending') {
@@ -75,7 +50,6 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtist
   };
 
   const getButtonText = () => {
-    if (isCheckingStatus) return 'Checking...';
     switch (collaborationStatus) {
       case 'pending':
         return 'Sent';
@@ -236,7 +210,7 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, hideArtist
             <button
               onClick={handleCollaborationClick}
               style={getButtonStyle()}
-              disabled={isCheckingStatus || collaborationStatus === 'declined'}
+              disabled={collaborationStatus === 'declined'}
               title={collaborationStatus === 'pending' ? "View collaboration request status" : "Suggest Collaboration"}
             >
               {getButtonText()}

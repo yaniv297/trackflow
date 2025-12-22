@@ -684,3 +684,139 @@ def check_song_duplicates(
     ]
     
     return {"matches": matches}
+
+class MakeAllFuturePlansResponse(BaseModel):
+    success_count: int
+    message: str
+
+@router.post("/make-all-future-plans-public", response_model=MakeAllFuturePlansResponse)
+def make_all_future_plans_public(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Efficiently make all Future Plans songs public for the current user using a single SQL UPDATE query"""
+    # #region agent log
+    import json
+    with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"location":"public_songs.py:690","message":"make_all_future_plans_public endpoint called","data":{"user_id":current_user.id},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+    # #endregion
+    
+    try:
+        # Use a single SQL UPDATE query to update all Future Plans songs for this user
+        # Only update songs that are currently private (is_public = False)
+        result = db.query(Song).filter(
+            Song.user_id == current_user.id,
+            Song.status == "Future Plans",
+            Song.is_public == False
+        ).update(
+            {"is_public": True},
+            synchronize_session=False
+        )
+        
+        # #region agent log
+        with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"location":"public_songs.py:705","message":"SQL UPDATE executed","data":{"updated_count":result},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+        # #endregion
+        
+        db.commit()
+        
+        # Log the activity
+        try:
+            log_activity(
+                db=db,
+                user_id=current_user.id,
+                activity_type="make_all_future_plans_public",
+                description=f"Made all Future Plans songs public ({result} songs)",
+                metadata={
+                    "success_count": result
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log make all future plans public: {log_err}")
+        
+        # Check public WIP achievements if any songs were made public
+        if result > 0:
+            try:
+                from api.achievements import check_public_wip_achievements
+                check_public_wip_achievements(db, current_user.id)
+            except Exception as ach_err:
+                print(f"⚠️ Failed to check public WIP achievements: {ach_err}")
+        
+        # #region agent log
+        with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"location":"public_songs.py:730","message":"make_all_future_plans_public completed","data":{"success_count":result},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+        # #endregion
+        
+        return MakeAllFuturePlansResponse(
+            success_count=result,
+            message=f"Successfully made {result} Future Plans songs public"
+        )
+    except Exception as e:
+        db.rollback()
+        # #region agent log
+        with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"location":"public_songs.py:738","message":"make_all_future_plans_public failed","data":{"error":str(e)},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+        # #endregion
+        raise HTTPException(status_code=500, detail=f"Failed to make Future Plans songs public: {str(e)}")
+
+@router.post("/make-all-future-plans-private", response_model=MakeAllFuturePlansResponse)
+def make_all_future_plans_private(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Efficiently make all Future Plans songs private for the current user using a single SQL UPDATE query"""
+    # #region agent log
+    import json
+    with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+        f.write(json.dumps({"location":"public_songs.py:750","message":"make_all_future_plans_private endpoint called","data":{"user_id":current_user.id},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+    # #endregion
+    
+    try:
+        # Use a single SQL UPDATE query to update all Future Plans songs for this user
+        # Only update songs that are currently public (is_public = True)
+        result = db.query(Song).filter(
+            Song.user_id == current_user.id,
+            Song.status == "Future Plans",
+            Song.is_public == True
+        ).update(
+            {"is_public": False},
+            synchronize_session=False
+        )
+        
+        # #region agent log
+        with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"location":"public_songs.py:765","message":"SQL UPDATE executed","data":{"updated_count":result},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+        # #endregion
+        
+        db.commit()
+        
+        # Log the activity
+        try:
+            log_activity(
+                db=db,
+                user_id=current_user.id,
+                activity_type="make_all_future_plans_private",
+                description=f"Made all Future Plans songs private ({result} songs)",
+                metadata={
+                    "success_count": result
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log make all future plans private: {log_err}")
+        
+        # #region agent log
+        with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"location":"public_songs.py:782","message":"make_all_future_plans_private completed","data":{"success_count":result},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+        # #endregion
+        
+        return MakeAllFuturePlansResponse(
+            success_count=result,
+            message=f"Successfully made {result} Future Plans songs private"
+        )
+    except Exception as e:
+        db.rollback()
+        # #region agent log
+        with open('/Users/yanivbin/code/random/trackflow/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({"location":"public_songs.py:790","message":"make_all_future_plans_private failed","data":{"error":str(e)},"timestamp":int(__import__('time').time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+'\n')
+        # #endregion
+        raise HTTPException(status_code=500, detail=f"Failed to make Future Plans songs private: {str(e)}")

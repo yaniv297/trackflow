@@ -65,32 +65,35 @@
   -webkit-box-orient: vertical;
 }
 
-.request-meta {
+.latest-feature-requests .request-meta {
   margin: 0;
   margin-top: 0.25rem;
   font-size: 0.75rem;
   color: #666;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
+  display: block;
+  text-align: left;
+  margin-left: 0;
 }
 
 .votes {
   font-weight: 500;
 }
 
-.author {
+.latest-feature-requests .author {
   color: #888;
+  display: inline-block;
+  margin-right: 0.5rem;
 }
 
-.time {
+.latest-feature-requests .time {
   color: #999;
+  display: inline-block;
 }
 
 .request-content {
   flex: 1;
   min-width: 0;
+  text-align: left;
 }
 
 .voting-section {
@@ -139,24 +142,28 @@
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
-.login-prompt, .empty-state {
+.login-prompt,
+.empty-state {
   padding: 2rem 1rem;
   text-align: center;
   color: #666;
 }
 
-.login-icon, .empty-icon {
+.login-icon,
+.empty-icon {
   font-size: 2rem;
   margin-bottom: 0.5rem;
 }
 
-.login-prompt h3, .empty-state h3 {
+.login-prompt h3,
+.empty-state h3 {
   margin: 0.5rem 0;
   font-size: 1.1rem;
   color: #333;
 }
 
-.login-prompt p, .empty-state p {
+.login-prompt p,
+.empty-state p {
   margin: 0.5rem 0 1rem 0;
   font-size: 0.9rem;
   color: #666;
@@ -202,23 +209,24 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .request-meta {
+  .latest-feature-requests .request-meta {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
+    margin-left: 0;
   }
-  
+
   .section-title {
     font-size: 1.1rem;
   }
-  
+
   .feature-request-item {
     padding: 0.75rem;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
   }
-  
+
   .voting-section {
     align-self: center;
   }

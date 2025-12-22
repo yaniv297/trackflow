@@ -163,15 +163,94 @@ class PublicSongsService {
    * Uses a single SQL UPDATE query instead of looping through songs
    */
   async makeAllFuturePlansPublic() {
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "publicSongsService.js:165",
+        message: "makeAllFuturePlansPublic called",
+        data: {
+          endpoint: "/api/public-songs/make-all-future-plans-public",
+          method: "POST",
+        },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        runId: "run1",
+        hypothesisId: "A",
+      }),
+    }).catch(() => {});
+    // #endregion
     try {
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "publicSongsService.js:167",
+            message: "About to call apiPost",
+            data: {
+              endpoint: "/api/public-songs/make-all-future-plans-public",
+            },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "run1",
+            hypothesisId: "A",
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
       const response = await apiPost(
         "/api/public-songs/make-all-future-plans-public"
       );
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "publicSongsService.js:170",
+            message: "apiPost succeeded",
+            data: { response },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "run1",
+            hypothesisId: "A",
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
       return {
         success: true,
         data: response,
       };
     } catch (error) {
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7242/ingest/a47a5c1f-7076-402f-ae60-162f1322f038",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "publicSongsService.js:175",
+            message: "apiPost failed",
+            data: {
+              error: error.message,
+              status: error.status,
+              detail: error.detail,
+              endpoint: "/api/public-songs/make-all-future-plans-public",
+            },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            runId: "run1",
+            hypothesisId: "A",
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
       console.error("Error making all Future Plans songs public:", error);
       return {
         success: false,

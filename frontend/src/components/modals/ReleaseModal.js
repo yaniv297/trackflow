@@ -50,7 +50,8 @@ const ReleaseModal = ({
         setSongDownloadLinks(songLinks);
         
         // Set homepage visibility using the explicit show_on_homepage field
-        setHideFromHomepage(!initialData.show_on_homepage);
+        // Only hide from homepage if explicitly set to false, default to showing
+        setHideFromHomepage(initialData.show_on_homepage === false);
         
         // Show individual links section if any song has download links
         setShowIndividualLinks(Object.keys(songLinks).length > 0);

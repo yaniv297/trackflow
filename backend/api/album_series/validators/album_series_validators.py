@@ -8,6 +8,10 @@ class UpdateAlbumSeriesStatusRequest(BaseModel):
     status: str
 
 
+class UpdateRgwPostUrlRequest(BaseModel):
+    rgw_post_url: Optional[str] = None
+
+
 class TracklistItem(BaseModel):
     spotify_track_id: Optional[str] = None
     title: str

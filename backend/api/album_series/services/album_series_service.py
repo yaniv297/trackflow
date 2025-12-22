@@ -60,6 +60,14 @@ class AlbumSeriesService:
             if user_involved:
                 filtered_series.append(s)
         
+        # Get pack owner info for all series
+        pack_owner_map = {}
+        for s in filtered_series:
+            if s.pack_id:
+                pack = self.pack_repo.get_by_id(s.pack_id)
+                if pack:
+                    pack_owner_map[s.id] = pack.user_id
+        
         # Build response with cached data
         result = []
         for s in filtered_series:
@@ -79,7 +87,8 @@ class AlbumSeriesService:
                 "created_at": s.created_at,
                 "updated_at": s.updated_at,
                 "song_count": song_count,
-                "authors": authors
+                "authors": authors,
+                "pack_owner_id": pack_owner_map.get(s.id)
             }
             result.append(AlbumSeriesResponse(**response_data))
         
@@ -108,11 +117,13 @@ class AlbumSeriesService:
         # Get pack data if available
         pack_id = None
         pack_name = None
+        pack_owner_id = None
         if series.pack_id:
             pack = self.pack_repo.get_by_id(series.pack_id)
             if pack:
                 pack_id = pack.id
                 pack_name = pack.name
+                pack_owner_id = pack.user_id
         
         return {
             "id": series.id,
@@ -128,6 +139,7 @@ class AlbumSeriesService:
             "updated_at": series.updated_at,
             "pack_id": pack_id,
             "pack_name": pack_name,
+            "pack_owner_id": pack_owner_id,
             "album_songs": formatted_album_songs,
             "bonus_songs": formatted_bonus_songs,
             "total_songs": len(songs),
@@ -252,6 +264,35 @@ class AlbumSeriesService:
         return {
             "message": f"Album series '{series.album_name}' status updated to '{new_status}'",
             "status": new_status
+        }
+    
+    def update_rgw_post_url(self, series_id: int, rgw_post_url: Optional[str], current_user: User) -> Dict[str, Any]:
+        """Update the RGW post URL for an album series. Only allowed for pack owner if released."""
+        series = self.album_series_repo.get_by_id(series_id)
+        if not series:
+            raise ValueError("Album series not found")
+        
+        # For released series, check if user is the pack owner
+        if series.status == "released":
+            if not series.pack_id:
+                raise PermissionError("Cannot update RGW post URL: series has no associated pack")
+            
+            pack = self.pack_repo.get_by_id(series.pack_id)
+            if not pack:
+                raise ValueError("Associated pack not found")
+            
+            if pack.user_id != current_user.id:
+                raise PermissionError("Only the pack owner can update the RGW post URL for released series")
+        
+        # Update the RGW post URL
+        series.rgw_post_url = rgw_post_url
+        series.updated_at = datetime.utcnow()
+        self.album_series_repo.update(series)
+        self.db.commit()
+        
+        return {
+            "message": f"RGW post URL updated for '{series.album_name}'",
+            "rgw_post_url": rgw_post_url
         }
     
     def delete_series(self, series_id: int, current_user: User) -> Dict[str, Any]:

@@ -19,6 +19,7 @@ const AlbumSeriesPage = () => {
   // Data fetching
   const {
     albumSeries,
+    setAlbumSeries,
     loading,
     error,
     seriesDetails,
@@ -109,6 +110,18 @@ const AlbumSeriesPage = () => {
     );
   }
 
+  const handleSeriesUpdate = (updatedSeries) => {
+    // Update the series in the albumSeries state
+    setAlbumSeries((prev) =>
+      prev.map((s) => (s.id === updatedSeries.id ? updatedSeries : s))
+    );
+    
+    // Also update in seriesDetails if it exists
+    if (seriesDetails[updatedSeries.id]) {
+      fetchSeriesDetails(updatedSeries.id); // Re-fetch to get updated data
+    }
+  };
+
   const renderSeriesSection = (title, seriesList) => {
     if (seriesList.length === 0) return null;
 
@@ -147,6 +160,8 @@ const AlbumSeriesPage = () => {
                 fetchSeriesDetails={fetchSeriesDetails}
                 authoringFields={authoringFields}
                 userWorkflowFields={userWorkflowFields}
+                currentUser={user}
+                onSeriesUpdate={handleSeriesUpdate}
               />
             );
           })}

@@ -8,7 +8,7 @@ from database import get_db
 from schemas import AlbumSeriesResponse, AlbumSeriesDetailResponse, CreateAlbumSeriesRequest
 from api.auth import get_current_active_user
 from ..services.album_series_service import AlbumSeriesService
-from ..validators.album_series_validators import UpdateAlbumSeriesStatusRequest
+from ..validators.album_series_validators import UpdateAlbumSeriesStatusRequest, UpdateRgwPostUrlRequest
 
 router = APIRouter()
 
@@ -109,6 +109,26 @@ def update_album_series_status(
     except Exception as e:
         print(f"Error updating status for series {series_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
+
+
+@router.put("/{series_id}/rgw-post-url")
+def update_rgw_post_url(
+    series_id: int,
+    request: UpdateRgwPostUrlRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Update the RGW post URL for an album series. Only allowed for pack owner if released."""
+    try:
+        service = AlbumSeriesService(db)
+        return service.update_rgw_post_url(series_id, request.rgw_post_url, current_user)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        print(f"Error updating RGW post URL for series {series_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating RGW post URL: {str(e)}")
 
 
 @router.delete("/{series_id}")

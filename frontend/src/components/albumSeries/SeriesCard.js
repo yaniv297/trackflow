@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import SongList from "./SongList";
 import {
   getStatusColor,
   getStatusText,
   calculateSeriesCompletion,
 } from "../../utils/albumSeriesUtils";
+import { apiPut } from "../../utils/api";
 
 /**
  * Component for rendering a single album series card
@@ -19,7 +20,56 @@ const SeriesCard = ({
   fetchSeriesDetails,
   authoringFields,
   userWorkflowFields = {},
+  currentUser,
+  onSeriesUpdate,
 }) => {
+  const [isEditingRgwUrl, setIsEditingRgwUrl] = useState(false);
+  const [rgwUrlValue, setRgwUrlValue] = useState(series.rgw_post_url || "");
+  const [isSavingRgwUrl, setIsSavingRgwUrl] = useState(false);
+
+  // Check if current user can edit RGW post URL (only for released series where user is pack owner)
+  const canEditRgwUrl = () => {
+    if (!currentUser) return false;
+    if (series.status !== "released") return false;
+    return series.pack_owner_id === currentUser.id;
+  };
+
+  const handleSaveRgwUrl = async () => {
+    setIsSavingRgwUrl(true);
+    try {
+      await apiPut(`/album-series/${series.id}/rgw-post-url`, {
+        rgw_post_url: rgwUrlValue || null,
+      });
+      
+      // Update the series in parent component
+      if (onSeriesUpdate) {
+        onSeriesUpdate({
+          ...series,
+          rgw_post_url: rgwUrlValue || null,
+        });
+      }
+      
+      setIsEditingRgwUrl(false);
+      if (window.showNotification) {
+        window.showNotification("RGW post URL updated successfully", "success");
+      }
+    } catch (error) {
+      console.error("Error updating RGW post URL:", error);
+      if (window.showNotification) {
+        window.showNotification(
+          `Failed to update RGW post URL: ${error.message}`,
+          "error"
+        );
+      }
+    } finally {
+      setIsSavingRgwUrl(false);
+    }
+  };
+
+  const handleCancelRgwUrl = () => {
+    setRgwUrlValue(series.rgw_post_url || "");
+    setIsEditingRgwUrl(false);
+  };
   return (
     <div
       style={{
@@ -218,45 +268,149 @@ const SeriesCard = ({
         </div>
       )}
 
-      {/* RGW Post Link */}
-      {series.rgw_post_url && (
+      {/* RGW Post Link / Edit */}
+      {(series.rgw_post_url || canEditRgwUrl()) && (
         <div
           style={{
             marginBottom: "1rem",
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <a
-            href={series.rgw_post_url}
-            target="_blank"
-            rel="noreferrer noopener"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              fontSize: "0.9rem",
-              color: "#1976d2",
-              textDecoration: "none",
-              fontWeight: 500,
-              padding: "0.5rem 0.75rem",
-              borderRadius: "6px",
-              border: "1px solid #e0e0e0",
-              backgroundColor: "#f8f9fa",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#e3f2fd";
-              e.currentTarget.style.borderColor = "#1976d2";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#f8f9fa";
-              e.currentTarget.style.borderColor = "#e0e0e0";
-            }}
-          >
-            <span>📝</span>
-            <span>RGW post</span>
-            <span style={{ fontSize: "0.75rem" }}>↗</span>
-          </a>
+          {isEditingRgwUrl ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+              }}
+            >
+              <input
+                type="url"
+                value={rgwUrlValue}
+                onChange={(e) => setRgwUrlValue(e.target.value)}
+                placeholder="Enter RGW post URL"
+                style={{
+                  padding: "0.5rem 0.75rem",
+                  fontSize: "0.9rem",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "6px",
+                  width: "100%",
+                }}
+                autoFocus
+              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={handleSaveRgwUrl}
+                  disabled={isSavingRgwUrl}
+                  style={{
+                    padding: "0.4rem 0.8rem",
+                    fontSize: "0.85rem",
+                    backgroundColor: "#1976d2",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: isSavingRgwUrl ? "not-allowed" : "pointer",
+                    opacity: isSavingRgwUrl ? 0.6 : 1,
+                  }}
+                >
+                  {isSavingRgwUrl ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={handleCancelRgwUrl}
+                  disabled={isSavingRgwUrl}
+                  style={{
+                    padding: "0.4rem 0.8rem",
+                    fontSize: "0.85rem",
+                    backgroundColor: "#f5f5f5",
+                    color: "#333",
+                    border: "1px solid #e0e0e0",
+                    borderRadius: "4px",
+                    cursor: isSavingRgwUrl ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+            >
+              {series.rgw_post_url ? (
+                <a
+                  href={series.rgw_post_url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontSize: "0.9rem",
+                    color: "#1976d2",
+                    textDecoration: "none",
+                    fontWeight: 500,
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "6px",
+                    border: "1px solid #e0e0e0",
+                    backgroundColor: "#f8f9fa",
+                    transition: "all 0.2s ease",
+                    flex: 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#e3f2fd";
+                    e.currentTarget.style.borderColor = "#1976d2";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#f8f9fa";
+                    e.currentTarget.style.borderColor = "#e0e0e0";
+                  }}
+                >
+                  <span>📝</span>
+                  <span>RGW post</span>
+                  <span style={{ fontSize: "0.75rem" }}>↗</span>
+                </a>
+              ) : (
+                <div
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    fontSize: "0.9rem",
+                    color: "#666",
+                    fontStyle: "italic",
+                  }}
+                >
+                  No RGW post URL
+                </div>
+              )}
+              {canEditRgwUrl() && (
+                <button
+                  onClick={() => setIsEditingRgwUrl(true)}
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    fontSize: "0.85rem",
+                    backgroundColor: "#f5f5f5",
+                    color: "#333",
+                    border: "1px solid #e0e0e0",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#e0e0e0";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#f5f5f5";
+                  }}
+                  title={series.rgw_post_url ? "Edit RGW post URL" : "Add RGW post URL"}
+                >
+                  {series.rgw_post_url ? "✏️" : "+"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

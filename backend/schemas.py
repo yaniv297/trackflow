@@ -174,6 +174,7 @@ class AlbumSeriesResponse(BaseModel):
     updated_at: datetime
     song_count: int = 0
     authors: List[str] = []  # List of all authors in this series
+    pack_owner_id: Optional[int] = None  # Pack owner ID for released series
     
     class Config:
         from_attributes = True
@@ -192,6 +193,7 @@ class AlbumSeriesDetailResponse(BaseModel):
     updated_at: datetime
     pack_id: Optional[int] = None
     pack_name: Optional[str] = None
+    pack_owner_id: Optional[int] = None  # Pack owner ID for released series
     album_songs: List[SongOut]
     bonus_songs: List[SongOut]
     total_songs: int

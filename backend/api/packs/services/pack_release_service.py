@@ -176,6 +176,13 @@ class PackReleaseService:
     
     def _release_pack_songs(self, pack_id: int, release_data: PackReleaseData, user_id: int):
         """Handle song status changes during pack release (matches original logic)."""
+        # Debug: Log song download links received
+        if release_data.song_download_links:
+            print(f"🔧 Received song_download_links: {release_data.song_download_links}")
+            print(f"🔧 Keys type: {[type(k).__name__ for k in release_data.song_download_links.keys()]}")
+        else:
+            print("🔧 No song_download_links provided")
+        
         # Get all songs in the pack
         songs = self.db.query(Song).filter(Song.pack_id == pack_id).all()
         print(f"🔧 Found {len(songs)} songs in pack {pack_id}")
@@ -198,8 +205,17 @@ class PackReleaseService:
                     song.released_at = datetime.utcnow()
                     
                     # Set song download link if provided
-                    if release_data.song_download_links and str(song.id) in release_data.song_download_links:
-                        song.release_download_link = release_data.song_download_links[str(song.id)]
+                    if release_data.song_download_links:
+                        # Handle both integer and string keys (JSON keys are strings, but Pydantic may convert them)
+                        download_link = None
+                        if song.id in release_data.song_download_links:
+                            download_link = release_data.song_download_links[song.id]
+                        elif str(song.id) in release_data.song_download_links:
+                            download_link = release_data.song_download_links[str(song.id)]
+                        
+                        if download_link:
+                            song.release_download_link = download_link
+                            print(f"🔗 Set download link for song {song.id}: {song.release_download_link}")
                     
                     # Award 10 points for releasing a song (but don't send notification yet)
                     try:
@@ -251,8 +267,17 @@ class PackReleaseService:
                     print(f"🔧 Fixed missing released_at timestamp for already-released song {song.id}: {song.title}")
                 
                 # Set song download link if provided
-                if release_data.song_download_links and str(song.id) in release_data.song_download_links:
-                    song.release_download_link = release_data.song_download_links[str(song.id)]
+                if release_data.song_download_links:
+                    # Handle both integer and string keys (JSON keys are strings, but Pydantic may convert them)
+                    download_link = None
+                    if song.id in release_data.song_download_links:
+                        download_link = release_data.song_download_links[song.id]
+                    elif str(song.id) in release_data.song_download_links:
+                        download_link = release_data.song_download_links[str(song.id)]
+                    
+                    if download_link:
+                        song.release_download_link = download_link
+                        print(f"🔗 Set download link for already-released song {song.id}: {song.release_download_link}")
                 
                 released_count += 1
         

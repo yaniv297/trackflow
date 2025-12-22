@@ -154,6 +154,14 @@ const CommunityLeaderboard = ({ limit = 8 }) => {
             </button>
           </div>
         )}
+        <div className="section-footer">
+          <button 
+            onClick={() => navigate('/leaderboard')}
+            className="view-full-leaderboard-btn"
+          >
+            View Full Leaderboard →
+          </button>
+        </div>
       </div>
       
       {/* User Profile Popup */}

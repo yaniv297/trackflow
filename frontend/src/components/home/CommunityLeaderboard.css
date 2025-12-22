@@ -207,6 +207,31 @@
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
+.view-full-leaderboard-btn {
+  background: transparent;
+  color: #667eea;
+  border: 1px solid #667eea;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.view-full-leaderboard-btn:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.sidebar-area .view-full-leaderboard-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .community-leaderboard {

@@ -694,13 +694,19 @@ def make_all_future_plans_public(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Efficiently make all Future Plans songs public for the current user using a single SQL UPDATE query"""
+    """Efficiently make all Future Plans songs public for the current user using a single SQL UPDATE query.
+    Also sets the user's default_public_sharing setting to True so future songs are public by default."""
     
     try:
+        # Reload user from database to ensure it's attached to the session
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # Use a single SQL UPDATE query to update all Future Plans songs for this user
         # Only update songs that are currently private (is_public = False)
         result = db.query(Song).filter(
-            Song.user_id == current_user.id,
+            Song.user_id == user.id,
             Song.status == "Future Plans",
             Song.is_public == False
         ).update(
@@ -708,17 +714,21 @@ def make_all_future_plans_public(
             synchronize_session=False
         )
         
+        # Also set the user's default_public_sharing to True so future songs are public by default
+        user.default_public_sharing = True
+        
         db.commit()
         
         # Log the activity
         try:
             log_activity(
                 db=db,
-                user_id=current_user.id,
+                user_id=user.id,
                 activity_type="make_all_future_plans_public",
-                description=f"Made all Future Plans songs public ({result} songs)",
+                description=f"Made all Future Plans songs public ({result} songs) and enabled default public sharing",
                 metadata={
-                    "success_count": result
+                    "success_count": result,
+                    "default_public_sharing_enabled": True
                 }
             )
         except Exception as log_err:
@@ -728,7 +738,7 @@ def make_all_future_plans_public(
         if result > 0:
             try:
                 from api.achievements import check_public_wip_achievements
-                check_public_wip_achievements(db, current_user.id)
+                check_public_wip_achievements(db, user.id)
             except Exception as ach_err:
                 print(f"⚠️ Failed to check public WIP achievements: {ach_err}")
         
@@ -745,13 +755,19 @@ def make_all_future_plans_private(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Efficiently make all Future Plans songs private for the current user using a single SQL UPDATE query"""
+    """Efficiently make all Future Plans songs private for the current user using a single SQL UPDATE query.
+    Also sets the user's default_public_sharing setting to False so future songs are private by default."""
     
     try:
+        # Reload user from database to ensure it's attached to the session
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # Use a single SQL UPDATE query to update all Future Plans songs for this user
         # Only update songs that are currently public (is_public = True)
         result = db.query(Song).filter(
-            Song.user_id == current_user.id,
+            Song.user_id == user.id,
             Song.status == "Future Plans",
             Song.is_public == True
         ).update(
@@ -759,17 +775,21 @@ def make_all_future_plans_private(
             synchronize_session=False
         )
         
+        # Also set the user's default_public_sharing to False so future songs are private by default
+        user.default_public_sharing = False
+        
         db.commit()
         
         # Log the activity
         try:
             log_activity(
                 db=db,
-                user_id=current_user.id,
+                user_id=user.id,
                 activity_type="make_all_future_plans_private",
-                description=f"Made all Future Plans songs private ({result} songs)",
+                description=f"Made all Future Plans songs private ({result} songs) and disabled default public sharing",
                 metadata={
-                    "success_count": result
+                    "success_count": result,
+                    "default_public_sharing_enabled": False
                 }
             )
         except Exception as log_err:

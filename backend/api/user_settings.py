@@ -17,6 +17,7 @@ class UserSettingsUpdate(BaseModel):
     profile_image_url: Optional[str] = None
     website_url: Optional[str] = None
     auto_spotify_fetch_enabled: Optional[bool] = None
+    default_public_sharing: Optional[bool] = None  # Make new songs public by default
 
 class UserSettingsResponse(BaseModel):
     id: int
@@ -27,6 +28,7 @@ class UserSettingsResponse(BaseModel):
     profile_image_url: Optional[str] = None
     website_url: Optional[str] = None
     auto_spotify_fetch_enabled: Optional[bool] = None
+    default_public_sharing: Optional[bool] = None  # Make new songs public by default
     created_at: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
@@ -57,6 +59,13 @@ def get_user_settings(
     else:
         auto_fetch_enabled = True
     
+    # Handle default_public_sharing: if attribute exists, use its value (even if False), otherwise default to False
+    default_public_sharing = False
+    if hasattr(user, 'default_public_sharing'):
+        default_public_sharing = user.default_public_sharing if user.default_public_sharing is not None else False
+    else:
+        default_public_sharing = False
+    
     user_dict = {
         "id": user.id,
         "username": user.username,
@@ -66,6 +75,7 @@ def get_user_settings(
         "profile_image_url": user.profile_image_url,
         "website_url": user.website_url,
         "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
+        "default_public_sharing": bool(default_public_sharing),  # Ensure it's a boolean
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
     return user_dict
@@ -140,6 +150,9 @@ def update_user_settings(
     if settings.auto_spotify_fetch_enabled is not None:
         user.auto_spotify_fetch_enabled = settings.auto_spotify_fetch_enabled
     
+    if settings.default_public_sharing is not None:
+        user.default_public_sharing = settings.default_public_sharing
+    
     try:
         db.commit()
         db.refresh(user)
@@ -181,6 +194,13 @@ def update_user_settings(
         else:
             auto_fetch_enabled = True
         
+        # Ensure default_public_sharing is always a boolean
+        default_public_sharing = False
+        if hasattr(user, 'default_public_sharing'):
+            default_public_sharing = user.default_public_sharing if user.default_public_sharing is not None else False
+        else:
+            default_public_sharing = False
+        
         user_dict = {
             "id": user.id,
             "username": user.username,
@@ -190,6 +210,7 @@ def update_user_settings(
             "profile_image_url": user.profile_image_url,
             "website_url": user.website_url,
             "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
+            "default_public_sharing": bool(default_public_sharing),  # Ensure it's a boolean
             "created_at": user.created_at.isoformat() if user.created_at else None
         }
         return user_dict

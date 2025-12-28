@@ -57,11 +57,23 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
     # Ensure user_id is set
     song_data['user_id'] = user.id
     
+    # Check user's default_public_sharing setting to determine if new song should be public
+    # Reload user from database to get fresh setting value (user might be from cache)
+    db_user = db.query(User).filter(User.id == user.id).first()
+    user_default_public_sharing = False
+    if db_user and hasattr(db_user, 'default_public_sharing'):
+        user_default_public_sharing = bool(db_user.default_public_sharing) if db_user.default_public_sharing is not None else False
+    
     # Clean up song_data to remove fields that don't exist in the Song model
-    valid_fields = ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'user_id', 'notes', 'optional']
+    valid_fields = ['title', 'artist', 'album', 'pack_id', 'status', 'year', 'album_cover', 'user_id', 'notes', 'optional', 'is_public']
     cleaned_song_data = {k: v for k, v in song_data.items() if k in valid_fields}
     # Remove priority field as it's only used for pack creation, not song creation
     cleaned_song_data.pop('priority', None)
+    
+    # Set is_public based on user's default_public_sharing setting if not explicitly provided
+    if 'is_public' not in cleaned_song_data:
+        cleaned_song_data['is_public'] = user_default_public_sharing
+        print(f"Setting is_public={user_default_public_sharing} based on user's default_public_sharing setting")
     
     print(f"Cleaned song data: {cleaned_song_data}")
     

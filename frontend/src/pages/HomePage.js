@@ -61,7 +61,7 @@ const HomePage = () => {
             </div>
             <div className="main-content-area">
               <LatestUpdates limit={5} />
-              <LatestReleases limit={6} onEditRelease={handleEditRelease} />
+              <LatestReleases limit={10} onEditRelease={handleEditRelease} />
             </div>
             <div className="sidebar-area">
               <CollaborationInvites />
@@ -79,7 +79,7 @@ const HomePage = () => {
             <div className="main-content-area">
               <IntroSection />
               <LatestUpdates limit={6} />
-              <LatestReleases limit={6} onEditRelease={handleEditRelease} />
+              <LatestReleases limit={10} onEditRelease={handleEditRelease} />
             </div>
             <div className="sidebar-area">
               <LoginSection />

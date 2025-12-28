@@ -184,30 +184,39 @@ const SongTable = ({
 
     if (groupBy !== "artist") {
       // Album series logic: use only song-level ids (source of truth)
-      const seriesIdsForPack = Array.from(
-        new Set(
-          validSongsInPack
-            .map((s) => s && s.album_series_id)
-            .filter((id) => id !== null && id !== undefined && id !== "")
-            .map((id) => (typeof id === "string" ? parseInt(id, 10) : id))
-            .filter((id) => Number.isInteger(id))
-        )
-      );
-
-      const seriesInfo = seriesIdsForPack.map((seriesId) => {
-        const s =
-          validSongsInPack.find((song) => song.album_series_id === seriesId) ||
-          {};
-        const num =
-          typeof s.album_series_number === "string"
-            ? parseInt(s.album_series_number, 10)
-            : s.album_series_number;
-        return {
-          id: typeof seriesId === "string" ? parseInt(seriesId, 10) : seriesId,
-          number: Number.isFinite(num) ? num : null,
-          name: s.album_series_name,
-        };
+      // Count how many songs belong to each album series
+      const seriesCounts = {};
+      const seriesDetails = {};
+      
+      validSongsInPack.forEach((song) => {
+        if (song && song.album_series_id) {
+          const seriesId = song.album_series_id;
+          seriesCounts[seriesId] = (seriesCounts[seriesId] || 0) + 1;
+          // Store details from first song we encounter with this series ID
+          if (!seriesDetails[seriesId]) {
+            const num =
+              typeof song.album_series_number === "string"
+                ? parseInt(song.album_series_number, 10)
+                : song.album_series_number;
+            seriesDetails[seriesId] = {
+              id: seriesId,
+              number: Number.isFinite(num) ? num : null,
+              name: song.album_series_name,
+            };
+          }
+        }
       });
+
+      // Only include album series if ≥50% of songs belong to it
+      const totalSongs = validSongsInPack.length;
+      const seriesInfo = Object.keys(seriesCounts)
+        .filter((seriesId) => {
+          const count = seriesCounts[seriesId];
+          const percentage = (count / totalSongs) * 100;
+          return percentage >= 50.0;
+        })
+        .map((seriesId) => seriesDetails[seriesId])
+        .filter(Boolean); // Remove any undefined entries
 
       sortedSeriesInfo = [...seriesInfo].sort((a, b) => {
         const an = Number.isFinite(a.number)

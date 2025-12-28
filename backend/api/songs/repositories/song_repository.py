@@ -75,6 +75,10 @@ class SongRepository:
                         self.db.query(Collaboration.song_id)
                         .join(User, Collaboration.user_id == User.id)
                         .filter(User.username.ilike(pattern))
+                    ),
+                    Song.pack_id.in_(
+                        self.db.query(Pack.id)
+                        .filter(Pack.name.ilike(pattern))
                     )
                 )
             )
@@ -146,7 +150,11 @@ class SongRepository:
                 or_(
                     Song.title.ilike(search_term),
                     Song.artist.ilike(search_term),
-                    Song.album.ilike(search_term)
+                    Song.album.ilike(search_term),
+                    Song.pack_id.in_(
+                        self.db.query(Pack.id)
+                        .filter(Pack.name.ilike(search_term))
+                    )
                 )
             )
         

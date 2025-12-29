@@ -30,6 +30,7 @@ export const useWipData = (user) => {
       const data = await apiGet("/songs/?status=In%20Progress");
 
       // After loading songs, fetch song_progress for ALL songs in ONE bulk request
+      let songsWithProgress = [];
       if (data && data.length > 0) {
         try {
           const songIds = data.map((s) => s.id).join(",");
@@ -37,24 +38,51 @@ export const useWipData = (user) => {
             `/workflows/songs/progress/bulk?song_ids=${songIds}`
           );
 
-          const songsWithProgress = data.map((s) => ({
+          songsWithProgress = data.map((s) => ({
             ...s,
             progress: progressMap[s.id] || {},
           }));
-
-          setSongs(songsWithProgress);
         } catch (e) {
           console.error("Failed to fetch bulk progress:", e);
           // Fallback to original songs if progress fetch fails
-          setSongs(data || []);
+          songsWithProgress = data || [];
         }
       } else {
-        setSongs(data || []);
+        songsWithProgress = data || [];
+      }
+
+      setSongs(songsWithProgress);
+
+      // Fetch workflow fields for all unique song owners IMMEDIATELY (in parallel)
+      // This ensures categorization happens quickly without waiting
+      if (songsWithProgress.length > 0) {
+        const uniqueUserIds = new Set();
+        songsWithProgress.forEach((song) => {
+          if (song.user_id) {
+            uniqueUserIds.add(song.user_id);
+          }
+        });
+
+        // Fetch all workflow fields in parallel (non-blocking)
+        // They'll be cached and available when grouping happens
+        uniqueUserIds.forEach((userId) => {
+          fetchUserWorkflowFields(userId).then((fields) => {
+            if (fields) {
+              setUserWorkflowFields((prev) => ({
+                ...prev,
+                [userId]: fields,
+              }));
+            }
+          }).catch((err) => {
+            // Silent fail - will use fallback
+            console.warn(`Failed to fetch workflow for user ${userId}:`, err);
+          });
+        });
       }
 
       // Calculate pack completion and set initial collapsed state
       const packs = Array.from(
-        new Set((data || []).map((s) => s.pack_name || "(no pack)"))
+        new Set((songsWithProgress || []).map((s) => s.pack_name || "(no pack)"))
       );
 
       setCollapsedPacks((prev) => {
@@ -72,7 +100,7 @@ export const useWipData = (user) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchUserWorkflowFields]);
 
   // Helper function to get list of collaborating users for a pack
   const getPackCollaborators = (packId, validSongsInPack) => {
@@ -176,7 +204,8 @@ export const useWipData = (user) => {
     }
   }, [user]);
 
-  // Fetch workflow fields for all unique song owners
+  // Update workflow fields from cache immediately when songs change
+  // (Actual fetching happens in loadSongsWithProgress for better performance)
   useEffect(() => {
     const uniqueUserIds = new Set();
     songs.forEach((song) => {
@@ -185,7 +214,7 @@ export const useWipData = (user) => {
       }
     });
 
-    // Update state with cached workflow fields immediately, then fetch any missing ones
+    // Update state with cached workflow fields immediately
     const cachedFields = {};
     uniqueUserIds.forEach((userId) => {
       const cached = getWorkflowFields(userId);
@@ -196,18 +225,7 @@ export const useWipData = (user) => {
     if (Object.keys(cachedFields).length > 0) {
       setUserWorkflowFields((prev) => ({ ...prev, ...cachedFields }));
     }
-
-    // Fetch workflow fields for each unique user (will use cache if available)
-    uniqueUserIds.forEach(async (userId) => {
-      const fields = await fetchUserWorkflowFields(userId);
-      if (fields) {
-        setUserWorkflowFields((prev) => ({
-          ...prev,
-          [userId]: fields,
-        }));
-      }
-    });
-  }, [songs, fetchUserWorkflowFields, getWorkflowFields]);
+  }, [songs, getWorkflowFields]);
 
   // Group songs by pack with statistics
   const grouped = useMemo(() => {

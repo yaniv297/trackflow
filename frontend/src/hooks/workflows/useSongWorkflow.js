@@ -70,7 +70,7 @@ export const useSongWorkflow = (song, currentUser) => {
     }
 
     return songOwnerWorkflow.steps
-      .filter((step) => step.is_enabled)
+      .filter((step) => step.is_enabled !== false) // Include all steps if is_enabled is not defined
       .sort((a, b) => a.order_index - b.order_index)
       .map((step) => step.step_name);
   }, [songOwnerWorkflow]);
@@ -125,7 +125,7 @@ export const useSongWorkflow = (song, currentUser) => {
     }
 
     return songOwnerWorkflow.steps
-      .filter((step) => step.is_enabled && step.is_required)
+      .filter((step) => (step.is_enabled !== false) && (step.is_required !== false)) // Include all steps if fields are not defined
       .sort((a, b) => a.order_index - b.order_index)
       .map((step) => step.step_name);
   }, [songOwnerWorkflow, authoringFields]);
@@ -156,7 +156,7 @@ export const useSongWorkflow = (song, currentUser) => {
 
     const grouped = {};
     songOwnerWorkflow.steps
-      .filter((step) => step.is_enabled)
+      .filter((step) => step.is_enabled !== false) // Include all steps if is_enabled is not defined
       .sort((a, b) => a.order_index - b.order_index)
       .forEach((step) => {
         const category = step.category || "Other";

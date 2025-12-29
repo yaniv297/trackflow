@@ -114,6 +114,60 @@ async def get_my_workflow_summary(
     """Get a summary of the current user's workflow"""
     raise HTTPException(status_code=404, detail="Not implemented yet")
 
+@router.get("/user/{user_id}", response_model=UserWorkflowOut)
+async def get_user_workflow(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get a specific user's workflow configuration (for collaboration songs).
+    This ensures collaborators see the owner's workflow steps.
+    """
+    # Try cache first
+    cached_workflow = _get_cached_workflow(user_id)
+    if cached_workflow is not None:
+        return cached_workflow
+    
+    # Load user's workflow - REQUIRED, no fallback to templates
+    result = db.execute(text("SELECT id, user_id, name, description, template_id, created_at, updated_at FROM user_workflows WHERE user_id = :uid"), {"uid": user_id}).fetchone()
+    if not result:
+        # User has no workflow - this should never happen if registration worked correctly
+        # But we don't create one from templates - user must configure it
+        raise HTTPException(
+            status_code=404,
+            detail="USER_WORKFLOW_NOT_CONFIGURED: No workflow found for this user. Please ask them to configure their workflow."
+        )
+
+    workflow_id = result[0]
+    steps = db.execute(text("""
+        SELECT id, workflow_id, step_name, display_name, order_index
+        FROM user_workflow_steps WHERE workflow_id = :wid ORDER BY order_index
+    """), {"wid": workflow_id}).fetchall()
+
+    workflow_data = {
+        "id": result[0],
+        "user_id": result[1],
+        "name": result[2],
+        "description": result[3],
+        "template_id": result[4],
+        "created_at": result[5],
+        "updated_at": result[6],
+        "steps": [
+            {
+                "id": s[0],
+                "workflow_id": s[1],
+                "step_name": s[2],
+                "display_name": s[3],
+                "order_index": s[4],
+            }
+            for s in steps
+        ],
+    }
+    
+    # Cache the result
+    _cache_workflow(user_id, workflow_data)
+    return workflow_data
+
 @router.get("/user/{user_id}/workflow-fields")
 async def get_user_workflow_fields(
     user_id: int,

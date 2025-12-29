@@ -97,7 +97,10 @@ const WipPackCard = ({
   const { fetchUserWorkflowFields, getWorkflowFields } =
     useUserWorkflowFields();
 
-  // Fetch workflow fields for all unique song owners
+  // Pre-fetch workflow fields for all unique song owners (non-blocking)
+  // This is done proactively to ensure fields are available when needed
+  // The actual fetching happens in useWipData when songs are loaded, but
+  // we do a quick check here for any missing ones
   React.useEffect(() => {
     const uniqueUserIds = new Set();
 
@@ -113,9 +116,11 @@ const WipPackCard = ({
       }
     });
 
-    // Fetch workflow fields for each unique user
+    // Only fetch if not already cached (non-blocking)
     uniqueUserIds.forEach((userId) => {
-      fetchUserWorkflowFields(userId);
+      if (!getWorkflowFields(userId)) {
+        fetchUserWorkflowFields(userId);
+      }
     });
   }, [
     completedSongs,
@@ -123,6 +128,7 @@ const WipPackCard = ({
     collaboratorSongs,
     collaboratorOptionalSongs,
     fetchUserWorkflowFields,
+    getWorkflowFields,
   ]);
 
   // State for pack settings modal
@@ -600,7 +606,6 @@ const WipPackCard = ({
                     ✏️ Change Pack Name
                   </button>
 
-
                   <button
                     onClick={() => {
                       onMovePackToFuturePlans(packName);
@@ -1004,19 +1009,21 @@ const WipPackCard = ({
               </h4>
               {!collaborationSongsCollapsed &&
                 sortedCollaborationSongs.map((song) => {
-                  // Calculate if collaboration song is finished
+                  // Get the song owner's workflow fields (CRITICAL: use owner's workflow, not viewer's)
+                  const songOwnerFields =
+                    getWorkflowFields(song.user_id) || authoringFields;
 
                   return (
                     <WipSongCard
                       key={song.id}
                       song={song}
-                      authoringFields={authoringFields}
+                      authoringFields={songOwnerFields}
                       onAuthoringUpdate={onUpdateAuthoringField}
                       onToggleOptional={onToggleOptional}
                       onDelete={onDeleteSong}
                       selectedSongs={selectedSongs}
                       setSelectedSongs={onSetSelectedSongs}
-                      defaultExpanded={!isSongComplete(song, authoringFields)} // Finished songs collapsed, unfinished expanded
+                      defaultExpanded={!isSongComplete(song, songOwnerFields)} // Finished songs collapsed, unfinished expanded
                       onSongUpdate={onSongUpdate}
                       onReleaseSong={onReleaseSong}
                     />
@@ -1315,7 +1322,6 @@ const WipPackCard = ({
                 )}
               </div>
             )}
-
 
             {packSettingsMode === "rename" && (
               <div>

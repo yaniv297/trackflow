@@ -76,6 +76,28 @@ class AchievementsService:
                 except Exception as e:
                     print(f"⚠️ Error getting alphabet details: {e}")
             
+            # Pre-fetch years details if needed (only once, only for unearned unique_years achievements)
+            years_details_cache = None
+            needs_years_details = any(
+                ach.metric_type == 'unique_years' for ach in unearned_achievements
+            )
+            if needs_years_details:
+                try:
+                    years_details_cache = self.repository.get_years_coverage_details(db, user_id)
+                except Exception as e:
+                    print(f"⚠️ Error getting years details: {e}")
+            
+            # Pre-fetch decades details if needed (only once, only for unearned unique_decades achievements)
+            decades_details_cache = None
+            needs_decades_details = any(
+                ach.metric_type == 'unique_decades' for ach in unearned_achievements
+            )
+            if needs_decades_details:
+                try:
+                    decades_details_cache = self.repository.get_decades_coverage_details(db, user_id)
+                except Exception as e:
+                    print(f"⚠️ Error getting decades details: {e}")
+            
             result = []
             for achievement in all_achievements:
                 is_earned = achievement.code in earned_codes
@@ -87,12 +109,26 @@ class AchievementsService:
                     current_value = metric_cache.get(achievement.metric_type, 0)
                     percentage = min((current_value / achievement.target_value) * 100, 100) if achievement.target_value > 0 else 0
                     
-                    # Add special details for alphabet collector achievement
+                    # Add special details for achievements that support missing data
                     details = None
                     if achievement.code == 'alphabet_collector' and alphabet_details_cache:
                         details = {
                             'missing_letters': alphabet_details_cache['missing_letters'],
                             'found_letters': alphabet_details_cache['found_letters']
+                        }
+                    elif achievement.metric_type == 'unique_years' and years_details_cache:
+                        # For year-based achievements, show missing years within range and found years for context
+                        details = {
+                            'found_years': years_details_cache['found_years'],
+                            'missing_years_in_range': years_details_cache.get('missing_years_in_range', []),
+                            'year_range': years_details_cache.get('year_range', {})
+                        }
+                    elif achievement.metric_type == 'unique_decades' and decades_details_cache:
+                        # For decade-based achievements, show missing decades
+                        details = {
+                            'found_decades': decades_details_cache['found_decades'],
+                            'missing_decades': decades_details_cache['missing_decades'],
+                            'decade_range': decades_details_cache['decade_range']
                         }
                     
                     progress = AchievementProgressItem(
@@ -678,6 +714,10 @@ class AchievementsService:
         try:
             achievements_with_targets = self.repository.get_achievements_with_targets(db)
             
+            # Pre-fetch details once for efficiency
+            alphabet_details_cache = None
+            years_details_cache = None
+            
             progress_data = {}
             
             for achievement in achievements_with_targets:
@@ -685,17 +725,40 @@ class AchievementsService:
                     current_value = self._calculate_metric_value(achievement.metric_type, stats, db, user_id)
                     percentage = min((current_value / achievement.target_value) * 100, 100) if achievement.target_value > 0 else 0
                     
-                    # Add special details for alphabet collector achievement
+                    # Add special details for achievements that support missing data
                     details = None
                     if achievement.code == 'alphabet_collector':
                         try:
-                            alphabet_details = self.repository.get_alphabet_coverage_details(db, user_id)
+                            if alphabet_details_cache is None:
+                                alphabet_details_cache = self.repository.get_alphabet_coverage_details(db, user_id)
                             details = {
-                                'missing_letters': alphabet_details['missing_letters'],
-                                'found_letters': alphabet_details['found_letters']
+                                'missing_letters': alphabet_details_cache['missing_letters'],
+                                'found_letters': alphabet_details_cache['found_letters']
                             }
                         except Exception as e:
                             print(f"⚠️ Error getting alphabet details: {e}")
+                    elif achievement.metric_type == 'unique_years':
+                        try:
+                            if years_details_cache is None:
+                                years_details_cache = self.repository.get_years_coverage_details(db, user_id)
+                            details = {
+                                'found_years': years_details_cache['found_years'],
+                                'missing_years_in_range': years_details_cache.get('missing_years_in_range', []),
+                                'year_range': years_details_cache.get('year_range', {})
+                            }
+                        except Exception as e:
+                            print(f"⚠️ Error getting years details: {e}")
+                    elif achievement.metric_type == 'unique_decades':
+                        try:
+                            if decades_details_cache is None:
+                                decades_details_cache = self.repository.get_decades_coverage_details(db, user_id)
+                            details = {
+                                'found_decades': decades_details_cache['found_decades'],
+                                'missing_decades': decades_details_cache.get('missing_decades', []),
+                                'decade_range': decades_details_cache.get('decade_range', {})
+                            }
+                        except Exception as e:
+                            print(f"⚠️ Error getting decades details: {e}")
                     
                     progress_data[achievement.code] = AchievementProgressItem(
                         current=current_value,

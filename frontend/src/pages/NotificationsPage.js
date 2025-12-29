@@ -9,12 +9,16 @@ const NotificationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20); // Notifications per page
+  const [deletingAll, setDeletingAll] = useState(false);
 
-  // Fetch all notifications
-  const fetchNotifications = async () => {
+  // Fetch notifications with pagination
+  const fetchNotifications = async (page = currentPage) => {
     setLoading(true);
     try {
-      const data = await apiGet('/notifications/?limit=100'); // Get more notifications on the full page
+      const offset = (page - 1) * pageSize;
+      const data = await apiGet(`/notifications/?limit=${pageSize}&offset=${offset}`);
       setNotifications(data.notifications);
       setUnreadCount(data.unread_count);
       setTotalCount(data.total_count);
@@ -69,17 +73,78 @@ const NotificationsPage = () => {
       const notification = notifications.find(n => n.id === notificationId);
       
       // Update local state
-      setNotifications(notifications.filter(n => n.id !== notificationId));
+      const remainingNotifications = notifications.filter(n => n.id !== notificationId);
+      setNotifications(remainingNotifications);
       setTotalCount(prev => Math.max(0, prev - 1));
       
       if (notification && !notification.is_read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
       
+      // If current page becomes empty and we're not on page 1, go to previous page
+      if (remainingNotifications.length === 0 && currentPage > 1) {
+        setCurrentPage(prev => prev - 1);
+      } else if (remainingNotifications.length === 0) {
+        // If we're on page 1 and it's empty, refetch to get updated total count
+        fetchNotifications(1);
+      }
+      
       // Dispatch event to update header count
       dispatchNotificationDeletedEvent(notificationId);
     } catch (error) {
       console.error('Failed to delete notification:', error);
+    }
+  };
+
+  // Delete all notifications
+  const deleteAllNotifications = async () => {
+    if (!window.confirm('Are you sure you want to delete all notifications? This cannot be undone.')) {
+      return;
+    }
+
+    setDeletingAll(true);
+    try {
+      // Get all notification IDs (we need to fetch all to delete them)
+      // Since we're paginated, we'll delete the current page's notifications
+      // and then fetch the next page until all are deleted
+      let allNotifications = [...notifications];
+      let offset = 0;
+      const limit = 100; // Fetch in batches
+      
+      // First, fetch all notifications in batches to get their IDs
+      while (true) {
+        const data = await apiGet(`/notifications/?limit=${limit}&offset=${offset}`);
+        const batch = data.notifications;
+        
+        if (batch.length === 0) break;
+        
+        // Delete each notification in the batch
+        for (const notification of batch) {
+          try {
+            await apiDelete(`/notifications/${notification.id}`);
+            // Dispatch event for each deleted notification
+            dispatchNotificationDeletedEvent(notification.id);
+          } catch (error) {
+            console.error(`Failed to delete notification ${notification.id}:`, error);
+          }
+        }
+        
+        if (batch.length < limit) break; // Last batch
+        offset += limit;
+      }
+      
+      // Reset state
+      setNotifications([]);
+      setTotalCount(0);
+      setUnreadCount(0);
+      setCurrentPage(1);
+    } catch (error) {
+      console.error('Failed to delete all notifications:', error);
+      alert('Failed to delete all notifications. Please try again.');
+    } finally {
+      setDeletingAll(false);
+      // Refresh to show updated state
+      fetchNotifications(1);
     }
   };
 
@@ -139,8 +204,13 @@ const NotificationsPage = () => {
   };
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    fetchNotifications(currentPage);
+  }, [currentPage]);
+
+  // Calculate pagination info
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const hasNextPage = currentPage < totalPages;
+  const hasPrevPage = currentPage > 1;
 
   return (
     <div style={{ 
@@ -172,22 +242,42 @@ const NotificationsPage = () => {
           </p>
         </div>
         
-        {unreadCount > 0 && (
-          <button
-            onClick={markAllAsRead}
-            style={{
-              background: '#007bff',
-              color: 'white',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.9rem'
-            }}
-          >
-            Mark all as read
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {notifications.length > 0 && (
+            <button
+              onClick={deleteAllNotifications}
+              disabled={deletingAll}
+              style={{
+                background: deletingAll ? '#ccc' : '#dc3545',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                cursor: deletingAll ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                opacity: deletingAll ? 0.6 : 1
+              }}
+            >
+              {deletingAll ? 'Deleting...' : 'Delete all'}
+            </button>
+          )}
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              style={{
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Loading state */}
@@ -221,109 +311,162 @@ const NotificationsPage = () => {
 
       {/* Notifications list */}
       {!loading && notifications.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              style={{
-                padding: '1rem',
-                border: '1px solid #eee',
-                borderRadius: '8px',
-                backgroundColor: notification.is_read ? 'white' : '#f8f9ff',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                position: 'relative'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-                e.target.style.borderColor = '#ddd';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.boxShadow = 'none';
-                e.target.style.borderColor = '#eee';
-              }}
-            >
-              <div 
-                onClick={() => handleNotificationClick(notification)}
-                style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                style={{
+                  padding: '1rem',
+                  border: '1px solid #eee',
+                  borderRadius: '8px',
+                  backgroundColor: notification.is_read ? 'white' : '#f8f9ff',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  position: 'relative'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                  e.target.style.borderColor = '#ddd';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.boxShadow = 'none';
+                  e.target.style.borderColor = '#eee';
+                }}
               >
-                <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>
-                  {getNotificationIcon(notification.type)}
-                </span>
-                
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ 
-                    fontWeight: notification.is_read ? 'normal' : 'bold',
-                    fontSize: '1rem',
-                    color: '#333',
-                    marginBottom: '0.25rem'
-                  }}>
-                    {notification.title}
-                  </div>
+                <div 
+                  onClick={() => handleNotificationClick(notification)}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}
+                >
+                  <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>
+                    {getNotificationIcon(notification.type)}
+                  </span>
                   
-                  <div style={{ 
-                    fontSize: '0.9rem',
-                    color: '#666',
-                    marginBottom: '0.75rem',
-                    lineHeight: '1.4'
-                  }}>
-                    {notification.message}
-                  </div>
-                  
-                  <div style={{ 
-                    fontSize: '0.8rem',
-                    color: '#999',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <span>{formatTimeAgo(notification.created_at)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ 
+                      fontWeight: notification.is_read ? 'normal' : 'bold',
+                      fontSize: '1rem',
+                      color: '#333',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {notification.title}
+                    </div>
                     
-                    {!notification.is_read && (
-                      <span style={{
-                        padding: '0.2rem 0.5rem',
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        borderRadius: '12px',
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold'
-                      }}>
-                        NEW
-                      </span>
-                    )}
+                    <div style={{ 
+                      fontSize: '0.9rem',
+                      color: '#666',
+                      marginBottom: '0.75rem',
+                      lineHeight: '1.4'
+                    }}>
+                      {notification.message}
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: '0.8rem',
+                      color: '#999',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span>{formatTimeAgo(notification.created_at)}</span>
+                      
+                      {!notification.is_read && (
+                        <span style={{
+                          padding: '0.2rem 0.5rem',
+                          backgroundColor: '#007bff',
+                          color: 'white',
+                          borderRadius: '12px',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold'
+                        }}>
+                          NEW
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Delete button */}
+                {/* Delete button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteNotification(notification.id);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '0.5rem',
+                    right: '0.5rem',
+                    background: 'none',
+                    border: 'none',
+                    color: '#999',
+                    cursor: 'pointer',
+                    fontSize: '1.2rem',
+                    padding: '0.25rem',
+                    borderRadius: '4px',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = '1'}
+                  onMouseLeave={(e) => e.target.style.opacity = '0.6'}
+                  title="Delete notification"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '1rem',
+              marginTop: '2rem',
+              paddingTop: '2rem',
+              borderTop: '1px solid #eee'
+            }}>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteNotification(notification.id);
-                }}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={!hasPrevPage || loading}
                 style={{
-                  position: 'absolute',
-                  top: '0.5rem',
-                  right: '0.5rem',
-                  background: 'none',
+                  background: hasPrevPage ? '#007bff' : '#ccc',
+                  color: 'white',
                   border: 'none',
-                  color: '#999',
-                  cursor: 'pointer',
-                  fontSize: '1.2rem',
-                  padding: '0.25rem',
-                  borderRadius: '4px',
-                  opacity: 0.6,
-                  transition: 'opacity 0.2s'
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  cursor: hasPrevPage && !loading ? 'pointer' : 'not-allowed',
+                  fontSize: '0.9rem',
+                  opacity: hasPrevPage ? 1 : 0.6
                 }}
-                onMouseEnter={(e) => e.target.style.opacity = '1'}
-                onMouseLeave={(e) => e.target.style.opacity = '0.6'}
-                title="Delete notification"
               >
-                ×
+                Previous
+              </button>
+              
+              <span style={{ color: '#666', fontSize: '0.9rem' }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={!hasNextPage || loading}
+                style={{
+                  background: hasNextPage ? '#007bff' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  cursor: hasNextPage && !loading ? 'pointer' : 'not-allowed',
+                  fontSize: '0.9rem',
+                  opacity: hasNextPage ? 1 : 0.6
+                }}
+              >
+                Next
               </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

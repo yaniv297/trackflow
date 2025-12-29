@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { apiGet } from "../utils/api";
 
 const RARITY_COLORS = {
@@ -69,6 +70,9 @@ export default function AchievementsPage() {
   const [pointsBreakdown, setPointsBreakdown] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [hoveredAchievementId, setHoveredAchievementId] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const tooltipRef = useRef(null);
 
   useEffect(() => {
     fetchAchievementsAndBreakdown();
@@ -79,6 +83,40 @@ export default function AchievementsPage() {
       ...prev,
       [category]: !prev[category]
     }));
+  };
+
+  const handleDetailsHover = (achievementId, event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const tooltipWidth = 300; // Approximate tooltip width
+    const tooltipHeight = 250; // Approximate tooltip height
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let top = rect.bottom + 8;
+    let left = rect.left;
+    
+    // Adjust horizontal position if tooltip would go off-screen
+    if (left + tooltipWidth > viewportWidth) {
+      left = viewportWidth - tooltipWidth - 10;
+    }
+    if (left < 10) {
+      left = 10;
+    }
+    
+    // Adjust vertical position if tooltip would go off-screen
+    if (top + tooltipHeight > viewportHeight) {
+      top = rect.top - tooltipHeight - 8;
+    }
+    if (top < 10) {
+      top = 10;
+    }
+    
+    setTooltipPosition({ top, left });
+    setHoveredAchievementId(achievementId);
+  };
+
+  const handleDetailsLeave = () => {
+    setHoveredAchievementId(null);
   };
 
   const fetchAchievementsAndBreakdown = async () => {
@@ -209,6 +247,329 @@ export default function AchievementsPage() {
           </div>
         </div>
       </div>
+
+      {/* Tooltip Portal - Rendered outside opacity-affected container */}
+      {hoveredAchievementId && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={tooltipRef}
+          style={{
+            position: "fixed",
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            backgroundColor: "#ffffff",
+            background: "#ffffff",
+            border: "2px solid #d0d0d0",
+            borderRadius: "8px",
+            padding: "1rem",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.25)",
+            zIndex: 10001,
+            minWidth: "250px",
+            maxWidth: "400px",
+            maxHeight: "400px",
+            overflowY: "auto",
+            pointerEvents: "auto",
+            opacity: 1,
+            WebkitBackdropFilter: "none",
+            backdropFilter: "none",
+          }}
+          onMouseEnter={() => {}} // Keep tooltip open
+          onMouseLeave={handleDetailsLeave}
+        >
+          {(() => {
+            const ach = achievementsWithProgress.find(a => a.id === hoveredAchievementId);
+            if (!ach || !ach.progress?.details) return null;
+            
+            return (
+              <>
+                {/* Alphabet Collector Details */}
+                {ach.progress.details.missing_letters && ach.progress.details.missing_letters.length > 0 && (
+                  <div style={{ marginBottom: "1rem", backgroundColor: "#ffffff" }}>
+                    <div style={{ 
+                      fontSize: "0.9rem", 
+                      fontWeight: "600", 
+                      color: "#000000",
+                      marginBottom: "0.5rem"
+                    }}>
+                      Missing Letters ({ach.progress.details.missing_letters.length})
+                    </div>
+                    <div style={{ 
+                      fontSize: "0.85rem", 
+                      color: "#000000",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "0.5rem"
+                    }}>
+                      {ach.progress.details.missing_letters.map((letter, idx) => (
+                        <span
+                          key={idx}
+                          style={{
+                            display: "inline-block",
+                            padding: "0.25rem 0.5rem",
+                            backgroundColor: "#fff3cd",
+                            border: "1px solid #ffc107",
+                            borderRadius: "4px",
+                            fontWeight: "600",
+                            color: "#856404",
+                            opacity: 1
+                          }}
+                        >
+                          {letter}
+                        </span>
+                      ))}
+                    </div>
+                    {ach.progress.details.found_letters && ach.progress.details.found_letters.length > 0 && (
+                      <div style={{ 
+                        fontSize: "0.75rem", 
+                        color: "#000000",
+                        marginTop: "0.5rem"
+                      }}>
+                        Have: {ach.progress.details.found_letters.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Year-based achievements Details */}
+                {ach.metric_type === 'unique_years' && ach.progress.details.found_years !== undefined && (
+                  <div style={{ backgroundColor: "#ffffff" }}>
+                    <div style={{ 
+                      fontSize: "0.9rem", 
+                      fontWeight: "600", 
+                      color: "#000000",
+                      marginBottom: "0.5rem"
+                    }}>
+                      {ach.progress.details.found_years && ach.progress.details.found_years.length > 0 
+                        ? `Missing Years (${ach.progress.target - ach.progress.current} needed)`
+                        : `Need ${ach.progress.target} Different Years`}
+                    </div>
+                    
+                    {ach.progress.details.found_years && ach.progress.details.found_years.length > 0 ? (
+                      <>
+                        {/* Show missing years within range if available */}
+                        {ach.progress.details.missing_years_in_range && ach.progress.details.missing_years_in_range.length > 0 && (
+                          <div style={{ marginBottom: "0.75rem" }}>
+                            <div style={{ 
+                              fontSize: "0.8rem", 
+                              color: "#000000",
+                              marginBottom: "0.4rem"
+                            }}>
+                              Missing years in your range ({ach.progress.details.year_range?.min} - {ach.progress.details.year_range?.max}):
+                            </div>
+                            <div style={{ 
+                              fontSize: "0.85rem", 
+                              color: "#000000",
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "0.4rem",
+                              maxHeight: "150px",
+                              overflowY: "auto",
+                              padding: "0.5rem",
+                              backgroundColor: "#fff3cd",
+                              border: "1px solid #ffc107",
+                              borderRadius: "4px",
+                            }}>
+                              {ach.progress.details.missing_years_in_range.map((year, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "0.2rem 0.5rem",
+                                    backgroundColor: "#fff3cd",
+                                    border: "1px solid #ffc107",
+                                    borderRadius: "4px",
+                                    fontWeight: "500",
+                                    color: "#856404",
+                                    opacity: 1
+                                  }}
+                                >
+                                  {year}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Summary */}
+                        <div style={{ 
+                          fontSize: "0.85rem", 
+                          color: "#000000",
+                          padding: "0.5rem",
+                          backgroundColor: "#f8f9fa",
+                          borderRadius: "4px",
+                          marginBottom: "0.5rem"
+                        }}>
+                          <div style={{ marginBottom: "0.25rem" }}>
+                            <strong>Progress:</strong> {ach.progress.current} / {ach.progress.target} years
+                          </div>
+                          {ach.progress.details.found_years.length > 0 && (
+                            <div style={{ fontSize: "0.8rem", color: "#000000" }}>
+                              Range covered: {ach.progress.details.year_range?.min} - {ach.progress.details.year_range?.max}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div style={{ 
+                          fontSize: "0.8rem", 
+                          color: "#000000",
+                          fontStyle: "italic"
+                        }}>
+                          Add songs from {ach.progress.target - ach.progress.current} more different {ach.progress.target - ach.progress.current === 1 ? 'year' : 'years'} to complete this achievement
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* No years yet - show helpful message */}
+                        <div style={{ 
+                          fontSize: "0.85rem", 
+                          color: "#000000",
+                          padding: "0.5rem",
+                          backgroundColor: "#f8f9fa",
+                          borderRadius: "4px",
+                          marginBottom: "0.5rem"
+                        }}>
+                          <div style={{ marginBottom: "0.25rem" }}>
+                            <strong>Progress:</strong> 0 / {ach.progress.target} years
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.5rem" }}>
+                            Release songs from {ach.progress.target} different years to complete this achievement. Each song's release year counts toward your progress.
+                          </div>
+                        </div>
+                        
+                        <div style={{ 
+                          fontSize: "0.8rem", 
+                          color: "#000000",
+                          fontStyle: "italic"
+                        }}>
+                          Start by releasing songs from any year to begin tracking your progress!
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                
+                {/* Decade-based achievements Details */}
+                {ach.metric_type === 'unique_decades' && ach.progress.details.found_decades !== undefined && (
+                  <div style={{ backgroundColor: "#ffffff" }}>
+                    <div style={{ 
+                      fontSize: "0.9rem", 
+                      fontWeight: "600", 
+                      color: "#000000",
+                      marginBottom: "0.5rem"
+                    }}>
+                      {ach.progress.details.found_decades && ach.progress.details.found_decades.length > 0 
+                        ? `Missing Decades (${ach.progress.target - ach.progress.current} needed)`
+                        : `Need ${ach.progress.target} Different Decades`}
+                    </div>
+                    
+                    {ach.progress.details.found_decades && ach.progress.details.found_decades.length > 0 ? (
+                      <>
+                        {/* Show missing decades */}
+                        {ach.progress.details.missing_decades && ach.progress.details.missing_decades.length > 0 && (
+                          <div style={{ marginBottom: "0.75rem" }}>
+                            <div style={{ 
+                              fontSize: "0.8rem", 
+                              color: "#000000",
+                              marginBottom: "0.4rem"
+                            }}>
+                              Missing decades:
+                            </div>
+                            <div style={{ 
+                              fontSize: "0.85rem", 
+                              color: "#000000",
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "0.4rem",
+                              maxHeight: "150px",
+                              overflowY: "auto",
+                              padding: "0.5rem",
+                              backgroundColor: "#fff3cd",
+                              border: "1px solid #ffc107",
+                              borderRadius: "4px",
+                            }}>
+                              {ach.progress.details.missing_decades.map((decade, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{
+                                    display: "inline-block",
+                                    padding: "0.2rem 0.5rem",
+                                    backgroundColor: "#fff3cd",
+                                    border: "1px solid #ffc107",
+                                    borderRadius: "4px",
+                                    fontWeight: "500",
+                                    color: "#856404",
+                                    opacity: 1
+                                  }}
+                                >
+                                  {decade}s
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Summary */}
+                        <div style={{ 
+                          fontSize: "0.85rem", 
+                          color: "#000000",
+                          padding: "0.5rem",
+                          backgroundColor: "#f8f9fa",
+                          borderRadius: "4px",
+                          marginBottom: "0.5rem"
+                        }}>
+                          <div style={{ marginBottom: "0.25rem" }}>
+                            <strong>Progress:</strong> {ach.progress.current} / {ach.progress.target} decades
+                          </div>
+                          {ach.progress.details.found_decades.length > 0 && (
+                            <div style={{ fontSize: "0.8rem", color: "#000000" }}>
+                              Decades you have: {ach.progress.details.found_decades.map(d => `${d}s`).join(", ")}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div style={{ 
+                          fontSize: "0.8rem", 
+                          color: "#000000",
+                          fontStyle: "italic"
+                        }}>
+                          Add songs from {ach.progress.target - ach.progress.current} more different {ach.progress.target - ach.progress.current === 1 ? 'decade' : 'decades'} to complete this achievement
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* No decades yet - show helpful message */}
+                        <div style={{ 
+                          fontSize: "0.85rem", 
+                          color: "#000000",
+                          padding: "0.5rem",
+                          backgroundColor: "#f8f9fa",
+                          borderRadius: "4px",
+                          marginBottom: "0.5rem"
+                        }}>
+                          <div style={{ marginBottom: "0.25rem" }}>
+                            <strong>Progress:</strong> 0 / {ach.progress.target} decades
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.5rem" }}>
+                            Release songs from {ach.progress.target} different decades to complete this achievement. A decade is calculated from the song's release year (e.g., 1985 = 1980s).
+                          </div>
+                        </div>
+                        
+                        <div style={{ 
+                          fontSize: "0.8rem", 
+                          color: "#000000",
+                          fontStyle: "italic"
+                        }}>
+                          Start by releasing songs from any decade to begin tracking your progress!
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>,
+        document.body
+      )}
 
       {/* Achievement Categories */}
       <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
@@ -360,6 +721,28 @@ export default function AchievementsPage() {
                               target={ach.progress.target}
                               percentage={ach.progress.percentage}
                             />
+                            
+                            {/* Missing Details - Hover to view */}
+                            {ach.progress.details && (
+                              <div style={{ marginTop: "0.5rem" }}>
+                                <span
+                                  onMouseEnter={(e) => handleDetailsHover(ach.id, e)}
+                                  onMouseLeave={handleDetailsLeave}
+                                  style={{
+                                    fontSize: "0.8rem",
+                                    color: "#007bff",
+                                    cursor: "pointer",
+                                    textDecoration: "none",
+                                    borderBottom: "1px dashed #007bff",
+                                    transition: "color 0.2s ease",
+                                  }}
+                                  onMouseOver={(e) => e.target.style.color = "#0056b3"}
+                                  onMouseOut={(e) => e.target.style.color = "#007bff"}
+                                >
+                                  View details
+                                </span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

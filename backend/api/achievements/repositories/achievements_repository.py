@@ -443,6 +443,39 @@ class AchievementsRepository:
         ).scalar()
         return result or 0
     
+    def get_years_coverage_details(self, db: Session, user_id: int) -> dict:
+        """Get detailed years coverage info including found years and missing years within range.
+        
+        For achievements like Timeline Master that require X different years,
+        this helps users see which years they've already covered and which are missing.
+        """
+        from sqlalchemy import func
+        # Get distinct years from released songs, ordered
+        distinct_years = db.query(Song.year).filter(
+            Song.user_id == user_id,
+            Song.status == SongStatus.released,
+            Song.year.isnot(None)
+        ).distinct().order_by(Song.year).all()
+        
+        found_years = sorted([year[0] for year in distinct_years])
+        
+        # Calculate missing years within the range they've covered
+        # This shows gaps in their coverage
+        missing_years_in_range = []
+        if len(found_years) > 1:
+            min_year = found_years[0]
+            max_year = found_years[-1]
+            all_years_in_range = set(range(min_year, max_year + 1))
+            found_years_set = set(found_years)
+            missing_years_in_range = sorted(list(all_years_in_range - found_years_set))
+        
+        return {
+            'found_years': found_years,
+            'total_found': len(found_years),
+            'missing_years_in_range': missing_years_in_range,
+            'year_range': {'min': found_years[0] if found_years else None, 'max': found_years[-1] if found_years else None}
+        }
+    
     def count_unique_decades(self, db: Session, user_id: int) -> int:
         """Count unique decades from released songs using SQL aggregation (optimized)."""
         from sqlalchemy import func
@@ -458,6 +491,55 @@ class AchievementsRepository:
             {"user_id": user_id, "released_status": SongStatus.released.value}
         ).fetchone()
         return result[0] if result else 0
+    
+    def get_decades_coverage_details(self, db: Session, user_id: int) -> dict:
+        """Get detailed decades coverage info including found decades and missing decades.
+        
+        For achievements like Timeline Legend that require X different decades,
+        this helps users see which decades they've already covered and which are missing.
+        """
+        from sqlalchemy import func
+        # Get distinct decades from released songs, ordered
+        # Use CAST to ensure integer division works correctly in SQLite
+        distinct_decades = db.execute(
+            text("""
+                SELECT DISTINCT CAST((CAST(year AS INTEGER) / 10) * 10 AS INTEGER) as decade
+                FROM songs
+                WHERE user_id = :user_id
+                  AND status = :released_status
+                  AND year IS NOT NULL
+                ORDER BY decade
+            """),
+            {"user_id": user_id, "released_status": SongStatus.released.value}
+        ).fetchall()
+        
+        found_decades = sorted([int(decade[0]) for decade in distinct_decades])
+        
+        # Calculate missing decades within a reasonable range
+        # Use a standard range from 1950s to current decade (2020s)
+        # Or if user has decades, use their range extended
+        if found_decades:
+            min_decade = min(found_decades)
+            max_decade = max(found_decades)
+            # Extend range slightly to show nearby missing decades
+            range_start = max(1950, min_decade - 20)  # Go back 2 decades
+            range_end = min(2020, max_decade + 20)    # Go forward 2 decades, but cap at 2020
+        else:
+            # Default range for new users (1950s to 2020s)
+            range_start = 1950
+            range_end = 2020
+        
+        # Generate all decades in range
+        all_decades_in_range = list(range(range_start, range_end + 1, 10))
+        found_decades_set = set(found_decades)
+        missing_decades = sorted([d for d in all_decades_in_range if d not in found_decades_set])
+        
+        return {
+            'found_decades': found_decades,
+            'total_found': len(found_decades),
+            'missing_decades': missing_decades,
+            'decade_range': {'min': found_decades[0] if found_decades else None, 'max': found_decades[-1] if found_decades else None}
+        }
     
     def update_user_total_points(self, db: Session, user_id: int, points_to_add: int, commit: bool = True) -> None:
         """Update user's cached total points by adding the given points.

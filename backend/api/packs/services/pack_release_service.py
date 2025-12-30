@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models import Song, Pack, AlbumSeries
+from models import Song, Pack, AlbumSeries, Collaboration, CollaborationType
 from ..repositories.pack_repository import PackRepository
 from ..schemas import PackReleaseData, PackResponse
 
@@ -32,8 +32,16 @@ class PackReleaseService:
         
         print(f"✅ Found pack: {pack.name} (owner: {pack.user_id})")
         
-        if pack.user_id != user_id:
-            print(f"❌ User {user_id} not authorized for pack owned by {pack.user_id}")
+        # Check if user is pack owner or has pack edit permission
+        is_owner = pack.user_id == user_id
+        has_edit_permission = bool(self.db.query(Collaboration).filter(
+            Collaboration.pack_id == pack_id,
+            Collaboration.user_id == user_id,
+            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+        ).first())
+        
+        if not is_owner and not has_edit_permission:
+            print(f"❌ User {user_id} not authorized for pack owned by {pack.user_id} (not owner and no edit permission)")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this pack"
@@ -136,7 +144,15 @@ class PackReleaseService:
                 detail="Pack not found"
             )
         
-        if pack.user_id != user_id:
+        # Check if user is pack owner or has pack edit permission
+        is_owner = pack.user_id == user_id
+        has_edit_permission = bool(self.db.query(Collaboration).filter(
+            Collaboration.pack_id == pack_id,
+            Collaboration.user_id == user_id,
+            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
+        ).first())
+        
+        if not is_owner and not has_edit_permission:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this pack"

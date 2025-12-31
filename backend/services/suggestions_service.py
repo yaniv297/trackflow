@@ -498,7 +498,10 @@ class SuggestionsService:
             remaining = max(total_songs - completed_songs, 0)
 
             pack_id = pack.get("id") or pack.get("pack_id")
-            title = pack.get("display_name") or pack.get("name") or pack.get("pack_name")
+            # Prioritize display_name (which includes album series format) over pack name
+            title = pack.get("display_name")
+            if not title:
+                title = pack.get("name") or pack.get("pack_name")
 
             suggestions.append(
                 {

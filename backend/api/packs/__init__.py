@@ -16,7 +16,9 @@ def compute_packs_near_completion(db, current_user, limit: int, threshold: int):
             "pack_name": result.pack_name, 
             "completion_percentage": result.completion_percentage,
             "incomplete_songs": result.incomplete_songs,
-            "total_songs": result.total_songs
+            "total_songs": result.total_songs,
+            "display_name": result.display_name or result.pack_name,
+            "album_cover": result.album_cover
         }
         for result in results
     ]

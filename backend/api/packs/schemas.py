@@ -101,3 +101,5 @@ class PackCompletionResponse(BaseModel):
     completion_percentage: float
     incomplete_songs: int
     total_songs: int
+    display_name: Optional[str] = None
+    album_cover: Optional[str] = None

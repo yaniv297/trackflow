@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from models import Song, Pack, AlbumSeries, Collaboration, CollaborationType
 from ..repositories.pack_repository import PackRepository
 from ..schemas import PackReleaseData, PackResponse
+from api.songs.repositories.collaboration_repository import CollaborationRepository
 
 
 class PackReleaseService:
@@ -16,6 +17,7 @@ class PackReleaseService:
     def __init__(self, db: Session):
         self.db = db
         self.pack_repo = PackRepository(db)
+        self.collab_repo = CollaborationRepository(db)
     
     def release_pack(self, pack_id: int, release_data: PackReleaseData, user_id: int) -> PackResponse:
         """Release a pack with metadata."""
@@ -34,11 +36,22 @@ class PackReleaseService:
         
         # Check if user is pack owner or has pack edit permission
         is_owner = pack.user_id == user_id
-        has_edit_permission = bool(self.db.query(Collaboration).filter(
+        print(f"🔧 Checking permissions: is_owner={is_owner}, pack.user_id={pack.user_id}, user_id={user_id}")
+        
+        # Check for pack edit collaboration permission
+        has_edit_permission = self.collab_repo.collaboration_exists(
+            user_id=user_id,
+            collaboration_type=CollaborationType.PACK_EDIT,
+            pack_id=pack_id
+        )
+        print(f"🔧 has_edit_permission={has_edit_permission}")
+        
+        # Debug: Query all collaborations for this pack/user to see what exists
+        all_collabs = self.db.query(Collaboration).filter(
             Collaboration.pack_id == pack_id,
-            Collaboration.user_id == user_id,
-            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
-        ).first())
+            Collaboration.user_id == user_id
+        ).all()
+        print(f"🔧 All collaborations for user {user_id} on pack {pack_id}: {[(c.id, c.collaboration_type.value if c.collaboration_type else None) for c in all_collabs]}")
         
         if not is_owner and not has_edit_permission:
             print(f"❌ User {user_id} not authorized for pack owned by {pack.user_id} (not owner and no edit permission)")
@@ -146,11 +159,11 @@ class PackReleaseService:
         
         # Check if user is pack owner or has pack edit permission
         is_owner = pack.user_id == user_id
-        has_edit_permission = bool(self.db.query(Collaboration).filter(
-            Collaboration.pack_id == pack_id,
-            Collaboration.user_id == user_id,
-            Collaboration.collaboration_type == CollaborationType.PACK_EDIT
-        ).first())
+        has_edit_permission = self.collab_repo.collaboration_exists(
+            user_id=user_id,
+            collaboration_type=CollaborationType.PACK_EDIT,
+            pack_id=pack_id
+        )
         
         if not is_owner and not has_edit_permission:
             raise HTTPException(

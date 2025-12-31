@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_
 
-from models import Pack, Song, SongStatus
+from models import Pack, Song, SongStatus, AlbumSeries
 from ..repositories.pack_repository import PackRepository
 from ..schemas import PackCompletionResponse
 
@@ -67,12 +67,52 @@ class PackCompletionService:
         # Take only the top results
         near_completion_packs = []
         for pack, completion_data in pack_completions[:limit]:
+            # Get album series information for display name
+            # Get it from songs (like the frontend does) rather than querying AlbumSeries table
+            display_name = pack.name
+            album_cover = None
+            
+            # Get all songs in the pack to check for album series info
+            all_pack_songs = self.db.query(Song).filter(Song.pack_id == pack.id).all()
+            
+            # Find the first song with album series info and query the AlbumSeries table
+            song_with_series = next((s for s in all_pack_songs if s.album_series_id), None)
+            if song_with_series and song_with_series.album_series_id:
+                album_series = self.db.query(AlbumSeries).filter(
+                    AlbumSeries.id == song_with_series.album_series_id
+                ).first()
+                if album_series:
+                    series_number = album_series.series_number
+                    series_name = album_series.album_name
+                    if series_name:
+                        if series_number:
+                            display_name = f"Album Series #{series_number}: {series_name}"
+                        else:
+                            # Format without number but still include the # symbol
+                            display_name = f"Album Series #: {series_name}"
+            
+            # Get album cover from songs
+            # Count album covers
+            cover_counts = {}
+            for song in all_pack_songs:
+                if song.album_cover:
+                    cover_counts[song.album_cover] = cover_counts.get(song.album_cover, 0) + 1
+            
+            # Get the most common album cover
+            if cover_counts:
+                album_cover = max(cover_counts.items(), key=lambda x: x[1])[0]
+            
+            # Ensure display_name is always set (fallback to pack.name if somehow None)
+            final_display_name = display_name or pack.name or "Unnamed Pack"
+            
             near_completion_packs.append(PackCompletionResponse(
                 pack_id=pack.id,
                 pack_name=pack.name,
                 completion_percentage=completion_data['completion_percentage'],
                 incomplete_songs=completion_data['incomplete_songs'],
-                total_songs=completion_data['total_songs']
+                total_songs=completion_data['total_songs'],
+                display_name=final_display_name,
+                album_cover=album_cover
             ))
         
         return near_completion_packs

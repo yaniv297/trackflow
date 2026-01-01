@@ -118,7 +118,7 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true, onEditRelease }) =>
       pack_id: pack.pack_id,
       pack_name: pack.pack_name,
       release_title: cleanTitle,
-      author: pack.pack_owner_username,
+      author: pack.released_by_username || pack.pack_owner_username,
       released_at: pack.released_at,
       release_description: pack.release_description,
       release_download_link: pack.release_download_link,

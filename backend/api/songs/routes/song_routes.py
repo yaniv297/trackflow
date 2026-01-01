@@ -224,11 +224,19 @@ def get_recent_pack_releases(
         from models import AlbumSeries
         album_series = db.query(AlbumSeries).filter(AlbumSeries.pack_id == pack.id).first()
         
+        # Get the user who released the pack (fallback to pack owner if not set)
+        released_by_user = None
+        if pack.released_by_user_id:
+            released_by_user = db.query(User).filter(User.id == pack.released_by_user_id).first()
+        released_by_username = released_by_user.username if released_by_user else (pack.user.username if pack.user else "Unknown")
+        
         pack_info = {
             "pack_id": pack.id,
             "pack_name": pack.name,
             "pack_owner_id": pack.user_id,
             "pack_owner_username": pack.user.username if pack.user else "Unknown",
+            "released_by_user_id": pack.released_by_user_id,
+            "released_by_username": released_by_username,
             "pack_priority": pack.priority,
             "released_at": pack_released_at,
             "release_title": pack.release_title if hasattr(pack, 'release_title') else None,

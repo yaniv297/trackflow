@@ -85,6 +85,10 @@ const LatestReleasesPage = () => {
       pack_name: pack.pack_name,
       release_title: cleanTitle,
       author: pack.released_by_username || pack.pack_owner_username,
+      released_by_user_id: pack.released_by_user_id,
+      released_by_username: pack.released_by_username,
+      pack_owner_id: pack.pack_owner_id,
+      pack_owner_username: pack.pack_owner_username,
       released_at: pack.released_at,
       release_description: pack.release_description,
       release_download_link: pack.release_download_link,
@@ -467,6 +471,9 @@ const PackReleaseListItem = ({ pack, formatDate, onUsernameClick, onUsernameHove
   const canEditRelease = () => {
     if (!currentUser || !pack.songs) return false;
     
+    // Check if user is the one who released the pack
+    const isReleaser = pack.released_by_user_id === currentUser.id || pack.released_by_username === currentUser.username;
+    
     // Check if user owns any songs in this pack or is pack owner
     const userOwnedSongs = pack.songs.filter(song => song.user_id === currentUser.id);
     const isPackOwner = userOwnedSongs.length > 0;
@@ -476,7 +483,7 @@ const PackReleaseListItem = ({ pack, formatDate, onUsernameClick, onUsernameHove
       song => song.pack_collaboration && song.pack_collaboration.can_edit === true
     );
     
-    return isPackOwner || hasPackEditPermission;
+    return isReleaser || isPackOwner || hasPackEditPermission;
   };
 
   const toggleExpanded = () => {

@@ -74,3 +74,4 @@ def check_duplicates():
 
 if __name__ == "__main__":
     check_duplicates()
+

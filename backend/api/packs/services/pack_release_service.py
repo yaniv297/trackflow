@@ -34,9 +34,18 @@ class PackReleaseService:
         
         print(f"✅ Found pack: {pack.name} (owner: {pack.user_id})")
         
-        # Check if user is pack owner or has pack edit permission
-        is_owner = pack.user_id == user_id
-        print(f"🔧 Checking permissions: is_owner={is_owner}, pack.user_id={pack.user_id}, user_id={user_id}")
+        # Check if user is pack owner (by pack.user_id OR by owning any songs in the pack)
+        # This matches the frontend logic which considers a user a pack owner if they own any songs
+        is_pack_owner_by_id = pack.user_id == user_id
+        
+        # Check if user owns any songs in the pack
+        user_owned_songs_count = self.db.query(Song).filter(
+            Song.pack_id == pack_id,
+            Song.user_id == user_id
+        ).count()
+        owns_any_songs = user_owned_songs_count > 0
+        
+        is_owner = is_pack_owner_by_id or owns_any_songs
         
         # Check for pack edit collaboration permission
         has_edit_permission = self.collab_repo.collaboration_exists(
@@ -44,14 +53,6 @@ class PackReleaseService:
             collaboration_type=CollaborationType.PACK_EDIT,
             pack_id=pack_id
         )
-        print(f"🔧 has_edit_permission={has_edit_permission}")
-        
-        # Debug: Query all collaborations for this pack/user to see what exists
-        all_collabs = self.db.query(Collaboration).filter(
-            Collaboration.pack_id == pack_id,
-            Collaboration.user_id == user_id
-        ).all()
-        print(f"🔧 All collaborations for user {user_id} on pack {pack_id}: {[(c.id, c.collaboration_type.value if c.collaboration_type else None) for c in all_collabs]}")
         
         if not is_owner and not has_edit_permission:
             print(f"❌ User {user_id} not authorized for pack owned by {pack.user_id} (not owner and no edit permission)")
@@ -157,8 +158,15 @@ class PackReleaseService:
                 detail="Pack not found"
             )
         
-        # Check if user is pack owner or has pack edit permission
-        is_owner = pack.user_id == user_id
+        # Check if user is pack owner (by pack.user_id OR by owning any songs in the pack)
+        is_pack_owner_by_id = pack.user_id == user_id
+        user_owned_songs_count = self.db.query(Song).filter(
+            Song.pack_id == pack_id,
+            Song.user_id == user_id
+        ).count()
+        owns_any_songs = user_owned_songs_count > 0
+        is_owner = is_pack_owner_by_id or owns_any_songs
+        
         has_edit_permission = self.collab_repo.collaboration_exists(
             user_id=user_id,
             collaboration_type=CollaborationType.PACK_EDIT,

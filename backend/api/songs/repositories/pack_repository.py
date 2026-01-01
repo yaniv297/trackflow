@@ -26,7 +26,7 @@ class PackRepository:
     
     def get_packs_by_ids(self, pack_ids: List[int]) -> Dict[int, Pack]:
         """Get multiple packs by IDs and return as a dictionary."""
-        packs = self.db.query(Pack).join(User).filter(Pack.id.in_(pack_ids)).all()
+        packs = self.db.query(Pack).filter(Pack.id.in_(pack_ids)).all()
         return {p.id: p for p in packs}
     
     def create_pack(

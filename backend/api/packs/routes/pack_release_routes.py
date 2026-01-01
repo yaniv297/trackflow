@@ -34,17 +34,5 @@ def release_pack_with_metadata(
     current_user = Depends(get_current_active_user)
 ):
     """Release a pack with metadata."""
-    # #region agent log
-    import json
-    import time
-    import os
-    log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
-    try:
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"pack_release_routes.py:release_pack_with_metadata","message":"Route handler called","data":{"pack_id":pack_id,"user_id":current_user.id,"username":current_user.username},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G"})+"\n")
-    except:
-        pass
-    # #endregion
-    print(f"🚨 ROUTE DEBUG: Pack release route called for pack {pack_id} by user {current_user.id}")
     release_service = PackReleaseService(db)
     return release_service.release_pack(pack_id, release_data, current_user.id)

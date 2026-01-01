@@ -79,7 +79,7 @@ class User(Base):
     
     # Relationships
     songs = relationship("Song", back_populates="user")
-    packs = relationship("Pack", back_populates="user")
+    packs = relationship("Pack", back_populates="user", foreign_keys="[Pack.user_id]")
     collaborations = relationship("Collaboration", back_populates="user")
     artists = relationship("Artist", back_populates="user")
 
@@ -100,7 +100,7 @@ class Pack(Base):
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
     show_on_homepage = Column(Boolean, default=True, nullable=False)  # Whether to show this pack on the homepage
     # Relationships
-    user = relationship("User", back_populates="packs")
+    user = relationship("User", back_populates="packs", foreign_keys=[user_id])
     songs = relationship("Song", back_populates="pack_obj")
     collaborations = relationship("Collaboration", back_populates="pack")
 

@@ -21,66 +21,26 @@ class PackReleaseService:
     
     def release_pack(self, pack_id: int, release_data: PackReleaseData, user_id: int) -> PackResponse:
         """Release a pack with metadata."""
-        print(f"🔧 PACK RELEASE DEBUG: Starting release for pack {pack_id} by user {user_id}")
-        
         # Get pack with ownership validation
         pack = self.pack_repo.get_by_id(pack_id)
         if not pack:
-            print(f"❌ Pack {pack_id} not found")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pack not found"
             )
-        
-        print(f"✅ Found pack: {pack.name} (owner: {pack.user_id})")
-        
-        # #region agent log
-        import json
-        import time
-        import os
-        log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"pack_release_service.py:release_pack","message":"Permission check starting","data":{"pack_id":pack_id,"user_id":user_id,"pack_owner_id":pack.user_id,"pack_name":pack.name},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G"})+"\n")
-        except:
-            pass
-        # #endregion
         
         # Check if user is pack owner (by pack.user_id OR by owning any songs in the pack)
         # This matches the frontend logic which considers a user a pack owner if they own any songs
         is_pack_owner_by_id = pack.user_id == user_id
         
         # Check if user owns any songs in the pack
-        # First, get ALL songs in the pack to debug
         all_songs_in_pack = self.db.query(Song).filter(Song.pack_id == pack_id).all()
-        all_song_data = [(s.id, s.user_id, s.title) for s in all_songs_in_pack]
-        
         user_owned_songs = self.db.query(Song).filter(
             Song.pack_id == pack_id,
             Song.user_id == user_id
         ).all()
-        user_owned_songs_count = len(user_owned_songs)
-        owns_any_songs = user_owned_songs_count > 0
-        
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"pack_release_service.py:release_pack","message":"All songs in pack","data":{"all_songs":all_song_data,"total_songs":len(all_songs_in_pack)},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G"})+"\n")
-        except:
-            pass
-        # #endregion
-        
+        owns_any_songs = len(user_owned_songs) > 0
         is_owner = is_pack_owner_by_id or owns_any_songs
-        print(f"🔧 Checking permissions: is_pack_owner_by_id={is_pack_owner_by_id}, owns_any_songs={owns_any_songs}, is_owner={is_owner}, pack.user_id={pack.user_id}, user_id={user_id}, user_owned_songs_count={user_owned_songs_count}")
-        
-        # #region agent log
-        try:
-            song_ids = [s.id for s in user_owned_songs]
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"pack_release_service.py:release_pack","message":"Ownership check result","data":{"is_pack_owner_by_id":is_pack_owner_by_id,"owns_any_songs":owns_any_songs,"is_owner":is_owner,"pack_user_id":pack.user_id,"requesting_user_id":user_id,"user_owned_songs_count":user_owned_songs_count,"user_owned_song_ids":song_ids},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G"})+"\n")
-        except:
-            pass
-        # #endregion
         
         # Check for pack edit collaboration permission
         has_edit_permission = self.collab_repo.collaboration_exists(
@@ -88,54 +48,26 @@ class PackReleaseService:
             collaboration_type=CollaborationType.PACK_EDIT,
             pack_id=pack_id
         )
-        print(f"🔧 has_edit_permission={has_edit_permission}")
         
         # Check if user has song-level collaborations on any songs in the pack
         # (song-level collaborations have song_id set, not pack_id)
         song_ids_in_pack = [s.id for s in all_songs_in_pack]
-        song_collabs_in_pack = []
+        has_song_collaborations = False
         if song_ids_in_pack:
-            song_collabs_in_pack = self.db.query(Collaboration).filter(
+            song_collabs_count = self.db.query(Collaboration).filter(
                 Collaboration.song_id.in_(song_ids_in_pack),
                 Collaboration.user_id == user_id,
                 Collaboration.collaboration_type == CollaborationType.SONG_EDIT
-            ).all()
-        has_song_collaborations = len(song_collabs_in_pack) > 0
-        
-        # #region agent log
-        try:
-            song_collab_data = [(c.id, c.song_id, c.collaboration_type.value if c.collaboration_type else None) for c in song_collabs_in_pack]
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"pack_release_service.py:release_pack","message":"Collaboration permission check","data":{"has_edit_permission":has_edit_permission,"has_song_collaborations":has_song_collaborations,"song_collab_count":len(song_collabs_in_pack),"song_collabs":song_collab_data},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G,H"})+"\n")
-        except:
-            pass
-        # #endregion
-        
-        # #region agent log
-        try:
-            authorized = is_owner or has_edit_permission or has_song_collaborations
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"pack_release_service.py:release_pack","message":"Final authorization decision","data":{"is_owner":is_owner,"has_edit_permission":has_edit_permission,"has_song_collaborations":has_song_collaborations,"authorized":authorized},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G,H"})+"\n")
-        except:
-            pass
-        # #endregion
+            ).count()
+            has_song_collaborations = song_collabs_count > 0
         
         if not is_owner and not has_edit_permission and not has_song_collaborations:
-            print(f"❌ User {user_id} not authorized for pack owned by {pack.user_id} (not owner and no edit permission)")
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"location":"pack_release_service.py:release_pack","message":"Authorization failed - raising 403","data":{"user_id":user_id,"pack_id":pack_id,"pack_owner_id":pack.user_id,"is_owner":is_owner,"has_edit_permission":has_edit_permission},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run2","hypothesisId":"F,G"})+"\n")
-            except:
-                pass
-            # #endregion
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to access this pack"
             )
         
         # Update pack release information
-        print(f"🔧 Processing pack release for pack {pack_id}")
         update_data = {
             'release_title': release_data.title,
             'release_description': release_data.description,
@@ -155,12 +87,10 @@ class PackReleaseService:
         # Always set released_at timestamp for released packs (separate from homepage visibility)
         update_data['released_at'] = datetime.utcnow()
         update_data['released_by_user_id'] = user_id  # Track who released the pack
-        print(f"🔧 Setting released_at timestamp: {update_data['released_at']}, released_by_user_id: {user_id}")
         
         self.pack_repo.update_pack(pack, update_data)
         
-        # Handle song status changes (CRITICAL - this was missing!)
-        print(f"🔧 About to release songs for pack {pack_id}")
+        # Handle song status changes
         self._release_pack_songs(pack_id, release_data, user_id)
         
         # Check if this pack is associated with an album series and release it

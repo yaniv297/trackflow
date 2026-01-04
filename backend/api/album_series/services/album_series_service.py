@@ -344,13 +344,13 @@ class AlbumSeriesService:
                 song_dict["collaborations"] = [
                     {
                         "id": collab.id,
-                        "collaborator_id": collab.collaborator_id,
-                        "author": collab.collaborator.username if collab.collaborator else None,
-                        "role": collab.role,
+                        "collaborator_id": collab.user_id,
+                        "author": collab.user.username if collab.user else None,
+                        "role": collab.collaboration_type.value if collab.collaboration_type else None,
                         "created_at": collab.created_at
                     }
                     for collab in song.collaborations
-                    if collab.collaborator
+                    if collab.user
                 ]
             
             return song_dict

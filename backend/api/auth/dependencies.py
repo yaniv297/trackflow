@@ -68,7 +68,8 @@ def get_current_user(
         email=user.email,
         is_active=user.is_active,
         is_admin=user.is_admin,
-        created_at=user.created_at.isoformat() if user.created_at else ""
+        created_at=user.created_at.isoformat() if user.created_at else "",
+        last_login_at=user.last_login_at.isoformat() if user.last_login_at else None
     )
 
 
@@ -203,7 +204,8 @@ def get_optional_user(
             email=user.email,
             is_active=user.is_active,
             is_admin=user.is_admin,
-            created_at=user.created_at.isoformat() if user.created_at else ""
+            created_at=user.created_at.isoformat() if user.created_at else "",
+            last_login_at=user.last_login_at.isoformat() if user.last_login_at else None
         )
     except Exception:
         return None

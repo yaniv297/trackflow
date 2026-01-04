@@ -401,7 +401,7 @@ export const AuthProvider = ({ children }) => {
           setUser(userData);
 
           // Check if this is user's first login by checking if last_login_at was just set
-          if (userData.last_login_at) {
+          if (userData && userData.last_login_at) {
             const loginTime = new Date(userData.last_login_at);
             const now = new Date();
             const secondsSinceLogin = (now - loginTime) / 1000;

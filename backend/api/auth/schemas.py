@@ -47,6 +47,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_admin: bool = False
     created_at: str
+    last_login_at: Optional[str] = None
     
     class Config:
         from_attributes = True

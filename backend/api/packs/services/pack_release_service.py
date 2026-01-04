@@ -84,9 +84,11 @@ class PackReleaseService:
         else:
             update_data['show_on_homepage'] = True
         
-        # Always set released_at timestamp for released packs (separate from homepage visibility)
-        update_data['released_at'] = datetime.utcnow()
-        update_data['released_by_user_id'] = user_id  # Track who released the pack
+        # Only set released_at timestamp if pack hasn't been released yet (preserve original release date)
+        if not pack.released_at:
+            update_data['released_at'] = datetime.utcnow()
+            update_data['released_by_user_id'] = user_id  # Track who released the pack
+        # If pack is already released, preserve the original released_at timestamp
         
         self.pack_repo.update_pack(pack, update_data)
         

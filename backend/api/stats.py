@@ -220,6 +220,23 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         ).all()
     ]
 
+    # Get decade distribution
+    decade_distribution = [
+        {"decade": f"{int(decade)}s", "decade_value": int(decade), "count": count}
+        for decade, count in db.query(
+            (func.floor(Song.year / 10) * 10).label('decade'),
+            func.count()
+        ).filter(
+            Song.status.in_(included_statuses),
+            Song.year.isnot(None),
+            song_access_filter
+        ).group_by(
+            func.floor(Song.year / 10) * 10
+        ).order_by(
+            (func.floor(Song.year / 10) * 10).asc()
+        ).all()
+    ]
+
     # WIP processing - simplified to avoid errors
     # Just count total WIPs for now and return empty progress
     total_wips = db.query(Song).filter(
@@ -247,6 +264,7 @@ def get_stats(db: Session = Depends(get_db), current_user = Depends(get_current_
         "authoring_progress": authoring_percent,
         "fully_ready_wips": fully_ready_wips,
         "year_distribution": year_distribution,
+        "decade_distribution": decade_distribution,
         "point_system": {
             "release_bonus": {
                 "points": 10,
@@ -340,6 +358,102 @@ def get_year_details(year: int, db: Session = Depends(get_db), current_user = De
     
     return {
         "year": year,
+        "total_songs": total_songs,
+        "top_artists": top_artists,
+        "top_albums": top_albums
+    }
+
+
+@router.get("/decade/{decade}/details")
+def get_decade_details(decade: int, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """Get detailed stats for a specific decade (e.g., 1980, 1990, 2000)"""
+    included_statuses = [SongStatus.released]
+    
+    # Build base filter for songs the user has access to (owner OR collaborator)
+    song_access_filter = or_(
+        Song.user_id == current_user.id,  # Songs owned by current user
+        Song.id.in_(  # Songs where current user is a collaborator
+            db.query(Collaboration.song_id)
+            .filter(
+                Collaboration.user_id == current_user.id,
+                Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+            )
+            .subquery()
+        )
+    )
+    
+    # Get total songs for the decade
+    total_songs = db.query(Song).filter(
+        Song.year >= decade,
+        Song.year < decade + 10,
+        Song.status.in_(included_statuses),
+        song_access_filter
+    ).count()
+    
+    # Get top artists with optimized query
+    top_artists_data = db.query(
+        Song.artist,
+        func.count().label('count')
+    ).filter(
+        Song.year >= decade,
+        Song.year < decade + 10,
+        Song.status.in_(included_statuses),
+        Song.artist.isnot(None),
+        song_access_filter
+    ).group_by(
+        Song.artist
+    ).order_by(
+        func.count().desc()
+    ).limit(5).all()
+    
+    # Batch lookup artist images (case-insensitive, artists are shared)
+    artist_names = [row.artist for row in top_artists_data if row.artist]
+    artist_name_lowers = {name.lower() for name in artist_names}
+    artist_images_lower = dict(
+        db.query(func.lower(Artist.name), Artist.image_url)
+          .filter(func.lower(Artist.name).in_(artist_name_lowers))
+          .all()
+    )
+    artist_images = {name: artist_images_lower.get(name.lower()) for name in artist_names}
+    
+    top_artists = [
+        {
+            "artist": row.artist, 
+            "count": row.count, 
+            "artist_image_url": artist_images.get(row.artist)
+        }
+        for row in top_artists_data
+    ]
+    
+    # Get top albums with optimized query, group by album only
+    top_albums_data = db.query(
+        Song.album,
+        func.count().label('count'),
+        func.max(Song.album_cover)  # Pick any album cover for the album
+    ).filter(
+        Song.year >= decade,
+        Song.year < decade + 10,
+        Song.status.in_(included_statuses),
+        Song.album.isnot(None),
+        song_access_filter
+    ).group_by(
+        Song.album  # Group by album only, ignoring cover differences
+    ).order_by(
+        func.count().desc()
+    ).limit(5).all()
+    
+    top_albums = [
+        {
+            "album": row[0],  # album
+            "count": row[1],  # count
+            "album_cover": row[2]  # func.max(Song.album_cover)
+        }
+        for row in top_albums_data
+    ]
+    
+    return {
+        "decade": decade,
+        "decade_label": f"{decade}s",
         "total_songs": total_songs,
         "top_artists": top_artists,
         "top_albums": top_albums

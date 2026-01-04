@@ -1,32 +1,32 @@
 import React, { useState, useMemo } from "react";
-import YearHoverPopup from "./YearHoverPopup";
+import DecadeHoverPopup from "./DecadeHoverPopup";
 
 /**
- * Component for displaying year distribution chart
+ * Component for displaying decade distribution chart
  */
-const YearDistribution = ({
-  yearDistribution,
-  hoveredYear,
-  yearDetails,
-  loadingYear,
-  onYearHover,
-  onYearLeave,
+const DecadeDistribution = ({
+  decadeDistribution,
+  hoveredDecade,
+  decadeDetails,
+  loadingDecade,
+  onDecadeHover,
+  onDecadeLeave,
 }) => {
   const [sortByCount, setSortByCount] = useState(false);
 
   const sortedDistribution = useMemo(() => {
-    if (!yearDistribution) return [];
+    if (!decadeDistribution) return [];
     if (sortByCount) {
-      return [...yearDistribution].sort((a, b) => b.count - a.count);
+      return [...decadeDistribution].sort((a, b) => b.count - a.count);
     }
-    return yearDistribution;
-  }, [yearDistribution, sortByCount]);
+    return decadeDistribution;
+  }, [decadeDistribution, sortByCount]);
 
-  if (!yearDistribution || yearDistribution.length === 0) {
+  if (!decadeDistribution || decadeDistribution.length === 0) {
     return null;
   }
 
-  const maxCount = Math.max(...yearDistribution.map((y) => y.count));
+  const maxCount = Math.max(...decadeDistribution.map((d) => d.count));
 
   return (
     <div
@@ -45,7 +45,7 @@ const YearDistribution = ({
           alignItems: "center",
         }}
       >
-        <h3 style={{ margin: 0 }}>📅 Songs by Year</h3>
+        <h3 style={{ margin: 0 }}>📅 Songs by Decade</h3>
         <div
           style={{
             display: "flex",
@@ -57,7 +57,7 @@ const YearDistribution = ({
           <button
             onClick={() => setSortByCount(false)}
             style={{
-              background: !sortByCount ? "#3498db" : "transparent",
+              background: !sortByCount ? "#9b59b6" : "transparent",
               color: !sortByCount ? "#fff" : "#666",
               border: "none",
               borderRadius: "4px",
@@ -73,7 +73,7 @@ const YearDistribution = ({
           <button
             onClick={() => setSortByCount(true)}
             style={{
-              background: sortByCount ? "#3498db" : "transparent",
+              background: sortByCount ? "#9b59b6" : "transparent",
               color: sortByCount ? "#fff" : "#666",
               border: "none",
               borderRadius: "4px",
@@ -89,9 +89,9 @@ const YearDistribution = ({
         </div>
       </div>
       <div style={{ marginTop: "1rem" }}>
-        {sortedDistribution.map(({ year, count }) => (
+        {sortedDistribution.map(({ decade, decade_value, count }) => (
           <div
-            key={year}
+            key={decade_value}
             style={{
               display: "flex",
               alignItems: "center",
@@ -100,10 +100,10 @@ const YearDistribution = ({
               position: "relative",
               cursor: "pointer",
             }}
-            onMouseEnter={() => onYearHover(year)}
-            onMouseLeave={onYearLeave}
+            onMouseEnter={() => onDecadeHover(decade_value)}
+            onMouseLeave={onDecadeLeave}
           >
-            <div style={{ minWidth: "60px", fontWeight: "bold" }}>{year}</div>
+            <div style={{ minWidth: "60px", fontWeight: "bold" }}>{decade}</div>
             <div
               style={{
                 background: "#ddd",
@@ -115,7 +115,7 @@ const YearDistribution = ({
             >
               <div
                 style={{
-                  background: "#3498db",
+                  background: "#9b59b6",
                   width: `${Math.min((count / maxCount) * 100, 100)}%`,
                   height: "100%",
                   borderRadius: "4px",
@@ -134,12 +134,13 @@ const YearDistribution = ({
             </div>
 
             {/* Hover Popup */}
-            {hoveredYear === year && (
-              <YearHoverPopup
-                year={year}
+            {hoveredDecade === decade_value && (
+              <DecadeHoverPopup
+                decade={decade}
+                decadeValue={decade_value}
                 count={count}
-                yearDetails={yearDetails}
-                loadingYear={loadingYear}
+                decadeDetails={decadeDetails}
+                loadingDecade={loadingDecade}
               />
             )}
           </div>
@@ -149,4 +150,4 @@ const YearDistribution = ({
   );
 };
 
-export default YearDistribution;
+export default DecadeDistribution;

@@ -1,10 +1,12 @@
 import React, { useMemo } from "react";
 import { useStatsData } from "../hooks/stats/useStatsData";
 import { useYearDetails } from "../hooks/stats/useYearDetails";
+import { useDecadeDetails } from "../hooks/stats/useDecadeDetails";
 import { filterTopPacks } from "../utils/statsUtils";
 import StatCard from "../components/stats/StatCard";
 import ExpandableList from "../components/stats/ExpandableList";
 import YearDistribution from "../components/stats/YearDistribution";
+import DecadeDistribution from "../components/stats/DecadeDistribution";
 export default function StatsPage() {
   const { stats, loading } = useStatsData();
   const {
@@ -14,6 +16,13 @@ export default function StatsPage() {
     handleYearHover,
     handleYearLeave,
   } = useYearDetails();
+  const {
+    hoveredDecade,
+    decadeDetails,
+    loadingDecade,
+    handleDecadeHover,
+    handleDecadeLeave,
+  } = useDecadeDetails();
 
   // Filter out empty/null packs
   const filteredTopPacks = useMemo(() => {
@@ -154,6 +163,16 @@ export default function StatsPage() {
             loadingYear={loadingYear}
             onYearHover={handleYearHover}
             onYearLeave={handleYearLeave}
+          />
+
+          {/* DECADE DISTRIBUTION */}
+          <DecadeDistribution
+            decadeDistribution={stats.decade_distribution}
+            hoveredDecade={hoveredDecade}
+            decadeDetails={decadeDetails}
+            loadingDecade={loadingDecade}
+            onDecadeHover={handleDecadeHover}
+            onDecadeLeave={handleDecadeLeave}
           />
         </>
       )}

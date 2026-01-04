@@ -180,11 +180,25 @@ const WipPackCard = ({
   });
 
   // For Album Series packs, use the album cover instead of artist photo
+  // Make sure to get the cover from a song whose album matches the series name
   const isAlbumSeriesPack = seriesWithThreshold.length > 0;
   const albumSeriesCover = isAlbumSeriesPack
-    ? allSongs.find(
-        (s) => s.album_series_id && s.album_cover
-      )?.album_cover
+    ? (() => {
+        // Get the first series info to find the album name
+        const firstSeriesId = seriesWithThreshold[0];
+        const seriesSong = allSongs.find(
+          (s) => s.album_series_id === firstSeriesId
+        );
+        const seriesAlbumName = seriesSong?.album_series_name;
+        
+        // Find a song with album cover that matches the series album name
+        const matchingSong = allSongs.find(
+          (s) => s.album_series_id === firstSeriesId && 
+                 s.album_cover && 
+                 s.album === seriesAlbumName
+        );
+        return matchingSong?.album_cover || null;
+      })()
     : null;
   
   // Use album cover for album series, otherwise use artist photo

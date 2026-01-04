@@ -243,10 +243,19 @@ const SongTable = ({
     }
 
     // For Album Series packs, get the album cover from a song in the series
+    // Make sure to get the cover from a song whose album matches the series name
     const albumSeriesCoverUrl = sortedSeriesInfo.length > 0
-      ? validSongsInPack.find(
-          (s) => s.album_series_id && s.album_cover
-        )?.album_cover
+      ? (() => {
+          const firstSeries = sortedSeriesInfo[0];
+          const seriesAlbumName = firstSeries?.name;
+          // Find a song with album cover that matches the series album name
+          const matchingSong = validSongsInPack.find(
+            (s) => s.album_series_id === firstSeries?.id && 
+                   s.album_cover && 
+                   s.album === seriesAlbumName
+          );
+          return matchingSong?.album_cover || null;
+        })()
       : null;
 
     return (

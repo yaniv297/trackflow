@@ -203,6 +203,7 @@ const RegistrationWizard = () => {
         // Claim existing user
         response = await apiPost("/auth/claim-user", {
           user_id: selectedUserId,
+          username,
           email,
           password,
           workflow_steps: workflowSteps,

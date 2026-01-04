@@ -30,8 +30,12 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
       setError(null);
       
       // Fetch latest feature requests sorted by creation date
-      const data = await apiGet(`/feature-requests/?sort_by=created_at&limit=${limit}`);
-      setFeatureRequests(data.slice(0, limit));
+      // Filter out completed (is_done) and rejected (is_rejected) requests
+      const data = await apiGet(`/feature-requests/?sort_by=newest`);
+      const activeRequests = data
+        .filter((r) => !r.is_done && !r.is_rejected)
+        .slice(0, limit);
+      setFeatureRequests(activeRequests);
       
     } catch (error) {
       console.error('Failed to fetch feature requests:', error);
@@ -47,9 +51,14 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
       const updated = await apiPost(`/feature-requests/${requestId}/vote`, {
         vote_type: voteType,
       });
-      setFeatureRequests((prev) =>
-        prev.map((fr) => (fr.id === requestId ? updated : fr))
-      );
+      setFeatureRequests((prev) => {
+        // If the request is now done/rejected, remove it from the list
+        if (updated.is_done || updated.is_rejected) {
+          return prev.filter((fr) => fr.id !== requestId);
+        }
+        // Otherwise, update it
+        return prev.map((fr) => (fr.id === requestId ? updated : fr));
+      });
     } catch (error) {
       console.error('Failed to vote:', error);
       window.showNotification && window.showNotification('Failed to vote. Please try again.', 'error');
@@ -66,24 +75,6 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
 
   const handleLogin = () => {
     navigate('/');
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed': return '✅';
-      case 'in_progress': return '🔄';
-      case 'rejected': return '❌';
-      default: return '💡';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return '#28a745';
-      case 'in_progress': return '#ffc107';
-      case 'rejected': return '#dc3545';
-      default: return '#6c757d';
-    }
   };
 
   const formatTimeAgo = (dateString) => {
@@ -165,9 +156,9 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
                   <div className="request-header">
                     <span 
                       className="status-icon"
-                      style={{ color: getStatusColor(request.status) }}
+                      style={{ color: '#6c757d' }}
                     >
-                      {getStatusIcon(request.status)}
+                      💡
                     </span>
                     <h4 className="request-title">{request.title}</h4>
                   </div>

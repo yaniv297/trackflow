@@ -464,10 +464,12 @@ def cancel_collaboration_request(
 ):
     """Cancel/delete a collaboration request (only by requester)"""
     
+    # Allow deletion of both pending and rejected requests
+    # (rejected requests can be deleted to allow submitting a new request)
     collab_request = db.query(CollaborationRequest).filter(
         CollaborationRequest.id == request_id,
         CollaborationRequest.requester_id == current_user.id,
-        CollaborationRequest.status == "pending"
+        CollaborationRequest.status.in_(["pending", "rejected"])
     ).first()
     
     if not collab_request:

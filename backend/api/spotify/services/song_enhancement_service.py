@@ -53,9 +53,11 @@ class SongEnhancementService:
                 song.year = year
 
             # Handle artist creation/update
-            artist_name = (track.get("artists") or [{}])[0].get("name")
+            first_artist = (track.get("artists") or [{}])[0]
+            artist_name = first_artist.get("name")
+            spotify_artist_id = first_artist.get("id")  # Use Spotify artist ID for accurate image lookup
             if artist_name:
-                artist = self._ensure_artist_exists(db, sp, artist_name)
+                artist = self._ensure_artist_exists(db, sp, artist_name, spotify_artist_id)
                 
                 # Only update artist if we're not preserving it
                 if not preserve_artist_album and artist:
@@ -99,23 +101,27 @@ class SongEnhancementService:
         except Exception:
             return False
 
-    def _ensure_artist_exists(self, db: Session, sp, artist_name: str) -> Optional[Artist]:
-        """Ensure artist exists, creating if necessary."""
+    def _ensure_artist_exists(self, db: Session, sp, artist_name: str, spotify_artist_id: Optional[str] = None) -> Optional[Artist]:
+        """Ensure artist exists, creating if necessary.
+        
+        If spotify_artist_id is provided, uses it to fetch the exact artist image from Spotify.
+        This prevents issues where searching by name returns the wrong artist (e.g., "Krillz" instead of "Krill").
+        """
         from .artist_service import ArtistService
         
         artist_service = ArtistService()
         artist = self.repository.get_artist_by_name(db, artist_name)
         
         if not artist:
-            # Try to fetch artist image
-            artist_img = artist_service.fetch_artist_image_from_spotify(artist_name, sp)
+            # Try to fetch artist image using Spotify artist ID for accuracy
+            artist_img = artist_service.fetch_artist_image_from_spotify(artist_name, sp, spotify_artist_id)
             artist = self.repository.create_artist(db, artist_name, artist_img)
         else:
             print(f"Found existing artist {artist_name} with ID {artist.id}")
-            # If artist exists but has no image, try to fetch it
+            # If artist exists but has no image, try to fetch it using Spotify artist ID
             if not artist.image_url and sp:
                 try:
-                    image_url = artist_service.fetch_artist_image_from_spotify(artist_name, sp)
+                    image_url = artist_service.fetch_artist_image_from_spotify(artist_name, sp, spotify_artist_id)
                     if image_url:
                         self.repository.update_artist_image(db, artist, image_url)
                         print(f"Fetched image for existing artist {artist_name}")

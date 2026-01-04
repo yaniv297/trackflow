@@ -135,13 +135,43 @@ class ArtistService:
             log=log_entries
         )
 
-    def fetch_artist_image_from_spotify(self, artist_name: str, sp=None) -> Optional[str]:
-        """Helper function to fetch artist image from Spotify."""
+    def fetch_artist_image_by_spotify_id(self, spotify_artist_id: str, sp=None) -> Optional[str]:
+        """Fetch artist image directly using Spotify artist ID - guaranteed correct artist."""
         if not sp:
             sp = self.repository.get_spotify_client()
         if not sp:
             return None
         
+        try:
+            artist_data = sp.artist(spotify_artist_id)
+            if artist_data:
+                images = artist_data.get("images") or []
+                if images:
+                    return images[0].get("url")
+        except Exception as e:
+            print(f"Failed to fetch artist by ID {spotify_artist_id}: {e}")
+        
+        return None
+
+    def fetch_artist_image_from_spotify(self, artist_name: str, sp=None, spotify_artist_id: Optional[str] = None) -> Optional[str]:
+        """Helper function to fetch artist image from Spotify.
+        
+        If spotify_artist_id is provided, uses it directly (most accurate).
+        Otherwise falls back to searching by artist name.
+        """
+        if not sp:
+            sp = self.repository.get_spotify_client()
+        if not sp:
+            return None
+        
+        # If we have the Spotify artist ID, use it directly - this is most accurate
+        if spotify_artist_id:
+            image_url = self.fetch_artist_image_by_spotify_id(spotify_artist_id, sp)
+            if image_url:
+                return image_url
+            # Fall through to name search if ID lookup fails
+        
+        # Fallback: search by artist name (less accurate for common names)
         queries = self._generate_artist_search_queries(artist_name)
         for query in queries:
             try:

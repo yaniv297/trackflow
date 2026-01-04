@@ -34,6 +34,7 @@ const PackHeader = ({
   onCleanTitles,
   artistImageUrl,
   mostCommonArtist,
+  albumSeriesCoverUrl,
   showAlbumSeriesButton,
   status,
   user,
@@ -137,10 +138,11 @@ const PackHeader = ({
               width: "100%",
             }}
           >
-            {artistImageUrl && (
+            {/* For Album Series packs, show album cover; otherwise show artist photo */}
+            {(albumSeriesCoverUrl || artistImageUrl) && (
               <img
-                src={artistImageUrl}
-                alt={mostCommonArtist}
+                src={albumSeriesCoverUrl || artistImageUrl}
+                alt={albumSeriesCoverUrl ? "Album Cover" : mostCommonArtist}
                 style={{
                   width: 54,
                   height: 54,

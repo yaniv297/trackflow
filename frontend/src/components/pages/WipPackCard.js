@@ -179,6 +179,18 @@ const WipPackCard = ({
     return songsInThisSeries.length >= 4;
   });
 
+  // For Album Series packs, use the album cover instead of artist photo
+  const isAlbumSeriesPack = seriesWithThreshold.length > 0;
+  const albumSeriesCover = isAlbumSeriesPack
+    ? allSongs.find(
+        (s) => s.album_series_id && s.album_cover
+      )?.album_cover
+    : null;
+  
+  // Use album cover for album series, otherwise use artist photo
+  const packImageUrl = albumSeriesCover || artistImageUrl;
+  const isAlbumCover = !!albumSeriesCover;
+
   // Check for double album series opportunity
   const albumCounts = {};
   allSongs.forEach((song) => {
@@ -259,10 +271,10 @@ const WipPackCard = ({
           gap: "1rem",
         }}
       >
-        {artistImageUrl && (
+        {packImageUrl && (
           <img
-            src={artistImageUrl}
-            alt={mostCommonArtist}
+            src={packImageUrl}
+            alt={isAlbumCover ? "Album Cover" : mostCommonArtist}
             style={{
               width: 54,
               height: 54,

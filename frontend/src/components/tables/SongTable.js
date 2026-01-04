@@ -242,6 +242,13 @@ const SongTable = ({
       canMakeDoubleAlbumSeries = albumsWithEnoughSongs.length >= 2;
     }
 
+    // For Album Series packs, get the album cover from a song in the series
+    const albumSeriesCoverUrl = sortedSeriesInfo.length > 0
+      ? validSongsInPack.find(
+          (s) => s.album_series_id && s.album_cover
+        )?.album_cover
+      : null;
+
     return (
       <React.Fragment key={packName}>
         <PackHeader
@@ -270,6 +277,7 @@ const SongTable = ({
           onCleanTitles={onCleanTitles || (() => {})}
           artistImageUrl=""
           mostCommonArtist=""
+          albumSeriesCoverUrl={albumSeriesCoverUrl}
           user={user}
           status={status}
           setShowCollaborationModal={setShowCollaborationModal}

@@ -93,26 +93,32 @@ const InstrumentAssignment = ({
               padding: "0.5rem",
             }}
           >
-            {instrumentFields.map((instrument) => (
-              <label
-                key={instrument}
-                style={{
-                  display: "block",
-                  padding: "0.25rem 0",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedInstruments.includes(instrument)}
-                  onChange={(e) =>
-                    onInstrumentSelection(instrument, e.target.checked)
-                  }
-                  style={{ marginRight: "0.5rem" }}
-                />
-                {instrument}
-              </label>
-            ))}
+            {instrumentFields.length === 0 ? (
+              <p style={{ color: "#666", fontSize: "0.9rem", fontStyle: "italic" }}>
+                Loading workflow steps...
+              </p>
+            ) : (
+              instrumentFields.map((instrument) => (
+                <label
+                  key={instrument}
+                  style={{
+                    display: "block",
+                    padding: "0.25rem 0",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedInstruments.includes(instrument)}
+                    onChange={(e) =>
+                      onInstrumentSelection(instrument, e.target.checked)
+                    }
+                    style={{ marginRight: "0.5rem" }}
+                  />
+                  {instrument}
+                </label>
+              ))
+            )}
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { apiGet } from "../../utils/api";
 import { useWorkflowData } from "../workflows/useWorkflowData";
 import { useUserWorkflowFields } from "../workflows/useUserWorkflowFields";
+import { preloadOwnerWorkflows } from "../workflows/useOwnerWorkflows";
 import {
   getCompletedFieldsCount,
   getSongCompletionPercentage,
@@ -29,22 +30,26 @@ export const useWipData = (user) => {
     try {
       const data = await apiGet("/songs/?status=In%20Progress");
 
-      // After loading songs, fetch song_progress for ALL songs in ONE bulk request
+      // After loading songs, fetch song_progress AND wip_collaborations for ALL songs in parallel
       let songsWithProgress = [];
       if (data && data.length > 0) {
         try {
           const songIds = data.map((s) => s.id).join(",");
-          const progressMap = await apiGet(
-            `/workflows/songs/progress/bulk?song_ids=${songIds}`
-          );
+          
+          // Fetch both progress and WIP collaborations in parallel
+          const [progressMap, wipCollaborationsMap] = await Promise.all([
+            apiGet(`/workflows/songs/progress/bulk?song_ids=${songIds}`),
+            apiGet(`/authoring/wip-collaborations/bulk?song_ids=${songIds}`)
+          ]);
 
           songsWithProgress = data.map((s) => ({
             ...s,
             progress: progressMap[s.id] || {},
+            wipCollaborations: wipCollaborationsMap[s.id] || [],
           }));
         } catch (e) {
-          console.error("Failed to fetch bulk progress:", e);
-          // Fallback to original songs if progress fetch fails
+          console.error("Failed to fetch bulk data:", e);
+          // Fallback to original songs if bulk fetch fails
           songsWithProgress = data || [];
         }
       } else {
@@ -63,9 +68,11 @@ export const useWipData = (user) => {
           }
         });
 
+        const uniqueUserIdsArray = Array.from(uniqueUserIds);
+
         // Fetch all workflow fields in parallel (non-blocking)
         // They'll be cached and available when grouping happens
-        uniqueUserIds.forEach((userId) => {
+        uniqueUserIdsArray.forEach((userId) => {
           fetchUserWorkflowFields(userId).then((fields) => {
             if (fields) {
               setUserWorkflowFields((prev) => ({
@@ -77,6 +84,14 @@ export const useWipData = (user) => {
             // Silent fail - will use fallback
             console.warn(`Failed to fetch workflow for user ${userId}:`, err);
           });
+        });
+
+        // PERFORMANCE: Also preload FULL owner workflows in the background
+        // This ensures the "Edit Collaboration" modal opens instantly
+        // Most users only collaborate with 2-3 other users, so this is minimal overhead
+        preloadOwnerWorkflows(uniqueUserIdsArray).catch((err) => {
+          // Silent fail - modal will fetch on demand if cache miss
+          console.warn("Failed to preload owner workflows:", err);
         });
       }
 

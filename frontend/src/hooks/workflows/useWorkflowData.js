@@ -1,14 +1,46 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { apiGet } from "../../utils/api";
+
+// Module-level cache to prevent redundant API calls across component instances
+const workflowCache = {
+  data: null,
+  userId: null,
+  timestamp: 0,
+  loading: false,
+  promise: null,
+};
+
+// Cache duration: 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 /**
  * Custom hook for managing dynamic workflow data
  * Replaces the static authoringFields with user-customizable workflows
+ * 
+ * PERFORMANCE OPTIMIZATIONS:
+ * 1. Uses user.id instead of user object to prevent re-fetching on object reference changes
+ * 2. Module-level cache prevents redundant API calls across component instances
+ * 3. Request deduplication prevents concurrent duplicate requests
  */
 export const useWorkflowData = (user) => {
-  const [userWorkflow, setUserWorkflow] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [userWorkflow, setUserWorkflow] = useState(() => {
+    // Initialize from cache if available for this user
+    if (workflowCache.data && workflowCache.userId === user?.id) {
+      return workflowCache.data;
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    // If we have cached data, don't show loading
+    if (workflowCache.data && workflowCache.userId === user?.id) {
+      return false;
+    }
+    return true;
+  });
   const [error, setError] = useState(null);
+  
+  // Track the user ID to detect changes
+  const userIdRef = useRef(user?.id);
 
   // Fallback to static fields if dynamic workflow is not available yet
   const fallbackAuthoringFields = useMemo(
@@ -32,31 +64,90 @@ export const useWorkflowData = (user) => {
     []
   );
 
-  useEffect(() => {
-    if (user) {
-      loadUserWorkflow();
+  // Memoized loader function with caching
+  const loadUserWorkflow = useCallback(async (forceRefresh = false) => {
+    const userId = user?.id;
+    if (!userId) return;
+    
+    const now = Date.now();
+    
+    // Check if cache is valid and not forcing refresh
+    if (
+      !forceRefresh &&
+      workflowCache.data &&
+      workflowCache.userId === userId &&
+      now - workflowCache.timestamp < CACHE_DURATION
+    ) {
+      // Use cached data
+      setUserWorkflow(workflowCache.data);
+      setLoading(false);
+      return;
     }
-  }, [user]);
-
-  const loadUserWorkflow = async () => {
+    
+    // If there's already a request in flight for this user, wait for it
+    if (workflowCache.loading && workflowCache.userId === userId && workflowCache.promise) {
+      try {
+        const workflow = await workflowCache.promise;
+        setUserWorkflow(workflow);
+        setLoading(false);
+      } catch (err) {
+        setError(err);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Start new request
+    setLoading(true);
+    setError(null);
+    workflowCache.loading = true;
+    workflowCache.userId = userId;
+    
+    // Create and store the promise for deduplication
+    workflowCache.promise = apiGet("/workflows/my-workflow")
+      .then((workflow) => {
+        workflowCache.data = workflow;
+        workflowCache.timestamp = Date.now();
+        workflowCache.loading = false;
+        return workflow;
+      })
+      .catch((err) => {
+        workflowCache.loading = false;
+        throw err;
+      });
+    
     try {
-      setLoading(true);
-      setError(null);
-
-      // Try to load user's custom workflow
-      const workflow = await apiGet("/workflows/my-workflow");
+      const workflow = await workflowCache.promise;
       setUserWorkflow(workflow);
-    } catch (error) {
+    } catch (err) {
       console.warn(
         "Failed to load user workflow, falling back to static fields:",
-        error
+        err
       );
-      setError(error);
+      setError(err);
       setUserWorkflow(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  // Use user.id as dependency instead of user object to prevent re-fetching
+  // when user object reference changes but ID stays the same
+  useEffect(() => {
+    const userId = user?.id;
+    
+    if (userId) {
+      // Only fetch if user ID changed or we don't have cached data
+      if (userIdRef.current !== userId || !workflowCache.data) {
+        userIdRef.current = userId;
+        loadUserWorkflow();
+      } else if (workflowCache.data && workflowCache.userId === userId) {
+        // Use cached data immediately
+        setUserWorkflow(workflowCache.data);
+        setLoading(false);
+      }
+    }
+  }, [user?.id, loadUserWorkflow]);
 
   // Dynamic authoring fields based on user's workflow (simplified)
   const authoringFields = useMemo(() => {
@@ -130,10 +221,10 @@ export const useWorkflowData = (user) => {
     return { "": authoringFields };
   }, [authoringFields]);
 
-  // Refresh workflow data
-  const refreshWorkflow = async () => {
-    await loadUserWorkflow();
-  };
+  // Refresh workflow data (force refresh bypasses cache)
+  const refreshWorkflow = useCallback(async () => {
+    await loadUserWorkflow(true);
+  }, [loadUserWorkflow]);
 
   // Check if workflow is using fallback (static) mode
   const isUsingFallback = !userWorkflow && !loading;

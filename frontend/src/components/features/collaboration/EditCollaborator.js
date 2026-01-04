@@ -43,32 +43,38 @@ const EditCollaborator = ({
             marginBottom: "1rem",
           }}
         >
-          {instrumentFields.map((instrument) => (
-            <label
-              key={instrument}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.5rem",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-                cursor: "pointer",
-                backgroundColor: selectedInstruments.includes(instrument)
-                  ? "#e3f2fd"
-                  : "white",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={selectedInstruments.includes(instrument)}
-                onChange={(e) =>
-                  onInstrumentSelection(instrument, e.target.checked)
-                }
-              />
-              {instrument}
-            </label>
-          ))}
+          {instrumentFields.length === 0 ? (
+            <p style={{ color: "#666", fontSize: "0.9rem", fontStyle: "italic" }}>
+              Loading workflow steps...
+            </p>
+          ) : (
+            instrumentFields.map((instrument) => (
+              <label
+                key={instrument}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.5rem",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  backgroundColor: selectedInstruments.includes(instrument)
+                    ? "#e3f2fd"
+                    : "white",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedInstruments.includes(instrument)}
+                  onChange={(e) =>
+                    onInstrumentSelection(instrument, e.target.checked)
+                  }
+                />
+                {instrument}
+              </label>
+            ))
+          )}
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
@@ -314,6 +314,66 @@ def mark_all_authoring_complete(song_id: int, db: Session = Depends(get_db), cur
         print(f"⚠️ Failed to check achievements: {ach_err}")
     
     return {"success": True}
+
+@router.get("/wip-collaborations/bulk")
+async def get_wip_collaborations_bulk(
+    song_ids: str = Query(..., description="Comma-separated list of song IDs"),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """
+    Get WIP collaborations for multiple songs in one query. Optimized for WIP page loading.
+    Returns: Dict mapping song_id to list of assignments
+    """
+    from sqlalchemy import text
+    
+    # Parse song IDs
+    try:
+        song_id_list = [int(id.strip()) for id in song_ids.split(",") if id.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid song_ids format")
+    
+    if not song_id_list:
+        return {}
+    
+    # Get all songs the user has access to (owns OR is collaborator on)
+    # First, get all songs the user owns
+    owned_songs = db.query(Song.id).filter(
+        Song.id.in_(song_id_list),
+        Song.user_id == current_user.id
+    ).all()
+    owned_song_ids = {s[0] for s in owned_songs}
+    
+    # Get all songs where user is a collaborator
+    collab_songs = db.query(Collaboration.song_id).filter(
+        Collaboration.song_id.in_(song_id_list),
+        Collaboration.user_id == current_user.id,
+        Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+    ).all()
+    collab_song_ids = {s[0] for s in collab_songs}
+    
+    # Combine accessible song IDs
+    accessible_song_ids = owned_song_ids | collab_song_ids
+    
+    if not accessible_song_ids:
+        return {}
+    
+    # Get WIP collaborations for all accessible songs in one query
+    wip_collaborations = db.query(WipCollaboration).filter(
+        WipCollaboration.song_id.in_(list(accessible_song_ids))
+    ).all()
+    
+    # Group by song_id
+    result = {}
+    for collab in wip_collaborations:
+        if collab.song_id not in result:
+            result[collab.song_id] = []
+        result[collab.song_id].append({
+            "collaborator": collab.collaborator,
+            "field": collab.field
+        })
+    
+    return result
 
 @router.get("/{song_id}/wip-collaborations")
 async def get_wip_collaborations(

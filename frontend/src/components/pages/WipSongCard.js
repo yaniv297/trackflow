@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import UnifiedCollaborationModal from "../modals/UnifiedCollaborationModal";
 import MovePackModal from "../modals/MovePackModal";
 import FileHistoryModal from "../modals/FileHistoryModal";
@@ -64,24 +64,39 @@ export default function WipSongCard({
   }, [authoringFieldsProp, authoringFields]);
 
   // Custom hooks
-  const { editing, editValues, saveEdit, startEdit, updateEditValue, updateEditValues } = 
-    useSongEditing(song, onSongUpdate);
-  
-  const { wipCollaborations, loadWipCollaborations } = 
-    useWipCollaborations(song.id);
-  
-  const { toggleAuthoringField, markAllDone } = 
-    useSongProgress(song, effectiveAuthoringFields, onAuthoringUpdate);
+  const {
+    editing,
+    editValues,
+    saveEdit,
+    startEdit,
+    updateEditValue,
+    updateEditValues,
+  } = useSongEditing(song, onSongUpdate);
 
-  const { fileLinksCount, handleFileLinkAdded, handleFileLinkDeleted } = 
+  // Use preloaded WIP collaborations from song object (loaded in bulk on page load)
+  // Only use hook as fallback if preloaded data is not available
+  const hasPreloadedData = song.wipCollaborations !== undefined;
+  const { wipCollaborations: hookCollaborations, loadWipCollaborations } =
+    useWipCollaborations(hasPreloadedData ? undefined : song.id); // Don't load if we have preloaded data
+
+  // Prefer preloaded data, fallback to hook data
+  const wipCollaborations = song.wipCollaborations || hookCollaborations || [];
+
+  const { toggleAuthoringField, markAllDone } = useSongProgress(
+    song,
+    effectiveAuthoringFields,
+    onAuthoringUpdate
+  );
+
+  const { fileLinksCount, handleFileLinkAdded, handleFileLinkDeleted } =
     useFileLinks(song.id, song.title, wipCollaborations, showFileHistoryModal);
 
-  const { 
-    spotifyOptions, 
-    loadingSpotify, 
-    loadSpotifyOptions, 
-    enhanceFromSpotify, 
-    clearSpotifyOptions 
+  const {
+    spotifyOptions,
+    loadingSpotify,
+    loadSpotifyOptions,
+    enhanceFromSpotify,
+    clearSpotifyOptions,
   } = useSpotifyEnhancement(song.id, onSongUpdate, updateEditValues);
 
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
@@ -103,15 +118,15 @@ export default function WipSongCard({
   const saveNotes = async (songId, notes) => {
     try {
       const updated = await apiPatch(`/songs/${songId}`, { notes });
-      
+
       // Update the song object for immediate UI reflection
       if (onSongUpdate) {
         onSongUpdate(songId, { ...song, notes: updated.notes || notes });
       }
-      
+
       // Check for achievements after successful update
       await checkAndShowNewAchievements();
-      
+
       window.showNotification("Notes saved successfully", "success");
     } catch (error) {
       console.error("Failed to save notes:", error);
@@ -270,6 +285,9 @@ export default function WipSongCard({
           onClose={() => setShowCollaborationModal(false)}
           songId={song.id}
           songTitle={song.title}
+          songOwnerId={song.user_id} // Pass song owner ID to avoid extra API call
+          songCollaborations={song.collaborations} // Pass preloaded collaborations
+          songWipCollaborations={song.wipCollaborations} // Pass preloaded WIP collaborations
           collaborationType="song"
           currentUser={currentUser}
           onCollaborationSaved={() => {

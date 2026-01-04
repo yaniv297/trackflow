@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from database import get_db
 from schemas import SongCreate, SongOut
-from models import SongStatus, User, Song, Pack
+from models import SongStatus, User, Song, Pack, Collaboration, CollaborationType
 from api.auth import get_current_active_user_model as get_current_active_user
 
 from ..services.song_service import SongService
@@ -44,6 +44,33 @@ def get_filtered_songs(
     
     service = SongService(db)
     return service.get_filtered_songs(current_user, status, query, pack_id, completion_threshold, order, limit)
+
+
+@router.get("/{song_id}/owner-id")
+def get_song_owner_id(
+    song_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get the owner's user_id for a song. Lightweight endpoint for collaboration workflows."""
+    song = db.query(Song).filter(Song.id == song_id).first()
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    # Check if user has access (owns it OR is a collaborator)
+    has_access = (
+        song.user_id == current_user.id or
+        db.query(Collaboration).filter(
+            Collaboration.song_id == song_id,
+            Collaboration.user_id == current_user.id,
+            Collaboration.collaboration_type == CollaborationType.SONG_EDIT
+        ).first() is not None
+    )
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail="You don't have permission to access this song")
+    
+    return {"owner_id": song.user_id}
 
 
 @router.patch("/{song_id}", response_model=SongOut)

@@ -8,6 +8,7 @@ export const useWipCollaborations = (songId) => {
   const [wipCollaborations, setWipCollaborations] = useState([]);
 
   const loadWipCollaborations = useCallback(async () => {
+    if (!songId) return; // Skip if songId is undefined (preloaded data available)
     try {
       const response = await apiGet(`/authoring/${songId}/wip-collaborations`);
       setWipCollaborations(response.assignments || []);
@@ -17,8 +18,10 @@ export const useWipCollaborations = (songId) => {
   }, [songId]);
 
   useEffect(() => {
-    loadWipCollaborations();
-  }, [loadWipCollaborations]);
+    if (songId) {
+      loadWipCollaborations();
+    }
+  }, [songId, loadWipCollaborations]);
 
   return {
     wipCollaborations,

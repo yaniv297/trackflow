@@ -50,7 +50,9 @@ export default function DynamicWipSongCard({
     year: song.year || "",
   });
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
-  const [wipCollaborations, setWipCollaborations] = useState([]);
+  const [wipCollaborations, setWipCollaborations] = useState(
+    song.wipCollaborations || []
+  );
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [showMovePackModal, setShowMovePackModal] = useState(false);
   const [showFileHistoryModal, setShowFileHistoryModal] = useState(false);
@@ -95,14 +97,21 @@ export default function DynamicWipSongCard({
       album: song.album,
       year: song.year || "",
     });
+    // Update WIP collaborations from song object (loaded in bulk on page load)
+    if (song.wipCollaborations) {
+      setWipCollaborations(song.wipCollaborations);
+    }
   }, [song]);
 
   useEffect(() => {
     if (expanded) {
-      loadWipCollaborations();
+      // Only reload if we don't have data yet (fallback for edge cases)
+      if (!song.wipCollaborations || song.wipCollaborations.length === 0) {
+        loadWipCollaborations();
+      }
       loadFileLinksCount();
     }
-  }, [expanded, loadWipCollaborations, loadFileLinksCount]);
+  }, [expanded, loadWipCollaborations, song.wipCollaborations]);
 
   const toggleAuthoringField = async (field) => {
     if (readOnly) return;
@@ -678,6 +687,9 @@ export default function DynamicWipSongCard({
       <UnifiedCollaborationModal
         songId={song.id}
         songTitle={song.title}
+        songOwnerId={song.user_id} // Pass song owner ID to avoid extra API call
+        songCollaborations={song.collaborations} // Pass preloaded collaborations
+        songWipCollaborations={song.wipCollaborations} // Pass preloaded WIP collaborations
         collaborationType="song"
         isOpen={showCollaborationModal}
         onClose={() => setShowCollaborationModal(false)}
@@ -736,4 +748,3 @@ export default function DynamicWipSongCard({
     </div>
   );
 }
-

@@ -340,15 +340,22 @@ def get_song_collaborators(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get all collaborators for a song."""
+    """Get all collaborators for a song. Optimized to minimize queries."""
+    from sqlalchemy.orm import joinedload
     
-    # Check if song exists
-    song = db.query(Song).filter(Song.id == song_id).first()
+    # Load song with collaborations in one query
+    song = db.query(Song).options(
+        joinedload(Song.collaborations).joinedload(Collaboration.user)
+    ).filter(Song.id == song_id).first()
+    
     if not song:
         raise HTTPException(status_code=404, detail="Song not found")
     
-    # Check if user has access to this song
+    # Check access: user owns song OR is a collaborator
+    # Check ownership first (fastest check)
     if song.user_id != current_user.id:
+        # Check if current user is a collaborator - need separate query since
+        # we only loaded collaborations for the song, not necessarily the current user's
         has_access = db.query(Collaboration).filter(
             Collaboration.song_id == song_id,
             Collaboration.user_id == current_user.id,
@@ -357,26 +364,39 @@ def get_song_collaborators(
         if not has_access:
             raise HTTPException(status_code=403, detail="Access denied")
     
-    # Get all collaborations for this song
-    collaborations = db.query(Collaboration).filter(
-        Collaboration.song_id == song_id
-    ).all()
+    # Use the already-loaded collaborations from the song object
+    # This avoids an additional query since we loaded them with joinedload
+    collaborations = song.collaborations
     
-    # Get usernames for all user IDs
-    user_ids = list(set([c.user_id for c in collaborations]))
-    users = {u.id: u.username for u in db.query(User).filter(User.id.in_(user_ids)).all()}
-    
+    # Build response using the already-loaded user relationship (no additional queries)
     return [
         CollaborationResponse(
             id=c.id,
             pack_id=c.pack_id,
             song_id=c.song_id,
             user_id=c.user_id,
-            username=users.get(c.user_id, "Unknown"),
+            username=c.user.username if c.user else "Unknown",
             collaboration_type=c.collaboration_type.value,
             created_at=c.created_at
         )
         for c in collaborations
+    ]
+
+@router.get("/available-users")
+def get_available_users_for_collaboration(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get list of users available for collaboration. Lightweight endpoint that returns only id and username."""
+    # Get all active users, but only return id and username for performance
+    users = db.query(User.id, User.username).filter(
+        User.is_active == True,
+        User.id != current_user.id  # Exclude current user
+    ).order_by(User.username).all()
+    
+    return [
+        {"id": user.id, "username": user.username}
+        for user in users
     ]
 
 @router.get("/my-collaborations", response_model=List[CollaborationResponse])

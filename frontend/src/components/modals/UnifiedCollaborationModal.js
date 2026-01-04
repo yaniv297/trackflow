@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { apiGet } from "../../utils/api";
 import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
 import { useCollaborationData } from "../../hooks/collaborations/useCollaborationData";
 import { useCollaborationOperations } from "../../hooks/collaborations/useCollaborationOperations";
+import {
+  getCachedOwnerWorkflow,
+  fetchOwnerWorkflow,
+} from "../../hooks/workflows/useOwnerWorkflows";
 import UserProfilePopup from "../shared/UserProfilePopup";
 import UserSelector from "../features/collaboration/UserSelector";
 import PermissionSelector from "../features/collaboration/PermissionSelector";
@@ -17,6 +22,9 @@ const UnifiedCollaborationModal = ({
   packName,
   songId,
   songTitle,
+  songOwnerId = null, // Preloaded song owner's user_id (optional, to avoid extra API call)
+  songCollaborations = null, // Preloaded collaborations from song object (optional)
+  songWipCollaborations = null, // Preloaded WIP collaborations from song object (optional)
   collaborationType = "pack", // "pack" or "song"
   currentUser = null,
   onCollaborationSaved = null,
@@ -37,61 +45,55 @@ const UnifiedCollaborationModal = ({
   const [pendingRemovals, setPendingRemovals] = useState([]);
   const [pendingWipChanges, setPendingWipChanges] = useState({});
 
-  // Available instrument fields
-  const instrumentFields = [
-    "Demucs",
-    "Midi",
-    "Tempo Map",
-    "Fake Ending",
-    "Drums",
-    "Bass",
-    "Guitar",
-    "Vocals",
-    "Harmonies",
-    "Pro Keys",
-    "Keys",
-    "Animations",
-    "Drum Fills",
-    "Overdrive",
-    "Compile",
-  ];
+  // Song owner workflow state (for fetching custom workflow steps)
+  const [songOwnerWorkflow, setSongOwnerWorkflow] = useState(null);
+  const [loadingWorkflow, setLoadingWorkflow] = useState(false);
 
-  // Mapping between database field names and UI field names
-  const dbToUiFieldMap = {
-    demucs: "Demucs",
-    midi: "Midi",
-    tempo_map: "Tempo Map",
-    fake_ending: "Fake Ending",
-    drums: "Drums",
-    bass: "Bass",
-    guitar: "Guitar",
-    vocals: "Vocals",
-    harmonies: "Harmonies",
-    pro_keys: "Pro Keys",
-    keys: "Keys",
-    animations: "Animations",
-    drum_fills: "Drum Fills",
-    overdrive: "Overdrive",
-    compile: "Compile",
-  };
+  // Build instrument fields and mappings from song owner's workflow
+  // No hardcoded fallbacks - only use the actual workflow steps
+  const { instrumentFields, dbToUiFieldMap, uiToDbFieldMap } = useMemo(() => {
+    // For pack collaborations or when workflow is not loaded, return empty arrays
+    if (
+      collaborationType !== "song" ||
+      !songOwnerWorkflow ||
+      !songOwnerWorkflow.steps ||
+      songOwnerWorkflow.steps.length === 0
+    ) {
+      return {
+        instrumentFields: [],
+        dbToUiFieldMap: {},
+        uiToDbFieldMap: {},
+      };
+    }
 
-  const uiToDbFieldMap = {
-    Demucs: "demucs",
-    Midi: "midi",
-    "Tempo Map": "tempo_map",
-    "Fake Ending": "fake_ending",
-    Drums: "drums",
-    Bass: "bass",
-    Guitar: "guitar",
-    Vocals: "vocals",
-    Harmonies: "harmonies",
-    "Pro Keys": "pro_keys",
-    Keys: "keys",
-    Animations: "animations",
-    "Drum Fills": "drum_fills",
-    Overdrive: "overdrive",
-    Compile: "compile",
-  };
+    // Build from workflow steps
+    const fields = [];
+    const dbToUi = {};
+    const uiToDb = {};
+
+    songOwnerWorkflow.steps
+      .filter((step) => step.is_enabled !== false) // Include all steps if is_enabled is not defined
+      .sort((a, b) => a.order_index - b.order_index)
+      .forEach((step) => {
+        const stepName = step.step_name;
+        const displayName =
+          step.display_name ||
+          stepName
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+
+        fields.push(displayName);
+        dbToUi[stepName] = displayName;
+        uiToDb[displayName] = stepName;
+      });
+
+    return {
+      instrumentFields: fields,
+      dbToUiFieldMap: dbToUi,
+      uiToDbFieldMap: uiToDb,
+    };
+  }, [collaborationType, songOwnerWorkflow]);
 
   // Custom hooks
   const {
@@ -102,29 +104,116 @@ const UnifiedCollaborationModal = ({
     loadingCollaborators,
     loadCollaborators,
     loadWipCollaborations,
-    setWipCollaborations
+    setWipCollaborations,
   } = useCollaborationData({
     isOpen,
     collaborationType,
     packId,
     songId,
-    currentUser
+    currentUser,
+    preloadedCollaborations: songCollaborations,
+    preloadedWipCollaborations: songWipCollaborations,
   });
 
-  const { loading, handleSaveAll, handleSaveEdit } = useCollaborationOperations({
-    collaborationType,
-    packId,
-    songId,
-    users,
-    packSongs,
-    wipCollaborations,
-    loadCollaborators,
-    loadWipCollaborations,
-    onCollaborationSaved,
-    onClose
-  });
+  const { loading, handleSaveAll, handleSaveEdit } = useCollaborationOperations(
+    {
+      collaborationType,
+      packId,
+      songId,
+      users,
+      packSongs,
+      wipCollaborations,
+      loadCollaborators,
+      loadWipCollaborations,
+      onCollaborationSaved,
+      onClose,
+    }
+  );
 
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
+
+  // Fetch song owner's workflow when modal opens for a song collaboration
+  // Uses global cache that's preloaded when WIP page loads - should be INSTANT
+  useEffect(() => {
+    // Track if this effect is still active (for cleanup)
+    let isActive = true;
+
+    if (isOpen && collaborationType === "song" && songId) {
+      // Use preloaded owner ID if available
+      const ownerUserId = songOwnerId;
+
+      if (ownerUserId) {
+        // FAST PATH: Check if workflow is already cached (preloaded on page load)
+        const cachedWorkflow = getCachedOwnerWorkflow(ownerUserId);
+        if (cachedWorkflow) {
+          // Instant - workflow was preloaded, no loading state needed
+          setSongOwnerWorkflow(cachedWorkflow);
+          setLoadingWorkflow(false);
+          return;
+        }
+      }
+
+      // SLOW PATH: Need to fetch (only happens if cache miss or no ownerUserId)
+      const fetchWorkflow = async () => {
+        try {
+          setLoadingWorkflow(true);
+
+          // Get owner ID if not provided
+          let resolvedOwnerId = ownerUserId;
+          if (!resolvedOwnerId) {
+            try {
+              const ownerData = await apiGet(`/songs/${songId}/owner-id`);
+              resolvedOwnerId = ownerData.owner_id;
+            } catch (e) {
+              console.warn("Failed to fetch song owner ID:", e);
+              if (isActive) {
+                setSongOwnerWorkflow(null);
+                setLoadingWorkflow(false);
+              }
+              return;
+            }
+          }
+
+          // Fetch the owner's workflow using global cache
+          if (resolvedOwnerId && isActive) {
+            try {
+              const ownerWorkflow = await fetchOwnerWorkflow(resolvedOwnerId);
+              if (isActive) {
+                setSongOwnerWorkflow(ownerWorkflow);
+              }
+            } catch (error) {
+              console.error("Failed to load song owner workflow:", error);
+              if (isActive) {
+                setSongOwnerWorkflow(null);
+              }
+            }
+          } else if (isActive) {
+            console.warn(`Could not find song ${songId} or its owner`);
+            setSongOwnerWorkflow(null);
+          }
+        } catch (error) {
+          console.warn("Failed to load song owner workflow:", error);
+          if (isActive) {
+            setSongOwnerWorkflow(null);
+          }
+        } finally {
+          if (isActive) {
+            setLoadingWorkflow(false);
+          }
+        }
+      };
+
+      fetchWorkflow();
+    } else {
+      // Reset workflow when modal closes or for non-song collaborations
+      setSongOwnerWorkflow(null);
+    }
+
+    // Cleanup function
+    return () => {
+      isActive = false;
+    };
+  }, [isOpen, collaborationType, songId, songOwnerId]);
 
   // Reset modal state when opening
   useEffect(() => {
@@ -323,7 +412,10 @@ const UnifiedCollaborationModal = ({
     // Pre-populate with existing data
     if (collaborationType === "song") {
       // Ensure WIP collaborations are loaded
-      if (!wipCollaborations[songId]) {
+      if (
+        !wipCollaborations[songId] ||
+        wipCollaborations[songId].length === 0
+      ) {
         await loadWipCollaborations();
       }
 
@@ -337,6 +429,13 @@ const UnifiedCollaborationModal = ({
       );
 
       setSelectedInstruments(existingInstruments);
+
+      // Ensure workflow is loaded before showing edit UI
+      // If workflow is still loading, wait for it
+      if (loadingWorkflow || !songOwnerWorkflow) {
+        // Workflow is loading or not loaded yet - it should load soon
+        // The EditCollaborator component will show "Loading workflow steps..." if instrumentFields is empty
+      }
     } else {
       setSelectedInstruments([]);
     }
@@ -360,7 +459,11 @@ const UnifiedCollaborationModal = ({
   };
 
   const handleSaveAllWrapper = async () => {
-    await handleSaveAll(pendingCollaborations, pendingRemovals, pendingWipChanges);
+    await handleSaveAll(
+      pendingCollaborations,
+      pendingRemovals,
+      pendingWipChanges
+    );
     // Reset form
     setPendingCollaborations([]);
     setPendingRemovals([]);
@@ -390,7 +493,6 @@ const UnifiedCollaborationModal = ({
     }
   };
 
-
   const getTitle = () => {
     if (collaborationType === "pack") {
       return `Manage Collaborations - ${packName}`;
@@ -408,7 +510,6 @@ const UnifiedCollaborationModal = ({
     }
     return "Add a collaborator to this song and assign them to specific instruments.";
   };
-
 
   if (!isOpen) return null;
 
@@ -530,7 +631,6 @@ const UnifiedCollaborationModal = ({
             onSaveEdit={handleSaveEditWrapper}
             onCancelEdit={handleCancelEdit}
           />
-
 
           {/* Action Buttons */}
           <div

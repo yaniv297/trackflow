@@ -123,13 +123,23 @@ async def get_user_workflow(
     """Get a specific user's workflow configuration (for collaboration songs).
     This ensures collaborators see the owner's workflow steps.
     """
+    import time
+    start_time = time.time()
+    
     # Try cache first
     cached_workflow = _get_cached_workflow(user_id)
     if cached_workflow is not None:
+        print(f"[WORKFLOW] Cache hit for user {user_id} in {time.time() - start_time:.3f}s")
         return cached_workflow
+    
+    print(f"[WORKFLOW] Fetching workflow for user {user_id}...")
+    query_start = time.time()
     
     # Load user's workflow - REQUIRED, no fallback to templates
     result = db.execute(text("SELECT id, user_id, name, description, template_id, created_at, updated_at FROM user_workflows WHERE user_id = :uid"), {"uid": user_id}).fetchone()
+    query1_time = time.time() - query_start
+    print(f"[WORKFLOW] Query 1 (user_workflows) took {query1_time:.3f}s")
+    
     if not result:
         # User has no workflow - this should never happen if registration worked correctly
         # But we don't create one from templates - user must configure it
@@ -139,10 +149,13 @@ async def get_user_workflow(
         )
 
     workflow_id = result[0]
+    query2_start = time.time()
     steps = db.execute(text("""
         SELECT id, workflow_id, step_name, display_name, order_index
         FROM user_workflow_steps WHERE workflow_id = :wid ORDER BY order_index
     """), {"wid": workflow_id}).fetchall()
+    query2_time = time.time() - query2_start
+    print(f"[WORKFLOW] Query 2 (user_workflow_steps) took {query2_time:.3f}s, found {len(steps)} steps")
 
     workflow_data = {
         "id": result[0],
@@ -166,6 +179,12 @@ async def get_user_workflow(
     
     # Cache the result
     _cache_workflow(user_id, workflow_data)
+    total_time = time.time() - start_time
+    print(f"[WORKFLOW] Total time for user {user_id}: {total_time:.3f}s")
+    
+    if total_time > 1.0:
+        print(f"[WORKFLOW] WARNING: Workflow fetch took {total_time:.3f}s - this is unusually slow!")
+    
     return workflow_data
 
 @router.get("/user/{user_id}/workflow-fields")

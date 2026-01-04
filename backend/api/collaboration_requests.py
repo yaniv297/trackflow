@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, text
 from database import get_db
 from models import CollaborationRequest, Song, User, Collaboration, CollaborationType, Authoring
 from api.auth import get_current_active_user
@@ -93,17 +93,25 @@ def create_collaboration_request(
     
     # Validate requested parts for WIP songs
     if song.status == "In Progress" and request.requested_parts:
-        # Get available authoring parts for this song
+        # Get available authoring parts for this song based on owner's workflow
         authoring = db.query(Authoring).filter(Authoring.song_id == request.song_id).first()
         if authoring:
+            # Get song owner's workflow steps (no hardcoded fallback)
+            owner_workflow_steps = db.execute(text("""
+                SELECT uws.step_name
+                FROM user_workflows uw
+                JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+                WHERE uw.user_id = :uid
+                ORDER BY uws.order_index
+            """), {"uid": song.user_id}).fetchall()
+            
+            # Extract step names from workflow
+            authoring_fields = [step[0] for step in owner_workflow_steps] if owner_workflow_steps else []
+            
             available_parts = []
-            authoring_fields = [
-                'demucs', 'midi', 'tempo_map', 'fake_ending', 'drums', 'bass', 
-                'guitar', 'vocals', 'harmonies', 'pro_keys', 'keys', 
-                'animations', 'drum_fills', 'overdrive', 'compile'
-            ]
             for field in authoring_fields:
-                if not getattr(authoring, field, False):  # Part not completed yet
+                # Check if the field exists on the authoring object and is not completed
+                if hasattr(authoring, field) and not getattr(authoring, field, False):
                     available_parts.append(field)
             
             # Validate requested parts are available

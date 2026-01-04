@@ -6,13 +6,21 @@ export const useCollaborationData = ({
   collaborationType,
   packId,
   songId,
-  currentUser
+  currentUser,
+  preloadedCollaborations = null, // Preloaded collaborations from song object (optional)
+  preloadedWipCollaborations = null, // Preloaded WIP collaborations from song object (optional)
 }) => {
   // Data state
   const [collaborators, setCollaborators] = useState([]);
   const [users, setUsers] = useState([]);
   const [packSongs, setPackSongs] = useState([]);
-  const [wipCollaborations, setWipCollaborations] = useState({});
+  // Initialize WIP collaborations with preloaded data if available
+  const [wipCollaborations, setWipCollaborations] = useState(() => {
+    if (collaborationType === "song" && songId && preloadedWipCollaborations) {
+      return { [songId]: preloadedWipCollaborations };
+    }
+    return {};
+  });
 
   // Loading states
   const [loadingCollaborators, setLoadingCollaborators] = useState(false);
@@ -26,6 +34,23 @@ export const useCollaborationData = ({
   // Load collaborators
   const loadCollaborators = useCallback(async () => {
     if (loadingCollaborators) return;
+    
+    // Use preloaded collaborations if available (for song collaborations)
+    if (collaborationType === "song" && preloadedCollaborations && preloadedCollaborations.length > 0) {
+      // Convert song collaborations format to CollaborationResponse format
+      const formattedCollaborations = preloadedCollaborations.map((collab) => ({
+        id: collab.id,
+        pack_id: collab.pack_id || null,
+        song_id: collab.song_id || songId,
+        user_id: collab.user_id,
+        username: collab.username || "Unknown",
+        collaboration_type: collab.collaboration_type || collab.collaborationType || "song_edit",
+        created_at: collab.created_at || new Date().toISOString(),
+      }));
+      setCollaborators(formattedCollaborations);
+      return;
+    }
+    
     setLoadingCollaborators(true);
     try {
       let endpoint;
@@ -42,19 +67,21 @@ export const useCollaborationData = ({
     } finally {
       setLoadingCollaborators(false);
     }
-  }, [collaborationType, packId, songId, loadingCollaborators]);
+  }, [collaborationType, packId, songId, loadingCollaborators, preloadedCollaborations]);
 
-  // Load users for dropdown
+  // Load users for dropdown - use lightweight collaboration endpoint
   const loadUsers = useCallback(async () => {
     try {
-      const response = await apiGet("/auth/users/");
-      setUsers(
-        response.filter((user) => user.username !== currentUser?.username)
-      );
+      // Use the lightweight collaboration endpoint instead of admin-only /auth/users/
+      const response = await apiGet("/collaborations/available-users");
+      setUsers(response || []);
     } catch (error) {
       console.error("Error loading users:", error);
+      // Set empty array on error so the modal can still function
+      // (user dropdown will just be empty)
+      setUsers([]);
     }
-  }, [currentUser?.username]);
+  }, []);
 
   // Load pack songs if needed
   const loadPackSongs = useCallback(async () => {
@@ -89,18 +116,23 @@ export const useCollaborationData = ({
           }
         }
       } else if (collaborationType === "song" && songId) {
-        // Load WIP collaborations for the single song
-        try {
-          const response = await apiGet(
-            `/authoring/${songId}/wip-collaborations`
-          );
-          wipData[songId] = response.assignments || [];
-        } catch (error) {
-          console.error(
-            `Error loading WIP collaborations for song ${songId}:`,
-            error
-          );
-          wipData[songId] = [];
+        // Use preloaded WIP collaborations if available, otherwise fetch
+        if (preloadedWipCollaborations && preloadedWipCollaborations.length > 0) {
+          wipData[songId] = preloadedWipCollaborations;
+        } else {
+          // Load WIP collaborations for the single song
+          try {
+            const response = await apiGet(
+              `/authoring/${songId}/wip-collaborations`
+            );
+            wipData[songId] = response.assignments || [];
+          } catch (error) {
+            console.error(
+              `Error loading WIP collaborations for song ${songId}:`,
+              error
+            );
+            wipData[songId] = [];
+          }
         }
       }
 
@@ -108,7 +140,7 @@ export const useCollaborationData = ({
     } catch (error) {
       console.error("Error loading WIP collaborations:", error);
     }
-  }, [collaborationType, songId, packSongs]);
+  }, [collaborationType, songId, packSongs, preloadedWipCollaborations]);
 
   // Store functions in refs to prevent dependency loops
   useEffect(() => {
@@ -125,6 +157,8 @@ export const useCollaborationData = ({
       if (collaborationType === "pack") {
         loadPackSongs();
       } else if (collaborationType === "song") {
+        // Always load WIP collaborations when modal opens for song
+        // If preloaded data exists, it will be used immediately
         loadWipCollaborations();
       }
     }

@@ -27,5 +27,8 @@ EXPOSE 8000
 
 RUN echo "This is the BACKEND Dockerfile"
 
-# ✅ Use gunicorn with multiple workers for production stability
-CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 3 --bind 0.0.0.0:${PORT:-8000} --timeout 60"]
+# ✅ Use gunicorn with production-optimized settings
+# --preload: Load app before forking = faster worker starts + shared memory
+# --timeout 120: Allow slow requests (120s)
+# --graceful-timeout 30: Time for workers to finish during shutdown
+CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 3 --bind 0.0.0.0:${PORT:-8000} --timeout 120 --graceful-timeout 30 --preload"]

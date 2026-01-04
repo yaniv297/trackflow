@@ -18,6 +18,45 @@
   align-items: center;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.refresh-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: opacity 0.2s ease, transform 0.3s ease, background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: rotate(180deg);
+}
+
+.refresh-btn:active:not(:disabled) {
+  transform: rotate(360deg);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  font-size: 1rem;
+  display: inline-block;
+}
+
 .collapse-toggle {
   background: none;
   border: none;

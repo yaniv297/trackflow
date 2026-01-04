@@ -68,15 +68,26 @@ const UserDashboard = () => {
       <div className="dashboard-header">
         <div className="header-content">
           <h2>Pick up where you left off</h2>
-          <button
-            className="collapse-toggle"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            aria-label={
-              isCollapsed ? "Expand suggestions" : "Collapse suggestions"
-            }
-          >
-            {isCollapsed ? "▼" : "▲"}
-          </button>
+          <div className="header-actions">
+            <button
+              className="refresh-btn"
+              onClick={generateWorkSuggestions}
+              title="Refresh to see different suggestions"
+              disabled={dashboardData.loading}
+              aria-label="Refresh suggestions"
+            >
+              <span className="refresh-icon">🔄</span>
+            </button>
+            <button
+              className="collapse-toggle"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-label={
+                isCollapsed ? "Expand suggestions" : "Collapse suggestions"
+              }
+            >
+              {isCollapsed ? "▼" : "▲"}
+            </button>
+          </div>
         </div>
       </div>
 

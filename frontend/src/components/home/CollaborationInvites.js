@@ -104,9 +104,6 @@ const CollaborationInvites = () => {
     return null;
   }
 
-  // Debug: log the state
-  console.log('CollaborationInvites:', { loading, error, invitesLength: invites.length, invites });
-
   return (
     <section className="collaboration-invites">
       <div className="collaboration-invites-widget">

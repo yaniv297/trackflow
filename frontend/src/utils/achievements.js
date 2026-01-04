@@ -91,7 +91,6 @@ export async function checkAndShowNewAchievements(skipBackendCheck = false) {
           }
           
           // Dispatch achievement earned event for real-time notifications
-          console.log('🏆 Dispatching achievement earned event for:', achievement.name);
           dispatchAchievementEarnedEvent(achievement);
         }
       });
@@ -110,7 +109,6 @@ export async function checkAndShowNewAchievements(skipBackendCheck = false) {
       
       // Trigger new notification event for notification icon
       if (allNewlyAwarded.length > 0) {
-        console.log('📢 Dispatching new notification event for achievements');
         dispatchNewNotificationEvent();
       }
     } else {

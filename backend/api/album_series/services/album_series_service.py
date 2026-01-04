@@ -177,7 +177,6 @@ class AlbumSeriesService:
             for song in songs:
                 if song.album_cover:
                     cover_image_url = song.album_cover
-                    print(f"Found album_cover in song {song.id}: {cover_image_url}")
                     break
         
         # Create album series
@@ -196,7 +195,6 @@ class AlbumSeriesService:
         
         # If still no cover image, try Spotify auto-fetch
         if not album_series.cover_image_url:
-            print("No album_cover found in songs, trying Spotify auto-fetch")
             self._auto_fetch_album_art(album_series)
         
         # Assign songs to this album series
@@ -207,7 +205,7 @@ class AlbumSeriesService:
             from api.achievements import check_album_series_achievements
             check_album_series_achievements(self.db, pack.user_id)
         except Exception as e:
-            print(f"⚠️ Failed to check achievements: {e}")
+            pass
         
         return album_series
     
@@ -241,7 +239,7 @@ class AlbumSeriesService:
                 if pack:
                     check_album_series_achievements(self.db, pack.user_id)
         except Exception as e:
-            print(f"⚠️ Failed to check achievements: {e}")
+            pass
         
         return {
             "message": f"Album series '{series.album_name}' by {series.artist_name} released as series #{next_series_number}",
@@ -355,7 +353,6 @@ class AlbumSeriesService:
             
             return song_dict
         except Exception as e:
-            print(f"Error formatting song {song.id}: {e}")
             # Return minimal song dict if there's an error
             return {
                 "id": song.id,
@@ -417,7 +414,7 @@ class AlbumSeriesService:
                     album_series.cover_image_url = album["images"][0]["url"]
                     self.album_series_repo.update(album_series)
         except Exception as e:
-            print(f"Failed to fetch album art for {album_series.artist_name} - {album_series.album_name}: {e}")
+            pass
 
 
 class SpotifyService:
@@ -491,7 +488,6 @@ class SpotifyService:
                         series.updated_at = datetime.utcnow()
                         updated_count += 1
             except Exception as e:
-                print(f"Failed to fetch album art for {series.artist_name} - {series.album_name}: {e}")
                 continue
         
         self.db.commit()

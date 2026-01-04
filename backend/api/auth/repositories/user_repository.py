@@ -33,8 +33,18 @@ class UserRepository:
         return self.db.query(User).all()
     
     def get_unclaimed_users(self) -> List[User]:
-        """Get users without passwords (unclaimed accounts)."""
-        return self.db.query(User).filter(User.hashed_password.is_(None)).all()
+        """Get users without passwords (unclaimed accounts).
+        
+        Checks for both NULL and empty string passwords since unclaimed users
+        may have either depending on how they were created.
+        """
+        from sqlalchemy import or_
+        return self.db.query(User).filter(
+            or_(
+                User.hashed_password.is_(None),
+                User.hashed_password == ''
+            )
+        ).all()
     
     def create_user(self, user_data: dict) -> User:
         """Create a new user."""

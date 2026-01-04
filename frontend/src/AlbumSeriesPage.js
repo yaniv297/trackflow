@@ -22,16 +22,6 @@ const AlbumSeriesPage = () => {
       const inProgressSeries = data.filter(
         (series) => series.status === "in_progress"
       );
-      if (inProgressSeries.length > 0) {
-        console.log("Album Series API Response - Completion Percentages:");
-        inProgressSeries.forEach((series) => {
-          console.log(
-            `  ${series.album_name}: ${
-              series.completion_percentage ?? "NOT SET"
-            }%`
-          );
-        });
-      }
 
       setAlbumSeries(data);
 

@@ -151,7 +151,7 @@ def create_collaboration_request(
             }
         )
     except Exception as notif_err:
-        print(f"⚠️ Failed to create notification: {notif_err}")
+        pass
     
     # Log activity
     try:
@@ -167,14 +167,14 @@ def create_collaboration_request(
             }
         )
     except Exception as log_err:
-        print(f"⚠️ Failed to log activity: {log_err}")
+        pass
     
     # Check collaboration request achievements
     try:
         from api.achievements import check_collaboration_request_achievements
         check_collaboration_request_achievements(db, current_user.id)
     except Exception as ach_err:
-        print(f"⚠️ Failed to check achievements: {ach_err}")
+        pass
     
     # Get song owner info for response
     song_owner = db.query(User).filter(User.id == song.user_id).first()
@@ -371,7 +371,7 @@ def respond_to_collaboration_request(
             }
         )
     except Exception as notif_err:
-        print(f"⚠️ Failed to create response notification: {notif_err}")
+        pass
     
     # Log activity
     try:
@@ -388,7 +388,7 @@ def respond_to_collaboration_request(
             }
         )
     except Exception as log_err:
-        print(f"⚠️ Failed to log response activity: {log_err}")
+        pass
     
     # Check achievements if collaboration was accepted
     if response.response == "accepted":
@@ -397,7 +397,7 @@ def respond_to_collaboration_request(
             check_social_collaboration_achievements(db, current_user.id)  # For song owner (adding collaborator)
             check_social_collaboration_achievements(db, collab_request.requester_id)  # For collaborator (being added)
         except Exception as ach_err:
-            print(f"⚠️ Failed to check achievements: {ach_err}")
+            pass
     
     return {
         "request_id": request_id,
@@ -448,7 +448,7 @@ def reopen_collaboration_request(
             }
         )
     except Exception as notif_err:
-        print(f"⚠️ Failed to create reopened notification: {notif_err}")
+        pass
     
     return {
         "request_id": request_id,

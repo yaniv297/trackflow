@@ -124,17 +124,6 @@ const PublicSongsTableNew = ({
       return acc;
     }, {});
 
-    // Debug: Log first artist group to check for artist_image_url
-    const firstArtist = Object.keys(grouped)[0];
-    if (firstArtist && grouped[firstArtist]?.length > 0) {
-      console.log("First artist group sample:", {
-        artist: firstArtist,
-        firstSong: grouped[firstArtist][0],
-        hasArtistImageUrl: !!grouped[firstArtist][0]?.artist_image_url,
-        artistImageUrl: grouped[firstArtist][0]?.artist_image_url,
-      });
-    }
-
     return Object.entries(grouped)
       .sort((a, b) => b[1].length - a[1].length)
       .map(([artist, songs]) => ({

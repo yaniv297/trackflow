@@ -310,7 +310,6 @@ export default function AlbumSeriesEditModal({
         });
         if (cleanupRes.ok) {
           const result = await cleanupRes.json();
-          console.log(`Successfully cleaned remaster tags from ${result.length} songs`);
         } else {
           console.warn("Failed to clean remaster tags, but continuing...");
         }

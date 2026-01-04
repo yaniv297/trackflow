@@ -328,7 +328,6 @@ export const usePackFormSubmission = (
           );
         }
         const result = await cleanupRes.json();
-        console.log(`Successfully cleaned ${result.length} songs`);
         
       } catch (err) {
         console.warn("Failed to clean remaster tags", err);

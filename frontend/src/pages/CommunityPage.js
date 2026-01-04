@@ -1,33 +1,34 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import SmartDiscovery from '../components/community/SmartDiscovery';
-import PublicSongsTableNew from '../components/community/PublicSongsTableNew';
-import CollaborationRequestModal from '../components/community/CollaborationRequestModal';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import publicSongsService from '../services/publicSongsService';
-import collaborationRequestsService from '../services/collaborationRequestsService';
-import './CommunityPage.css';
+import React, { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import SmartDiscovery from "../components/community/SmartDiscovery";
+import PublicSongsTableNew from "../components/community/PublicSongsTableNew";
+import CollaborationRequestModal from "../components/community/CollaborationRequestModal";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
+import publicSongsService from "../services/publicSongsService";
+import collaborationRequestsService from "../services/collaborationRequestsService";
+import "./CommunityPage.css";
 
 /**
  * Main Community page component for browsing public WIPs and collaborating
  */
 const CommunityPage = () => {
   const { user } = useAuth();
-  
+
   // State management
   const [songs, setSongs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedSong, setSelectedSong] = useState(null);
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
-  const [groupBy, setGroupBy] = useState('none'); // 'none', 'artist', or 'user'
+  const [groupBy, setGroupBy] = useState("none"); // 'none', 'artist', or 'user'
   const [expandedGroups, setExpandedGroups] = useState(new Set());
-  const [collaborationStatusMap, setCollaborationStatusMap] = useState(new Map()); // song_id -> status
-  
+  const [collaborationStatusMap, setCollaborationStatusMap] = useState(
+    new Map()
+  ); // song_id -> status
+
   // Pagination - handled by component now
   const [currentPage, setCurrentPage] = useState(1);
   const SONGS_PER_PAGE = 20;
-
 
   // Load songs function - fetches all songs in batches
   const loadSongs = useCallback(async () => {
@@ -43,18 +44,18 @@ const CommunityPage = () => {
       // Fetch all songs in batches
       while (hasMore) {
         const result = await publicSongsService.browsePublicSongs({
-          search: '',
-          sort_by: 'updated_at',
-          sort_direction: 'desc',
+          search: "",
+          sort_by: "updated_at",
+          sort_direction: "desc",
           group_by: null, // Frontend handles grouping now
           limit: limit,
-          offset: offset
+          offset: offset,
         });
 
         if (result.success) {
           const songs = result.data || [];
           allSongs.push(...songs);
-          
+
           // Check if there are more songs to fetch
           if (result.pagination) {
             const totalPages = result.pagination.total_pages;
@@ -74,21 +75,9 @@ const CommunityPage = () => {
       }
 
       setSongs(allSongs);
-      
-      // Debug: Log first song to check for artist_image_url
-      if (allSongs.length > 0) {
-        console.log('Sample song from API:', {
-          id: allSongs[0].id,
-          title: allSongs[0].title,
-          artist: allSongs[0].artist,
-          hasArtistImageUrl: !!allSongs[0].artist_image_url,
-          artistImageUrl: allSongs[0].artist_image_url,
-          allFields: Object.keys(allSongs[0])
-        });
-      }
     } catch (err) {
-      console.error('Error loading songs:', err);
-      setError('Failed to load songs');
+      console.error("Error loading songs:", err);
+      setError("Failed to load songs");
       setSongs([]);
     } finally {
       setIsLoading(false);
@@ -107,13 +96,13 @@ const CommunityPage = () => {
       if (result.success) {
         // Create a map of song_id -> status
         const statusMap = new Map();
-        result.data.forEach(req => {
+        result.data.forEach((req) => {
           statusMap.set(req.song_id, req.status);
         });
         setCollaborationStatusMap(statusMap);
       }
     } catch (error) {
-      console.error('Failed to load collaboration requests:', error);
+      console.error("Failed to load collaboration requests:", error);
       // Don't set error state here, just log it - collaboration status is not critical
     }
   }, [user?.id]);
@@ -123,7 +112,6 @@ const CommunityPage = () => {
     loadSongs();
     loadCollaborationRequests();
   }, [loadSongs, loadCollaborationRequests]);
-
 
   // Handle collaboration request
   const handleCollaborationRequest = (song) => {
@@ -146,7 +134,6 @@ const CommunityPage = () => {
     loadSongs();
   };
 
-
   return (
     <div className="community-page">
       <div className="community-container">
@@ -158,17 +145,13 @@ const CommunityPage = () => {
         {/* Smart Discovery Section */}
         <SmartDiscovery />
 
-
         {/* Results Section */}
         <div className="results-section">
           {error && (
             <div className="error-message">
               <span className="error-icon">⚠️</span>
               <span>{error}</span>
-              <button 
-                onClick={() => loadSongs()}
-                className="retry-btn"
-              >
+              <button onClick={() => loadSongs()} className="retry-btn">
                 Retry
               </button>
             </div>

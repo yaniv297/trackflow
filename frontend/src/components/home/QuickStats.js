@@ -47,7 +47,6 @@ const QuickStats = () => {
           totalPacks: statsData.totalPacks || statsData.total_packs || 0
         });
       } catch (apiError) {
-        console.log('Stats not available:', apiError.message);
         // Fallback to mock data
         setStats({
           totalSongs: 3200,

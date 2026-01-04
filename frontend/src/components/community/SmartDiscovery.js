@@ -52,8 +52,6 @@ const SmartDiscovery = () => {
     const result = await publicSongsService.getSharedConnections();
     
     if (result.success) {
-      console.log('Shared connections data:', result.data);
-      console.log('First shared song:', result.data?.shared_songs?.[0]);
       setConnections(result.data);
     } else {
       setError(result.error);
@@ -63,7 +61,6 @@ const SmartDiscovery = () => {
   };
 
   const handleCollaborationRequest = (item) => {
-    console.log('Creating song object from item:', item);
     // Create a song object for the modal - include all fields needed
     const song = {
       id: item.song_id,
@@ -75,7 +72,6 @@ const SmartDiscovery = () => {
       album: item.album || null,
       year: item.year || null
     };
-    console.log('Song object for modal:', song);
     setSelectedSongForCollaboration(song);
   };
 

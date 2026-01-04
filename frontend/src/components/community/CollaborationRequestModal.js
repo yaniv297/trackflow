@@ -15,10 +15,6 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
   const [error, setError] = useState(null);
   const [loadingParts, setLoadingParts] = useState(false);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('CollaborationRequestModal received song:', song);
-  }, [song]);
 
   // Load available parts for WIP songs
   useEffect(() => {

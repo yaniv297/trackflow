@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiGet, apiPost } from "../../utils/api";
+import { apiGet, apiPost, publicApiGet } from "../../utils/api";
 
 const RegistrationWizard = () => {
   const [step, setStep] = useState(1);
@@ -33,10 +33,13 @@ const RegistrationWizard = () => {
 
   const loadUnclaimedUsers = async () => {
     try {
-      const users = await apiGet("/auth/unclaimed-users");
+      // Use publicApiGet since this endpoint doesn't require authentication
+      const users = await publicApiGet("/auth/unclaimed-users");
       setUnclaimedUsers(users || []);
     } catch (error) {
-      console.error("Failed to load unclaimed users:", error);
+      console.error("[RegistrationWizard] Failed to load unclaimed users:", error);
+      // Set empty array on error so the UI still renders
+      setUnclaimedUsers([]);
     }
   };
 
@@ -277,7 +280,7 @@ const RegistrationWizard = () => {
     const reindexed = updated.map((step, i) => ({ ...step, order_index: i }));
     setWorkflowSteps(reindexed);
   };
-
+  
   return (
     <div
       style={{

@@ -59,7 +59,7 @@ def get_current_user(
         from api.user_activity import record_activity
         record_activity(user.id)
     except Exception as e:
-        print(f"Failed to record user activity: {e}")
+        pass
     
     # Convert to UserResponse
     return UserResponse(
@@ -156,7 +156,7 @@ def get_current_user_model(
         from api.user_activity import record_activity
         record_activity(user.id)
     except Exception as e:
-        print(f"Failed to record user activity: {e}")
+        pass
     
     return user
 

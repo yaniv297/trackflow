@@ -48,10 +48,6 @@ class AuthService:
     
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token."""
-        import json
-        import os
-        import hashlib
-        log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
@@ -59,65 +55,20 @@ class AuthService:
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-        # #region agent log
-        try:
-            secret_key_source = "env_var" if os.getenv("SECRET_KEY") else "auto_generated"
-            secret_key_hash = hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:8] if SECRET_KEY else "none"
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"auth_service.py:create_access_token","message":"Token created","data":{"username":data.get("sub"),"secretKeySource":secret_key_source,"secretKeyHash":secret_key_hash,"tokenPreview":encoded_jwt[:20]+"..."},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-        except:
-            pass
-        # #endregion
         return encoded_jwt
     
     def verify_token(self, token: str) -> Optional[dict]:
         """Verify JWT token and return payload."""
-        import json
         import os
-        import hashlib
-        log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
         try:
-            # Check if SECRET_KEY is from env var or auto-generated
-            secret_key_source = "env_var" if os.getenv("SECRET_KEY") else "auto_generated"
-            # Create a hash of SECRET_KEY to track which instance is validating (without exposing the key)
-            secret_key_hash = hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:8] if SECRET_KEY else "none"
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"location":"auth_service.py:verify_token","message":"verify_token called","data":{"tokenLength":len(token) if token else 0,"tokenPreview":token[:20]+"..." if token else None,"secretKeySource":secret_key_source,"secretKeyHash":secret_key_hash,"algorithm":ALGORITHM},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-            except:
-                pass  # Don't fail if logging fails
-            # #endregion
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             username: str = payload.get("sub")
             if username is None:
-                # #region agent log
-                try:
-                    with open(log_path, "a") as f:
-                        f.write(json.dumps({"location":"auth_service.py:verify_token","message":"verify_token failed - no username in payload","data":{"hasPayload":True,"secretKeyHash":secret_key_hash},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-                except:
-                    pass
-                # #endregion
                 return None
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"location":"auth_service.py:verify_token","message":"verify_token success","data":{"username":username,"secretKeyHash":secret_key_hash},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-            except:
-                pass
-            # #endregion
             return payload
         except JWTError as e:
-            # #region agent log
-            try:
-                secret_key_hash = hashlib.sha256(SECRET_KEY.encode()).hexdigest()[:8] if SECRET_KEY else "none"
-                secret_key_source = "env_var" if os.getenv("SECRET_KEY") else "auto_generated"
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"location":"auth_service.py:verify_token","message":"verify_token failed - JWTError","data":{"errorType":type(e).__name__,"errorMessage":str(e),"secretKeySource":secret_key_source,"secretKeyHash":secret_key_hash,"tokenPreview":token[:20]+"..." if token else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-            except:
-                pass
-            # #endregion
             # If SECRET_KEY is auto-generated, log a warning
+            secret_key_source = "env_var" if os.getenv("SECRET_KEY") else "auto_generated"
             if secret_key_source == "auto_generated":
                 import sys
                 print(f"WARNING: Token validation failed. SECRET_KEY is auto-generated, which means:", file=sys.stderr)

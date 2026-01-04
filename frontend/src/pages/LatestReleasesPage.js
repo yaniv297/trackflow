@@ -447,11 +447,26 @@ const PackReleaseListItem = ({ pack, formatDate, onUsernameClick, onUsernameHove
 
   const albumCovers = getUniqueCovers();
   
-  // Sort songs by album
+  // Sort songs by artist, then release year, then album, then title
   const sortedSongs = [...pack.songs].sort((a, b) => {
+    const artistA = a.artist || '';
+    const artistB = b.artist || '';
+    const artistCompare = artistA.localeCompare(artistB);
+    if (artistCompare !== 0) return artistCompare;
+    
+    const yearA = a.year || 0;
+    const yearB = b.year || 0;
+    const yearCompare = yearA - yearB;
+    if (yearCompare !== 0) return yearCompare;
+    
     const albumA = a.album || '';
     const albumB = b.album || '';
-    return albumA.localeCompare(albumB);
+    const albumCompare = albumA.localeCompare(albumB);
+    if (albumCompare !== 0) return albumCompare;
+    
+    const titleA = a.title || '';
+    const titleB = b.title || '';
+    return titleA.localeCompare(titleB);
   });
   
   const totalSongPages = Math.ceil(sortedSongs.length / SONGS_PER_PAGE);

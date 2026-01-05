@@ -39,6 +39,18 @@ export const useSongOperations = (songs, setSongs, refreshSongs) => {
           // Keep the field name as "pack" (confirmed by MovePackModal.js)
           updates = { pack: value };
         }
+        
+        // Special handling for year field - convert to number or null
+        // The backend expects year as an integer, not a string
+        if (field === "year") {
+          if (value === "" || value === null || value === undefined) {
+            updates = { year: null };
+          } else {
+            const yearNum = parseInt(value, 10);
+            updates = { year: isNaN(yearNum) ? null : yearNum };
+          }
+        }
+        
         const response = await apiPatch(`/songs/${id}`, updates);
 
         setSongs((prevSongs) =>

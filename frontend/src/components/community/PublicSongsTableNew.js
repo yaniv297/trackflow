@@ -25,6 +25,8 @@ const PublicSongsTableNew = ({
   const [hideMySongs, setHideMySongs] = useState(false);
   const [sortColumn, setSortColumn] = useState("title");
   const [sortDirection, setSortDirection] = useState("asc");
+  const [artistSortMode, setArtistSortMode] = useState("count"); // 'count' or 'alphabetical'
+  const [userSortMode, setUserSortMode] = useState("count"); // 'count' or 'alphabetical'
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
 
   // Filter songs based on search term, exclude released songs, and optionally hide current user's songs
@@ -124,13 +126,22 @@ const PublicSongsTableNew = ({
       return acc;
     }, {});
 
-    return Object.entries(grouped)
-      .sort((a, b) => b[1].length - a[1].length)
-      .map(([artist, songs]) => ({
-        artist,
-        songs: sortSongs(songs),
-        songCount: songs.length,
-      }));
+    // Sort artists based on selected mode
+    const sortedEntries = Object.entries(grouped).sort((a, b) => {
+      if (artistSortMode === "alphabetical") {
+        // Sort alphabetically (case-insensitive)
+        return a[0].toLowerCase().localeCompare(b[0].toLowerCase());
+      } else {
+        // Sort by count (default)
+        return b[1].length - a[1].length;
+      }
+    });
+
+    return sortedEntries.map(([artist, songs]) => ({
+      artist,
+      songs: sortSongs(songs),
+      songCount: songs.length,
+    }));
   };
 
   // Group songs by user
@@ -144,13 +155,22 @@ const PublicSongsTableNew = ({
       return acc;
     }, {});
 
-    return Object.entries(grouped)
-      .sort((a, b) => b[1].length - a[1].length)
-      .map(([username, songs]) => ({
-        username,
-        songs: sortSongs(songs),
-        songCount: songs.length,
-      }));
+    // Sort users based on selected mode
+    const sortedEntries = Object.entries(grouped).sort((a, b) => {
+      if (userSortMode === "alphabetical") {
+        // Sort alphabetically (case-insensitive)
+        return a[0].toLowerCase().localeCompare(b[0].toLowerCase());
+      } else {
+        // Sort by count (default)
+        return b[1].length - a[1].length;
+      }
+    });
+
+    return sortedEntries.map(([username, songs]) => ({
+      username,
+      songs: sortSongs(songs),
+      songCount: songs.length,
+    }));
   };
 
   // Toggle group expand/collapse
@@ -297,31 +317,63 @@ const PublicSongsTableNew = ({
               <span>Hide my songs</span>
             </label>
           )}
-          <div className="group-buttons">
-            <button
-              onClick={() => setGroupBy("none")}
-              className={`group-toggle ${groupBy === "none" ? "active" : ""}`}
-              title="No Grouping"
-            >
-              <span className="toggle-icon">📋</span>
-              None
-            </button>
-            <button
-              onClick={() => setGroupBy("artist")}
-              className={`group-toggle ${groupBy === "artist" ? "active" : ""}`}
-              title="Group by Artist"
-            >
-              <span className="toggle-icon">👥</span>
-              Artist
-            </button>
-            <button
-              onClick={() => setGroupBy("user")}
-              className={`group-toggle ${groupBy === "user" ? "active" : ""}`}
-              title="Group by User"
-            >
-              <span className="toggle-icon">👤</span>
-              User
-            </button>
+          <div className="grouping-controls">
+            <div className="group-select-wrapper">
+              <label htmlFor="group-select" className="group-select-label">
+                Group by:
+              </label>
+              <select
+                id="group-select"
+                value={groupBy}
+                onChange={(e) => {
+                  setGroupBy(e.target.value);
+                  onPageChange(1);
+                }}
+                className="group-select"
+              >
+                <option value="none">None</option>
+                <option value="artist">Artist</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+            {groupBy === "artist" && (
+              <div className="sort-select-wrapper">
+                <label htmlFor="artist-sort-select" className="sort-select-label">
+                  Sort:
+                </label>
+                <select
+                  id="artist-sort-select"
+                  value={artistSortMode}
+                  onChange={(e) => {
+                    setArtistSortMode(e.target.value);
+                    onPageChange(1);
+                  }}
+                  className="sort-select"
+                >
+                  <option value="count">By count</option>
+                  <option value="alphabetical">A-Z</option>
+                </select>
+              </div>
+            )}
+            {groupBy === "user" && (
+              <div className="sort-select-wrapper">
+                <label htmlFor="user-sort-select" className="sort-select-label">
+                  Sort:
+                </label>
+                <select
+                  id="user-sort-select"
+                  value={userSortMode}
+                  onChange={(e) => {
+                    setUserSortMode(e.target.value);
+                    onPageChange(1);
+                  }}
+                  className="sort-select"
+                >
+                  <option value="count">By count</option>
+                  <option value="alphabetical">A-Z</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
       </div>

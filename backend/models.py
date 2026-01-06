@@ -44,7 +44,7 @@ class SafeDateTime(DateTime):
 
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'SongProgress']
+__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'CollaborationRequestBatch', 'CollaborationRequestBatchStatus', 'SongProgress']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -453,6 +453,11 @@ class NotificationType(str, enum.Enum):
     COLLAB_SONG_PROGRESS = "collab_song_progress"
     COLLAB_SONG_STATUS = "collab_song_status"
     COLLAB_WIP_ASSIGNMENTS = "collab_wip_assignments"
+    # Collaboration request batch notifications
+    COLLAB_BATCH_REQUEST = "collab_batch_request"  # New batch request received
+    COLLAB_BATCH_RESPONSE = "collab_batch_response"  # Batch request approved/rejected/partial
+    # Potential collaboration discovery
+    POTENTIAL_COLLABORATION = "potential_collaboration"  # Someone added a song you're working on
 
 class PostType(str, enum.Enum):
     PACK_RELEASE = "pack_release"      # Automatic pack release
@@ -576,6 +581,54 @@ class PasswordResetToken(Base):
         Index('idx_token_expires', 'expires_at'),
     )
 
+class CollaborationRequestBatchStatus(str, enum.Enum):
+    """Status for collaboration request batches"""
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    partially_approved = "partially_approved"
+    cancelled = "cancelled"
+
+
+class CollaborationRequestBatch(Base):
+    """
+    Batch container for collaboration requests.
+    Groups multiple song requests from one user to another.
+    """
+    __tablename__ = "collaboration_request_batches"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    target_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    
+    # Request details
+    message = Column(Text, nullable=False)  # Single message for the entire batch
+    
+    # Batch-level status
+    status = Column(String, default="pending", index=True)  # CollaborationRequestBatchStatus values
+    
+    # When owner approves, can optionally grant pack-level permissions
+    grant_full_pack_permissions = Column(Boolean, default=False)
+    
+    # Response from owner
+    response_message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    responded_at = Column(DateTime, nullable=True)
+    
+    __table_args__ = (
+        Index('idx_batch_requester', 'requester_id'),
+        Index('idx_batch_target', 'target_user_id'),
+        Index('idx_batch_status', 'status'),
+        Index('idx_batch_created', 'created_at'),
+    )
+    
+    # Relationships
+    requester = relationship("User", foreign_keys=[requester_id])
+    target_user = relationship("User", foreign_keys=[target_user_id])
+    requests = relationship("CollaborationRequest", back_populates="batch")
+
+
 class CollaborationRequest(Base):
     __tablename__ = "collaboration_requests"
     
@@ -584,12 +637,16 @@ class CollaborationRequest(Base):
     requester_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
+    # Batch association (nullable for backwards compatibility with single requests)
+    batch_id = Column(Integer, ForeignKey("collaboration_request_batches.id"), nullable=True, index=True)
+    
     # Request details
     message = Column(Text, nullable=False)  # Requester's message
     requested_parts = Column(Text, nullable=True)  # JSON array of requested authoring parts
     
-    # Response from owner
-    status = Column(String, default="pending", index=True)  # "pending", "accepted", "rejected"
+    # Response from owner (for individual item in batch)
+    status = Column(String, default="pending", index=True)  # "pending", "accepted", "rejected" - overall status
+    item_status = Column(String, nullable=True)  # Per-item status when using selective approval
     owner_response = Column(Text, nullable=True)  # Owner's message when accepting/rejecting
     assigned_parts = Column(Text, nullable=True)  # JSON array of parts assigned (for WIP songs)
     
@@ -603,12 +660,14 @@ class CollaborationRequest(Base):
         Index('idx_collab_req_requester', 'requester_id'),
         Index('idx_collab_req_owner', 'owner_id'),
         Index('idx_collab_req_status', 'status'),
+        Index('idx_collab_req_batch', 'batch_id'),
     )
     
     # Relationships
     song = relationship("Song", foreign_keys=[song_id])
     requester = relationship("User", foreign_keys=[requester_id])
     owner = relationship("User", foreign_keys=[owner_id])
+    batch = relationship("CollaborationRequestBatch", back_populates="requests")
 
 class SongProgress(Base):
     """

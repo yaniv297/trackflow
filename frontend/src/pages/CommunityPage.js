@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import SmartDiscovery from "../components/community/SmartDiscovery";
 import PublicSongsTableNew from "../components/community/PublicSongsTableNew";
 import CollaborationRequestModal from "../components/community/CollaborationRequestModal";
+import BatchCollaborationRequestModal from "../components/community/BatchCollaborationRequestModal";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import publicSongsService from "../services/publicSongsService";
 import collaborationRequestsService from "../services/collaborationRequestsService";
@@ -25,6 +26,10 @@ const CommunityPage = () => {
   const [collaborationStatusMap, setCollaborationStatusMap] = useState(
     new Map()
   ); // song_id -> status
+  
+  // Batch collaboration request state
+  const [selectedBatchSongs, setSelectedBatchSongs] = useState([]);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   // Pagination - handled by component now
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,6 +139,27 @@ const CommunityPage = () => {
     loadSongs();
   };
 
+  // Handle batch collaboration request (multiple songs from same owner)
+  const handleBatchCollaborationRequest = (songs) => {
+    setSelectedBatchSongs(songs);
+    setShowBatchModal(true);
+  };
+
+  // Close batch modal
+  const handleCloseBatchModal = () => {
+    setShowBatchModal(false);
+    setSelectedBatchSongs([]);
+  };
+
+  // Handle successful batch collaboration request
+  const handleBatchSuccess = () => {
+    handleCloseBatchModal();
+    // Refresh collaboration status to show the new requests
+    loadCollaborationRequests();
+    // Also refresh songs in case anything changed
+    loadSongs();
+  };
+
   return (
     <div className="community-page">
       <div className="community-container">
@@ -171,6 +197,7 @@ const CommunityPage = () => {
               currentPage={currentPage}
               onPageChange={setCurrentPage}
               onCollaborationRequest={handleCollaborationRequest}
+              onBatchCollaborationRequest={user ? handleBatchCollaborationRequest : null}
               currentUserId={user?.id}
               collaborationStatusMap={collaborationStatusMap}
               groupBy={groupBy}
@@ -191,12 +218,21 @@ const CommunityPage = () => {
         </div>
       </div>
 
-      {/* Collaboration Request Modal */}
+      {/* Collaboration Request Modal (single song) */}
       {showCollaborationModal && selectedSong && (
         <CollaborationRequestModal
           song={selectedSong}
           onClose={handleCloseCollaborationModal}
           onSuccess={handleCollaborationSuccess}
+        />
+      )}
+
+      {/* Batch Collaboration Request Modal (multiple songs) */}
+      {showBatchModal && selectedBatchSongs.length > 0 && (
+        <BatchCollaborationRequestModal
+          songs={selectedBatchSongs}
+          onClose={handleCloseBatchModal}
+          onSuccess={handleBatchSuccess}
         />
       )}
     </div>

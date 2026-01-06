@@ -58,6 +58,10 @@ class SongService:
         self._log_song_creation(db_song, current_user)
         self._check_creation_achievements(db_song, current_user)
         
+        # Check for potential collaboration notifications
+        # If the song is public and WIP/Future Plans, notify users with matching songs
+        self._check_potential_collaboration_notifications(db_song, current_user)
+        
         return SongOut(**song_dict)
     
     def get_filtered_songs(
@@ -270,6 +274,28 @@ class SongService:
         self._log_song_update(updated_song, current_user)
         self._check_update_achievements(updated_song, current_user)
         
+        # Check for potential collaboration notifications when song becomes public WIP/Future
+        # This happens when:
+        # 1. is_public changes to True (while in WIP/Future Plans)
+        # 2. status changes to WIP/Future Plans (while is_public is True)
+        old_is_public = getattr(song, '_original_is_public', not updates.get('is_public', False))
+        became_public_wip_or_future = False
+        
+        if 'is_public' in updates and updates['is_public'] == True:
+            # Song just became public - check if it's WIP or Future Plans
+            current_status = updated_song.status
+            status_str = current_status.value if isinstance(current_status, SongStatus) else str(current_status)
+            if status_str in ["In Progress", "Future Plans"]:
+                became_public_wip_or_future = True
+        elif 'status' in updates and updated_song.is_public:
+            # Status changed while song is public
+            new_status_str = updates['status'].value if isinstance(updates['status'], SongStatus) else str(updates['status'])
+            if new_status_str in ["In Progress", "Future Plans"]:
+                became_public_wip_or_future = True
+        
+        if became_public_wip_or_future:
+            self._check_potential_collaboration_notifications(updated_song, current_user)
+        
         # Invalidate caches if important fields changed
         try:
             cache_invalidation_fields = ['status', 'released_at', 'artist', 'title']
@@ -381,6 +407,16 @@ class SongService:
         
         # Get songs with relationships
         song_ids = [song.id for song in new_songs]
+        
+        # Clean remaster tags from all newly created songs
+        try:
+            from api.tools import bulk_clean_remaster_tags_function
+            cleaned_songs = bulk_clean_remaster_tags_function(song_ids, self.db, current_user.id)
+            print(f"🧹 Cleaned remaster tags from {len(cleaned_songs)} songs in batch")
+        except Exception as e:
+            print(f"⚠️ Failed to clean remaster tags for batch songs: {e}")
+            # Don't fail the batch creation if cleaning fails
+        
         songs_with_relations = self.song_repo.get_songs_with_relations(song_ids)
         
         # Build responses
@@ -921,3 +957,38 @@ class SongService:
                 series.status = "released"
         
         self.db.commit()
+    
+    def _check_potential_collaboration_notifications(self, song: Song, current_user: User):
+        """
+        Check if there are other users with the same song publicly in WIP/Future Plans
+        and notify them about a potential collaboration opportunity.
+        
+        Only triggers for public songs in WIP or Future Plans status.
+        """
+        try:
+            # Only check if the song is public and in WIP/Future Plans
+            if not getattr(song, 'is_public', False):
+                return
+            
+            status_str = song.status.value if isinstance(song.status, SongStatus) else str(song.status)
+            if status_str not in ["In Progress", "Future Plans"]:
+                return
+            
+            # Get the actor's display name
+            actor_name = getattr(current_user, 'display_name', None) or current_user.username
+            
+            # Notify other users who have this song publicly in WIP/Future Plans
+            sent_count = self.notification_service.notify_potential_collaborations(
+                song_title=song.title,
+                song_artist=song.artist,
+                actor_user_id=current_user.id,
+                actor_display_name=actor_name,
+                song_status=status_str,
+                new_song_id=song.id,
+            )
+            
+            if sent_count > 0:
+                print(f"🤝 Sent {sent_count} potential collaboration notification(s) for '{song.title}' by {song.artist}")
+                
+        except Exception as e:
+            print(f"⚠️ Failed to check potential collaboration notifications: {e}")

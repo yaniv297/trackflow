@@ -54,9 +54,12 @@ const NotificationDropdown = ({
       } else {
         navigate("/wip");
       }
-    } else if (notification.type === "collaboration_request") {
-      navigate("/collaboration-requests");
-    } else if (notification.type === "collaboration_response") {
+    } else if (
+      notification.type === "collaboration_request" ||
+      notification.type === "collaboration_response" ||
+      notification.type === "collab_batch_request" ||
+      notification.type === "collab_batch_response"
+    ) {
       navigate("/collaboration-requests");
     }
 
@@ -82,6 +85,10 @@ const NotificationDropdown = ({
       case "collaboration_request":
         return "🤝";
       case "collaboration_response":
+        return "🤝";
+      case "collab_batch_request":
+        return "🤝";
+      case "collab_batch_response":
         return "🤝";
       default:
         return "🔔";

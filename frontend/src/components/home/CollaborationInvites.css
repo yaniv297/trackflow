@@ -15,6 +15,23 @@
   font-weight: 600;
 }
 
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.invite-count {
+  background: #dc3545;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  min-width: 1.2rem;
+  text-align: center;
+}
+
 .collaboration-invites-widget {
   background: transparent;
   border-radius: 0;
@@ -89,6 +106,78 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.invite-song-info .song-artist {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Batch invite styles */
+.batch-invite {
+  border-left: 3px solid #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
+}
+
+.batch-artwork {
+  width: 40px;
+  height: 40px;
+}
+
+.batch-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3);
+}
+
+.batch-icon-wrapper .batch-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.batch-icon-wrapper .batch-count {
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: white;
+  margin-top: 0px;
+}
+
+.batch-actions {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.batch-quick-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.see-details-btn {
+  background: transparent;
+  border: 1px solid #667eea;
+  color: #667eea;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.see-details-btn:hover {
+  background: #667eea;
+  color: white;
 }
 
 .time {

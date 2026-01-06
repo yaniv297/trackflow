@@ -5,7 +5,18 @@ import UserProfilePopup from '../shared/UserProfilePopup';
 /**
  * Compact row component for displaying public songs in a table format
  */
-const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, collaborationStatus = null, hideArtistColumn = false, hideUserColumn = false }) => {
+const PublicSongRow = ({ 
+  song, 
+  onCollaborationRequest, 
+  currentUserId, 
+  collaborationStatus = null, 
+  hideArtistColumn = false, 
+  hideUserColumn = false,
+  // Multi-select props
+  isSelected = false,
+  onSelect = null,
+  selectionEnabled = false,
+}) => {
   
   // Generate a consistent color for each username based on hash
   const getUsernameColor = (username) => {
@@ -40,6 +51,17 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, collaborat
   const [showStatusPopup, setShowStatusPopup] = useState(false);
 
   const canCollaborate = currentUserId && song.user_id !== currentUserId && song.status !== 'Released';
+  
+  // Selection is available for songs that can be collaborated on and don't have pending/accepted requests
+  const canSelect = selectionEnabled && canCollaborate && 
+    collaborationStatus !== 'pending' && collaborationStatus !== 'accepted';
+
+  const handleCheckboxChange = (e) => {
+    e.stopPropagation();
+    if (onSelect) {
+      onSelect(song, e.target.checked);
+    }
+  };
 
   const handleCollaborationClick = () => {
     if (collaborationStatus === 'pending') {
@@ -88,14 +110,48 @@ const PublicSongRow = ({ song, onCollaborationRequest, currentUserId, collaborat
   return (
     <>
       <tr 
-        className="public-song-row"
+        className={`public-song-row ${isSelected ? 'selected' : ''}`}
         style={{
           borderBottom: '1px solid #eee',
           transition: 'background-color 0.2s ease',
+          backgroundColor: isSelected ? '#e3f2fd' : 'transparent',
         }}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        onMouseEnter={(e) => {
+          if (!isSelected) e.currentTarget.style.backgroundColor = '#f8f9fa';
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+        }}
       >
+        {/* Selection Checkbox */}
+        {selectionEnabled && (
+          <td style={{ padding: '8px', width: '40px', textAlign: 'center' }}>
+            {canSelect ? (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={handleCheckboxChange}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer',
+                  accentColor: '#667eea',
+                }}
+                title="Select for batch request"
+              />
+            ) : (
+              <span style={{ color: '#ccc', fontSize: '12px' }} title={
+                song.user_id === currentUserId ? "Your song" :
+                collaborationStatus === 'pending' ? "Request pending" :
+                collaborationStatus === 'accepted' ? "Already collaborating" :
+                "Cannot select"
+              }>
+                —
+              </span>
+            )}
+          </td>
+        )}
+
         {/* Album Art */}
         <td style={{ padding: '8px', width: '50px' }}>
           {song.album_cover ? (

@@ -167,6 +167,23 @@ const NotificationsPage = () => {
       navigate('/help'); // Or wherever help/FAQ is located
     } else if (notification.type === 'pack_release') {
       navigate('/releases');
+    } else if (
+      notification.type === 'collaboration_request' ||
+      notification.type === 'collaboration_response' ||
+      notification.type === 'collab_batch_request' ||
+      notification.type === 'collab_batch_response'
+    ) {
+      navigate('/collaboration-requests');
+    } else if (
+      notification.type === 'collab_song_progress' ||
+      notification.type === 'collab_song_status' ||
+      notification.type === 'collab_wip_assignments'
+    ) {
+      if (notification.related_song_id) {
+        navigate(`/wip?song=${notification.related_song_id}`);
+      } else {
+        navigate('/wip');
+      }
     }
   };
 
@@ -198,6 +215,17 @@ const NotificationsPage = () => {
         return '🎉';
       case 'pack_release':
         return '🎵';
+      case 'collab_song_progress':
+        return '🎚️';
+      case 'collab_song_status':
+        return '🎼';
+      case 'collab_wip_assignments':
+        return '🤝';
+      case 'collaboration_request':
+      case 'collaboration_response':
+      case 'collab_batch_request':
+      case 'collab_batch_response':
+        return '🤝';
       default:
         return '🔔';
     }

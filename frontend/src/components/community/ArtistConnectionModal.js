@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import publicSongsService from '../../services/publicSongsService';
 import collaborationRequestsService from '../../services/collaborationRequestsService';
 import CollaborationRequestModal from './CollaborationRequestModal';
+import BatchCollaborationRequestModal from './BatchCollaborationRequestModal';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import './ArtistConnectionModal.css';
 
@@ -17,6 +18,8 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
   const [selectedSongForCollaboration, setSelectedSongForCollaboration] = useState(null);
   const [collaborationStatuses, setCollaborationStatuses] = useState({});
   const [activeTab, setActiveTab] = useState('shared'); // 'shared', 'mine', 'theirs'
+  const [selectedSongs, setSelectedSongs] = useState(new Map()); // For bulk selection
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   useEffect(() => {
     loadArtistDetails();
@@ -68,7 +71,90 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
 
   const handleCollaborationSuccess = () => {
     setSelectedSongForCollaboration(null);
+    setShowBatchModal(false);
+    setSelectedSongs(new Map());
     loadCollaborationStatuses();
+  };
+
+  // Toggle song selection for bulk requests
+  const toggleSongSelection = (song) => {
+    const newSelected = new Map(selectedSongs);
+    if (newSelected.has(song.song_id)) {
+      newSelected.delete(song.song_id);
+    } else {
+      newSelected.set(song.song_id, {
+        id: song.song_id,
+        title: song.title,
+        artist: artist,
+        status: song.status,
+        album_cover: song.album_cover,
+        username: username,
+        album: song.album,
+        year: song.year
+      });
+    }
+    setSelectedSongs(newSelected);
+  };
+
+  // Clear all selections
+  const clearSelection = () => {
+    setSelectedSongs(new Map());
+  };
+
+  // Handle batch request button click
+  const handleBatchRequest = () => {
+    if (selectedSongs.size > 0) {
+      setShowBatchModal(true);
+    }
+  };
+
+  // Check if a song can be selected (not already pending/accepted)
+  const canSelectSong = (songId) => {
+    const status = collaborationStatuses[songId];
+    return status !== 'pending' && status !== 'accepted';
+  };
+
+  // Get all selectable songs from the other user for current view
+  const getSelectableSongs = () => {
+    if (!data) return [];
+    const theirSongsFiltered = filterReleasedSongs(data.their_songs);
+    let songsToCheck = [];
+    
+    if (activeTab === 'shared') {
+      songsToCheck = theirSongsFiltered.notReleased.filter(s => s.is_shared);
+    } else if (activeTab === 'theirs') {
+      songsToCheck = theirSongsFiltered.notReleased;
+    }
+    
+    return songsToCheck.filter(song => canSelectSong(song.song_id));
+  };
+
+  // Select all selectable songs
+  const selectAllSongs = () => {
+    const selectableSongs = getSelectableSongs();
+    const newSelected = new Map(selectedSongs);
+    selectableSongs.forEach(song => {
+      if (!newSelected.has(song.song_id)) {
+        newSelected.set(song.song_id, {
+          id: song.song_id,
+          title: song.title,
+          artist: artist,
+          status: song.status,
+          album_cover: song.album_cover,
+          username: username,
+          album: song.album,
+          year: song.year
+        });
+      }
+    });
+    setSelectedSongs(newSelected);
+  };
+
+  // Check if all selectable songs are selected
+  const areAllSelected = () => {
+    const selectableSongs = getSelectableSongs();
+    if (selectableSongs.length === 0) return false;
+    return selectableSongs.every(song => selectedSongs.has(song.song_id));
   };
 
   const getCollaborationButtonText = (songId) => {
@@ -134,40 +220,56 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
     }
   };
 
-  const renderSongItem = (song, isTheirs = false) => (
-    <div key={song.song_id} className={`song-item ${song.is_shared ? 'shared' : ''}`}>
-      <div className="song-item-main">
-        {song.album_cover && (
-          <img 
-            src={song.album_cover} 
-            alt={song.title}
-            className="song-cover"
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        )}
-        <div className="song-details">
-          <div className="song-title-container">
-            <div className="song-title">
-              {song.title}
-              {song.is_shared && <span className="shared-badge" title="You both have this song">⭐</span>}
-            </div>
-            {song.album && <div className="song-album">{song.album}</div>}
+  const renderSongItem = (song, isTheirs = false) => {
+    const isSelected = selectedSongs.has(song.song_id);
+    const selectable = isTheirs && canSelectSong(song.song_id);
+    
+    return (
+      <div key={song.song_id} className={`song-item ${song.is_shared ? 'shared' : ''} ${isSelected ? 'selected' : ''}`}>
+        {isTheirs && (
+          <div className="song-checkbox">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleSongSelection(song)}
+              disabled={!selectable}
+              title={selectable ? 'Select for bulk request' : 'Already requested or accepted'}
+            />
           </div>
+        )}
+        <div className="song-item-main">
+          {song.album_cover && (
+            <img 
+              src={song.album_cover} 
+              alt={song.title}
+              className="song-cover"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          )}
+          <div className="song-details">
+            <div className="song-title-container">
+              <div className="song-title">
+                {song.title}
+                {song.is_shared && <span className="shared-badge" title="You both have this song">⭐</span>}
+              </div>
+              {song.album && <div className="song-album">{song.album}</div>}
+            </div>
+          </div>
+          {song.status && <span className="song-status">{song.status}</span>}
         </div>
-        {song.status && <span className="song-status">{song.status}</span>}
+        {isTheirs && (
+          <button
+            onClick={() => handleCollaborationRequest(song)}
+            className={getCollaborationButtonClass(song.song_id)}
+            disabled={collaborationStatuses[song.song_id] === 'pending' || 
+                     collaborationStatuses[song.song_id] === 'accepted'}
+          >
+            {getCollaborationButtonText(song.song_id)}
+          </button>
+        )}
       </div>
-      {isTheirs && (
-        <button
-          onClick={() => handleCollaborationRequest(song)}
-          className={getCollaborationButtonClass(song.song_id)}
-          disabled={collaborationStatuses[song.song_id] === 'pending' || 
-                   collaborationStatuses[song.song_id] === 'accepted'}
-        >
-          {getCollaborationButtonText(song.song_id)}
-        </button>
-      )}
-    </div>
-  );
+    );
+  };
 
   const displayedSongs = getDisplayedSongs();
 
@@ -206,6 +308,28 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
 
         {/* Content */}
         <div className="artist-connection-content">
+            {/* Selection Bar */}
+            {selectedSongs.size > 0 && (
+              <div className="artist-selection-bar">
+                <div className="selection-info">
+                  <span className="selection-count">{selectedSongs.size} song{selectedSongs.size !== 1 ? 's' : ''} selected</span>
+                  <button 
+                    className="clear-selection-btn"
+                    onClick={clearSelection}
+                    title="Clear selection"
+                  >
+                    ✕ Clear
+                  </button>
+                </div>
+                <button 
+                  className="send-batch-btn"
+                  onClick={handleBatchRequest}
+                >
+                  🤝 Send Request ({selectedSongs.size})
+                </button>
+              </div>
+            )}
+
             {isLoading && (
               <div className="loading-state">
                 <LoadingSpinner />
@@ -275,7 +399,18 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
                             </div>
                           </div>
                           <div className="column theirs">
-                            <h4>{username}'s Version</h4>
+                            <div className="column-header-with-action">
+                              <h4>{username}'s Version</h4>
+                              {getSelectableSongs().length > 0 && (
+                                <button 
+                                  className="select-all-btn"
+                                  onClick={areAllSelected() ? clearSelection : selectAllSongs}
+                                  title={areAllSelected() ? 'Deselect all' : 'Select all for batch request'}
+                                >
+                                  {areAllSelected() ? '☑ Deselect All' : '☐ Select All'}
+                                </button>
+                              )}
+                            </div>
                             <div className="songs-list">
                               {displayedSongs.right.map(song => renderSongItem(song, true))}
                             </div>
@@ -316,9 +451,22 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
                           <p>{username} doesn't have any public non-released songs by {artist}.</p>
                         </div>
                       ) : (
-                        <div className="songs-list">
-                          {displayedSongs.right.map(song => renderSongItem(song, true))}
-                        </div>
+                        <>
+                          {getSelectableSongs().length > 0 && (
+                            <div className="select-all-row">
+                              <button 
+                                className="select-all-btn"
+                                onClick={areAllSelected() ? clearSelection : selectAllSongs}
+                                title={areAllSelected() ? 'Deselect all' : 'Select all for batch request'}
+                              >
+                                {areAllSelected() ? '☑ Deselect All' : '☐ Select All'} ({getSelectableSongs().length})
+                              </button>
+                            </div>
+                          )}
+                          <div className="songs-list">
+                            {displayedSongs.right.map(song => renderSongItem(song, true))}
+                          </div>
+                        </>
                       )}
                     </div>
                   )}
@@ -328,11 +476,20 @@ const ArtistConnectionModal = ({ artist, username, artistImageUrl, onClose }) =>
         </div>
       </div>
 
-      {/* Collaboration Modal */}
+      {/* Single Collaboration Modal */}
       {selectedSongForCollaboration && (
         <CollaborationRequestModal
           song={selectedSongForCollaboration}
           onClose={() => setSelectedSongForCollaboration(null)}
+          onSuccess={handleCollaborationSuccess}
+        />
+      )}
+
+      {/* Batch Collaboration Modal */}
+      {showBatchModal && selectedSongs.size > 0 && (
+        <BatchCollaborationRequestModal
+          songs={Array.from(selectedSongs.values())}
+          onClose={() => setShowBatchModal(false)}
           onSuccess={handleCollaborationSuccess}
         />
       )}

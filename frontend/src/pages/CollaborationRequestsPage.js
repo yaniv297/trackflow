@@ -7,15 +7,20 @@ import CustomAlert from '../components/ui/CustomAlert';
 import './CollaborationRequestsPage.css';
 
 const CollaborationRequestsPage = () => {
-  const [receivedRequests, setReceivedRequests] = useState([]);
-  const [sentRequests, setSentRequests] = useState([]);
+  const [receivedBatches, setReceivedBatches] = useState([]);
+  const [sentBatches, setSentBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('received');
   const [responding, setResponding] = useState({});
+  const [expandedBatches, setExpandedBatches] = useState(new Set());
+  const [batchDecisions, setBatchDecisions] = useState({}); // batch_id -> { request_id: 'approved'|'rejected' }
+  const [packPermissions, setPackPermissions] = useState({}); // batch_id -> boolean
   const [deleteAlert, setDeleteAlert] = useState({
     isOpen: false,
+    batchId: null,
     requestId: null,
+    isBatch: false,
   });
   const { isAuthenticated } = useAuth();
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
@@ -32,13 +37,13 @@ const CollaborationRequestsPage = () => {
       setError(null);
       
       const [receivedResult, sentResult] = await Promise.all([
-        collaborationRequestsService.getReceivedRequests(),
-        collaborationRequestsService.getSentRequests()
+        collaborationRequestsService.getReceivedBatches(),
+        collaborationRequestsService.getSentBatches()
       ]);
       
       if (receivedResult.success && sentResult.success) {
-        setReceivedRequests(receivedResult.data || []);
-        setSentRequests(sentResult.data || []);
+        setReceivedBatches(receivedResult.data?.batches || []);
+        setSentBatches(sentResult.data?.batches || []);
       } else {
         const errorMsg = receivedResult.error || sentResult.error || 'Failed to load collaboration requests';
         setError(errorMsg);
@@ -52,23 +57,34 @@ const CollaborationRequestsPage = () => {
     }
   };
 
-  const handleResponse = async (requestId, action, message = '') => {
+  // Handle single request response (for unbatched requests)
+  // batchId is the "fake" batch id (0 for unbatched) used to look up pack permissions state
+  const handleSingleResponse = async (requestId, action, batchId = 0, message = '') => {
     try {
       setResponding(prev => ({ ...prev, [requestId]: true }));
       
+      // Get pack permissions state for this unbatched request (uses batch_id 0 as key)
+      const grantFullPackPermissions = action === 'accepted' ? (packPermissions[batchId] || false) : false;
+      
       const result = await collaborationRequestsService.respondToRequest(requestId, {
         response: action,
-        message: message || (action === 'accepted' ? 'Request accepted' : 'Request declined')
+        message: message || (action === 'accepted' ? 'Request accepted' : 'Request declined'),
+        grantFullPackPermissions
       });
       
       if (result.success) {
-        // Refresh the lists
         await fetchCollaborationRequests();
+        const successMsg = grantFullPackPermissions 
+          ? `Collaboration request ${action} with full pack permissions!`
+          : `Collaboration request ${action} successfully!`;
+        window.showNotification && window.showNotification(successMsg, 'success');
         
-        window.showNotification && window.showNotification(
-          `Collaboration request ${action} successfully!`, 
-          'success'
-        );
+        // Clear pack permissions state
+        setPackPermissions(prev => {
+          const next = { ...prev };
+          delete next[batchId];
+          return next;
+        });
       } else {
         window.showNotification && window.showNotification(
           result.error || `Failed to ${action} request. Please try again.`, 
@@ -87,30 +103,135 @@ const CollaborationRequestsPage = () => {
     }
   };
 
-  const handleDeleteRequest = (requestId) => {
-    setDeleteAlert({ isOpen: true, requestId });
+  // Handle batch response (approve all, reject all, or selective)
+  const handleBatchResponse = async (batchId, action) => {
+    try {
+      setResponding(prev => ({ ...prev, [`batch_${batchId}`]: true }));
+      
+      const grantFullPackPermissions = packPermissions[batchId] || false;
+      let result;
+      
+      if (action === 'approve_all' || action === 'reject_all') {
+        result = await collaborationRequestsService.respondToBatch(batchId, {
+          action,
+          responseMessage: action === 'approve_all' ? 'Requests approved' : 'Requests declined',
+          grantFullPackPermissions: action === 'approve_all' ? grantFullPackPermissions : false
+        });
+      } else if (action === 'selective') {
+        const decisions = batchDecisions[batchId] || {};
+        result = await collaborationRequestsService.respondToBatch(batchId, {
+          action: 'selective',
+          responseMessage: 'Selective approval',
+          decisions,
+          grantFullPackPermissions
+        });
+      }
+      
+      if (result.success) {
+        await fetchCollaborationRequests();
+        
+        const msg = action === 'approve_all' 
+          ? `All requests approved${grantFullPackPermissions ? ' with full pack permissions' : ''}!`
+          : action === 'reject_all'
+          ? 'All requests declined.'
+          : `Requests processed: ${result.data.approved_count} approved, ${result.data.rejected_count} rejected`;
+        
+        window.showNotification && window.showNotification(msg, 'success');
+        
+        // Clear state for this batch
+        setExpandedBatches(prev => {
+          const next = new Set(prev);
+          next.delete(batchId);
+          return next;
+        });
+        setBatchDecisions(prev => {
+          const next = { ...prev };
+          delete next[batchId];
+          return next;
+        });
+        setPackPermissions(prev => {
+          const next = { ...prev };
+          delete next[batchId];
+          return next;
+        });
+      } else {
+        window.showNotification && window.showNotification(
+          result.error || 'Failed to process request. Please try again.', 
+          'error'
+        );
+      }
+      
+    } catch (error) {
+      console.error('Failed to respond to batch:', error);
+      window.showNotification && window.showNotification(
+        'Failed to process request. Please try again.', 
+        'error'
+      );
+    } finally {
+      setResponding(prev => ({ ...prev, [`batch_${batchId}`]: false }));
+    }
+  };
+
+  // Toggle batch expansion
+  const toggleBatchExpanded = (batchId) => {
+    setExpandedBatches(prev => {
+      const next = new Set(prev);
+      if (next.has(batchId)) {
+        next.delete(batchId);
+      } else {
+        next.add(batchId);
+      }
+      return next;
+    });
+  };
+
+  // Update individual song decision within a batch
+  const updateSongDecision = (batchId, requestId, decision) => {
+    setBatchDecisions(prev => ({
+      ...prev,
+      [batchId]: {
+        ...(prev[batchId] || {}),
+        [requestId]: decision
+      }
+    }));
+  };
+
+  // Toggle pack permissions for a batch
+  const togglePackPermissions = (batchId) => {
+    setPackPermissions(prev => ({
+      ...prev,
+      [batchId]: !prev[batchId]
+    }));
+  };
+
+  const handleDeleteRequest = (batchId, requestId = null, isBatch = false) => {
+    setDeleteAlert({ isOpen: true, batchId, requestId, isBatch });
   };
 
   const confirmDeleteRequest = async () => {
-    const { requestId } = deleteAlert;
-    if (!requestId) return;
+    const { batchId, requestId, isBatch } = deleteAlert;
+    if (!batchId && !requestId) return;
 
     try {
-      setResponding(prev => ({ ...prev, [requestId]: true }));
+      const key = isBatch ? `batch_${batchId}` : requestId;
+      setResponding(prev => ({ ...prev, [key]: true }));
       
-      const result = await collaborationRequestsService.cancelRequest(requestId);
+      let result;
+      if (isBatch && batchId) {
+        result = await collaborationRequestsService.cancelBatch(batchId);
+      } else if (requestId) {
+        result = await collaborationRequestsService.cancelRequest(requestId);
+      }
       
-      if (result.success) {
-        // Refresh the lists
+      if (result?.success) {
         await fetchCollaborationRequests();
-        
         window.showNotification && window.showNotification(
-          'Collaboration request deleted successfully.', 
+          isBatch ? 'Batch request cancelled successfully.' : 'Collaboration request deleted successfully.', 
           'success'
         );
       } else {
         window.showNotification && window.showNotification(
-          result.error || 'Failed to delete request. Please try again.', 
+          result?.error || 'Failed to delete request. Please try again.', 
           'error'
         );
       }
@@ -122,61 +243,9 @@ const CollaborationRequestsPage = () => {
         'error'
       );
     } finally {
-      setResponding(prev => ({ ...prev, [requestId]: false }));
-      setDeleteAlert({ isOpen: false, requestId: null });
-    }
-  };
-
-  const handleReopenRequest = async (requestId, isReceived = false) => {
-    try {
-      setResponding(prev => ({ ...prev, [requestId]: true }));
-      
-      if (isReceived) {
-        // For received requests, reopen by changing status back to pending
-        const result = await collaborationRequestsService.reopenRequest(requestId);
-        
-        if (result.success) {
-          // Refresh the lists
-          await fetchCollaborationRequests();
-          
-          window.showNotification && window.showNotification(
-            'Collaboration request has been reopened and is now pending.', 
-            'success'
-          );
-        } else {
-          window.showNotification && window.showNotification(
-            result.error || 'Failed to reopen request. Please try again.', 
-            'error'
-          );
-        }
-      } else {
-        // For sent requests, delete the request to allow a new one
-        const result = await collaborationRequestsService.cancelRequest(requestId);
-        
-        if (result.success) {
-          // Refresh the lists
-          await fetchCollaborationRequests();
-          
-          window.showNotification && window.showNotification(
-            'Request removed. You can now send a new collaboration request for this song.', 
-            'success'
-          );
-        } else {
-          window.showNotification && window.showNotification(
-            result.error || 'Failed to remove request. Please try again.', 
-            'error'
-          );
-        }
-      }
-      
-    } catch (error) {
-      console.error('Failed to reopen collaboration request:', error);
-      window.showNotification && window.showNotification(
-        'Failed to process request. Please try again.', 
-        'error'
-      );
-    } finally {
-      setResponding(prev => ({ ...prev, [requestId]: false }));
+      const key = deleteAlert.isBatch ? `batch_${deleteAlert.batchId}` : deleteAlert.requestId;
+      setResponding(prev => ({ ...prev, [key]: false }));
+      setDeleteAlert({ isOpen: false, batchId: null, requestId: null, isBatch: false });
     }
   };
 
@@ -198,8 +267,11 @@ const CollaborationRequestsPage = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       pending: { class: 'status-pending', text: 'Pending' },
+      approved: { class: 'status-accepted', text: 'Approved' },
       accepted: { class: 'status-accepted', text: 'Accepted' },
-      rejected: { class: 'status-rejected', text: 'Rejected' }
+      rejected: { class: 'status-rejected', text: 'Rejected' },
+      partially_approved: { class: 'status-partial', text: 'Partial' },
+      cancelled: { class: 'status-cancelled', text: 'Cancelled' }
     };
     
     const config = statusConfig[status] || { class: 'status-unknown', text: status };
@@ -211,146 +283,249 @@ const CollaborationRequestsPage = () => {
     );
   };
 
-  const renderRequestCard = (request, isReceived = true) => (
-    <div key={request.id} className="request-card">
-      <div className="request-header">
-        <div className="song-artwork">
-          {request.song_album_cover ? (
-            <img 
-              src={request.song_album_cover} 
-              alt={`${request.song_title} album cover`}
-              className="album-cover"
-            />
+  // Render a batch request card (can be single or multi-song)
+  const renderBatchCard = (batch, isReceived = true) => {
+    const isSingleSong = batch.song_count === 1;
+    const isExpanded = expandedBatches.has(batch.batch_id);
+    const isProcessing = responding[`batch_${batch.batch_id}`] || responding[batch.songs?.[0]?.request_id];
+    const currentDecisions = batchDecisions[batch.batch_id] || {};
+    const hasPackPermission = packPermissions[batch.batch_id] || false;
+    
+    // For unbatched (single) requests, use the single song's request_id
+    const singleRequestId = isSingleSong && batch.batch_id === 0 ? batch.songs?.[0]?.request_id : null;
+    
+    return (
+      <div key={`batch_${batch.batch_id}_${batch.songs?.[0]?.request_id}`} className={`request-card ${isSingleSong ? 'single-song' : 'batch-card'}`}>
+        <div className="request-header">
+          {isSingleSong ? (
+            <>
+              <div className="song-artwork">
+                {batch.songs?.[0]?.song_album_cover ? (
+                  <img 
+                    src={batch.songs[0].song_album_cover} 
+                    alt="Album cover"
+                    className="album-cover"
+                  />
+                ) : (
+                  <div className="album-cover-placeholder">
+                    <span>♪</span>
+                  </div>
+                )}
+              </div>
+              <div className="song-info">
+                <h3 className="song-title">{batch.songs?.[0]?.song_title}</h3>
+                <p className="song-artist">by {batch.songs?.[0]?.song_artist}</p>
+                <span className="song-status-tag">{batch.songs?.[0]?.song_status}</span>
+              </div>
+            </>
           ) : (
-            <div className="album-cover-placeholder">
-              <span>♪</span>
+            <div className="batch-info">
+              <span className="batch-icon">📦</span>
+              <div className="batch-details">
+                <h3 className="batch-title">{batch.song_count} songs</h3>
+                {batch.packs_involved?.length > 0 && (
+                  <p className="batch-packs">
+                    From: {batch.packs_involved.map(p => p.pack_name).join(', ')}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="request-meta">
+            {getStatusBadge(batch.status)}
+            <span className="time">{formatTimeAgo(batch.created_at)}</span>
+          </div>
+        </div>
+        
+        <div className="request-content">
+          <p className="request-user">
+            {isReceived ? 'Request from' : 'Request to'}{' '}
+            <span 
+              onClick={handleUsernameClick(
+                isReceived ? batch.requester_username : batch.target_username
+              )}
+              className="username-link"
+            >
+              {isReceived 
+                ? (batch.requester_display_name || batch.requester_username)
+                : (batch.target_display_name || batch.target_username)
+              }
+            </span>
+          </p>
+          
+          {batch.message && (
+            <div className="request-message">
+              <strong>Message:</strong> "{batch.message}"
+            </div>
+          )}
+          
+          {batch.response_message && batch.status !== 'pending' && (
+            <div className="owner-response">
+              <strong>Response:</strong> {batch.response_message}
+            </div>
+          )}
+          
+          {batch.grant_full_pack_permissions && batch.status === 'approved' && (
+            <div className="pack-permissions-granted">
+              <span className="permission-icon">🔓</span>
+              <span>Full pack permissions granted</span>
             </div>
           )}
         </div>
-        <div className="song-info">
-          <h3 className="song-title">{request.song_title}</h3>
-          <p className="song-artist">by {request.song_artist}</p>
-          <span className="song-status">{request.song_status}</span>
-        </div>
-        <div className="request-meta">
-          {getStatusBadge(request.status)}
-          <span className="time">{formatTimeAgo(request.created_at)}</span>
-        </div>
-      </div>
-      
-      <div className="request-content">
-        <p className="request-user">
-          {isReceived ? 'Request from' : 'Request to'}{' '}
-          <span 
-            onClick={handleUsernameClick(
-              isReceived ? request.requester_username : request.owner_username
+        
+        {/* Batch songs list (always visible for multi-song, expandable for single) */}
+        {!isSingleSong && (
+          <div className="batch-songs-preview">
+            <button 
+              className="expand-btn"
+              onClick={() => toggleBatchExpanded(batch.batch_id)}
+            >
+              {isExpanded ? '▼' : '▶'} View {batch.song_count} songs
+            </button>
+            
+            {isExpanded && (
+              <div className="batch-songs-list">
+                {batch.songs?.map(song => (
+                  <div key={song.request_id} className="batch-song-row">
+                    <div className="song-thumb">
+                      {song.song_album_cover ? (
+                        <img src={song.song_album_cover} alt="" />
+                      ) : (
+                        <span>♪</span>
+                      )}
+                    </div>
+                    <div className="song-details">
+                      <span className="title">{song.song_title}</span>
+                      <span className="artist">{song.song_artist}</span>
+                    </div>
+                    <span className={`status-tag status-${song.song_status?.toLowerCase().replace(' ', '-')}`}>
+                      {song.song_status}
+                    </span>
+                    {batch.status === 'pending' && isReceived && (
+                      <select
+                        className="decision-select"
+                        value={currentDecisions[song.request_id] || 'pending'}
+                        onChange={(e) => updateSongDecision(batch.batch_id, song.request_id, e.target.value)}
+                      >
+                        <option value="pending">Undecided</option>
+                        <option value="approved">Approve</option>
+                        <option value="rejected">Reject</option>
+                      </select>
+                    )}
+                    {batch.status !== 'pending' && song.item_status && (
+                      <span className={`item-status ${song.item_status}`}>
+                        {song.item_status === 'approved' ? '✓' : '✗'}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
-            style={{ 
-              cursor: 'pointer', 
-              color: '#667eea',
-              fontWeight: 'bold'
-            }}
-          >
-            {isReceived 
-              ? (request.requester_display_name || request.requester_username)
-              : (request.owner_display_name || request.owner_username)
-            }
-          </span>
-        </p>
-        
-        {request.message && (
-          <div className="request-message">
-            <strong>Message:</strong> "{request.message}"
           </div>
         )}
         
-        {request.requested_parts && request.requested_parts.length > 0 && (
-          <div className="requested-parts">
-            <strong>Requested parts:</strong> {request.requested_parts.join(', ')}
+        {/* Pack permissions option (for received pending requests) */}
+        {isReceived && batch.status === 'pending' && batch.packs_involved?.length > 0 && (
+          <div className="pack-permissions-option">
+            <label className="permission-checkbox">
+              <input
+                type="checkbox"
+                checked={hasPackPermission}
+                onChange={() => togglePackPermissions(batch.batch_id)}
+              />
+              <span className="checkbox-text">
+                Grant full pack permissions
+                <span className="permission-help">
+                  (Access to all songs in {batch.packs_involved.map(p => `"${p.pack_name}"`).join(' and ')})
+                </span>
+              </span>
+            </label>
           </div>
         )}
         
-        {request.owner_response && request.status !== 'accepted' && (
-          <div className="owner-response">
-            <strong>Response:</strong> {request.owner_response}
+        {/* Actions for received pending requests */}
+        {isReceived && batch.status === 'pending' && (
+          <div className="request-actions">
+            {isSingleSong && singleRequestId ? (
+              // Single request - use old API (pass batch.batch_id for pack permissions lookup)
+              <>
+                <button 
+                  onClick={() => handleSingleResponse(singleRequestId, 'accepted', batch.batch_id)}
+                  disabled={isProcessing}
+                  className="btn btn-accept"
+                >
+                  {isProcessing ? 'Processing...' : 'Accept'}
+                </button>
+                <button 
+                  onClick={() => handleSingleResponse(singleRequestId, 'rejected', batch.batch_id)}
+                  disabled={isProcessing}
+                  className="btn btn-reject"
+                >
+                  {isProcessing ? 'Processing...' : 'Decline'}
+                </button>
+              </>
+            ) : (
+              // Batch request - use batch API
+              <>
+                <button 
+                  onClick={() => handleBatchResponse(batch.batch_id, 'approve_all')}
+                  disabled={isProcessing}
+                  className="btn btn-accept"
+                >
+                  {isProcessing ? 'Processing...' : 'Approve All'}
+                </button>
+                <button 
+                  onClick={() => handleBatchResponse(batch.batch_id, 'reject_all')}
+                  disabled={isProcessing}
+                  className="btn btn-reject"
+                >
+                  {isProcessing ? 'Processing...' : 'Reject All'}
+                </button>
+                {isExpanded && Object.keys(currentDecisions).length > 0 && (
+                  <button 
+                    onClick={() => handleBatchResponse(batch.batch_id, 'selective')}
+                    disabled={isProcessing}
+                    className="btn btn-selective"
+                  >
+                    {isProcessing ? 'Processing...' : 'Apply Selective'}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
         
-        {request.assigned_parts && request.assigned_parts.length > 0 && (
-          <div className="assigned-parts">
-            <strong>Assigned parts:</strong> {request.assigned_parts.join(', ')}
-          </div>
-        )}
-        
-        {request.status === 'accepted' && (
-          <div className="current-song-status">
-            <strong>Current song status:</strong> 
-            <span className={`song-status-badge status-${request.song_status.toLowerCase().replace(/\s+/g, '-')}`}>
-              {request.song_status}
-            </span>
+        {/* Actions for sent pending requests */}
+        {!isReceived && batch.status === 'pending' && (
+          <div className="request-actions">
+            {isSingleSong && singleRequestId ? (
+              <button 
+                onClick={() => handleDeleteRequest(null, singleRequestId, false)}
+                disabled={isProcessing}
+                className="btn btn-delete"
+              >
+                {isProcessing ? 'Deleting...' : 'Delete Request'}
+              </button>
+            ) : (
+              <button 
+                onClick={() => handleDeleteRequest(batch.batch_id, null, true)}
+                disabled={isProcessing}
+                className="btn btn-delete"
+              >
+                {isProcessing ? 'Cancelling...' : 'Cancel Batch'}
+              </button>
+            )}
           </div>
         )}
       </div>
-      
-      {isReceived && request.status === 'pending' && (
-        <div className="request-actions">
-          <button 
-            onClick={() => handleResponse(request.id, 'accepted')}
-            disabled={responding[request.id]}
-            className="btn btn-accept"
-          >
-            {responding[request.id] ? 'Processing...' : 'Accept'}
-          </button>
-          <button 
-            onClick={() => handleResponse(request.id, 'rejected')}
-            disabled={responding[request.id]}
-            className="btn btn-reject"
-          >
-            {responding[request.id] ? 'Processing...' : 'Decline'}
-          </button>
-        </div>
-      )}
-      
-      {!isReceived && request.status === 'pending' && (
-        <div className="request-actions">
-          <button 
-            onClick={() => handleDeleteRequest(request.id)}
-            disabled={responding[request.id]}
-            className="btn btn-delete"
-          >
-            {responding[request.id] ? 'Deleting...' : 'Delete Request'}
-          </button>
-        </div>
-      )}
-      
-      {!isReceived && request.status === 'rejected' && (
-        <div className="request-actions">
-          <button 
-            onClick={() => handleReopenRequest(request.id, false)}
-            disabled={responding[request.id]}
-            className="btn btn-reopen"
-          >
-            {responding[request.id] ? 'Processing...' : 'Remove & Allow New Request'}
-          </button>
-        </div>
-      )}
-      
-      {isReceived && request.status === 'rejected' && (
-        <div className="request-actions">
-          <button 
-            onClick={() => handleReopenRequest(request.id, true)}
-            disabled={responding[request.id]}
-            className="btn btn-reopen"
-          >
-            {responding[request.id] ? 'Processing...' : 'Reopen Request'}
-          </button>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
-  const filterRequestsByStatus = (requests, status) => {
-    return requests.filter(request => request.status === status);
+  const filterBatchesByStatus = (batches, status) => {
+    if (status === 'accepted') {
+      return batches.filter(b => b.status === 'approved' || b.status === 'accepted' || b.status === 'partially_approved');
+    }
+    return batches.filter(b => b.status === status);
   };
 
   if (loading) {
@@ -392,9 +567,9 @@ const CollaborationRequestsPage = () => {
             onClick={() => setActiveTab('received')}
           >
             Received Requests
-            {filterRequestsByStatus(receivedRequests, 'pending').length > 0 && (
+            {filterBatchesByStatus(receivedBatches, 'pending').length > 0 && (
               <span className="count-badge">
-                {filterRequestsByStatus(receivedRequests, 'pending').length}
+                {filterBatchesByStatus(receivedBatches, 'pending').length}
               </span>
             )}
           </button>
@@ -412,15 +587,15 @@ const CollaborationRequestsPage = () => {
           <div className="received-requests">
             <div className="section">
               <h2>Pending Requests</h2>
-              {filterRequestsByStatus(receivedRequests, 'pending').length === 0 ? (
+              {filterBatchesByStatus(receivedBatches, 'pending').length === 0 ? (
                 <div className="empty-state">
                   <p>No pending collaboration requests</p>
                   <span className="empty-state-subtext">New collaboration requests will appear here</span>
                 </div>
               ) : (
                 <div className="requests-grid">
-                  {filterRequestsByStatus(receivedRequests, 'pending').map(request => 
-                    renderRequestCard(request, true)
+                  {filterBatchesByStatus(receivedBatches, 'pending').map(batch => 
+                    renderBatchCard(batch, true)
                   )}
                 </div>
               )}
@@ -428,14 +603,14 @@ const CollaborationRequestsPage = () => {
             
             <div className="section">
               <h2>Accepted Requests</h2>
-              {filterRequestsByStatus(receivedRequests, 'accepted').length === 0 ? (
+              {filterBatchesByStatus(receivedBatches, 'accepted').length === 0 ? (
                 <div className="empty-state">
                   <p>No accepted collaboration requests</p>
                 </div>
               ) : (
                 <div className="requests-grid">
-                  {filterRequestsByStatus(receivedRequests, 'accepted').map(request => 
-                    renderRequestCard(request, true)
+                  {filterBatchesByStatus(receivedBatches, 'accepted').map(batch => 
+                    renderBatchCard(batch, true)
                   )}
                 </div>
               )}
@@ -443,14 +618,14 @@ const CollaborationRequestsPage = () => {
             
             <div className="section">
               <h2>Rejected Requests</h2>
-              {filterRequestsByStatus(receivedRequests, 'rejected').length === 0 ? (
+              {filterBatchesByStatus(receivedBatches, 'rejected').length === 0 ? (
                 <div className="empty-state">
                   <p>No rejected collaboration requests</p>
                 </div>
               ) : (
                 <div className="requests-grid">
-                  {filterRequestsByStatus(receivedRequests, 'rejected').map(request => 
-                    renderRequestCard(request, true)
+                  {filterBatchesByStatus(receivedBatches, 'rejected').map(batch => 
+                    renderBatchCard(batch, true)
                   )}
                 </div>
               )}
@@ -462,15 +637,15 @@ const CollaborationRequestsPage = () => {
           <div className="sent-requests">
             <div className="section">
               <h2>Pending Requests</h2>
-              {filterRequestsByStatus(sentRequests, 'pending').length === 0 ? (
+              {filterBatchesByStatus(sentBatches, 'pending').length === 0 ? (
                 <div className="empty-state">
                   <p>No pending sent requests</p>
                   <span className="empty-state-subtext">Send collaboration requests from community songs</span>
                 </div>
               ) : (
                 <div className="requests-grid">
-                  {filterRequestsByStatus(sentRequests, 'pending').map(request => 
-                    renderRequestCard(request, false)
+                  {filterBatchesByStatus(sentBatches, 'pending').map(batch => 
+                    renderBatchCard(batch, false)
                   )}
                 </div>
               )}
@@ -478,14 +653,14 @@ const CollaborationRequestsPage = () => {
             
             <div className="section">
               <h2>Accepted Requests</h2>
-              {filterRequestsByStatus(sentRequests, 'accepted').length === 0 ? (
+              {filterBatchesByStatus(sentBatches, 'accepted').length === 0 ? (
                 <div className="empty-state">
                   <p>No accepted sent requests</p>
                 </div>
               ) : (
                 <div className="requests-grid">
-                  {filterRequestsByStatus(sentRequests, 'accepted').map(request => 
-                    renderRequestCard(request, false)
+                  {filterBatchesByStatus(sentBatches, 'accepted').map(batch => 
+                    renderBatchCard(batch, false)
                   )}
                 </div>
               )}
@@ -493,14 +668,14 @@ const CollaborationRequestsPage = () => {
             
             <div className="section">
               <h2>Rejected Requests</h2>
-              {filterRequestsByStatus(sentRequests, 'rejected').length === 0 ? (
+              {filterBatchesByStatus(sentBatches, 'rejected').length === 0 ? (
                 <div className="empty-state">
                   <p>No rejected sent requests</p>
                 </div>
               ) : (
                 <div className="requests-grid">
-                  {filterRequestsByStatus(sentRequests, 'rejected').map(request => 
-                    renderRequestCard(request, false)
+                  {filterBatchesByStatus(sentBatches, 'rejected').map(batch => 
+                    renderBatchCard(batch, false)
                   )}
                 </div>
               )}
@@ -520,12 +695,15 @@ const CollaborationRequestsPage = () => {
       {/* Custom Alert for deleting collaboration requests */}
       <CustomAlert
         isOpen={deleteAlert.isOpen}
-        onClose={() => setDeleteAlert({ isOpen: false, requestId: null })}
+        onClose={() => setDeleteAlert({ isOpen: false, batchId: null, requestId: null, isBatch: false })}
         onConfirm={confirmDeleteRequest}
-        title="Delete Collaboration Request"
-        message="Are you sure you want to delete this collaboration request? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={deleteAlert.isBatch ? "Cancel Batch Request" : "Delete Collaboration Request"}
+        message={deleteAlert.isBatch 
+          ? "Are you sure you want to cancel this batch request? All songs in this request will be removed."
+          : "Are you sure you want to delete this collaboration request? This action cannot be undone."
+        }
+        confirmText={deleteAlert.isBatch ? "Cancel Batch" : "Delete"}
+        cancelText="Keep"
         type="danger"
       />
     </div>

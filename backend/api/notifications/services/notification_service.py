@@ -132,6 +132,35 @@ class NotificationService:
         
         return self._format_notification_out(notification)
     
+    def create_potential_collaboration_notification(
+        self,
+        user_id: int,
+        song_title: str,
+        song_artist: str,
+        other_user_name: str,
+        other_song_status: str,
+        related_song_id: Optional[int] = None,
+    ) -> NotificationOut:
+        """
+        Create a notification when someone else adds a song you're working on,
+        alerting you to a potential collaboration opportunity.
+        """
+        title = f"🎵 Potential Collaboration: {song_title}"
+        message = (
+            f"{other_user_name} just added '{song_title}' by {song_artist} "
+            f"to their {other_song_status}. You might want to reach out about collaborating!"
+        )
+        
+        notification = self.repository.create_notification(
+            user_id=user_id,
+            type=NotificationType.POTENTIAL_COLLABORATION,
+            title=title,
+            message=message,
+            related_song_id=related_song_id,
+        )
+        
+        return self._format_notification_out(notification)
+    
     def create_pack_release_notification(
         self, 
         user_id: int, 
@@ -238,6 +267,66 @@ class NotificationService:
         """Delete a notification"""
         return self.repository.delete_notification(notification_id, user_id)
 
+    def notify_potential_collaborations(
+        self,
+        song_title: str,
+        song_artist: str,
+        actor_user_id: int,
+        actor_display_name: str,
+        song_status: str,
+        new_song_id: int,
+    ) -> int:
+        """
+        Find other users who have the same song publicly in WIP or Future Plans
+        and notify them about a potential collaboration opportunity.
+        
+        Returns the number of notifications sent.
+        """
+        from models import Song, User
+        from sqlalchemy import func, or_
+        
+        # Find public songs with matching title+artist by OTHER users
+        # Only consider WIP and Future Plans (not Released - those are done)
+        matching_songs = (
+            self.db.query(Song, User)
+            .join(User, Song.user_id == User.id)
+            .filter(
+                func.lower(func.trim(Song.title)) == func.lower(song_title.strip()),
+                func.lower(func.trim(Song.artist)) == func.lower(song_artist.strip()),
+                Song.user_id != actor_user_id,  # Not the actor
+                Song.is_public == True,  # Only public songs
+                Song.status.in_(["In Progress", "Future Plans"])  # Only WIP/Future
+            )
+            .all()
+        )
+        
+        if not matching_songs:
+            return 0
+        
+        sent_count = 0
+        notified_user_ids: Set[int] = set()  # Avoid duplicate notifications
+        
+        for song, user in matching_songs:
+            if user.id in notified_user_ids:
+                continue
+            
+            try:
+                self.create_potential_collaboration_notification(
+                    user_id=user.id,
+                    song_title=song_title,
+                    song_artist=song_artist,
+                    other_user_name=actor_display_name,
+                    other_song_status=song_status,
+                    related_song_id=new_song_id,
+                )
+                notified_user_ids.add(user.id)
+                sent_count += 1
+                print(f"🤝 Sent potential collaboration notification to {user.username} for '{song_title}'")
+            except Exception as e:
+                print(f"⚠️ Failed to send potential collaboration notification to {user.username}: {e}")
+        
+        return sent_count
+    
     # ==========================================================
     # Collaboration / song helper methods
     # ==========================================================

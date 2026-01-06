@@ -12,6 +12,7 @@ const PublicSongsTableNew = ({
   currentPage,
   onPageChange,
   onCollaborationRequest,
+  onBatchCollaborationRequest,
   currentUserId,
   collaborationStatusMap = new Map(), // song_id -> status
   groupBy = "none", // 'none', 'artist', or 'user'
@@ -28,6 +29,70 @@ const PublicSongsTableNew = ({
   const [artistSortMode, setArtistSortMode] = useState("count"); // 'count' or 'alphabetical'
   const [userSortMode, setUserSortMode] = useState("count"); // 'count' or 'alphabetical'
   const { popupState, handleUsernameClick, hidePopup } = useUserProfilePopup();
+  
+  // Multi-select state for batch requests
+  const [selectedSongs, setSelectedSongs] = useState([]); // Array of song objects
+  const [selectionOwnerId, setSelectionOwnerId] = useState(null); // User ID of selected songs' owner
+  const [selectionOwnerUsername, setSelectionOwnerUsername] = useState(null);
+
+  // Handle song selection for batch requests
+  const handleSongSelect = (song, isSelected) => {
+    // Can't select own songs
+    if (song.user_id === currentUserId) return;
+    
+    // Can't select songs with existing pending/accepted requests
+    const existingStatus = collaborationStatusMap.get(song.id);
+    if (existingStatus === 'pending' || existingStatus === 'accepted') return;
+    
+    if (isSelected) {
+      // Adding a song
+      if (selectedSongs.length === 0) {
+        // First selection - set the owner
+        setSelectionOwnerId(song.user_id);
+        setSelectionOwnerUsername(song.username);
+        setSelectedSongs([song]);
+      } else if (song.user_id === selectionOwnerId) {
+        // Same owner - add to selection
+        setSelectedSongs(prev => [...prev, song]);
+      } else {
+        // Different owner - clear selection and start fresh with warning
+        window.showNotification && window.showNotification(
+          `Selection cleared. You can only select songs from one author at a time.`,
+          'info'
+        );
+        setSelectionOwnerId(song.user_id);
+        setSelectionOwnerUsername(song.username);
+        setSelectedSongs([song]);
+      }
+    } else {
+      // Removing a song
+      const newSelection = selectedSongs.filter(s => s.id !== song.id);
+      setSelectedSongs(newSelection);
+      if (newSelection.length === 0) {
+        setSelectionOwnerId(null);
+        setSelectionOwnerUsername(null);
+      }
+    }
+  };
+
+  // Check if a song is selected
+  const isSongSelected = (songId) => {
+    return selectedSongs.some(s => s.id === songId);
+  };
+
+  // Clear all selections
+  const clearSelection = () => {
+    setSelectedSongs([]);
+    setSelectionOwnerId(null);
+    setSelectionOwnerUsername(null);
+  };
+
+  // Handle batch request button click
+  const handleBatchRequestClick = () => {
+    if (selectedSongs.length > 0 && onBatchCollaborationRequest) {
+      onBatchCollaborationRequest(selectedSongs);
+    }
+  };
 
   // Filter songs based on search term, exclude released songs, and optionally hide current user's songs
   const filteredSongs = useMemo(() => {
@@ -386,6 +451,35 @@ const PublicSongsTableNew = ({
         </div>
       </div>
 
+      {/* Selection bar for batch requests */}
+      {selectedSongs.length > 0 && (
+        <div className="selection-bar">
+          <div className="selection-info">
+            <span className="selection-count">
+              {selectedSongs.length} song{selectedSongs.length > 1 ? 's' : ''} selected
+            </span>
+            <span className="selection-owner">
+              from @{selectionOwnerUsername}
+            </span>
+          </div>
+          <div className="selection-actions">
+            <button 
+              className="clear-selection-btn"
+              onClick={clearSelection}
+            >
+              Clear
+            </button>
+            <button 
+              className="batch-request-btn"
+              onClick={handleBatchRequestClick}
+              disabled={selectedSongs.length < 1}
+            >
+              Send Request{selectedSongs.length > 1 ? 's' : ''} ({selectedSongs.length})
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="section-content songs-section">
         {filteredSongs.length === 0 && searchTerm ? (
           <div className="no-search-results">
@@ -447,6 +541,7 @@ const PublicSongsTableNew = ({
                         <table className="songs-table">
                           <thead>
                             <tr>
+                              {onBatchCollaborationRequest && <th style={{ width: '40px' }}>☑</th>}
                               <th></th>
                               <th
                                 className="sortable-header"
@@ -479,6 +574,9 @@ const PublicSongsTableNew = ({
                                 currentUserId={currentUserId}
                                 collaborationStatus={collaborationStatusMap.get(song.id) || null}
                                 hideArtistColumn={true}
+                                selectionEnabled={!!onBatchCollaborationRequest}
+                                isSelected={isSongSelected(song.id)}
+                                onSelect={handleSongSelect}
                               />
                             ))}
                           </tbody>
@@ -554,6 +652,7 @@ const PublicSongsTableNew = ({
                         <table className="songs-table">
                           <thead>
                             <tr>
+                              {onBatchCollaborationRequest && <th style={{ width: '40px' }}>☑</th>}
                               <th></th>
                               <th
                                 className="sortable-header"
@@ -586,6 +685,9 @@ const PublicSongsTableNew = ({
                                 currentUserId={currentUserId}
                                 collaborationStatus={collaborationStatusMap.get(song.id) || null}
                                 hideUserColumn={true}
+                                selectionEnabled={!!onBatchCollaborationRequest}
+                                isSelected={isSongSelected(song.id)}
+                                onSelect={handleSongSelect}
                               />
                             ))}
                           </tbody>
@@ -603,6 +705,7 @@ const PublicSongsTableNew = ({
             <table className="songs-table">
               <thead>
                 <tr>
+                  {onBatchCollaborationRequest && <th style={{ width: '40px' }}>☑</th>}
                   <th></th>
                   <th
                     className="sortable-header"
@@ -640,6 +743,9 @@ const PublicSongsTableNew = ({
                     onCollaborationRequest={onCollaborationRequest}
                     currentUserId={currentUserId}
                     collaborationStatus={collaborationStatusMap.get(song.id) || null}
+                    selectionEnabled={!!onBatchCollaborationRequest}
+                    isSelected={isSongSelected(song.id)}
+                    onSelect={handleSongSelect}
                   />
                 ))}
               </tbody>

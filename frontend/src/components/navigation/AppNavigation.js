@@ -48,6 +48,9 @@ const AppNavigation = ({
           <NavLink to="/released" activeclassname="active">
             Released
           </NavLink>
+          <NavLink to="/community" activeclassname="active">
+            Community WIP
+          </NavLink>
 
           {/* New Dropdown */}
           <NewDropdown

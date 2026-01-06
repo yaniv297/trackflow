@@ -20,9 +20,9 @@
 
 .smart-discovery-content {
   padding: 1.5rem;
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
   background: white;
 }
 
@@ -316,7 +316,7 @@
   }
   
   .smart-discovery-content {
-    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   .shared-items {

@@ -100,7 +100,7 @@ h1 {
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 .nav-brand {
@@ -113,12 +113,13 @@ h1 {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
 }
 
 .nav-links a {
   text-decoration: none;
-  padding: 0.4rem 1rem;
+  padding: 0.4rem 0.75rem;
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.9);
   font-weight: 600;

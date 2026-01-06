@@ -5,9 +5,10 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models import Pack, Song, SongStatus
+from models import Pack, Song, SongStatus, CollaborationType
 from ..repositories.pack_repository import PackRepository
 from ..schemas import PackCreate, PackUpdate, PackStatusUpdate, PackResponse
+from api.songs.repositories.collaboration_repository import CollaborationRepository
 
 
 class PackService:
@@ -16,6 +17,7 @@ class PackService:
     def __init__(self, db: Session):
         self.db = db
         self.pack_repo = PackRepository(db)
+        self.collab_repo = CollaborationRepository(db)
     
     def get_pack_by_id(self, pack_id: int, user_id: int) -> Pack:
         """Get pack by ID with user ownership validation."""
@@ -100,11 +102,33 @@ class PackService:
     
     def update_pack(self, pack_id: int, pack_data: PackUpdate, user_id: int) -> PackResponse:
         """Update a pack."""
-        pack = self.get_pack_by_id(pack_id, user_id)
+        # Get pack (without ownership check first)
+        pack = self.pack_repo.get_by_id(pack_id)
+        if not pack:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pack not found"
+            )
+        
+        # Check if user is pack owner OR has PACK_EDIT collaboration permission
+        is_pack_owner = pack.user_id == user_id
+        has_edit_permission = self.collab_repo.collaboration_exists(
+            user_id=user_id,
+            collaboration_type=CollaborationType.PACK_EDIT,
+            pack_id=pack_id
+        )
+        
+        if not is_pack_owner and not has_edit_permission:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update this pack"
+            )
         
         # Check for name conflicts if name is being changed
+        # For collaborators, check against pack owner's packs, not their own
+        check_user_id = pack.user_id if has_edit_permission and not is_pack_owner else user_id
         if pack_data.name and pack_data.name != pack.name:
-            existing_pack = self.pack_repo.get_by_name_and_user(pack_data.name, user_id)
+            existing_pack = self.pack_repo.get_by_name_and_user(pack_data.name, check_user_id)
             if existing_pack:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

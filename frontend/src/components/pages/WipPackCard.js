@@ -455,35 +455,55 @@ const WipPackCard = ({
 
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
-          {/* Edit Pack Name (quick access) */}
-          <button
-            onClick={() => {
-              setPackSettingsMode("rename");
-              setShowPackSettings(true);
-            }}
-            style={{
-              background: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "50%",
-              width: "24px",
-              height: "24px",
-              fontSize: "12px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            title="Edit Pack Name"
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#5a6268";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#6c757d";
-            }}
-          >
-            ✏️
-          </button>
+          {/* Edit Pack Name (quick access) - Only show for pack owners or PACK_EDIT collaborators */}
+          {(() => {
+            // Get pack_id from the first song in the pack
+            const packId = allSongs[0]?.pack_id;
+            if (!packId) return false;
+
+            // Check if user is the pack owner (pack_owner_id should be in song data)
+            const isPackOwner = allSongs.some(
+              (song) => song.pack_owner_id === user?.id
+            );
+
+            // Check if user has PACK_EDIT permissions on this pack
+            const hasPackEditPermission = userCollaborations?.some(
+              (collab) =>
+                collab.pack_id === packId &&
+                collab.collaboration_type === "pack_edit"
+            );
+
+            return isPackOwner || hasPackEditPermission;
+          })() && (
+            <button
+              onClick={() => {
+                setPackSettingsMode("rename");
+                setShowPackSettings(true);
+              }}
+              style={{
+                background: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "50%",
+                width: "24px",
+                height: "24px",
+                fontSize: "12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              title="Edit Pack Name"
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "#5a6268";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#6c757d";
+              }}
+            >
+              ✏️
+            </button>
+          )}
 
           {/* Share Pack Button */}
           <button

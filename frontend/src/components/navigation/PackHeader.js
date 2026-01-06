@@ -277,11 +277,10 @@ const PackHeader = ({
               const packId = validSongsInPack[0]?.pack_id;
               if (!packId) return false;
 
-              // Check if user owns any songs in this pack
-              const userOwnedSongs = validSongsInPack.filter(
-                (song) => song.user_id === user?.id
+              // Check if user is the pack owner (pack_owner_id should be in song data)
+              const isPackOwner = validSongsInPack.some(
+                (song) => song.pack_owner_id === user?.id
               );
-              const isPackOwner = userOwnedSongs.length > 0;
 
               // Check if user has pack edit collaboration via pack_collaboration field
               const hasPackEditPermission =
@@ -356,17 +355,35 @@ const PackHeader = ({
                         padding: "0.5rem 0",
                       }}
                     >
-                    {/* Edit Pack Name */}
-                    <button
-                      onClick={() => {
-                        setNewPackName(packName);
-                        setRenameModalOpen(true);
-                        setShowPackActions(false);
-                      }}
-                      style={dropdownItemStyle}
-                    >
-                      ✏️ Edit Pack Name
-                    </button>
+                    {/* Edit Pack Name - Only show for pack owners or PACK_EDIT collaborators */}
+                    {(() => {
+                      // Check if user is the pack owner (pack_owner_id should be in song data)
+                      const isPackOwner = validSongsInPack.some(
+                        (song) => song.pack_owner_id === user?.id
+                      );
+
+                      // Check if user has pack edit collaboration via pack_collaboration field
+                      const hasPackEditPermission =
+                        user &&
+                        validSongsInPack.some(
+                          (song) =>
+                            song.pack_collaboration &&
+                            song.pack_collaboration.can_edit === true
+                        );
+
+                      return isPackOwner || hasPackEditPermission;
+                    })() && (
+                      <button
+                        onClick={() => {
+                          setNewPackName(packName);
+                          setRenameModalOpen(true);
+                          setShowPackActions(false);
+                        }}
+                        style={dropdownItemStyle}
+                      >
+                        ✏️ Edit Pack Name
+                      </button>
+                    )}
 
 
                     {/* Start Work */}

@@ -35,18 +35,48 @@ const CommunityPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const SONGS_PER_PAGE = 20;
 
-  // Load songs function - fetches all songs in batches
+  // Load artist images and merge into songs
+  const loadArtistImages = useCallback(async (songsToUpdate) => {
+    try {
+      // Get unique artist names
+      const artistNames = [...new Set(
+        songsToUpdate
+          .map(song => song.artist)
+          .filter(Boolean)
+      )];
+      
+      if (artistNames.length === 0) return;
+      
+      const result = await publicSongsService.getArtistImages(artistNames);
+      if (result.success && result.data) {
+        // Merge artist images into songs
+        setSongs(currentSongs => 
+          currentSongs.map(song => ({
+            ...song,
+            artist_image_url: song.artist 
+              ? result.data[song.artist.toLowerCase()] || null 
+              : null
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Error loading artist images:", err);
+      // Don't set error - artist images are non-critical
+    }
+  }, []);
+
+  // Load songs function - fetches all songs in batches, then loads artist images
   const loadSongs = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
       const allSongs = [];
-      const limit = 100; // Max allowed by API
+      const limit = 500; // Higher limit for faster loading
       let offset = 0;
       let hasMore = true;
 
-      // Fetch all songs in batches
+      // Fetch all songs in batches (without artist images for speed)
       while (hasMore) {
         const result = await publicSongsService.browsePublicSongs({
           search: "",
@@ -55,6 +85,7 @@ const CommunityPage = () => {
           group_by: null, // Frontend handles grouping now
           limit: limit,
           offset: offset,
+          include_artist_images: false, // Skip artist images for faster initial load
         });
 
         if (result.success) {
@@ -79,15 +110,19 @@ const CommunityPage = () => {
         }
       }
 
+      // Display songs immediately
       setSongs(allSongs);
+      setIsLoading(false);
+      
+      // Then load artist images in the background
+      loadArtistImages(allSongs);
     } catch (err) {
       console.error("Error loading songs:", err);
       setError("Failed to load songs");
       setSongs([]);
-    } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadArtistImages]);
 
   // Load collaboration requests once (only if user is logged in)
   const loadCollaborationRequests = useCallback(async () => {

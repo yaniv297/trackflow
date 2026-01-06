@@ -15,6 +15,7 @@ class PublicSongsService {
     group_by = null,
     limit = 50,
     offset = 0,
+    include_artist_images = true,
   } = {}) {
     try {
       const params = new URLSearchParams();
@@ -25,6 +26,7 @@ class PublicSongsService {
       if (group_by) params.append("group_by", group_by);
       params.append("limit", limit.toString());
       params.append("offset", offset.toString());
+      params.append("include_artist_images", include_artist_images.toString());
 
       const response = await apiGet(`/api/public-songs/browse?${params}`);
       return {
@@ -44,6 +46,27 @@ class PublicSongsService {
       return {
         success: false,
         error: error.response?.data?.detail || "Failed to browse public songs",
+      };
+    }
+  }
+
+  /**
+   * Get artist images for a list of artist names (for lazy loading)
+   */
+  async getArtistImages(artistNames) {
+    try {
+      const response = await apiPost("/api/public-songs/artist-images", {
+        artist_names: artistNames,
+      });
+      return {
+        success: true,
+        data: response.artist_images || {},
+      };
+    } catch (error) {
+      console.error("Error fetching artist images:", error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || "Failed to fetch artist images",
       };
     }
   }

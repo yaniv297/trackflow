@@ -62,8 +62,9 @@ def browse_public_songs(
     sort_by: Optional[str] = Query("updated_at", description="Sort field (title, artist, username, status, updated_at)"),
     sort_direction: Optional[str] = Query("desc", description="Sort direction (asc, desc)"),
     group_by: Optional[str] = Query(None, description="Group by field (artist, user)"),
-    limit: int = Query(50, ge=1, le=100, description="Number of results"),
+    limit: int = Query(50, ge=1, le=500, description="Number of results"),
     offset: int = Query(0, ge=0, description="Results offset"),
+    include_artist_images: bool = Query(True, description="Include artist images (set to false for faster loading)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -111,9 +112,11 @@ def browse_public_songs(
         max_results = min(limit * 20, 1000)  # Max 1000 songs for grouping operations
         all_results = songs_query.limit(max_results).all()
         
-        # Get artist images for all songs in batch
-        artist_names = [song.artist for song, _ in all_results if song.artist]
-        artist_images = get_artist_images_batch(db, artist_names)
+        # Get artist images for all songs in batch (only if requested)
+        artist_images = {}
+        if include_artist_images:
+            artist_names = [song.artist for song, _ in all_results if song.artist]
+            artist_images = get_artist_images_batch(db, artist_names)
         
         # Build response objects
         all_songs = [
@@ -125,7 +128,7 @@ def browse_public_songs(
                 year=song.year,
                 status=song.status,
                 album_cover=song.album_cover,
-                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist and include_artist_images else None,
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
@@ -196,9 +199,11 @@ def browse_public_songs(
         max_results = min(limit * 20, 1000)  # Max 1000 songs for grouping operations
         all_results = songs_query.limit(max_results).all()
         
-        # Get artist images for all songs in batch
-        artist_names = [song.artist for song, _ in all_results if song.artist]
-        artist_images = get_artist_images_batch(db, artist_names)
+        # Get artist images for all songs in batch (only if requested)
+        artist_images = {}
+        if include_artist_images:
+            artist_names = [song.artist for song, _ in all_results if song.artist]
+            artist_images = get_artist_images_batch(db, artist_names)
         
         # Build response objects
         all_songs = [
@@ -210,7 +215,7 @@ def browse_public_songs(
                 year=song.year,
                 status=song.status,
                 album_cover=song.album_cover,
-                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist and include_artist_images else None,
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
@@ -294,9 +299,11 @@ def browse_public_songs(
         page = (offset // limit) + 1
         total_pages = (total_count + limit - 1) // limit  # Ceiling division
         
-        # Get artist images for all songs in batch
-        artist_names = [song.artist for song, _ in results if song.artist]
-        artist_images = get_artist_images_batch(db, artist_names)
+        # Get artist images for all songs in batch (only if requested)
+        artist_images = {}
+        if include_artist_images:
+            artist_names = [song.artist for song, _ in results if song.artist]
+            artist_images = get_artist_images_batch(db, artist_names)
         
         songs = [
             PublicSongResponse(
@@ -307,7 +314,7 @@ def browse_public_songs(
                 year=song.year,
                 status=song.status,
                 album_cover=song.album_cover,
-                artist_image_url=artist_images.get(song.artist.lower()) if song.artist else None,
+                artist_image_url=artist_images.get(song.artist.lower()) if song.artist and include_artist_images else None,
                 user_id=song.user_id,
                 username=user.username,
                 display_name=user.display_name,
@@ -655,6 +662,25 @@ def get_my_public_songs(
         )
         for song in songs
     ]
+
+class ArtistImagesRequest(BaseModel):
+    artist_names: List[str]
+
+@router.post("/artist-images")
+def get_artist_images(
+    request: ArtistImagesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get artist image URLs for a list of artist names (for lazy loading)"""
+    if not request.artist_names:
+        return {"artist_images": {}}
+    
+    # Deduplicate and get images
+    unique_artists = list(set(request.artist_names))
+    artist_images = get_artist_images_batch(db, unique_artists)
+    
+    return {"artist_images": artist_images}
 
 class BulkTogglePublicRequest(BaseModel):
     song_ids: List[int]

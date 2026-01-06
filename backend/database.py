@@ -20,12 +20,15 @@ elif SQLALCHEMY_DATABASE_URL.startswith("postgresql"):
     # Optimize for PostgreSQL/Supabase
     connect_args["connect_timeout"] = 5
     connect_args["application_name"] = "trackflow"
+    # SSL configuration for Supabase/PostgreSQL
+    # Use 'require' for Supabase pooler to ensure SSL connections
+    connect_args["sslmode"] = "require"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 
     connect_args=connect_args,
-    pool_pre_ping=True,
-    pool_recycle=300,  # More aggressive connection recycling for Railway
+    pool_pre_ping=True,  # Verify connections before using them (handles dead connections)
+    pool_recycle=180,  # Recycle connections after 3 minutes (Supabase pooler timeout is often 5-10 min)
     # Balanced settings for development and production
     pool_size=5 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 8,
     max_overflow=10 if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else 12,
@@ -77,8 +80,17 @@ def get_db():
         yield db
     except Exception as e:
         # Rollback on any exception to ensure clean state
-        db.rollback()
+        try:
+            db.rollback()
+        except Exception:
+            # If rollback fails (e.g., connection is dead), invalidate the session
+            db.expire_all()
         raise
     finally:
         # Always close the session to return connection to pool
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            # If close fails, the connection is likely already dead
+            # The pool will handle cleanup via pool_pre_ping
+            pass

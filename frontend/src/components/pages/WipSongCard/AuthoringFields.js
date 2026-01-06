@@ -6,15 +6,21 @@ import { getFieldCompletion } from "../../../utils/progressUtils";
  */
 const AuthoringFields = ({
   song,
-  fields,
-  wipCollaborations,
+  fields = [],
+  wipCollaborations = [],
   onToggleAuthoringField,
   onUsernameClick,
   readOnly = false,
 }) => {
   const renderFieldBadge = (field, filled) => {
+    // Handle undefined, null, or empty field values
+    if (!field || typeof field !== 'string') {
+      return null;
+    }
+    
     const displayName = field
       .split("_")
+      .filter((w) => w.length > 0) // Filter out empty strings from split
       .map((w) => w[0].toUpperCase() + w.slice(1))
       .join(" ");
 
@@ -67,10 +73,12 @@ const AuthoringFields = ({
             gap: "0.5rem",
           }}
         >
-          {assignedFields.map((field) => {
-            const filled = getFieldCompletion(song, field);
-            return renderFieldBadge(field, filled);
-          })}
+          {assignedFields
+            .filter((field) => field && typeof field === 'string')
+            .map((field) => {
+              const filled = getFieldCompletion(song, field);
+              return renderFieldBadge(field, filled);
+            })}
         </div>
       </div>
     );
@@ -92,7 +100,7 @@ const AuthoringFields = ({
       wipCollaborations.map((collab) => collab.field)
     );
     const unassignedFields = fields.filter(
-      (field) => !assignedFields.has(field)
+      (field) => field && typeof field === 'string' && !assignedFields.has(field)
     );
 
     return (
@@ -158,10 +166,12 @@ const AuthoringFields = ({
       }}
     >
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-        {fields.map((field) => {
-          const filled = getFieldCompletion(song, field);
-          return renderFieldBadge(field, filled);
-        })}
+        {fields
+          .filter((field) => field && typeof field === 'string')
+          .map((field) => {
+            const filled = getFieldCompletion(song, field);
+            return renderFieldBadge(field, filled);
+          })}
       </div>
     </div>
   );

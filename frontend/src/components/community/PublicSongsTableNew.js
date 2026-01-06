@@ -75,6 +75,14 @@ const PublicSongsTableNew = ({
   // Sort songs based on current sort settings
   const sortSongs = (songs) => {
     return [...songs].sort((a, b) => {
+      // Always prioritize status: Future Plans before Released (unless explicitly sorting by status)
+      if (sortColumn !== "status") {
+        const statusOrder = { "Future Plans": 0, "In Progress": 1, "Released": 2 };
+        const aStatus = statusOrder[a.status] ?? 3;
+        const bStatus = statusOrder[b.status] ?? 3;
+        if (aStatus !== bStatus) return aStatus - bStatus;
+      }
+
       let aValue, bValue;
 
       switch (sortColumn) {

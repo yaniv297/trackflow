@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import publicSongsService from '../../services/publicSongsService';
 import collaborationRequestsService from '../../services/collaborationRequestsService';
 import CollaborationRequestModal from './CollaborationRequestModal';
+import ArtistConnectionModal from './ArtistConnectionModal';
 import './SmartDiscovery.css';
 
 /**
@@ -18,6 +19,7 @@ const SmartDiscovery = () => {
   const [expandedIndividualArtists, setExpandedIndividualArtists] = useState(new Set());
   const [selectedSongForCollaboration, setSelectedSongForCollaboration] = useState(null);
   const [collaborationStatuses, setCollaborationStatuses] = useState({});
+  const [selectedArtistConnection, setSelectedArtistConnection] = useState(null);
 
   useEffect(() => {
     loadSharedConnections();
@@ -253,100 +255,73 @@ const SmartDiscovery = () => {
             <div className="shared-items">
               {displayedArtists.map((item, index) => {
                 const artistKey = `${item.artist}-${item.username}-${index}`;
-                const isExpanded = expandedIndividualArtists.has(artistKey);
-                const artistSongs = connections?.shared_songs?.filter(song => 
-                  song.artist === item.artist && song.username === item.username
-                ) || [];
+                const isExpanded = selectedArtistConnection && 
+                  selectedArtistConnection.artist === item.artist && 
+                  selectedArtistConnection.username === item.username;
                 
                 return (
-                  <div key={artistKey} className="shared-item">
-                    <div className="shared-item-content">
-                      {item.artist_image_url && (
-                        <img 
-                          src={item.artist_image_url} 
-                          alt={`${item.artist}`}
-                          className="shared-song-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <div className="shared-item-info">
-                        <div className="shared-artist">
-                          <strong>{item.artist}</strong>
-                        </div>
-                        <div className="artist-breakdown">
-                          {item.shared_songs_count > 0 && (
-                            <div className="breakdown-item">
-                              {item.shared_songs_count} shared song{item.shared_songs_count !== 1 ? 's' : ''}
-                            </div>
-                          )}
-                          <div className="breakdown-item">
-                            {item.my_songs_count || 0} by you
+                  <div key={artistKey} className="artist-card-wrapper">
+                    <div 
+                      className="shared-item shared-artist-card"
+                      onClick={() => {
+                        if (isExpanded) {
+                          setSelectedArtistConnection(null);
+                        } else {
+                          setSelectedArtistConnection({
+                            artist: item.artist,
+                            username: item.username,
+                            artistImageUrl: item.artist_image_url
+                          });
+                        }
+                      }}
+                      title={isExpanded ? "Click to collapse" : "Click to see all songs from this artist"}
+                    >
+                      <div className="shared-item-content">
+                        {item.artist_image_url && (
+                          <img 
+                            src={item.artist_image_url} 
+                            alt={`${item.artist}`}
+                            className="shared-song-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="shared-item-info">
+                          <div className="shared-artist">
+                            <strong>{item.artist}</strong>
                           </div>
-                          <div className="breakdown-item">
-                            {item.song_count} by <span 
-                              onClick={() => navigate(`/profile/${item.username}`)}
-                              className="username-link"
-                              title="Click to view profile"
-                            >
-                              {item.username}
-                            </span>
+                          <div className="artist-breakdown">
+                            <div className="breakdown-item">
+                              {item.my_songs_count || 0} by you
+                            </div>
+                            <div className="breakdown-item">
+                              {item.song_count} by <span 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/profile/${item.username}`);
+                                }}
+                                className="username-link"
+                                title="Click to view profile"
+                              >
+                                {item.username}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    {artistSongs.length > 0 && (
-                      <span
-                        onClick={() => toggleIndividualArtist(artistKey)}
-                        className="username-link"
-                        style={{ cursor: 'pointer', fontSize: '12px' }}
-                        title={isExpanded ? 'Hide songs' : 'Show songs'}
-                      >
-                        {isExpanded ? '▲' : '▼'}
+                      <span className="view-details-icon" title={isExpanded ? "Collapse" : "View details"}>
+                        {isExpanded ? '▲' : '→'}
                       </span>
-                    )}
-                    
-                    {isExpanded && artistSongs.length > 0 && (
-                      <div className="artist-songs-list" style={{ marginTop: '8px', paddingLeft: '16px' }}>
-                        {artistSongs.map((song, songIndex) => (
-                          <div key={`${song.song_id}-${songIndex}`} className="shared-item" style={{ marginBottom: '4px', fontSize: '12px' }}>
-                            <div className="shared-item-content">
-                              {song.album_cover && (
-                                <img 
-                                  src={song.album_cover} 
-                                  alt={`${song.artist} - ${song.title} cover`}
-                                  className="shared-song-cover"
-                                  style={{ width: '20px', height: '20px' }}
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              )}
-                              <div className="shared-item-info">
-                                <div className="shared-song">
-                                  <strong>{song.title}</strong>
-                                  {song.status && (
-                                    <span className="song-status-badge"> • {song.status}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleCollaborationRequest(song)}
-                              className={getCollaborationButtonClass(song.song_id)}
-                              disabled={collaborationStatuses[song.song_id] === 'pending' || 
-                                       collaborationStatuses[song.song_id] === 'accepted'}
-                              title={collaborationStatuses[song.song_id] === 'pending' 
-                                ? 'Collaboration request pending' 
-                                : collaborationStatuses[song.song_id] === 'accepted'
-                                ? 'Collaboration accepted'
-                                : 'Request collaboration on this song'}
-                            >
-                              {getCollaborationButtonText(song.song_id)}
-                            </button>
-                          </div>
-                        ))}
+                    </div>
+                    {isExpanded && (
+                      <div className="expanded-artist-detail">
+                        <ArtistConnectionModal
+                          artist={item.artist}
+                          username={item.username}
+                          artistImageUrl={item.artist_image_url}
+                          onClose={() => setSelectedArtistConnection(null)}
+                        />
                       </div>
                     )}
                   </div>

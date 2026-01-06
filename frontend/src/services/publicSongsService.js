@@ -69,6 +69,30 @@ class PublicSongsService {
   }
 
   /**
+   * Get detailed artist connection data for a specific artist and user
+   */
+  async getArtistConnectionDetails(artist, username) {
+    try {
+      const params = new URLSearchParams();
+      params.append("artist", artist);
+      params.append("username", username);
+      
+      const response = await apiGet(`/api/public-songs/artist-connection-details?${params}`);
+      return {
+        success: true,
+        data: response,
+      };
+    } catch (error) {
+      console.error("Error fetching artist connection details:", error);
+      return {
+        success: false,
+        error:
+          error.response?.data?.detail || "Failed to fetch artist connection details",
+      };
+    }
+  }
+
+  /**
    * Toggle public status of a song
    */
   async toggleSongPublic(songId) {

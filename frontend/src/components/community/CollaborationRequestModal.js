@@ -9,43 +9,8 @@ import './CollaborationRequestModal.css';
 const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
-  const [selectedParts, setSelectedParts] = useState([]);
-  const [availableParts, setAvailableParts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [loadingParts, setLoadingParts] = useState(false);
-
-
-  // Load available parts for WIP songs
-  useEffect(() => {
-    if (song.status === 'In Progress') {
-      loadAvailableParts();
-    }
-  }, [song]);
-
-  const loadAvailableParts = async () => {
-    setLoadingParts(true);
-    try {
-      const result = await collaborationRequestsService.getAvailableParts(song.id);
-      if (result.success) {
-        setAvailableParts(result.data.available_parts || []);
-      } else {
-        console.error('Failed to load available parts:', result.error);
-      }
-    } catch (err) {
-      console.error('Error loading available parts:', err);
-    } finally {
-      setLoadingParts(false);
-    }
-  };
-
-  const handlePartToggle = (part) => {
-    setSelectedParts(prev => 
-      prev.includes(part) 
-        ? prev.filter(p => p !== part)
-        : [...prev, part]
-    );
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,11 +29,6 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
         message: message.trim()
       };
 
-      // Add requested parts for WIP songs
-      if (song.status === 'In Progress' && selectedParts.length > 0) {
-        requestData.requestedParts = selectedParts;
-      }
-
       const result = await collaborationRequestsService.createRequest(requestData);
 
       if (result.success) {
@@ -82,14 +42,6 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const formatPartName = (part) => {
-    // Convert snake_case to Title Case
-    return part
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
   };
 
   const getStatusIcon = (status) => {
@@ -204,48 +156,6 @@ const CollaborationRequestModal = ({ song, onClose, onSuccess }) => {
               {message.length}/1000
             </div>
           </div>
-
-          {/* Parts Selection for WIP Songs */}
-          {song.status === 'In Progress' && (
-            <div className="form-group">
-              <label>
-                Interested Parts
-                <span className="optional"> (optional)</span>
-              </label>
-              
-              {loadingParts ? (
-                <div className="loading-parts">Loading available parts...</div>
-              ) : availableParts.length === 0 ? (
-                <div className="no-parts">
-                  No available parts for this song. All parts may already be completed.
-                </div>
-              ) : (
-                <>
-                  <p className="parts-help">
-                    Select which parts you're interested in working on:
-                  </p>
-                  <div className="parts-grid">
-                    {availableParts.map((part) => (
-                      <label key={part} className="part-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={selectedParts.includes(part)}
-                          onChange={() => handlePartToggle(part)}
-                          disabled={isSubmitting}
-                        />
-                        <span className="part-label">{formatPartName(part)}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedParts.length > 0 && (
-                    <div className="selected-parts">
-                      Selected: {selectedParts.map(formatPartName).join(', ')}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
 
           {/* Future Plans Info */}
           {song.status === 'Future Plans' && (

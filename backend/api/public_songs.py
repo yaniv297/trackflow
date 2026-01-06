@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, exists
 from database import get_db
 from models import Song, User, Artist, CollaborationRequest
 from api.auth import get_current_active_user
@@ -36,6 +36,14 @@ class PublicSongResponse(BaseModel):
 class SharedConnectionsResponse(BaseModel):
     shared_songs: List[dict]
     shared_artists: List[dict]
+
+class ArtistConnectionDetailsResponse(BaseModel):
+    artist: str
+    artist_image_url: Optional[str]
+    other_username: str
+    my_songs: List[dict]
+    their_songs: List[dict]
+    stats: dict
 
 class TogglePublicRequest(BaseModel):
     song_id: int
@@ -437,6 +445,106 @@ def get_shared_connections(
             }
             for username, artist, other_user_count, shared_songs_count, my_songs_count in shared_artists
         ]
+    )
+
+@router.get("/artist-connection-details", response_model=ArtistConnectionDetailsResponse)
+def get_artist_connection_details(
+    artist: str = Query(..., description="Artist name"),
+    username: str = Query(..., description="Other user's username"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get detailed song comparison for a specific artist between current user and another user"""
+    
+    # Get the other user
+    other_user = db.query(User.id).filter(User.username == username).first()
+    if not other_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    other_user_id = other_user.id
+    
+    # Normalize artist name for comparison (case-insensitive, trimmed)
+    artist_normalized = artist.strip()
+    
+    # Optimized: Only select columns we need, use efficient filtering
+    # Query my songs - select only needed columns
+    my_songs_rows = db.query(
+        Song.id,
+        Song.title,
+        Song.album,
+        Song.album_cover,
+        Song.status,
+        Song.year
+    ).filter(
+        Song.user_id == current_user.id,
+        func.lower(func.trim(Song.artist)) == func.lower(artist_normalized)
+    ).order_by(Song.title).all()
+    
+    # Query their songs - select only needed columns
+    their_songs_rows = db.query(
+        Song.id,
+        Song.title,
+        Song.album,
+        Song.album_cover,
+        Song.status,
+        Song.year
+    ).filter(
+        Song.user_id == other_user_id,
+        func.lower(func.trim(Song.artist)) == func.lower(artist_normalized),
+        Song.is_public == True
+    ).order_by(Song.title).all()
+    
+    # Build normalized title sets for fast lookup (only do this once)
+    their_titles_set = {row.title.lower().strip() for row in their_songs_rows}
+    my_titles_set = {row.title.lower().strip() for row in my_songs_rows}
+    
+    # Build response lists with is_shared flag (single pass, efficient)
+    my_songs = [
+        {
+            "song_id": row.id,
+            "title": row.title,
+            "album": row.album,
+            "album_cover": row.album_cover,
+            "status": row.status,
+            "year": row.year,
+            "is_shared": row.title.lower().strip() in their_titles_set
+        }
+        for row in my_songs_rows
+    ]
+    
+    their_songs = [
+        {
+            "song_id": row.id,
+            "title": row.title,
+            "album": row.album,
+            "album_cover": row.album_cover,
+            "status": row.status,
+            "year": row.year,
+            "is_shared": row.title.lower().strip() in my_titles_set
+        }
+        for row in their_songs_rows
+    ]
+    
+    # Calculate stats efficiently (use set intersection for shared count)
+    shared_titles = my_titles_set.intersection(their_titles_set)
+    stats = {
+        "shared_count": len(shared_titles),
+        "my_unique_count": len(my_titles_set - their_titles_set),
+        "their_unique_count": len(their_titles_set - my_titles_set),
+        "my_total": len(my_songs),
+        "their_total": len(their_songs)
+    }
+    
+    # Get artist image
+    artist_images = get_artist_images_batch(db, [artist])
+    artist_image_url = artist_images.get(artist.lower()) if artist else None
+    
+    return ArtistConnectionDetailsResponse(
+        artist=artist,
+        artist_image_url=artist_image_url,
+        other_username=username,  # Use the username parameter directly
+        my_songs=my_songs,
+        their_songs=their_songs,
+        stats=stats
     )
 
 @router.post("/songs/{song_id}/toggle-public")

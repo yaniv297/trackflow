@@ -13,6 +13,14 @@ export const useSongSortingAndGrouping = (
 ) => {
   const sortedSongs = useMemo(() => {
     return [...songs].sort((a, b) => {
+      // Always prioritize status: Future Plans before Released (unless explicitly sorting by status)
+      if (sortKey !== "status") {
+        const statusOrder = { "Future Plans": 0, "In Progress": 1, "Released": 2 };
+        const aStatus = statusOrder[a.status] ?? 3;
+        const bStatus = statusOrder[b.status] ?? 3;
+        if (aStatus !== bStatus) return aStatus - bStatus;
+      }
+
       if (!sortKey) return 0;
 
       let aValue = a[sortKey] || "";
@@ -45,10 +53,16 @@ export const useSongSortingAndGrouping = (
         return acc;
       }, {});
 
-      // Sort songs within each album (editable first)
+      // Sort songs within each album (status first: Future Plans before Released, then editable, then by title)
       Object.keys(grouped).forEach((artist) => {
         Object.keys(grouped[artist]).forEach((album) => {
           grouped[artist][album].sort((a, b) => {
+            // Status priority: Future Plans comes before Released
+            const statusOrder = { "Future Plans": 0, "In Progress": 1, "Released": 2 };
+            const aStatus = statusOrder[a.status] ?? 3;
+            const bStatus = statusOrder[b.status] ?? 3;
+            if (aStatus !== bStatus) return aStatus - bStatus;
+            
             // Editable songs first
             if (a.is_editable && !b.is_editable) return -1;
             if (!a.is_editable && b.is_editable) return 1;
@@ -84,9 +98,15 @@ export const useSongSortingAndGrouping = (
         return acc;
       }, {});
 
-      // Sort songs within each pack (editable first)
+      // Sort songs within each pack (status first: Future Plans before Released, then editable, then by title)
       Object.keys(grouped).forEach((packName) => {
         grouped[packName].sort((a, b) => {
+          // Status priority: Future Plans comes before Released
+          const statusOrder = { "Future Plans": 0, "In Progress": 1, "Released": 2 };
+          const aStatus = statusOrder[a.status] ?? 3;
+          const bStatus = statusOrder[b.status] ?? 3;
+          if (aStatus !== bStatus) return aStatus - bStatus;
+          
           // Editable songs first
           if (a.is_editable && !b.is_editable) return -1;
           if (!a.is_editable && b.is_editable) return 1;

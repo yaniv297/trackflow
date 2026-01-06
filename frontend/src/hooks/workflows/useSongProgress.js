@@ -1,20 +1,35 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet, apiPut } from "../../utils/api";
 import { getFieldCompletion } from "../../utils/progressUtils";
 import { checkAndShowNewAchievements } from "../../utils/achievements";
 
 /**
  * Custom hook for managing song progress state and operations
+ * 
+ * IMPORTANT: This hook uses bulk-loaded progress data from song.progress when available.
+ * Individual API calls are only made if bulk data is missing, to avoid flooding the API.
  */
 export const useSongProgress = (song, fields, onAuthoringUpdate) => {
   const [progress, setProgress] = useState(song.progress || {});
+  
+  // Track if we've attempted to fetch to avoid repeated calls
+  const hasFetchedRef = useRef(false);
+  const songIdRef = useRef(song.id);
 
-  // Update progress when song.progress changes
+  // Update progress when song.progress changes (from bulk load or external update)
   useEffect(() => {
     setProgress(song.progress || {});
   }, [song.progress]);
 
-  // Fetch song progress from new endpoint
+  // Reset fetch state if songId changes
+  useEffect(() => {
+    if (songIdRef.current !== song.id) {
+      songIdRef.current = song.id;
+      hasFetchedRef.current = false;
+    }
+  }, [song.id]);
+
+  // Fetch song progress from new endpoint (only used as fallback)
   const loadSongProgress = useCallback(async () => {
     try {
       const rows = await apiGet(`/workflows/songs/${song.id}/progress`);
@@ -29,9 +44,19 @@ export const useSongProgress = (song, fields, onAuthoringUpdate) => {
     }
   }, [song.id]);
 
+  // Only fetch individual progress if bulk data is NOT available
+  // This prevents flooding the API with individual calls when the WIP page
+  // has already bulk-loaded all progress data
   useEffect(() => {
+    // Skip if we've already fetched or if we have bulk-loaded data
+    const hasBulkData = song.progress && Object.keys(song.progress).length > 0;
+    if (hasFetchedRef.current || hasBulkData) {
+      return;
+    }
+    
+    hasFetchedRef.current = true;
     loadSongProgress();
-  }, [loadSongProgress]);
+  }, [song.progress, loadSongProgress]);
 
   const toggleAuthoringField = async (field) => {
     const currentVal = getFieldCompletion(song, field);

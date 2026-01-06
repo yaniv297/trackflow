@@ -169,9 +169,9 @@ const CommunityPage = () => {
   const handleCollaborationSuccess = () => {
     handleCloseCollaborationModal();
     // Refresh collaboration status to show the new request
+    // Note: We don't reload songs - collaboration requests don't change song data,
+    // and reloading would reset the user's page position, search, and sort settings
     loadCollaborationRequests();
-    // Also refresh songs in case anything changed
-    loadSongs();
   };
 
   // Handle batch collaboration request (multiple songs from same owner)
@@ -190,9 +190,9 @@ const CommunityPage = () => {
   const handleBatchSuccess = () => {
     handleCloseBatchModal();
     // Refresh collaboration status to show the new requests
+    // Note: We don't reload songs - collaboration requests don't change song data,
+    // and reloading would reset the user's page position, search, and sort settings
     loadCollaborationRequests();
-    // Also refresh songs in case anything changed
-    loadSongs();
   };
 
   return (

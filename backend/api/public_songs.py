@@ -36,6 +36,9 @@ class PublicSongResponse(BaseModel):
 class SharedConnectionsResponse(BaseModel):
     shared_songs: List[dict]
     shared_artists: List[dict]
+    # Pagination info
+    total_shared_songs: Optional[int] = None
+    total_shared_artists: Optional[int] = None
 
 class ArtistConnectionDetailsResponse(BaseModel):
     artist: str
@@ -335,6 +338,10 @@ def browse_public_songs(
 
 @router.get("/shared-connections", response_model=SharedConnectionsResponse)
 def get_shared_connections(
+    songs_limit: int = Query(100, ge=1, le=500, description="Max shared songs to return"),
+    songs_offset: int = Query(0, ge=0, description="Offset for shared songs pagination"),
+    artists_limit: int = Query(100, ge=1, le=500, description="Max shared artists to return"),
+    artists_offset: int = Query(0, ge=0, description="Offset for shared artists pagination"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
@@ -344,7 +351,7 @@ def get_shared_connections(
     my_songs = db.query(Song.title, Song.artist).filter(Song.user_id == current_user.id).subquery()
     
     # Find shared songs (same title + artist) - get song_id, album_cover, status, album, year
-    shared_songs_query = db.query(
+    shared_songs_base_query = db.query(
         User.username,
         Song.id,
         Song.title,
@@ -359,15 +366,13 @@ def get_shared_connections(
     .filter(
         Song.user_id != current_user.id,
         Song.is_public == True
-    ).distinct().limit(10)
+    ).distinct()
     
-    shared_songs_results = shared_songs_query.all()
+    # Get total count for shared songs
+    total_shared_songs = shared_songs_base_query.count()
     
-    # Debug: Print first result to see what we're getting
-    if shared_songs_results:
-        print(f"DEBUG: First shared song result: {shared_songs_results[0]}")
-        print(f"DEBUG: Result type: {type(shared_songs_results[0])}")
-        print(f"DEBUG: Result length: {len(shared_songs_results[0]) if hasattr(shared_songs_results[0], '__len__') else 'N/A'}")
+    # Apply pagination
+    shared_songs_results = shared_songs_base_query.offset(songs_offset).limit(songs_limit).all()
     
     # SIMPLIFIED APPROACH: Get artists where current user has songs
     my_artist_counts = db.query(
@@ -378,7 +383,7 @@ def get_shared_connections(
     ).group_by(Song.artist).subquery()
     
     # Find other users who have public songs by the same artists
-    shared_artists_query = db.query(
+    shared_artists_base_query = db.query(
         User.username,
         Song.artist,
         func.count(Song.id).label('other_user_count'),
@@ -390,8 +395,15 @@ def get_shared_connections(
         Song.user_id != current_user.id,
         Song.is_public == True
     ).group_by(User.username, Song.artist, my_artist_counts.c.my_count)\
-    .order_by(func.count(Song.id).desc())\
-    .limit(10).all()
+    .order_by(func.count(Song.id).desc())
+    
+    # Get total count for shared artists (need a subquery for grouped count)
+    total_shared_artists = db.query(func.count()).select_from(
+        shared_artists_base_query.subquery()
+    ).scalar()
+    
+    # Apply pagination
+    shared_artists_query = shared_artists_base_query.offset(artists_offset).limit(artists_limit).all()
     
     # Get artist images for shared artists
     shared_artist_names = [artist for _, artist, _, _ in shared_artists_query if artist]
@@ -451,7 +463,9 @@ def get_shared_connections(
                 "artist_image_url": artist_images.get(artist.lower()) if artist else None
             }
             for username, artist, other_user_count, shared_songs_count, my_songs_count in shared_artists
-        ]
+        ],
+        total_shared_songs=total_shared_songs,
+        total_shared_artists=total_shared_artists
     )
 
 @router.get("/artist-connection-details", response_model=ArtistConnectionDetailsResponse)

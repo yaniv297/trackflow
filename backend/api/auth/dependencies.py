@@ -27,29 +27,8 @@ def get_current_user(
     if not credentials or not credentials.credentials:
         raise credentials_exception
     
-    import json
-    import time
-    import os
-    # Use environment-specific log path or skip logging in production
-    log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
-    # #region agent log
-    try:
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"dependencies.py:30","message":"get_current_user called","data":{"hasCredentials":bool(credentials),"hasToken":bool(credentials.credentials if credentials else False),"tokenLength":len(credentials.credentials) if credentials and credentials.credentials else 0,"tokenPreview":credentials.credentials[:20]+"..." if credentials and credentials.credentials else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,B,E"})+"\n")
-    except:
-        pass
-    # #endregion
     auth_service = AuthService(db)
     user = auth_service.get_user_by_token(credentials.credentials)
-    # #region agent log
-    try:
-        import os
-        log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"dependencies.py:33","message":"get_user_by_token result","data":{"userFound":bool(user),"username":user.username if user else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A,E"})+"\n")
-    except:
-        pass
-    # #endregion
     
     if not user:
         raise credentials_exception
@@ -90,11 +69,6 @@ def get_current_user_model(
 ):
     """Get current user as SQLAlchemy User model (for routes that need the full model)."""
     from models import User
-    import json
-    import time
-    import os
-    # Use environment-specific log path or skip logging in production
-    log_path = os.getenv("DEBUG_LOG_PATH", "/Users/yanivbin/code/random/trackflow/.cursor/debug.log")
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -103,52 +77,15 @@ def get_current_user_model(
     )
     
     if not credentials or not credentials.credentials:
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"No credentials","data":{},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-        except:
-            pass
-        # #endregion
         raise credentials_exception
-    
-    # #region agent log
-    try:
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"Validating token","data":{"tokenLength":len(credentials.credentials),"tokenPreview":credentials.credentials[:20]+"..."},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-    except:
-        pass
-    # #endregion
     
     auth_service = AuthService(db)
     user = auth_service.get_user_by_token(credentials.credentials)
     
-    # #region agent log
-    try:
-        with open(log_path, "a") as f:
-            f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"Token validation result","data":{"userFound":bool(user),"username":user.username if user else None,"isActive":user.is_active if user else None},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-    except:
-        pass
-    # #endregion
-    
     if not user:
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"User not found - raising 401","data":{},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-        except:
-            pass
-        # #endregion
         raise credentials_exception
     
     if not user.is_active:
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"location":"dependencies.py:get_current_user_model","message":"User inactive - raising 401","data":{"username":user.username},"timestamp":int(time.time()*1000),"sessionId":"debug-session","runId":"run1","hypothesisId":"A"})+"\n")
-        except:
-            pass
-        # #endregion
         raise credentials_exception  # Use 401, not 403, to match old behavior
     
     # Record user activity for online tracking
@@ -194,8 +131,8 @@ def get_optional_user(
         try:
             from api.user_activity import record_activity
             record_activity(user.id)
-        except Exception as e:
-            print(f"Failed to record user activity: {e}")
+        except Exception:
+            pass
         
         # Convert to UserResponse
         return UserResponse(

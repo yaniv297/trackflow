@@ -30,7 +30,6 @@ def get_notifications(
             offset=offset,
             unread_only=unread_only
         )
-        print(f"📋 Fetching notifications for user {current_user.id}: found {len(result.notifications)} notifications")
         return result
     except Exception as e:
         print(f"❌ Error getting notifications for user {current_user.id}: {e}")
@@ -47,7 +46,6 @@ def get_notification_count(
     try:
         service = NotificationService(db)
         result = service.get_notification_counts(current_user.id)
-        print(f"📊 Notification count for user {current_user.id}: {result.unread_count} unread, {result.total_count} total")
         return result
     except Exception as e:
         print(f"❌ Error getting notification count for user {current_user.id}: {e}")
@@ -91,7 +89,6 @@ def create_welcome_notification(
     try:
         service = NotificationService(db)
         result = service.create_welcome_notification(current_user.id)
-        print(f"🎉 Created welcome notification for user {current_user.id}")
         return result
     except Exception as e:
         print(f"❌ Error creating welcome notification for user {current_user.id}: {e}")

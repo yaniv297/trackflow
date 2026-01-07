@@ -11,18 +11,32 @@ const AuthoringFields = ({
   onToggleAuthoringField,
   onUsernameClick,
   readOnly = false,
+  getStepDisplayInfo,
 }) => {
+  // Helper to get display name - uses workflow data if available, falls back to computed name
+  const getDisplayName = (field) => {
+    // Try to get from workflow data first (preserves special characters like slashes)
+    if (getStepDisplayInfo) {
+      const stepInfo = getStepDisplayInfo(field);
+      if (stepInfo && stepInfo.displayName) {
+        return stepInfo.displayName;
+      }
+    }
+    // Fallback: compute from field name
+    return field
+      .split("_")
+      .filter((w) => w.length > 0)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(" ");
+  };
+
   const renderFieldBadge = (field, filled) => {
     // Handle undefined, null, or empty field values
     if (!field || typeof field !== 'string') {
       return null;
     }
     
-    const displayName = field
-      .split("_")
-      .filter((w) => w.length > 0) // Filter out empty strings from split
-      .map((w) => w[0].toUpperCase() + w.slice(1))
-      .join(" ");
+    const displayName = getDisplayName(field);
 
     const bg = filled ? "#4caf50" : "#ddd";
     const color = filled ? "white" : "black";

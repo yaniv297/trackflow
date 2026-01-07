@@ -184,13 +184,11 @@ class SongService:
             if ((isinstance(new_status, str) and new_status == "Future Plans") or new_status == SongStatus.future):
                 if old_status != "Future Plans" and old_status != SongStatus.future:
                     self.achievements_repo.increment_future_creation_count(self.db, current_user.id, commit=False)
-                    print(f"🎯 Incremented Future Plans creation count for user {current_user.id} (status change: {old_status} → {new_status})")
             
             # Increment WIP creation counter when status changes TO "In Progress"
             if ((isinstance(new_status, str) and new_status == "In Progress") or new_status == SongStatus.wip):
                 if old_status != "In Progress" and old_status != SongStatus.wip:
                     self.achievements_repo.increment_wip_creation_count(self.db, current_user.id, commit=False)
-                    print(f"🎯 Incremented WIP creation count for user {current_user.id} (status change: {old_status} → {new_status})")
 
                     # When moving songs from Future Plans to WIP (e.g., "Start work" on a pack),
                     # clear any existing optional flags so that WIP counts and visibility
@@ -201,19 +199,16 @@ class SongService:
                     if old_status_str == "Future Plans":
                         if getattr(song, "optional", None):
                             song.optional = False
-                            print(f"🔧 Cleared optional flag for song {song.id} when starting work (Future Plans → In Progress)")
             
             # Set released_at timestamp when status changes to Released
             # Handle both string and enum values
             if (isinstance(new_status, str) and new_status == "Released") or new_status == SongStatus.released:
                 if old_status != "Released" and old_status != SongStatus.released:
                     song.released_at = datetime.utcnow()
-                    print(f"🚀 Set released_at for song {song.id} '{song.title}' - status change from {old_status} to {new_status}")
                     
                     # Award 10 points for releasing a song
                     try:
                         self.achievements_repo.update_user_total_points(self.db, current_user.id, 10, commit=False)
-                        print(f"🎯 Awarded 10 points to user {current_user.id} for releasing song '{song.title}'")
                         
                         # Create notification for the user
                         self.notification_service.create_general_notification(
@@ -242,7 +237,6 @@ class SongService:
             elif song.released_at is not None:
                 if old_status == "Released" or old_status == SongStatus.released:
                     song.released_at = None
-                    print(f"🔄 Cleared released_at for song {song.id} '{song.title}' - status change from {old_status} to {new_status}")
             
             # Notify collaborators about non-release status changes (e.g. Future Plans → WIP)
             try:
@@ -411,8 +405,7 @@ class SongService:
         # Clean remaster tags from all newly created songs
         try:
             from api.tools import bulk_clean_remaster_tags_function
-            cleaned_songs = bulk_clean_remaster_tags_function(song_ids, self.db, current_user.id)
-            print(f"🧹 Cleaned remaster tags from {len(cleaned_songs)} songs in batch")
+            bulk_clean_remaster_tags_function(song_ids, self.db, current_user.id)
         except Exception as e:
             print(f"⚠️ Failed to clean remaster tags for batch songs: {e}")
             # Don't fail the batch creation if cleaning fails
@@ -875,7 +868,6 @@ class SongService:
             if old_status != SongStatus.released:
                 try:
                     self.achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
-                    print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}'")
                     points_awarded += 10
                     released_songs.append(song.title)
                 except Exception as e:
@@ -986,9 +978,6 @@ class SongService:
                 song_status=status_str,
                 new_song_id=song.id,
             )
-            
-            if sent_count > 0:
-                print(f"🤝 Sent {sent_count} potential collaboration notification(s) for '{song.title}' by {song.artist}")
                 
         except Exception as e:
             print(f"⚠️ Failed to check potential collaboration notifications: {e}")

@@ -122,8 +122,7 @@ class PlaylistService:
                 
                 if recent_songs:
                     song_ids = [song.id for song in recent_songs]
-                    cleaned_songs = bulk_clean_remaster_tags_function(song_ids, db, current_user.id)
-                    print(f"🧹 Cleaned remaster tags from {len(cleaned_songs)} songs")
+                    bulk_clean_remaster_tags_function(song_ids, db, current_user.id)
                     
             except Exception as e:
                 print(f"⚠️ Failed to clean remaster tags: {e}")

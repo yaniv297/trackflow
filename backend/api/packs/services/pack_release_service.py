@@ -98,27 +98,20 @@ class PackReleaseService:
         # Check if this pack is associated with an album series and release it
         album_series = self.db.query(AlbumSeries).filter(AlbumSeries.pack_id == pack_id).first()
         if album_series:
-            print(f"🔧 Found album series {album_series.id} associated with pack {pack_id}")
             # Only release the series if it's not already released
             if album_series.status != "released":
-                print(f"🔧 Releasing album series {album_series.id} and assigning series number")
                 try:
                     from api.album_series.services.album_series_service import AlbumSeriesService
                     album_series_service = AlbumSeriesService(self.db)
-                    result = album_series_service.release_series(album_series.id)
-                    print(f"✅ Album series released: {result.get('message', 'Success')}")
+                    album_series_service.release_series(album_series.id)
                 except ValueError as e:
                     # Series already released or not found - log but don't fail the pack release
                     print(f"⚠️ Could not release album series: {e}")
                 except Exception as e:
                     # Log error but don't fail the pack release
                     print(f"⚠️ Error releasing album series: {e}")
-            else:
-                print(f"ℹ️ Album series {album_series.id} is already released (series #{album_series.series_number})")
         
-        print("🔧 About to commit changes to database")
         self.pack_repo.commit()
-        print("✅ Database changes committed")
         
         # Check pack achievements
         try:
@@ -252,16 +245,8 @@ class PackReleaseService:
     
     def _release_pack_songs(self, pack_id: int, release_data: PackReleaseData, user_id: int):
         """Handle song status changes during pack release (matches original logic)."""
-        # Debug: Log song download links received
-        if release_data.song_download_links:
-            print(f"🔧 Received song_download_links: {release_data.song_download_links}")
-            print(f"🔧 Keys type: {[type(k).__name__ for k in release_data.song_download_links.keys()]}")
-        else:
-            print("🔧 No song_download_links provided")
-        
         # Get all songs in the pack
         songs = self.db.query(Song).filter(Song.pack_id == pack_id).all()
-        print(f"🔧 Found {len(songs)} songs in pack {pack_id}")
         
         # Release completed songs and move optional incomplete songs to "Future Plans"
         released_count = 0
@@ -272,11 +257,9 @@ class PackReleaseService:
         user_releases = defaultdict(lambda: {'points': 0, 'song_count': 0})
         
         for song in songs:
-            print(f"🔧 Processing song {song.id}: '{song.title}' status='{song.status}' optional={song.optional}")
             if song.status == "In Progress":
                 if not song.optional:
                     # Required song must be released
-                    print(f"✅ Releasing required song {song.id}: {song.title}")
                     song.status = "Released"
                     song.released_at = datetime.utcnow()
                     
@@ -291,7 +274,6 @@ class PackReleaseService:
                         
                         if download_link:
                             song.release_download_link = download_link
-                            print(f"🔗 Set download link for song {song.id}: {song.release_download_link}")
                     
                     # Award 10 points for releasing a song (but don't send notification yet)
                     try:
@@ -299,7 +281,6 @@ class PackReleaseService:
                         
                         achievements_repo = AchievementsRepository()
                         achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
-                        print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (pack release)")
                         
                         # Track for aggregated notification
                         user_releases[song.user_id]['points'] += 10
@@ -340,7 +321,6 @@ class PackReleaseService:
                 # Points would have been awarded when the song was first released
                 if not song.released_at:
                     song.released_at = datetime.utcnow()
-                    print(f"🔧 Fixed missing released_at timestamp for already-released song {song.id}: {song.title}")
                 
                 # Set song download link if provided
                 if release_data.song_download_links:

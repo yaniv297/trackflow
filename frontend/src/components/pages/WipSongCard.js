@@ -54,7 +54,7 @@ export default function WipSongCard({
   const [showChangeAlbumArtModal, setShowChangeAlbumArtModal] = useState(false);
 
   const { user: currentUser } = useAuth();
-  const { authoringFields } = useWorkflowData(currentUser);
+  const { authoringFields, getStepDisplayInfo } = useWorkflowData(currentUser);
 
   // Prefer fields provided via props (owner's workflow) over current user's
   const effectiveAuthoringFields = useMemo(() => {
@@ -273,6 +273,7 @@ export default function WipSongCard({
               onToggleAuthoringField={toggleAuthoringField}
               onUsernameClick={handleUsernameClick}
               readOnly={readOnly}
+              getStepDisplayInfo={getStepDisplayInfo}
             />
           </div>
         )}

@@ -96,12 +96,10 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
         # Increment Future Plans creation counter if song created as Future Plans
         if db_song.status == SongStatus.future:
             achievements_repo.increment_future_creation_count(db, user.id, commit=False)
-            print(f"🎯 Incremented Future Plans creation count for user {user.id} (song: {db_song.title})")
         
         # Increment WIP creation counter if song created as WIP  
         elif db_song.status == SongStatus.wip:
             achievements_repo.increment_wip_creation_count(db, user.id, commit=False)
-            print(f"🎯 Incremented WIP creation count for user {user.id} (song: {db_song.title})")
             
     except Exception as e:
         print(f"⚠️ Failed to increment achievement counters: {e}")

@@ -368,9 +368,13 @@ const UnifiedCollaborationModal = ({
             newWipChanges[actualSongId] = [];
           }
           selectedInstruments.forEach((instrument) => {
+            // Convert display_name to step_name using the mapping
+            // This preserves special characters like slashes in display_name
+            // while using the correct step_name (e.g., "events__beat") for storage
+            const stepName = uiToDbFieldMap[instrument] || instrument.toLowerCase().replace(/\s+/g, "_");
             newWipChanges[actualSongId].push({
               collaborator: user.username,
-              field: instrument.toLowerCase().replace(/\s+/g, "_"),
+              field: stepName,
             });
           });
         });

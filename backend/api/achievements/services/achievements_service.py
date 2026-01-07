@@ -435,7 +435,6 @@ class AchievementsService:
                 newly_awarded = list(new_achievements - current_achievements)
                 
                 if newly_awarded:
-                    print(f"🎉 User {user_id} earned {len(newly_awarded)} new achievements: {newly_awarded}")
                 
                 return newly_awarded
             

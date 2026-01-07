@@ -447,10 +447,6 @@ def get_shared_connections(
             "year": year
         })
     
-    # Debug: Print the first item in the list
-    if shared_songs_list:
-        print(f"DEBUG: First shared song dict: {shared_songs_list[0]}")
-    
     return SharedConnectionsResponse(
         shared_songs=shared_songs_list,
         shared_artists=[

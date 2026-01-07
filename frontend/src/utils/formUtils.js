@@ -2,6 +2,24 @@
  * Utility functions for forms
  */
 
+// Detect initialisms like P.S., U.S.A., D.J.
+const isInitialism = (word) => /^([A-Za-z]\.)+[A-Za-z]?$/.test(word);
+
+// Capitalize a word, handling leading punctuation and initialisms
+const capitalizeWord = (word) => {
+  // Preserve initialisms as uppercase
+  if (isInitialism(word)) {
+    return word.toUpperCase();
+  }
+  // Find the first alphabetic character and capitalize it
+  const match = word.match(/^([^a-zA-Z]*)([a-zA-Z])(.*)$/);
+  if (match) {
+    const [, prefix, firstLetter, rest] = match;
+    return prefix + firstLetter.toUpperCase() + rest.toLowerCase();
+  }
+  return word;
+};
+
 /**
  * Capitalize artist and album names with proper handling of common words
  */
@@ -77,12 +95,12 @@ export const capitalizeName = (name) => {
 
   return words
     .map((word, index) => {
-      // Only lowercase these words if they're NOT the first word
-      if (index > 0 && lowerWords.includes(word.toLowerCase())) {
+      // Only lowercase these words if they're NOT the first word AND not after punctuation
+      const startsAfterPunctuation = /^[(\["']/.test(word);
+      if (index > 0 && !startsAfterPunctuation && lowerWords.includes(word.toLowerCase())) {
         return word.toLowerCase();
       }
-      // Capitalize first letter of each word
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      return capitalizeWord(word);
     })
     .join(" ");
 };
@@ -93,6 +111,6 @@ export const capitalizeName = (name) => {
 export const simpleCapitalize = (str) =>
   str
     .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => capitalizeWord(word))
     .join(" ");
 

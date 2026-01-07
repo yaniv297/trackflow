@@ -149,6 +149,23 @@ export const useWorkflowData = (user) => {
     }
   }, [user?.id, loadUserWorkflow]);
 
+  // Listen for workflow update events to clear cache
+  useEffect(() => {
+    const handleWorkflowUpdate = () => {
+      // Clear the cache and force reload
+      workflowCache.data = null;
+      workflowCache.timestamp = 0;
+      if (user?.id) {
+        loadUserWorkflow(true);
+      }
+    };
+    
+    window.addEventListener("workflow-updated", handleWorkflowUpdate);
+    return () => {
+      window.removeEventListener("workflow-updated", handleWorkflowUpdate);
+    };
+  }, [user?.id, loadUserWorkflow]);
+
   // Dynamic authoring fields based on user's workflow (simplified)
   const authoringFields = useMemo(() => {
     if (!userWorkflow || !userWorkflow.steps) {

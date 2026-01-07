@@ -355,7 +355,6 @@ class SongRepository:
                 # Award 10 points for releasing a song (but don't send notification yet)
                 try:
                     achievements_repo.update_user_total_points(self.db, song.user_id, 10, commit=False)
-                    print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (album series)")
                     
                     # Track for aggregated notification
                     user_releases[song.user_id]['points'] += 10

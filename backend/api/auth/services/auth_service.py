@@ -190,11 +190,12 @@ class AuthService:
                 detail="User account already claimed"
             )
         
-        # Update user with credentials
+        # Update user with credentials and set last_login_at (claiming = first login)
         update_data = {
             "email": email,
             "hashed_password": self.get_password_hash(password),
-            "is_active": True
+            "is_active": True,
+            "last_login_at": datetime.utcnow()
         }
         
         self.user_repo.update_user(user, update_data)

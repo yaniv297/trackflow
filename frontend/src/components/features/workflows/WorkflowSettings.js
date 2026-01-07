@@ -59,6 +59,14 @@ const WorkflowSettings = () => {
 
       setWorkflow(updatedWorkflow);
       setEditingSteps([...updatedWorkflow.steps]);
+      
+      // Clear workflow cache to force refresh on WIP page
+      // This ensures the updated display_name (e.g., "Events / Beat") is shown immediately
+      if (window.location.pathname !== "/wip") {
+        // Trigger a custom event to clear workflow caches across the app
+        window.dispatchEvent(new CustomEvent("workflow-updated"));
+      }
+      
       window.showNotification("Workflow updated successfully!", "success");
     } catch (error) {
       console.error("Failed to save workflow:", error);
@@ -83,6 +91,8 @@ const WorkflowSettings = () => {
     updated[index] = { ...updated[index], [field]: value };
 
     // Auto-generate step_name from display_name
+    // NOTE: display_name is preserved as-is (including slashes, special chars, etc.)
+    // Only step_name is sanitized for use as a database identifier
     if (field === "display_name") {
       updated[index].step_name = value
         .toLowerCase()

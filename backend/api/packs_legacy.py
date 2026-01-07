@@ -604,7 +604,6 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
         if status_update.status == "Released":
             if old_status != SongStatus.released and old_status != "Released":
                 song.released_at = release_timestamp
-                print(f"🚀 Pack Release: Set released_at for song {song.id} '{song.title}' - status change from {old_status} to Released")
                 
                 # Award 10 points for releasing a song (but don't send notification yet)
                 try:
@@ -612,7 +611,6 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
                     
                     achievements_repo = AchievementsRepository()
                     achievements_repo.update_user_total_points(db, song.user_id, 10, commit=False)
-                    print(f"🎯 Awarded 10 points to user {song.user_id} for releasing song '{song.title}' (bulk pack release)")
                     
                     # Track for aggregated notification
                     user_releases[song.user_id]['points'] += 10
@@ -623,9 +621,6 @@ def update_pack_status(pack_id: int, status_update: PackStatusUpdate, db: Sessio
             elif song.released_at is None:
                 # Edge case: song is already Released but has no timestamp
                 song.released_at = release_timestamp
-                print(f"🔧 Pack Release: Fixed missing released_at for song {song.id} '{song.title}' (was already Released)")
-            else:
-                print(f"ℹ️ Pack Release: Song {song.id} '{song.title}' already released with timestamp {song.released_at}")
     
     # Send aggregated notifications for each user
     if user_releases:

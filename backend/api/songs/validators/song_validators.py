@@ -60,8 +60,13 @@ class SongValidator:
         # Validate year if being updated
         if "year" in updates:
             year = updates["year"]
-            if year is not None and (year < 1900 or year > 2100):
-                raise HTTPException(status_code=400, detail="Year must be between 1900 and 2100")
+            if year is not None:
+                try:
+                    year_int = int(year)
+                    if year_int < 1900 or year_int > 2100:
+                        raise HTTPException(status_code=400, detail="Year must be between 1900 and 2100")
+                except (ValueError, TypeError):
+                    raise HTTPException(status_code=400, detail="Year must be a valid integer")
     
     @staticmethod
     def validate_batch_create(songs_data: List[SongCreate], current_user=None, db=None) -> None:

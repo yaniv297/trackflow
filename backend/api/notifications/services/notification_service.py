@@ -321,7 +321,6 @@ class NotificationService:
                 )
                 notified_user_ids.add(user.id)
                 sent_count += 1
-                print(f"🤝 Sent potential collaboration notification to {user.username} for '{song_title}'")
             except Exception as e:
                 print(f"⚠️ Failed to send potential collaboration notification to {user.username}: {e}")
         

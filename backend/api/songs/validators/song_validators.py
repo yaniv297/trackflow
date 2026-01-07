@@ -65,6 +65,8 @@ class SongValidator:
                     year_int = int(year)
                     if year_int < 1900 or year_int > 2100:
                         raise HTTPException(status_code=400, detail="Year must be between 1900 and 2100")
+                    # Convert the year to int in the updates dict to ensure proper type
+                    updates["year"] = year_int
                 except (ValueError, TypeError):
                     raise HTTPException(status_code=400, detail="Year must be a valid integer")
     

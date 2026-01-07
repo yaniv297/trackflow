@@ -434,8 +434,6 @@ class AchievementsService:
                 new_achievements = self.repository.get_user_achievement_codes(db, user_id)
                 newly_awarded = list(new_achievements - current_achievements)
                 
-                if newly_awarded:
-                
                 return newly_awarded
             
             except Exception as e:

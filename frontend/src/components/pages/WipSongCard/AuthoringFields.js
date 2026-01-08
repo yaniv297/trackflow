@@ -1,5 +1,5 @@
 import React from "react";
-import { getFieldCompletion } from "../../../utils/progressUtils";
+import { getFieldCompletion, isFieldIrrelevant } from "../../../utils/progressUtils";
 
 /**
  * Component for displaying and managing authoring fields
@@ -30,13 +30,40 @@ const AuthoringFields = ({
       .join(" ");
   };
 
-  const renderFieldBadge = (field, filled) => {
+  const renderFieldBadge = (field, filled, isIrrelevantStep = false) => {
     // Handle undefined, null, or empty field values
     if (!field || typeof field !== 'string') {
       return null;
     }
     
     const displayName = getDisplayName(field);
+
+    // Irrelevant steps have a distinct visual style
+    if (isIrrelevantStep) {
+      return (
+        <span
+          key={field}
+          style={{
+            padding: "0.25rem 0.6rem",
+            borderRadius: "12px",
+            fontSize: "0.85rem",
+            backgroundColor: "#f0f0f0",
+            color: "#999",
+            display: "inline-flex",
+            alignItems: "center",
+            lineHeight: "1",
+            cursor: "default",
+            userSelect: "none",
+            opacity: 0.6,
+            textDecoration: "line-through",
+            border: "1px dashed #ccc",
+          }}
+          title="This part was removed (instrument doesn't exist in this song)"
+        >
+          {displayName}
+        </span>
+      );
+    }
 
     const bg = filled ? "#4caf50" : "#ddd";
     const color = filled ? "white" : "black";
@@ -91,7 +118,8 @@ const AuthoringFields = ({
             .filter((field) => field && typeof field === 'string')
             .map((field) => {
               const filled = getFieldCompletion(song, field);
-              return renderFieldBadge(field, filled);
+              const irrelevant = isFieldIrrelevant(song, field);
+              return renderFieldBadge(field, filled, irrelevant);
             })}
         </div>
       </div>
@@ -184,7 +212,8 @@ const AuthoringFields = ({
           .filter((field) => field && typeof field === 'string')
           .map((field) => {
             const filled = getFieldCompletion(song, field);
-            return renderFieldBadge(field, filled);
+            const irrelevant = isFieldIrrelevant(song, field);
+            return renderFieldBadge(field, filled, irrelevant);
           })}
       </div>
     </div>

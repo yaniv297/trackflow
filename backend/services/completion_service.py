@@ -68,6 +68,11 @@ def fetch_workflow_fields_map(db: Session, user_ids: Iterable[int]) -> Dict[int,
 
 
 def fetch_song_progress_map(db: Session, song_ids: Iterable[int]) -> Dict[int, Dict[str, bool]]:
+    """Fetch song progress map including is_completed status.
+    
+    Returns:
+        Dict mapping song_id -> step_name -> is_completed
+    """
     song_ids = [sid for sid in song_ids if sid]
     if not song_ids:
         return {}
@@ -89,6 +94,35 @@ def fetch_song_progress_map(db: Session, song_ids: Iterable[int]) -> Dict[int, D
     for song_id, step_name, is_completed in rows:
         progress_map.setdefault(song_id, {})[step_name] = bool(is_completed)
     return progress_map
+
+
+def fetch_song_irrelevant_steps_map(db: Session, song_ids: Iterable[int]) -> Dict[int, set]:
+    """Fetch map of irrelevant steps per song.
+    
+    Returns:
+        Dict mapping song_id -> set of step_names marked as irrelevant
+    """
+    song_ids = [sid for sid in song_ids if sid]
+    if not song_ids:
+        return {}
+
+    placeholders = ",".join([f":sid{i}" for i in range(len(song_ids))])
+    params = {f"sid{i}": song_id for i, song_id in enumerate(song_ids)}
+    rows = db.execute(
+        text(
+            f"""
+            SELECT song_id, step_name
+            FROM song_progress
+            WHERE song_id IN ({placeholders}) AND is_irrelevant = TRUE
+            """
+        ),
+        params,
+    ).fetchall()
+
+    irrelevant_map: Dict[int, set] = {}
+    for song_id, step_name in rows:
+        irrelevant_map.setdefault(song_id, set()).add(step_name)
+    return irrelevant_map
 
 
 def fetch_legacy_authoring_map(db: Session, song_ids: Iterable[int]) -> Dict[int, Dict[str, bool]]:
@@ -135,7 +169,15 @@ def build_song_completion_data(
     include_remaining_steps: bool = True,
     use_cache: bool = True,
 ) -> Dict[int, Dict[str, Any]]:
-
+    """Build completion data for songs, accounting for irrelevant steps.
+    
+    Irrelevant steps (marked as N/A for specific songs) are excluded from:
+    - Total step count
+    - Completion percentage calculation
+    - Remaining steps list
+    
+    This allows accurate completion tracking for songs that don't have all instruments.
+    """
     songs = list(songs)
     song_ids = [_get_value(song, "id") for song in songs if _get_value(song, "id")]
     
@@ -154,6 +196,7 @@ def build_song_completion_data(
 
     workflow_fields_map = fetch_workflow_fields_map(db, owner_ids)
     progress_map = fetch_song_progress_map(db, song_ids)
+    irrelevant_map = fetch_song_irrelevant_steps_map(db, song_ids)
 
     missing_progress = [
         sid for sid in song_ids if sid not in progress_map or len(progress_map.get(sid, {})) == 0
@@ -178,12 +221,18 @@ def build_song_completion_data(
                 "completion": None,
                 "remaining_steps": [],
                 "workflow_fields": [],
+                "irrelevant_steps": [],
             }
             continue
 
         song_progress = progress_map.get(song_id, {})
-        total_fields = len(workflow_fields)
-        completed_count = sum(1 for field in workflow_fields if song_progress.get(field, False))
+        song_irrelevant = irrelevant_map.get(song_id, set())
+        
+        # Filter out irrelevant steps from the workflow fields for this song
+        relevant_fields = [f for f in workflow_fields if f not in song_irrelevant]
+        
+        total_fields = len(relevant_fields)
+        completed_count = sum(1 for field in relevant_fields if song_progress.get(field, False))
 
         completion = (
             round((completed_count / total_fields) * 100) if total_fields > 0 else None
@@ -193,14 +242,16 @@ def build_song_completion_data(
         if include_remaining_steps:
             remaining_steps = [
                 _format_step_name(field)
-                for field in workflow_fields
+                for field in relevant_fields
                 if not song_progress.get(field, False)
             ]
 
         completion_data[song_id] = {
             "completion": completion,
             "remaining_steps": remaining_steps,
-            "workflow_fields": workflow_fields,
+            "workflow_fields": workflow_fields,  # All fields for reference
+            "relevant_fields": relevant_fields,  # Fields after removing irrelevant ones
+            "irrelevant_steps": list(song_irrelevant),  # Which steps are marked irrelevant
         }
     
     # Cache the results

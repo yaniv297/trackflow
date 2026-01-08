@@ -78,6 +78,7 @@ export const useWipSongOperations = (
             "album",
             "year",
             "notes",
+            "irrelevantSteps",  // N/A steps for progress calculation
           ];
 
           safeFields.forEach((field) => {

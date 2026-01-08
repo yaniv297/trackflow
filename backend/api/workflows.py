@@ -18,7 +18,7 @@ from api.activity_logger import log_activity
 from workflow_schemas import (
     UserWorkflowOut, UserWorkflowUpdate,
     SongProgressOut, SongProgressUpdate, BulkProgressUpdate,
-    WorkflowSummary
+    WorkflowSummary, IrrelevantStepsUpdate
 )
 import time
 
@@ -461,7 +461,7 @@ async def get_bulk_song_progress(
         song_ids: Comma-separated list of song IDs (e.g., "1,2,3,4,5")
     
     Returns:
-        Dict mapping song_id to progress map {step_name: is_completed}
+        Dict mapping song_id to {progress: {step_name: is_completed}, irrelevant_steps: [step_names]}
     """
     if not song_ids:
         return {}
@@ -474,28 +474,35 @@ async def get_bulk_song_progress(
     if not ids or len(ids) > 500:  # Limit to 500 songs per request
         return {}
     
-    # Fetch all progress for these songs in one query
+    # Fetch all progress for these songs in one query (including is_irrelevant)
     placeholders = ",".join([f":id{i}" for i in range(len(ids))])
     params = {f"id{i}": song_id for i, song_id in enumerate(ids)}
     
     rows = db.execute(text(f"""
-        SELECT song_id, step_name, is_completed
+        SELECT song_id, step_name, is_completed, COALESCE(is_irrelevant, FALSE) as is_irrelevant
         FROM song_progress
         WHERE song_id IN ({placeholders})
     """), params).fetchall()
     
-    # Group by song_id
+    # Group by song_id with both progress and irrelevant steps
     result = {}
     for r in rows:
         song_id = r[0]
+        step_name = r[1]
+        is_completed = bool(r[2])
+        is_irrelevant = bool(r[3])
+        
         if song_id not in result:
-            result[song_id] = {}
-        result[song_id][r[1]] = bool(r[2])  # step_name -> is_completed
+            result[song_id] = {"progress": {}, "irrelevant_steps": []}
+        
+        result[song_id]["progress"][step_name] = is_completed
+        if is_irrelevant:
+            result[song_id]["irrelevant_steps"].append(step_name)
     
     # Ensure all requested songs are in the result (even if no progress)
     for song_id in ids:
         if song_id not in result:
-            result[song_id] = {}
+            result[song_id] = {"progress": {}, "irrelevant_steps": []}
     
     return result
 
@@ -519,6 +526,140 @@ async def bulk_update_song_progress(
 ):
     """Update multiple progress steps for a song at once"""
     raise HTTPException(status_code=501, detail="Not implemented yet")
+
+
+@router.get("/songs/{song_id}/irrelevant-steps")
+async def get_irrelevant_steps(
+    song_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Get steps marked as irrelevant for a specific song.
+    
+    Returns a list of step_names that are marked as irrelevant (N/A) for this song.
+    These steps are excluded from completion percentage calculations.
+    """
+    # Verify song exists and user has access
+    song = db.execute(text("SELECT user_id FROM songs WHERE id = :sid"), {"sid": song_id}).fetchone()
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    # Get irrelevant steps for this song
+    rows = db.execute(text("""
+        SELECT step_name FROM song_progress 
+        WHERE song_id = :sid AND is_irrelevant = TRUE
+    """), {"sid": song_id}).fetchall()
+    
+    return {"irrelevant_steps": [row[0] for row in rows]}
+
+
+@router.put("/songs/{song_id}/irrelevant-steps")
+async def update_irrelevant_steps(
+    song_id: int,
+    update: IrrelevantStepsUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """Update which steps are marked as irrelevant for a song.
+    
+    This allows users to mark certain workflow steps as N/A for specific songs.
+    For example, if a song doesn't have Keys/Pro Keys parts, those steps can be
+    marked as irrelevant. Irrelevant steps are excluded from completion calculations.
+    
+    Args:
+        song_id: The song to update
+        update: List of step_names to mark as irrelevant (all other steps become relevant)
+    
+    Returns:
+        Updated list of irrelevant steps
+    """
+    from models import Collaboration, CollaborationType
+    
+    # Verify song exists
+    song = db.execute(text("SELECT user_id FROM songs WHERE id = :sid"), {"sid": song_id}).fetchone()
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    
+    owner_id = song[0]
+    
+    # Check permissions - must be owner or have song edit collaboration
+    is_owner = owner_id == current_user.id
+    is_collaborator = db.execute(text("""
+        SELECT 1 FROM collaborations 
+        WHERE song_id = :sid AND user_id = :uid AND collaboration_type = 'SONG_EDIT'
+        LIMIT 1
+    """), {"sid": song_id, "uid": current_user.id}).fetchone() is not None
+    
+    if not is_owner and not is_collaborator:
+        raise HTTPException(status_code=403, detail="You don't have permission to update this song")
+    
+    # Get owner's workflow steps to validate the provided step names
+    workflow_steps = db.execute(text("""
+        SELECT uws.step_name 
+        FROM user_workflows uw
+        JOIN user_workflow_steps uws ON uws.workflow_id = uw.id
+        WHERE uw.user_id = :uid
+    """), {"uid": owner_id}).fetchall()
+    
+    valid_step_names = {row[0] for row in workflow_steps}
+    
+    # Validate that all provided steps are valid
+    invalid_steps = set(update.irrelevant_steps) - valid_step_names
+    if invalid_steps:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid step names: {', '.join(invalid_steps)}"
+        )
+    
+    # First, ensure progress rows exist for all workflow steps
+    for step_name in valid_step_names:
+        db.execute(text("""
+            INSERT INTO song_progress (song_id, step_name, is_completed, is_irrelevant, created_at, updated_at)
+            VALUES (:sid, :step, FALSE, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(song_id, step_name) DO NOTHING
+        """), {"sid": song_id, "step": step_name})
+    
+    # Reset all steps to relevant first
+    db.execute(text("""
+        UPDATE song_progress 
+        SET is_irrelevant = FALSE, updated_at = CURRENT_TIMESTAMP
+        WHERE song_id = :sid
+    """), {"sid": song_id})
+    
+    # Mark specified steps as irrelevant
+    if update.irrelevant_steps:
+        for step_name in update.irrelevant_steps:
+            db.execute(text("""
+                UPDATE song_progress 
+                SET is_irrelevant = TRUE, updated_at = CURRENT_TIMESTAMP
+                WHERE song_id = :sid AND step_name = :step
+            """), {"sid": song_id, "step": step_name})
+    
+    db.commit()
+    
+    # Clear any completion caches for this song
+    try:
+        from services.completion_cache import invalidate_song_cache
+        invalidate_song_cache(song_id)
+    except Exception as e:
+        print(f"⚠️ Failed to invalidate completion cache: {e}")
+    
+    # Log activity
+    try:
+        log_activity(
+            db=db,
+            user_id=current_user.id,
+            activity_type="update_irrelevant_steps",
+            description=f"{current_user.username} updated irrelevant steps for a song",
+            metadata={
+                "song_id": song_id,
+                "irrelevant_steps": update.irrelevant_steps
+            }
+        )
+    except Exception as log_err:
+        print(f"⚠️ Failed to log activity: {log_err}")
+    
+    return {"irrelevant_steps": update.irrelevant_steps}
 
 # ========================================
 # Helper Functions

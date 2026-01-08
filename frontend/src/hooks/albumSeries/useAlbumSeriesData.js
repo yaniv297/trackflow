@@ -54,16 +54,27 @@ export const useAlbumSeriesData = () => {
               `/workflows/songs/progress/bulk?song_ids=${songIds}`
             );
 
+            // Helper to extract progress and irrelevant steps from new or legacy format
+            const extractProgressData = (songId, existingProgress) => {
+              const songProgressData = progressMap[songId] || {};
+              const hasNewFormat = songProgressData.progress !== undefined;
+              
+              return {
+                progress: hasNewFormat ? songProgressData.progress : (songProgressData || existingProgress || {}),
+                irrelevantSteps: hasNewFormat ? (songProgressData.irrelevant_steps || []) : [],
+              };
+            };
+
             // Update data with songs that have progress
             const updatedData = {
               ...data,
               album_songs: data.album_songs.map((s) => ({
                 ...s,
-                progress: progressMap[s.id] || s.progress || {},
+                ...extractProgressData(s.id, s.progress),
               })),
               bonus_songs: data.bonus_songs.map((s) => ({
                 ...s,
-                progress: progressMap[s.id] || s.progress || {},
+                ...extractProgressData(s.id, s.progress),
               })),
             };
 

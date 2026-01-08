@@ -80,6 +80,7 @@ class UserWorkflowOut(UserWorkflowBase):
 class SongProgressBase(BaseModel):
     step_name: str
     is_completed: bool = False
+    is_irrelevant: bool = False  # Step is N/A for this song (e.g., no keys part)
     notes: Optional[str] = None
 
 class SongProgressCreate(SongProgressBase):
@@ -87,6 +88,7 @@ class SongProgressCreate(SongProgressBase):
 
 class SongProgressUpdate(BaseModel):
     is_completed: Optional[bool] = None
+    is_irrelevant: Optional[bool] = None
     notes: Optional[str] = None
 
 class SongProgressOut(SongProgressBase):
@@ -98,6 +100,12 @@ class SongProgressOut(SongProgressBase):
     
     class Config:
         from_attributes = True
+
+
+# Schema for updating irrelevant steps
+class IrrelevantStepsUpdate(BaseModel):
+    """Update which steps are marked as irrelevant for a song"""
+    irrelevant_steps: List[str]  # List of step_names to mark as irrelevant
 
 # Combined schemas for API responses
 class SongWithProgress(BaseModel):

@@ -17,6 +17,7 @@ const SongActions = ({
   onLoadSpotifyOptions,
   onShowMovePackModal,
   onShowChangeAlbumArtModal,
+  onShowIrrelevantStepsModal,
   onDelete,
   onSongUpdate,
   readOnly = false,
@@ -246,6 +247,23 @@ const SongActions = ({
             }}
           >
             Change Album Art
+          </button>
+
+          <button
+            onClick={() => {
+              onShowIrrelevantStepsModal();
+              setShowActionsDropdown(false);
+            }}
+            style={buttonStyle}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = "#f8f9fa";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = "transparent";
+            }}
+            title="Remove parts that don't exist in this song (e.g., no Keys/Pro Keys)"
+          >
+            Remove Parts
           </button>
 
           <button

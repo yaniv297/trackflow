@@ -42,11 +42,19 @@ export const useWipData = (user) => {
             apiGet(`/authoring/wip-collaborations/bulk?song_ids=${songIds}`)
           ]);
 
-          songsWithProgress = data.map((s) => ({
-            ...s,
-            progress: progressMap[s.id] || {},
-            wipCollaborations: wipCollaborationsMap[s.id] || [],
-          }));
+          songsWithProgress = data.map((s) => {
+            // Handle new format: {progress: {...}, irrelevant_steps: [...]}
+            // or legacy format: {step_name: is_completed, ...}
+            const songProgressData = progressMap[s.id] || {};
+            const hasNewFormat = songProgressData.progress !== undefined;
+            
+            return {
+              ...s,
+              progress: hasNewFormat ? songProgressData.progress : songProgressData,
+              irrelevantSteps: hasNewFormat ? (songProgressData.irrelevant_steps || []) : [],
+              wipCollaborations: wipCollaborationsMap[s.id] || [],
+            };
+          });
         } catch (e) {
           console.error("Failed to fetch bulk data:", e);
           // Fallback to original songs if bulk fetch fails
@@ -276,16 +284,21 @@ export const useWipData = (user) => {
       const coreSongs = songs.filter((s) => !s.optional);
       const optionalSongs = songs.filter((s) => s.optional);
 
-      // Calculate pack completion as average of each song's completion percentage
-      // Each song's completion is relative to its owner's workflow
-      let totalPercent = 0;
+      // Calculate pack completion as total completed steps / total relevant steps
+      // This correctly handles songs with different numbers of steps (due to N/A parts)
+      let totalCompletedSteps = 0;
+      let totalRelevantSteps = 0;
       coreSongs.forEach((song) => {
         const songOwnerFields = song.songOwnerFields || authoringFields;
-        const songPercent = getSongCompletionPercentage(song, songOwnerFields);
-        totalPercent += songPercent;
+        const completedCount = getCompletedFieldsCount(song, songOwnerFields);
+        const relevantCount = songOwnerFields.filter(
+          (f) => !song.irrelevantSteps?.includes(f)
+        ).length;
+        totalCompletedSteps += completedCount;
+        totalRelevantSteps += relevantCount;
       });
       const percent =
-        coreSongs.length > 0 ? Math.round(totalPercent / coreSongs.length) : 0;
+        totalRelevantSteps > 0 ? Math.round((totalCompletedSteps / totalRelevantSteps) * 100) : 0;
 
       // Categorize songs within the pack by ownership and completion
       const ownedSongs = coreSongs.filter((song) => song.user_id === user?.id);

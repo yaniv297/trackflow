@@ -3,6 +3,7 @@ import UnifiedCollaborationModal from "../modals/UnifiedCollaborationModal";
 import MovePackModal from "../modals/MovePackModal";
 import FileHistoryModal from "../modals/FileHistoryModal";
 import ChangeAlbumArtModal from "../modals/ChangeAlbumArtModal";
+import IrrelevantStepsModal from "../modals/IrrelevantStepsModal";
 import UserProfilePopup from "../shared/UserProfilePopup";
 
 import SongMetadata from "./WipSongCard/SongMetadata";
@@ -53,6 +54,7 @@ export default function WipSongCard({
   const [showMovePackModal, setShowMovePackModal] = useState(false);
   const [showFileHistoryModal, setShowFileHistoryModal] = useState(false);
   const [showChangeAlbumArtModal, setShowChangeAlbumArtModal] = useState(false);
+  const [showIrrelevantStepsModal, setShowIrrelevantStepsModal] = useState(false);
 
   const { user: currentUser } = useAuth();
   const { authoringFields, getStepDisplayInfo } = useWorkflowData(currentUser);
@@ -223,6 +225,7 @@ export default function WipSongCard({
             onLoadSpotifyOptions={loadSpotifyOptions}
             onShowMovePackModal={() => setShowMovePackModal(true)}
             onShowChangeAlbumArtModal={() => setShowChangeAlbumArtModal(true)}
+            onShowIrrelevantStepsModal={() => setShowIrrelevantStepsModal(true)}
             onDelete={handleDelete}
             onSongUpdate={onSongUpdate}
             readOnly={readOnly}
@@ -334,6 +337,20 @@ export default function WipSongCard({
           if (onSongUpdate) {
             // Pass the updated song data to update the local state
             onSongUpdate(song.id, updatedSongData);
+          }
+        }}
+      />
+
+      {/* Irrelevant Steps Modal */}
+      <IrrelevantStepsModal
+        isOpen={showIrrelevantStepsModal}
+        onClose={() => setShowIrrelevantStepsModal(false)}
+        song={song}
+        currentUser={currentUser}
+        onSuccess={(songId, updates) => {
+          if (onSongUpdate) {
+            // Update the song's irrelevantSteps to update progress calculations
+            onSongUpdate(songId, updates);
           }
         }}
       />

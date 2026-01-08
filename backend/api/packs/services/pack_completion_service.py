@@ -159,6 +159,7 @@ class PackCompletionService:
         # Get song progress for all songs
         song_ids = [song.id for song in pack_songs]
         song_progress_map: Dict[int, Dict[str, bool]] = {}
+        song_irrelevant_map: Dict[int, set] = {}
         
         if song_ids:
             try:
@@ -176,10 +177,27 @@ class PackCompletionService:
                     if song_id not in song_progress_map:
                         song_progress_map[song_id] = {}
                     song_progress_map[song_id][step_name] = bool(is_completed)
+                
+                # Get irrelevant steps for all songs
+                # Irrelevant steps are excluded from completion calculations
+                try:
+                    irrelevant_rows = self.db.execute(text(f"""
+                        SELECT song_id, step_name
+                        FROM song_progress
+                        WHERE song_id IN ({progress_placeholders}) AND is_irrelevant = TRUE
+                    """), progress_params).fetchall()
+                    
+                    for song_id, step_name in irrelevant_rows:
+                        if song_id not in song_irrelevant_map:
+                            song_irrelevant_map[song_id] = set()
+                        song_irrelevant_map[song_id].add(step_name)
+                except Exception:
+                    pass  # is_irrelevant column might not exist yet
             except Exception:
                 pass  # song_progress table might not exist
         
         # Calculate completion
+        # IMPORTANT: Irrelevant steps are excluded from the total step count
         completed_songs = 0
         total_songs = len(pack_songs)
         
@@ -192,15 +210,19 @@ class PackCompletionService:
             # Check workflow progress - REQUIRED, no fallback to hardcoded steps
             user_workflow = workflow_fields_map.get(song.user_id)
             song_progress = song_progress_map.get(song.id, {})
+            song_irrelevant = song_irrelevant_map.get(song.id, set())
             
             # Only calculate completion if user has a configured workflow
             # Users without workflows cannot have songs marked as complete
             if user_workflow:
-                completed_steps = sum(1 for step in user_workflow if song_progress.get(step, False))
-                total_steps = len(user_workflow)
+                # Filter out irrelevant steps - these don't count toward completion
+                relevant_steps = [s for s in user_workflow if s not in song_irrelevant]
                 
-                # Consider complete if all steps are done
-                if completed_steps == total_steps:
+                completed_steps = sum(1 for step in relevant_steps if song_progress.get(step, False))
+                total_steps = len(relevant_steps)
+                
+                # Consider complete if all relevant steps are done
+                if total_steps > 0 and completed_steps == total_steps:
                     completed_songs += 1
             # If no workflow exists, song remains incomplete (encourages workflow setup)
         

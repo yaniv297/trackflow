@@ -11,7 +11,7 @@ const SongProgress = ({
   songId, 
   readOnly = false 
 }) => {
-  const { completedCount, percentage, isComplete } = progressData;
+  const { completedCount, totalCount, percentage, isComplete, irrelevantCount } = progressData;
 
   return (
     <div style={{ textAlign: "right", minWidth: 150 }}>
@@ -33,7 +33,12 @@ const SongProgress = ({
         />
       </div>
       <small style={{ fontSize: "0.8rem", color: "#444" }}>
-        {completedCount} / {fields.length} parts
+        {completedCount} / {totalCount} parts
+        {irrelevantCount > 0 && (
+          <span style={{ color: "#999", marginLeft: "4px" }} title={`${irrelevantCount} part${irrelevantCount > 1 ? 's' : ''} removed (instrument doesn't exist)`}>
+            (-{irrelevantCount})
+          </span>
+        )}
       </small>
       {!isComplete && !readOnly && (
         <label

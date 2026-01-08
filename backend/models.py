@@ -681,6 +681,7 @@ class SongProgress(Base):
     song_id = Column(Integer, ForeignKey("songs.id"), nullable=False, index=True)
     step_name = Column(String, nullable=False)  # The workflow step name
     is_completed = Column(Boolean, default=False)
+    is_irrelevant = Column(Boolean, default=False)  # Step is N/A for this song (e.g., no keys part)
     completed_at = Column(DateTime, nullable=True)
     notes = Column(Text)  # Optional notes for this step
     created_at = Column(DateTime, default=datetime.utcnow)

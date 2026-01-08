@@ -108,6 +108,24 @@ def compute_packs_near_completion(db: Session, current_user, limit: int, thresho
                 song_progress_map[song_id] = {}
             song_progress_map[song_id][step_name] = bool(is_completed)
         
+        # Get irrelevant steps for all songs in one query
+        # Irrelevant steps are excluded from completion calculations
+        song_irrelevant_map: Dict[int, set] = {}
+        try:
+            irrelevant_rows = db.execute(text(f"""
+                SELECT song_id, step_name
+                FROM song_progress
+                WHERE song_id IN ({progress_placeholders}) AND is_irrelevant = TRUE
+            """), progress_params).fetchall()
+            
+            for song_id, step_name in irrelevant_rows:
+                if song_id not in song_irrelevant_map:
+                    song_irrelevant_map[song_id] = set()
+                song_irrelevant_map[song_id].add(step_name)
+        except Exception as e:
+            # is_irrelevant column might not exist yet
+            print(f"⚠️ Could not read irrelevant steps: {e}")
+        
         # Fallback: Check legacy authoring table if song_progress is empty
         # This handles cases where data hasn't been fully migrated
         songs_without_progress = [s for s in pack_songs if s.id not in song_progress_map or len(song_progress_map[s.id]) == 0]
@@ -173,9 +191,10 @@ def compute_packs_near_completion(db: Session, current_user, limit: int, thresho
         
         db.commit()  # Commit any new progress rows we created
         
-        # Calculate completion for each song and average
-        total_percent = 0
-        core_songs_count = 0
+        # Calculate completion as total completed steps / total relevant steps
+        # This correctly handles songs with different numbers of steps (due to N/A parts)
+        total_completed_steps = 0
+        total_relevant_steps = 0
         
         for song in pack_songs:
             # Get workflow fields for this song's owner
@@ -189,25 +208,26 @@ def compute_packs_near_completion(db: Session, current_user, limit: int, thresho
             if not workflow_fields:
                 continue  # Skip if no workflow fields at all
             
-            # Get progress for this song
+            # Get progress and irrelevant steps for this song
             song_progress = song_progress_map.get(song.id, {})
+            song_irrelevant = song_irrelevant_map.get(song.id, set())
             
-            # Calculate completed fields count
+            # Filter out irrelevant steps - these don't count toward completion
+            relevant_fields = [f for f in workflow_fields if f not in song_irrelevant]
+            
+            # Calculate completed fields count (only for relevant fields)
             completed_count = sum(
-                1 for field in workflow_fields 
+                1 for field in relevant_fields 
                 if song_progress.get(field, False)
             )
             
-            # Calculate song completion percentage
-            total_fields = len(workflow_fields)
-            if total_fields > 0:
-                song_percent = (completed_count / total_fields) * 100
-                total_percent += song_percent
-                core_songs_count += 1
+            # Add to pack totals
+            total_completed_steps += completed_count
+            total_relevant_steps += len(relevant_fields)
         
-        # Calculate pack completion as average of song percentages (rounded, matching WIP page)
-        if core_songs_count > 0:
-            completion_percentage = round(total_percent / core_songs_count)
+        # Calculate pack completion percentage (total completed / total relevant steps)
+        if total_relevant_steps > 0:
+            completion_percentage = round((total_completed_steps / total_relevant_steps) * 100)
         else:
             completion_percentage = 0
         

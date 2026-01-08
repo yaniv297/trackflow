@@ -44,7 +44,7 @@ class SafeDateTime(DateTime):
 
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'CollaborationRequestBatch', 'CollaborationRequestBatchStatus', 'SongProgress']
+__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'CollaborationRequestBatch', 'CollaborationRequestBatchStatus', 'SongProgress', 'SongDifficulty']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -76,6 +76,7 @@ class User(Base):
     website_url = Column(String, nullable=True)  # Personal website or profile URL (e.g., RhythmVerse)
     auto_spotify_fetch_enabled = Column(Boolean, default=True)  # Enable automatic Spotify metadata fetching
     default_public_sharing = Column(Boolean, default=False)  # Global public sharing setting
+    show_instrument_difficulties = Column(Boolean, default=True)  # Show instrument difficulty ratings in WIP
     
     # Relationships
     songs = relationship("Song", back_populates="user")
@@ -689,4 +690,39 @@ class SongProgress(Base):
     __table_args__ = (
         Index('idx_song_progress_lookup', 'song_id', 'step_name'),
         UniqueConstraint('song_id', 'step_name', name='uq_song_step_progress'),
+    )
+
+
+class SongDifficulty(Base):
+    """
+    Instrument difficulty ratings for songs (optional feature).
+    Stores Rock Band-style difficulty tiers for each instrument.
+    
+    Difficulty values:
+    - NULL = not set yet
+    - -1 = no part (instrument not in song)
+    - 0 = 0 dots (easiest)
+    - 1 = 1 dot
+    - 2 = 2 dots
+    - 3 = 3 dots
+    - 4 = 4 dots
+    - 5 = 5 dots
+    - 6 = devil tier (hardest)
+    """
+    __tablename__ = "song_difficulties"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    song_id = Column(Integer, ForeignKey("songs.id"), nullable=False, index=True)
+    instrument = Column(String, nullable=False)  # 'drums', 'bass', 'guitar', 'vocals', 'keys', 'pro_keys', 'harmonies'
+    difficulty = Column(Integer, nullable=True, default=None)  # NULL = not set, -1 = no part, 0-5 = dots, 6 = devil
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    song = relationship("Song", backref="difficulties")
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_song_difficulty_lookup', 'song_id', 'instrument'),
+        UniqueConstraint('song_id', 'instrument', name='uq_song_instrument_difficulty'),
     )

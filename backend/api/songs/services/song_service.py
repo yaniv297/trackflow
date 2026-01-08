@@ -105,7 +105,20 @@ class SongService:
         
         if song_ids or pack_ids:
             # Single optimized query to get all collaboration data
-            collaboration_rows = self.db.execute(text("""
+            # Build dynamic placeholders for SQLite compatibility
+            song_ids_list = list(song_ids) if song_ids else [0]
+            pack_ids_list = list(pack_ids) if pack_ids else [0]
+            
+            song_placeholders = ','.join([f':song_id_{i}' for i in range(len(song_ids_list))])
+            pack_placeholders = ','.join([f':pack_id_{i}' for i in range(len(pack_ids_list))])
+            
+            params = {"user_id": current_user.id}
+            for i, sid in enumerate(song_ids_list):
+                params[f'song_id_{i}'] = sid
+            for i, pid in enumerate(pack_ids_list):
+                params[f'pack_id_{i}'] = pid
+            
+            collaboration_rows = self.db.execute(text(f"""
                 SELECT 
                     song_id,
                     pack_id,
@@ -113,14 +126,10 @@ class SongService:
                 FROM collaborations
                 WHERE user_id = :user_id
                   AND (
-                    (song_id IN :song_ids AND collaboration_type = 'SONG_EDIT') OR
-                    (pack_id IN :pack_ids AND collaboration_type IN ('PACK_VIEW', 'PACK_EDIT'))
+                    (song_id IN ({song_placeholders}) AND collaboration_type = 'SONG_EDIT') OR
+                    (pack_id IN ({pack_placeholders}) AND collaboration_type IN ('PACK_VIEW', 'PACK_EDIT'))
                   )
-            """), {
-                "user_id": current_user.id,
-                "song_ids": tuple(song_ids) if song_ids else (0,),  # Dummy value if empty
-                "pack_ids": tuple(pack_ids) if pack_ids else (0,)   # Dummy value if empty
-            }).fetchall()
+            """), params).fetchall()
             
             # Process results efficiently
             for row in collaboration_rows:

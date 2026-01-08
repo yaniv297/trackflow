@@ -48,6 +48,8 @@ class UserResponse(BaseModel):
     is_admin: bool = False
     created_at: str
     last_login_at: Optional[str] = None
+    # User settings
+    show_instrument_difficulties: bool = True
     
     class Config:
         from_attributes = True

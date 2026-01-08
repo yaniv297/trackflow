@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import UnifiedCollaborationModal from "../modals/UnifiedCollaborationModal";
 import MovePackModal from "../modals/MovePackModal";
 import FileHistoryModal from "../modals/FileHistoryModal";
@@ -11,6 +11,7 @@ import FileManager from "./WipSongCard/FileManager";
 import SongActions from "./WipSongCard/SongActions";
 import SpotifyEnhancement from "./WipSongCard/SpotifyEnhancement";
 import AuthoringFields from "./WipSongCard/AuthoringFields";
+import InstrumentDifficulties from "./WipSongCard/InstrumentDifficulties";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
@@ -276,6 +277,11 @@ export default function WipSongCard({
               getStepDisplayInfo={getStepDisplayInfo}
             />
           </div>
+        )}
+
+        {/* Instrument Difficulties - only show when user has setting enabled */}
+        {expanded && currentUser?.show_instrument_difficulties && (
+          <InstrumentDifficulties songId={song.id} readOnly={readOnly} />
         )}
       </div>
 

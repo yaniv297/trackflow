@@ -329,12 +329,28 @@ class SuggestionsService:
 
         # Sort by actual last work date (from song_progress) ascending (oldest first)
         # Fall back to song.updated_at or song.created_at if no progress exists
+        def parse_datetime(val):
+            """Helper to parse datetime values that might be strings (SQLite)"""
+            if val is None:
+                return datetime.min
+            if isinstance(val, str):
+                try:
+                    return datetime.fromisoformat(val.replace('Z', '+00:00')).replace(tzinfo=None)
+                except ValueError:
+                    try:
+                        return datetime.strptime(val, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        return datetime.min
+            if hasattr(val, 'tzinfo') and val.tzinfo is not None:
+                return val.replace(tzinfo=None)
+            return val
+        
         def get_sort_key(item):
             song, _ = item
             # Prefer song_progress.updated_at, then song.updated_at, then song.created_at
             if song.id in progress_map:
-                return progress_map[song.id] or datetime.min
-            return song.updated_at or song.created_at or datetime.min
+                return parse_datetime(progress_map[song.id])
+            return parse_datetime(song.updated_at or song.created_at)
         
         candidates.sort(key=get_sort_key)
 
@@ -351,8 +367,20 @@ class SuggestionsService:
                 # If no date at all, skip (shouldn't happen for songs with progress)
                 continue
             
+            # Handle SQLite returning datetime as string
+            if isinstance(last_updated, str):
+                try:
+                    # Try ISO format first
+                    last_updated = datetime.fromisoformat(last_updated.replace('Z', '+00:00'))
+                except ValueError:
+                    try:
+                        # Try common SQLite format
+                        last_updated = datetime.strptime(last_updated, '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        continue  # Skip if we can't parse the date
+            
             # Ensure last_updated is naive for comparison
-            if last_updated.tzinfo is not None:
+            if hasattr(last_updated, 'tzinfo') and last_updated.tzinfo is not None:
                 last_updated = last_updated.replace(tzinfo=None)
             
             days_ago = (now - last_updated).days

@@ -57,6 +57,7 @@ try:
     from api.community import router as community_router
     from api.public_profiles import router as public_profiles_router
     from api import updates as updates
+    from api import song_difficulties as song_difficulties
     from database import engine, SQLALCHEMY_DATABASE_URL, get_db
     from models import Base
 except ImportError as e:
@@ -156,6 +157,7 @@ app.include_router(collaboration_requests_router, prefix="/api")
 app.include_router(community_router)
 app.include_router(public_profiles_router, prefix="/api")
 app.include_router(updates.router, prefix="/api")
+app.include_router(song_difficulties.router)
 
 # Timeout middleware removed - was causing more problems than it solved
 

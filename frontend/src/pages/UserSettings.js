@@ -18,6 +18,7 @@ function UserSettings() {
     website_url: "",
     auto_spotify_fetch_enabled: true,
     default_public_sharing: false,
+    show_instrument_difficulties: true,
   });
 
   useEffect(() => {
@@ -40,6 +41,10 @@ function UserSettings() {
         default_public_sharing:
           response.default_public_sharing === true ||
           response.default_public_sharing === 1,
+        // Default to true if not explicitly set to false
+        show_instrument_difficulties:
+          response.show_instrument_difficulties !== false &&
+          response.show_instrument_difficulties !== 0,
       });
       setLoading(false);
     } catch (error) {
@@ -105,6 +110,9 @@ function UserSettings() {
       payload.default_public_sharing = formData.default_public_sharing !== undefined 
         ? formData.default_public_sharing 
         : false;
+      payload.show_instrument_difficulties = formData.show_instrument_difficulties !== undefined 
+        ? formData.show_instrument_difficulties 
+        : true;
       
       // Always include profile fields to trigger achievement checks
       payload.profile_image_url = formData.profile_image_url || "";
@@ -378,6 +386,33 @@ function UserSettings() {
                     When enabled, newly created songs will be shared publicly by
                     default. You can still manually toggle individual songs to
                     private using the 🌐/🔒 button in your song tables.
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label
+                    htmlFor="show_instrument_difficulties"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      id="show_instrument_difficulties"
+                      name="show_instrument_difficulties"
+                      checked={formData.show_instrument_difficulties}
+                      onChange={handleInputChange}
+                      style={{ cursor: "pointer" }}
+                    />
+                    <span>Show instrument difficulties in WIP</span>
+                  </label>
+                  <small className="form-text">
+                    When enabled, you can track in-game difficulty ratings (0-5 dots + devil tier) 
+                    for each instrument on your WIP songs. This helps you remember difficulty 
+                    levels when it's time to upload.
                   </small>
                 </div>
               </>

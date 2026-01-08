@@ -168,6 +168,37 @@ export const statusesAndWorkflowContent = {
         ],
       },
     },
+    {
+      title: "Instrument Difficulties",
+      type: "highlight-box",
+      highlightColor: "#f0f7ff",
+      borderColor: "#c2d9f2",
+      content: {
+        title: "Track In-Game Difficulty Ratings",
+        items: [
+          {
+            label: "Purpose:",
+            text: "Record the in-game difficulty rating for each instrument as you finish charting it - so you'll have it ready when it's time to upload",
+          },
+          {
+            label: "Difficulty Scale:",
+            text: "Rock Band difficulty goes from 0 dots (easiest) to 5 dots (hardest), plus 😈 Devil Tier for the most challenging charts",
+          },
+          {
+            label: "Supported Instruments:",
+            text: "Drums, Bass, Guitar, Vocals, Harmonies, Keys, and Pro Keys",
+          },
+          {
+            label: "How to Use:",
+            text: "Click the \"Difficulties\" button on any WIP song card to expand the panel, then click any instrument's value to set or change it",
+          },
+          {
+            label: "Toggle Feature:",
+            text: "This feature can be enabled or disabled in Settings → Settings tab → \"Show instrument difficulties in WIP\"",
+          },
+        ],
+      },
+    },
   ],
 };
 

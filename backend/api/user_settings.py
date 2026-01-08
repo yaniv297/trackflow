@@ -18,6 +18,7 @@ class UserSettingsUpdate(BaseModel):
     website_url: Optional[str] = None
     auto_spotify_fetch_enabled: Optional[bool] = None
     default_public_sharing: Optional[bool] = None  # Make new songs public by default
+    show_instrument_difficulties: Optional[bool] = None  # Show instrument difficulties in WIP
 
 class UserSettingsResponse(BaseModel):
     id: int
@@ -29,6 +30,7 @@ class UserSettingsResponse(BaseModel):
     website_url: Optional[str] = None
     auto_spotify_fetch_enabled: Optional[bool] = None
     default_public_sharing: Optional[bool] = None  # Make new songs public by default
+    show_instrument_difficulties: Optional[bool] = None  # Show instrument difficulties in WIP
     created_at: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
@@ -66,6 +68,13 @@ def get_user_settings(
     else:
         default_public_sharing = False
     
+    # Handle show_instrument_difficulties: if attribute exists, use its value (even if False), otherwise default to True
+    show_instrument_difficulties = True
+    if hasattr(user, 'show_instrument_difficulties'):
+        show_instrument_difficulties = user.show_instrument_difficulties if user.show_instrument_difficulties is not None else True
+    else:
+        show_instrument_difficulties = True
+    
     user_dict = {
         "id": user.id,
         "username": user.username,
@@ -76,6 +85,7 @@ def get_user_settings(
         "website_url": user.website_url,
         "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
         "default_public_sharing": bool(default_public_sharing),  # Ensure it's a boolean
+        "show_instrument_difficulties": bool(show_instrument_difficulties),  # Ensure it's a boolean
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
     return user_dict
@@ -153,6 +163,9 @@ def update_user_settings(
     if settings.default_public_sharing is not None:
         user.default_public_sharing = settings.default_public_sharing
     
+    if settings.show_instrument_difficulties is not None:
+        user.show_instrument_difficulties = settings.show_instrument_difficulties
+    
     try:
         db.commit()
         db.refresh(user)
@@ -201,6 +214,13 @@ def update_user_settings(
         else:
             default_public_sharing = False
         
+        # Ensure show_instrument_difficulties is always a boolean
+        show_instrument_difficulties = True
+        if hasattr(user, 'show_instrument_difficulties'):
+            show_instrument_difficulties = user.show_instrument_difficulties if user.show_instrument_difficulties is not None else True
+        else:
+            show_instrument_difficulties = True
+        
         user_dict = {
             "id": user.id,
             "username": user.username,
@@ -211,6 +231,7 @@ def update_user_settings(
             "website_url": user.website_url,
             "auto_spotify_fetch_enabled": bool(auto_fetch_enabled),  # Ensure it's a boolean
             "default_public_sharing": bool(default_public_sharing),  # Ensure it's a boolean
+            "show_instrument_difficulties": bool(show_instrument_difficulties),  # Ensure it's a boolean
             "created_at": user.created_at.isoformat() if user.created_at else None
         }
         return user_dict

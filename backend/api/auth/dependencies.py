@@ -41,6 +41,11 @@ def get_current_user(
         pass
     
     # Convert to UserResponse
+    # Safely get show_instrument_difficulties with default True
+    show_difficulties = getattr(user, 'show_instrument_difficulties', None)
+    if show_difficulties is None:
+        show_difficulties = True
+    
     return UserResponse(
         id=user.id,
         username=user.username,
@@ -48,7 +53,8 @@ def get_current_user(
         is_active=user.is_active,
         is_admin=user.is_admin,
         created_at=user.created_at.isoformat() if user.created_at else "",
-        last_login_at=user.last_login_at.isoformat() if user.last_login_at else None
+        last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
+        show_instrument_difficulties=show_difficulties
     )
 
 
@@ -135,6 +141,11 @@ def get_optional_user(
             pass
         
         # Convert to UserResponse
+        # Safely get show_instrument_difficulties with default True
+        show_difficulties = getattr(user, 'show_instrument_difficulties', None)
+        if show_difficulties is None:
+            show_difficulties = True
+        
         return UserResponse(
             id=user.id,
             username=user.username,
@@ -142,7 +153,8 @@ def get_optional_user(
             is_active=user.is_active,
             is_admin=user.is_admin,
             created_at=user.created_at.isoformat() if user.created_at else "",
-            last_login_at=user.last_login_at.isoformat() if user.last_login_at else None
+            last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
+            show_instrument_difficulties=show_difficulties
         )
     except Exception:
         return None

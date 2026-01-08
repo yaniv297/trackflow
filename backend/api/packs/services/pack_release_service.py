@@ -205,6 +205,20 @@ class PackReleaseService:
                 update_data['released_at'] = None
             # When moving back from Released, also hide from homepage
             update_data['show_on_homepage'] = False
+            
+            # Handle "needs update" songs: change update_status from "future_plans" to "in_progress"
+            # and reset their progress
+            if status == "WIP":
+                songs_with_update_status = self.db.query(Song).filter(
+                    Song.pack_id == pack_id,
+                    Song.update_status == "future_plans"
+                ).all()
+                
+                for song in songs_with_update_status:
+                    song.update_status = "in_progress"
+                    # Reset progress tracking
+                    from models import SongProgress
+                    self.db.query(SongProgress).filter(SongProgress.song_id == song.id).delete()
         
         self.pack_repo.update_pack(pack, update_data)
         self.pack_repo.commit()
@@ -262,6 +276,10 @@ class PackReleaseService:
                     # Required song must be released
                     song.status = "Released"
                     song.released_at = datetime.utcnow()
+                    
+                    # Clear update_status when releasing (update is complete)
+                    if getattr(song, "update_status", None) is not None:
+                        song.update_status = None
                     
                     # Set song download link if provided
                     if release_data.song_download_links:

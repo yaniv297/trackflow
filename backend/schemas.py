@@ -75,6 +75,7 @@ class SongCreate(BaseModel):
     user_id: Optional[int] = None
     optional: Optional[bool] = None
     collaborations: Optional[List[SongCollaborationCreate]] = None
+    content_rating: Optional[str] = None  # 'family_friendly', 'supervision', 'mature', or null
 
 class AuthoringOut(BaseModel):
     id: int
@@ -128,6 +129,8 @@ class SongOut(BaseModel):
     release_description: Optional[str] = None  # Optional description for the release
     release_download_link: Optional[str] = None  # Download link for the song
     release_youtube_url: Optional[str] = None  # YouTube video URL for the release
+    content_rating: Optional[str] = None  # 'family_friendly', 'supervision', 'mature', or null
+    update_status: Optional[str] = None  # For dual-presence: None (normal), "future_plans", "in_progress"
     # Pack-level release metadata
     pack_release_description: Optional[str] = None  # Pack description for the release
     pack_release_download_link: Optional[str] = None  # Pack download link

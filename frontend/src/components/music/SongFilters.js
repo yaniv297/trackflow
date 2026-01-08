@@ -103,7 +103,7 @@ const SongFilters = ({
         </button>
 
         {/* Column Selector */}
-        <ColumnSelector onColumnChange={onColumnChange} groupBy={groupBy} />
+        <ColumnSelector onColumnChange={onColumnChange} groupBy={groupBy} status={status} />
       </div>
 
       {/* Sort Controls */}

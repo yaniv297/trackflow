@@ -77,6 +77,7 @@ class User(Base):
     auto_spotify_fetch_enabled = Column(Boolean, default=True)  # Enable automatic Spotify metadata fetching
     default_public_sharing = Column(Boolean, default=False)  # Global public sharing setting
     show_instrument_difficulties = Column(Boolean, default=True)  # Show instrument difficulty ratings in WIP
+    show_content_rating = Column(Boolean, default=False)  # Show content rating in WIP (opt-in feature)
     
     # Relationships
     songs = relationship("Song", back_populates="user")
@@ -127,6 +128,8 @@ class Song(Base):
     release_description = Column(Text, nullable=True)  # Optional description for the release
     release_download_link = Column(String, nullable=True)  # Download link for the song
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
+    content_rating = Column(String, nullable=True)  # Content rating: 'family_friendly', 'supervision', 'mature', or null
+    update_status = Column(String, nullable=True, index=True)  # For dual-presence: None (normal), "future_plans", "in_progress"
     
     # Composite indexes for common query patterns
     __table_args__ = (

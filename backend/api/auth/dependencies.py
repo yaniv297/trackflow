@@ -46,6 +46,11 @@ def get_current_user(
     if show_difficulties is None:
         show_difficulties = True
     
+    # Safely get show_content_rating with default False
+    show_content_rating = getattr(user, 'show_content_rating', None)
+    if show_content_rating is None:
+        show_content_rating = False
+    
     return UserResponse(
         id=user.id,
         username=user.username,
@@ -54,7 +59,8 @@ def get_current_user(
         is_admin=user.is_admin,
         created_at=user.created_at.isoformat() if user.created_at else "",
         last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
-        show_instrument_difficulties=show_difficulties
+        show_instrument_difficulties=show_difficulties,
+        show_content_rating=show_content_rating
     )
 
 
@@ -146,6 +152,11 @@ def get_optional_user(
         if show_difficulties is None:
             show_difficulties = True
         
+        # Safely get show_content_rating with default False
+        show_content_rating = getattr(user, 'show_content_rating', None)
+        if show_content_rating is None:
+            show_content_rating = False
+        
         return UserResponse(
             id=user.id,
             username=user.username,
@@ -154,7 +165,8 @@ def get_optional_user(
             is_admin=user.is_admin,
             created_at=user.created_at.isoformat() if user.created_at else "",
             last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
-            show_instrument_difficulties=show_difficulties
+            show_instrument_difficulties=show_difficulties,
+            show_content_rating=show_content_rating
         )
     except Exception:
         return None

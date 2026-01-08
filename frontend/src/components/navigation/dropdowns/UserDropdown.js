@@ -1,7 +1,8 @@
 import React from "react";
+import { useAuth } from "../../../contexts/AuthContext";
 
 /**
- * User dropdown component (Settings, Help, Logout, etc.)
+ * User dropdown component (Profile, Settings, Help, Logout, etc.)
  */
 const UserDropdown = ({
   show,
@@ -13,6 +14,8 @@ const UserDropdown = ({
   isImpersonating,
   onExitImpersonation,
 }) => {
+  const { user } = useAuth();
+
   const handleClick = (path) => {
     if (path === "logout") {
       onLogout();
@@ -77,12 +80,20 @@ const UserDropdown = ({
           }}
         >
           <div
+            onClick={() => handleClick(`/profile/${user?.username}`)}
+            style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
+            onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
+          >
+            Profile
+          </div>
+          <div
             onClick={() => handleClick("/settings")}
             style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
             onMouseLeave={(e) => (e.target.style.background = "transparent")}
           >
-            User Settings
+            Settings
           </div>
           <div
             onClick={() => handleClick("/settings/workflow")}
@@ -118,4 +129,3 @@ const UserDropdown = ({
 };
 
 export default UserDropdown;
-

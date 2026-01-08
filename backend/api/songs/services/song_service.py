@@ -177,6 +177,39 @@ class SongService:
             self._handle_pack_name_change(song, updates["pack"], current_user)
             del updates["pack"]
         
+        # Handle update_status changes (for "needs update" feature)
+        old_update_status = getattr(song, "update_status", None)
+        if "update_status" in updates:
+            new_update_status = updates["update_status"]
+            # Only allow setting update_status on released songs (but allow clearing it)
+            if new_update_status is not None:
+                if song.status != SongStatus.released and song.status != "Released":
+                    raise HTTPException(
+                        status_code=400,
+                        detail="update_status can only be set on released songs"
+                    )
+            # Validate update_status values
+            if new_update_status not in [None, "future_plans", "in_progress"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="update_status must be None, 'future_plans', or 'in_progress'"
+                )
+            song.update_status = new_update_status
+        
+        # IMPORTANT: Prevent changing status away from "Released" when update_status is set
+        # Songs with update_status should stay "Released" to maintain dual-presence
+        if "status" in updates and old_update_status is not None:
+            new_status = updates["status"]
+            is_released = song.status == SongStatus.released or song.status == "Released"
+            is_new_not_released = (
+                (isinstance(new_status, str) and new_status != "Released") or 
+                (isinstance(new_status, SongStatus) and new_status != SongStatus.released)
+            )
+            if is_released and is_new_not_released:
+                # Don't change status for songs with update_status - they should stay Released
+                # Remove status from updates to prevent the change
+                del updates["status"]
+        
         # Check if status is changing to Released
         old_status = song.status
         
@@ -208,12 +241,23 @@ class SongService:
                     if old_status_str == "Future Plans":
                         if getattr(song, "optional", None):
                             song.optional = False
+                    
+                    # Handle update_status: if song has update_status="future_plans", change to "in_progress"
+                    # and reset progress for "needs update" songs
+                    if getattr(song, "update_status", None) == "future_plans":
+                        song.update_status = "in_progress"
+                        # Reset progress tracking for the song
+                        self._reset_song_progress(song.id)
             
             # Set released_at timestamp when status changes to Released
             # Handle both string and enum values
             if (isinstance(new_status, str) and new_status == "Released") or new_status == SongStatus.released:
                 if old_status != "Released" and old_status != SongStatus.released:
                     song.released_at = datetime.utcnow()
+                    
+                    # Clear update_status when releasing (update is complete)
+                    if getattr(song, "update_status", None) is not None:
+                        song.update_status = None
                     
                     # Award 10 points for releasing a song
                     try:
@@ -873,6 +917,10 @@ class SongService:
             song.status = SongStatus.released
             song.released_at = datetime.utcnow()
             
+            # Clear update_status when releasing (update is complete)
+            if getattr(song, "update_status", None) is not None:
+                song.update_status = None
+            
             # Award 10 points for releasing a song
             if old_status != SongStatus.released:
                 try:
@@ -990,3 +1038,14 @@ class SongService:
                 
         except Exception as e:
             print(f"⚠️ Failed to check potential collaboration notifications: {e}")
+    
+    def _reset_song_progress(self, song_id: int):
+        """Reset progress tracking for a song (used when moving 'needs update' songs to WIP)."""
+        try:
+            from models import SongProgress
+            # Delete all progress entries for this song
+            self.db.query(SongProgress).filter(SongProgress.song_id == song_id).delete()
+            self.db.commit()
+        except Exception as e:
+            print(f"⚠️ Failed to reset song progress: {e}")
+            self.db.rollback()

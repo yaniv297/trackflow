@@ -69,12 +69,16 @@ export const useUserWorkflowFields = () => {
   // Listen for cache invalidation events
   useEffect(() => {
     const handleInvalidate = () => clearCache();
+    // Listen to both events for compatibility
+    window.addEventListener("workflow-updated", handleInvalidate);
     window.addEventListener("workflow-fields-invalidate", handleInvalidate);
-    return () =>
+    return () => {
+      window.removeEventListener("workflow-updated", handleInvalidate);
       window.removeEventListener(
         "workflow-fields-invalidate",
         handleInvalidate
       );
+    };
   }, [clearCache]);
 
   return {

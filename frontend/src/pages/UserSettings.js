@@ -1,24 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { apiGet, apiPut } from "../utils/api";
-import { checkCustomizationAchievements } from "../utils/achievements";
 import "./UserSettings.css";
 
 function UserSettings() {
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
 
   const [formData, setFormData] = useState({
-    email: "",
-    preferred_contact_method: "",
-    discord_username: "",
-    profile_image_url: "",
-    website_url: "",
     auto_spotify_fetch_enabled: true,
     default_public_sharing: false,
     show_instrument_difficulties: true,
+    show_content_rating: false,
   });
 
   useEffect(() => {
@@ -29,11 +23,6 @@ function UserSettings() {
     try {
       const response = await apiGet("/user-settings/me");
       setFormData({
-        email: response.email || "",
-        preferred_contact_method: response.preferred_contact_method || "",
-        discord_username: response.discord_username || "",
-        profile_image_url: response.profile_image_url || "",
-        website_url: response.website_url || "",
         // Explicitly convert to boolean - handle false, 0, null, undefined
         auto_spotify_fetch_enabled:
           response.auto_spotify_fetch_enabled === true ||
@@ -45,127 +34,67 @@ function UserSettings() {
         show_instrument_difficulties:
           response.show_instrument_difficulties !== false &&
           response.show_instrument_difficulties !== 0,
+        // Default to false (opt-in feature)
+        show_content_rating:
+          response.show_content_rating === true ||
+          response.show_content_rating === 1,
       });
       setLoading(false);
     } catch (error) {
       console.error("Error fetching user settings:", error);
-      // Show error notification using the global notification system
       if (window.showNotification) {
-        window.showNotification("Failed to load user settings", "error", 5000);
+        window.showNotification("Failed to load settings", "error", 5000);
       }
       setLoading(false);
     }
   };
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: checked,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Client-side validation
-    if (
-      formData.preferred_contact_method === "email" &&
-      !formData.email.trim()
-    ) {
-      if (window.showNotification) {
-        window.showNotification(
-          "Email address is required when email is the preferred contact method",
-          "error",
-          5000
-        );
-      }
-      return;
-    }
-
-    if (
-      formData.preferred_contact_method === "discord" &&
-      !formData.discord_username.trim()
-    ) {
-      if (window.showNotification) {
-        window.showNotification(
-          "Discord username is required when Discord is the preferred contact method",
-          "error",
-          5000
-        );
-      }
-      return;
-    }
-
     setSaving(true);
 
     try {
-      // Create a clean payload, only including fields that have values
-      const payload = {};
-      
-      // Always include these boolean fields
-      payload.auto_spotify_fetch_enabled = formData.auto_spotify_fetch_enabled !== undefined 
-        ? formData.auto_spotify_fetch_enabled 
-        : true;
-      payload.default_public_sharing = formData.default_public_sharing !== undefined 
-        ? formData.default_public_sharing 
-        : false;
-      payload.show_instrument_difficulties = formData.show_instrument_difficulties !== undefined 
-        ? formData.show_instrument_difficulties 
-        : true;
-      
-      // Always include profile fields to trigger achievement checks
-      payload.profile_image_url = formData.profile_image_url || "";
-      payload.website_url = formData.website_url || "";
-      
-      // Only include other fields if they have meaningful values
-      if (formData.email && formData.email.trim()) {
-        payload.email = formData.email.trim();
-      }
-      
-      if (formData.preferred_contact_method && formData.preferred_contact_method.trim()) {
-        payload.preferred_contact_method = formData.preferred_contact_method.trim();
-      }
-      
-      if (formData.discord_username && formData.discord_username.trim()) {
-        payload.discord_username = formData.discord_username.trim();
-      }
+      const payload = {
+        auto_spotify_fetch_enabled: formData.auto_spotify_fetch_enabled !== undefined 
+          ? formData.auto_spotify_fetch_enabled 
+          : true,
+        default_public_sharing: formData.default_public_sharing !== undefined 
+          ? formData.default_public_sharing 
+          : false,
+        show_instrument_difficulties: formData.show_instrument_difficulties !== undefined 
+          ? formData.show_instrument_difficulties 
+          : true,
+        show_content_rating: formData.show_content_rating !== undefined 
+          ? formData.show_content_rating 
+          : false,
+      };
       
       const response = await apiPut("/user-settings/me", payload);
 
       // Update the user context with new data
-      if (updateUser) {
+      if (updateUser && user) {
+        updateUser({ ...user, ...response });
+      } else if (updateUser) {
         updateUser(response);
       }
 
-      // Show success notification using the global notification system
       if (window.showNotification) {
-        window.showNotification(
-          "Settings saved successfully!",
-          "success",
-          3000
-        );
+        window.showNotification("Settings saved successfully!", "success", 3000);
       }
 
-      // Set saving to false immediately so button becomes clickable
       setSaving(false);
-
-      // Check for customization achievements only (profile pic, website, contact method)
-      // Backend already checks these in background, so we just poll for results
-      // This is lightweight - only checks 3 achievement types, not all achievements
-      checkCustomizationAchievements(1000).catch((error) => {
-        console.error("Error checking customization achievements:", error);
-        // Don't show error to user since achievements are non-critical
-      });
     } catch (error) {
-      console.error("Error saving user settings:", error);
-      // Show error notification using the global notification system
+      console.error("Error saving settings:", error);
       if (window.showNotification) {
-        window.showNotification(
-          error.message || "Failed to save settings",
-          "error",
-          5000
-        );
+        window.showNotification(error.message || "Failed to save settings", "error", 5000);
       }
       setSaving(false);
     }
@@ -173,263 +102,135 @@ function UserSettings() {
 
   if (loading) {
     return (
-      <div className="user-settings-container">
-        <div className="loading">Loading user settings...</div>
+      <div className="settings-page">
+        <div className="settings-wrapper">
+          <div className="settings-loading">
+            <div className="settings-loading-spinner"></div>
+            <span>Loading settings...</span>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="user-settings-container">
-      <div className="user-settings-header">
-        <h1>User Settings</h1>
-        <p>Manage your account settings and preferences</p>
-      </div>
-
-      <div className="user-settings-content">
-        {/* Tab Navigation */}
-        <div className="settings-tabs">
-          <button
-            className={`settings-tab ${
-              activeTab === "profile" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("profile")}
-          >
-            Profile
-          </button>
-          <button
-            className={`settings-tab ${
-              activeTab === "settings" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("settings")}
-          >
-            Settings
-          </button>
+    <div className="settings-page">
+      <div className="settings-wrapper">
+        <div className="settings-header">
+          <h1>Settings</h1>
+          <p>Configure how TrackFlow works for you</p>
         </div>
 
-        {/* Tab Content */}
-        <div className="settings-section">
-          <form onSubmit={handleSubmit} className="settings-form">
-            {/* Profile Tab */}
-            {activeTab === "profile" && (
-              <>
-                <h2>Profile Information</h2>
-                <div className="form-group">
-                  <label htmlFor="email">
-                    Email Address
-                    {formData.preferred_contact_method === "email" && (
-                      <span style={{ color: "#dc3545", marginLeft: "4px" }}>
-                        *
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="form-control form-control-small"
-                    required={formData.preferred_contact_method === "email"}
-                    placeholder={
-                      formData.preferred_contact_method === "email"
-                        ? "Required when email is preferred"
-                        : "Optional"
-                    }
-                  />
-                  {formData.preferred_contact_method !== "email" && (
-                    <small className="form-text">
-                      Optional. Only required if email is your preferred contact
-                      method.
-                    </small>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="profile_image_url">
-                    Profile Image URL
-                  </label>
-                  <input
-                    type="url"
-                    id="profile_image_url"
-                    name="profile_image_url"
-                    value={formData.profile_image_url}
-                    onChange={handleInputChange}
-                    className="form-control form-control-small"
-                    placeholder="https://example.com/your-image.jpg"
-                  />
-                  <small className="form-text">
-                    Optional. Enter a URL to an image you'd like to use as your profile picture.
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="website_url">
-                    Website / Profile Link
-                  </label>
-                  <input
-                    type="url"
-                    id="website_url"
-                    name="website_url"
-                    value={formData.website_url}
-                    onChange={handleInputChange}
-                    className="form-control form-control-small"
-                    placeholder="https://rhythmverse.co/profile/yourname"
-                  />
-                  <small className="form-text">
-                    Optional. Link to your RhythmVerse profile, personal website, or other music-related profile.
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="preferred_contact_method">
-                    Preferred Contact Method
-                  </label>
-                  <select
-                    id="preferred_contact_method"
-                    name="preferred_contact_method"
-                    value={formData.preferred_contact_method}
-                    onChange={handleInputChange}
-                    className="form-control form-control-small"
-                  >
-                    <option value="">None</option>
-                    <option value="email">Email</option>
-                    <option value="discord">Discord</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="discord_username">
-                    Discord Username
-                    {formData.preferred_contact_method === "discord" && (
-                      <span style={{ color: "#dc3545", marginLeft: "4px" }}>
-                        *
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    id="discord_username"
-                    name="discord_username"
-                    value={formData.discord_username}
-                    onChange={handleInputChange}
-                    className="form-control form-control-small"
-                    required={formData.preferred_contact_method === "discord"}
-                    placeholder={
-                      formData.preferred_contact_method === "discord"
-                        ? "Required when Discord is preferred"
-                        : "username#1234 (optional)"
-                    }
-                  />
-                  {formData.preferred_contact_method !== "discord" && (
-                    <small className="form-text">
-                      Optional. Only required if Discord is your preferred
-                      contact method.
-                    </small>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Settings Tab */}
-            {activeTab === "settings" && (
-              <>
-                <h2>Feature Settings</h2>
-                <div className="form-group">
-                  <label
-                    htmlFor="auto_spotify_fetch_enabled"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      id="auto_spotify_fetch_enabled"
-                      name="auto_spotify_fetch_enabled"
-                      checked={formData.auto_spotify_fetch_enabled}
-                      onChange={handleInputChange}
-                      style={{ cursor: "pointer" }}
-                    />
-                    <span>Enable automatic Spotify metadata fetching</span>
-                  </label>
-                  <small className="form-text">
-                    When enabled, new songs will automatically be enhanced with
-                    Spotify metadata, album art, and release year. You can still
-                    manually enhance songs even if this is disabled.
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <label
-                    htmlFor="default_public_sharing"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      id="default_public_sharing"
-                      name="default_public_sharing"
-                      checked={formData.default_public_sharing}
-                      onChange={handleInputChange}
-                      style={{ cursor: "pointer" }}
-                    />
-                    <span>Make new songs public by default</span>
-                  </label>
-                  <small className="form-text">
-                    When enabled, newly created songs will be shared publicly by
-                    default. You can still manually toggle individual songs to
-                    private using the 🌐/🔒 button in your song tables.
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <label
-                    htmlFor="show_instrument_difficulties"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      id="show_instrument_difficulties"
-                      name="show_instrument_difficulties"
-                      checked={formData.show_instrument_difficulties}
-                      onChange={handleInputChange}
-                      style={{ cursor: "pointer" }}
-                    />
-                    <span>Show instrument difficulties in WIP</span>
-                  </label>
-                  <small className="form-text">
-                    When enabled, you can track in-game difficulty ratings (0-5 dots + devil tier) 
-                    for each instrument on your WIP songs. This helps you remember difficulty 
-                    levels when it's time to upload.
-                  </small>
-                </div>
-              </>
-            )}
-
-            {/* Show save button for all tabs */}
-            <div className="form-actions">
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn btn-primary"
-              >
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
+        <form onSubmit={handleSubmit} className="settings-form">
+          <div className="settings-card">
+            <div className="settings-card-header">
+              <span className="settings-card-icon">🎵</span>
+              <div>
+                <h2>Song Defaults</h2>
+                <p>Control how new songs are created and enhanced</p>
+              </div>
             </div>
-          </form>
-        </div>
+
+            <div className="settings-card-content">
+              <label className="settings-toggle">
+                <div className="toggle-content">
+                  <span className="toggle-title">Auto-fetch Spotify metadata</span>
+                  <span className="toggle-description">
+                    Automatically enhance new songs with album art, release year, and other metadata from Spotify
+                  </span>
+                </div>
+                <div className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    name="auto_spotify_fetch_enabled"
+                    checked={formData.auto_spotify_fetch_enabled}
+                    onChange={handleInputChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </div>
+              </label>
+
+              <label className="settings-toggle">
+                <div className="toggle-content">
+                  <span className="toggle-title">Make new songs public by default</span>
+                  <span className="toggle-description">
+                    New songs will be visible in Community WIP. You can still change individual songs to private.
+                  </span>
+                </div>
+                <div className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    name="default_public_sharing"
+                    checked={formData.default_public_sharing}
+                    onChange={handleInputChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-header">
+              <span className="settings-card-icon">🎸</span>
+              <div>
+                <h2>WIP Display Options</h2>
+                <p>Customize what information you see on your Work In Progress songs</p>
+              </div>
+            </div>
+
+            <div className="settings-card-content">
+              <label className="settings-toggle">
+                <div className="toggle-content">
+                  <span className="toggle-title">Show instrument difficulties</span>
+                  <span className="toggle-description">
+                    Track difficulty ratings (0-5 dots + devil tier) for each instrument on WIP songs
+                  </span>
+                </div>
+                <div className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    name="show_instrument_difficulties"
+                    checked={formData.show_instrument_difficulties}
+                    onChange={handleInputChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </div>
+              </label>
+
+              <label className="settings-toggle">
+                <div className="toggle-content">
+                  <span className="toggle-title">Show content rating</span>
+                  <span className="toggle-description">
+                    Set content ratings (Family Friendly, Supervision Recommended, or Mature) for each song
+                  </span>
+                </div>
+                <div className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    name="show_content_rating"
+                    checked={formData.show_content_rating}
+                    onChange={handleInputChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="settings-actions">
+            <button type="submit" disabled={saving} className="settings-save-btn">
+              {saving ? (
+                <>
+                  <span className="btn-spinner"></span>
+                  Saving...
+                </>
+              ) : (
+                "Save Settings"
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

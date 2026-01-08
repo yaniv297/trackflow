@@ -86,6 +86,9 @@ const ColumnHeaders = ({
           Year {sortKey === "year" && (sortDirection === "asc" ? "▲" : "▼")}
         </th>
       )}
+      {shouldShowColumn("content_rating") && (
+        <th style={{ padding: "0.5rem", textAlign: "center", width: "60px" }}>Rating</th>
+      )}
       {shouldShowColumn("notes") && (
         <th style={{ padding: "0.5rem" }}>Notes</th>
       )}
@@ -94,6 +97,9 @@ const ColumnHeaders = ({
       )}
       {shouldShowColumn("visibility") && (
         <th style={{ padding: "0.5rem", textAlign: "center", width: "80px" }}>Visibility</th>
+      )}
+      {shouldShowColumn("needs_update") && (
+        <th style={{ padding: "0.5rem", textAlign: "center", width: "60px" }}>Update</th>
       )}
       {shouldShowColumn("actions") && (
         <th style={{ padding: "0.5rem" }}>Actions</th>

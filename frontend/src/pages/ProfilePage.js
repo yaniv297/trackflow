@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { apiGet, apiPut } from '../utils/api';
+import { checkCustomizationAchievements } from '../utils/achievements';
 import profileService from '../services/profileService';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ProfileSongsTable from '../components/profile/ProfileSongsTable';
@@ -11,11 +13,22 @@ const ITEMS_PER_PAGE = 10;
 const ProfilePage = () => {
   const { username } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, updateUser } = useAuth();
   
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    preferred_contact_method: "",
+    discord_username: "",
+    profile_image_url: "",
+    website_url: "",
+  });
   
   // Pagination states
   const [releasedSongsPage, setReleasedSongsPage] = useState(1);
@@ -24,6 +37,8 @@ const ProfilePage = () => {
   // Artist grouping states
   const [groupByArtist, setGroupByArtist] = useState(false);
   const [expandedArtists, setExpandedArtists] = useState(new Set());
+  
+  const isOwnProfile = currentUser?.username === username;
   
   useEffect(() => {
     const fetchProfile = async () => {
@@ -38,6 +53,11 @@ const ProfilePage = () => {
         const profileData = await profileService.getPublicProfile(username);
         setProfile(profileData);
         setError(null);
+        
+        // If viewing own profile, fetch editable settings
+        if (currentUser?.username === username) {
+          fetchUserSettings();
+        }
       } catch (err) {
         console.error('Error fetching profile:', err);
         if (err.response?.status === 404) {
@@ -51,7 +71,128 @@ const ProfilePage = () => {
     };
     
     fetchProfile();
-  }, [username]);
+  }, [username, currentUser?.username]);
+  
+  const fetchUserSettings = async () => {
+    try {
+      const response = await apiGet("/user-settings/me");
+      setFormData({
+        email: response.email || "",
+        preferred_contact_method: response.preferred_contact_method || "",
+        discord_username: response.discord_username || "",
+        profile_image_url: response.profile_image_url || "",
+        website_url: response.website_url || "",
+      });
+    } catch (error) {
+      console.error("Error fetching user settings:", error);
+    }
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+  
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+
+    // Client-side validation
+    if (formData.preferred_contact_method === "email" && !formData.email.trim()) {
+      if (window.showNotification) {
+        window.showNotification(
+          "Email address is required when email is the preferred contact method",
+          "error",
+          5000
+        );
+      }
+      return;
+    }
+
+    if (formData.preferred_contact_method === "discord" && !formData.discord_username.trim()) {
+      if (window.showNotification) {
+        window.showNotification(
+          "Discord username is required when Discord is the preferred contact method",
+          "error",
+          5000
+        );
+      }
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const payload = {};
+      
+      // Always include profile fields to trigger achievement checks
+      payload.profile_image_url = formData.profile_image_url || "";
+      payload.website_url = formData.website_url || "";
+      
+      // Only include other fields if they have meaningful values
+      if (formData.email && formData.email.trim()) {
+        payload.email = formData.email.trim();
+      }
+      
+      if (formData.preferred_contact_method && formData.preferred_contact_method.trim()) {
+        payload.preferred_contact_method = formData.preferred_contact_method.trim();
+      }
+      
+      if (formData.discord_username && formData.discord_username.trim()) {
+        payload.discord_username = formData.discord_username.trim();
+      }
+      
+      const response = await apiPut("/user-settings/me", payload);
+
+      // Update the user context with new data
+      if (updateUser && currentUser) {
+        updateUser({ ...currentUser, ...response });
+      } else if (updateUser) {
+        updateUser(response);
+      }
+      
+      // Update local profile state with new data
+      setProfile(prev => ({
+        ...prev,
+        profile_image_url: formData.profile_image_url,
+        website_url: formData.website_url,
+        preferred_contact_method: formData.preferred_contact_method,
+        discord_username: formData.discord_username,
+      }));
+
+      if (window.showNotification) {
+        window.showNotification("Profile saved successfully!", "success", 3000);
+      }
+
+      setSaving(false);
+      setIsEditing(false);
+
+      // Check for customization achievements
+      checkCustomizationAchievements(1000).catch((error) => {
+        console.error("Error checking customization achievements:", error);
+      });
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      if (window.showNotification) {
+        window.showNotification(error.message || "Failed to save profile", "error", 5000);
+      }
+      setSaving(false);
+    }
+  };
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form data to profile values
+    setFormData({
+      email: profile?.email || "",
+      preferred_contact_method: profile?.preferred_contact_method || "",
+      discord_username: profile?.discord_username || "",
+      profile_image_url: profile?.profile_image_url || "",
+      website_url: profile?.website_url || "",
+    });
+  };
   
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -61,8 +202,6 @@ const ProfilePage = () => {
       day: 'numeric'
     });
   };
-  
-  
   
   const getRarityColor = (rarity) => {
     const colors = {
@@ -93,7 +232,6 @@ const ProfilePage = () => {
       display: 'Not specified'
     };
   };
-  
   
   if (isLoading) {
     return (
@@ -136,8 +274,6 @@ const ProfilePage = () => {
     );
   }
   
-  const isOwnProfile = currentUser?.username === profile.username;
-  
   return (
     <div className="profile-page">
       <div className="profile-container">
@@ -145,18 +281,18 @@ const ProfilePage = () => {
         <div className="profile-header">
           <div className="profile-header-content">
             <div className="profile-avatar">
-              {profile.profile_image_url ? (
+              {(isEditing ? formData.profile_image_url : profile.profile_image_url) ? (
                 <img 
-                  src={profile.profile_image_url} 
+                  src={isEditing ? formData.profile_image_url : profile.profile_image_url} 
                   alt={`${profile.username}'s avatar`}
                   onError={(e) => {
                     e.target.style.display = 'none';
-                    e.target.nextElementSibling.style.display = 'block';
+                    e.target.nextElementSibling.style.display = 'flex';
                   }}
                 />
               ) : null}
               <div className="profile-avatar-fallback" style={{ 
-                display: profile.profile_image_url ? 'none' : 'flex' 
+                display: (isEditing ? formData.profile_image_url : profile.profile_image_url) ? 'none' : 'flex' 
               }}>
                 {profile.username.charAt(0).toUpperCase()}
               </div>
@@ -168,70 +304,170 @@ const ProfilePage = () => {
                 <h2 className="profile-display-name">{profile.display_name}</h2>
               )}
               
-              <div className="profile-details">
-                <div className="detail-row">
-                  <strong className="detail-label">Achievement Score:</strong>
-                  <span className="detail-value">{profile.achievement_score}</span>
-                </div>
-                {profile.leaderboard_rank && (
-                  <div className="detail-row">
-                    <strong className="detail-label">Leaderboard Position:</strong>
-                    <span className="detail-value">#{profile.leaderboard_rank}</span>
-                  </div>
-                )}
-                <div className="detail-row">
-                  <strong className="detail-label">Member since:</strong>
-                  <span className="detail-value">{formatDate(profile.created_at)}</span>
-                </div>
-                {profile.preferred_contact_method && (() => {
-                  const contactInfo = getContactMethodDisplay(profile.preferred_contact_method, profile.discord_username);
-                  return (
+              {!isEditing ? (
+                // View Mode
+                <>
+                  <div className="profile-details">
                     <div className="detail-row">
-                      <strong className="detail-label">Contact:</strong>
-                      <span className="detail-value">
-                        {contactInfo.type === 'discord' ? (
-                          <>
-                            Discord: <a 
-                              href={`https://discord.com/users/${contactInfo.username}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="discord-link"
-                              title="Open Discord to message user"
-                            >
-                              {contactInfo.username}
-                            </a>
-                          </>
-                        ) : (
-                          contactInfo.display
-                        )}
-                      </span>
+                      <strong className="detail-label">Achievement Score:</strong>
+                      <span className="detail-value">{profile.achievement_score}</span>
                     </div>
-                  );
-                })()}
-                {profile.website_url && (
-                  <div className="detail-row">
-                    <strong className="detail-label">Website:</strong>
-                    <span className="detail-value">
-                      <a 
-                        href={profile.website_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="website-link"
-                      >
-                        {profile.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                      </a>
-                    </span>
+                    {profile.leaderboard_rank && (
+                      <div className="detail-row">
+                        <strong className="detail-label">Leaderboard Position:</strong>
+                        <span className="detail-value">#{profile.leaderboard_rank}</span>
+                      </div>
+                    )}
+                    <div className="detail-row">
+                      <strong className="detail-label">Member since:</strong>
+                      <span className="detail-value">{formatDate(profile.created_at)}</span>
+                    </div>
+                    {profile.preferred_contact_method && (() => {
+                      const contactInfo = getContactMethodDisplay(profile.preferred_contact_method, profile.discord_username);
+                      return (
+                        <div className="detail-row">
+                          <strong className="detail-label">Contact:</strong>
+                          <span className="detail-value">
+                            {contactInfo.type === 'discord' ? (
+                              <>
+                                Discord: <a 
+                                  href={`https://discord.com/users/${contactInfo.username}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="discord-link"
+                                  title="Open Discord to message user"
+                                >
+                                  {contactInfo.username}
+                                </a>
+                              </>
+                            ) : (
+                              contactInfo.display
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    {profile.website_url && (
+                      <div className="detail-row">
+                        <strong className="detail-label">Website:</strong>
+                        <span className="detail-value">
+                          <a 
+                            href={profile.website_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="website-link"
+                          >
+                            {profile.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                          </a>
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              
-              {isOwnProfile && (
-                <button 
-                  onClick={() => navigate('/settings')} 
-                  className="edit-profile-btn"
-                >
-                  Edit Profile
-                </button>
+                  
+                  {isOwnProfile && (
+                    <button 
+                      onClick={() => setIsEditing(true)} 
+                      className="edit-profile-btn"
+                    >
+                      Edit Profile
+                    </button>
+                  )}
+                </>
+              ) : (
+                // Edit Mode
+                <form onSubmit={handleSaveProfile} className="profile-edit-form">
+                  <div className="profile-form-group">
+                    <label htmlFor="profile_image_url">Profile Image URL</label>
+                    <input
+                      type="url"
+                      id="profile_image_url"
+                      name="profile_image_url"
+                      value={formData.profile_image_url}
+                      onChange={handleInputChange}
+                      placeholder="https://example.com/your-image.jpg"
+                    />
+                    <span className="form-hint">Link to an image for your profile picture</span>
+                  </div>
+
+                  <div className="profile-form-group">
+                    <label htmlFor="website_url">Website / Profile Link</label>
+                    <input
+                      type="url"
+                      id="website_url"
+                      name="website_url"
+                      value={formData.website_url}
+                      onChange={handleInputChange}
+                      placeholder="https://rhythmverse.co/profile/yourname"
+                    />
+                    <span className="form-hint">Your personal website or music profile</span>
+                  </div>
+
+                  <div className="profile-form-group">
+                    <label htmlFor="preferred_contact_method">
+                      Preferred Contact Method
+                    </label>
+                    <select
+                      id="preferred_contact_method"
+                      name="preferred_contact_method"
+                      value={formData.preferred_contact_method}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">None</option>
+                      <option value="email">Email</option>
+                      <option value="discord">Discord</option>
+                    </select>
+                  </div>
+
+                  {formData.preferred_contact_method === "email" && (
+                    <div className="profile-form-group">
+                      <label htmlFor="email">
+                        Email Address
+                        <span className="required-indicator">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="your@email.com"
+                      />
+                    </div>
+                  )}
+
+                  {formData.preferred_contact_method === "discord" && (
+                    <div className="profile-form-group">
+                      <label htmlFor="discord_username">
+                        Discord Username
+                        <span className="required-indicator">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="discord_username"
+                        name="discord_username"
+                        value={formData.discord_username}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="username#1234"
+                      />
+                    </div>
+                  )}
+
+                  <div className="profile-edit-actions">
+                    <button type="submit" disabled={saving} className="btn btn-primary">
+                      {saving ? "Saving..." : "Save Profile"}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleCancelEdit} 
+                      className="btn btn-secondary"
+                      disabled={saving}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
           </div>

@@ -21,7 +21,7 @@ export const useWipData = (user) => {
 
   // Get dynamic workflow fields for the current user
   const { authoringFields } = useWorkflowData(user);
-  const { fetchUserWorkflowFields, getWorkflowFields } =
+  const { fetchUserWorkflowFields, getWorkflowFields, clearCache: clearWorkflowFieldsCache } =
     useUserWorkflowFields();
 
   // Helper to load songs with their workflow progress in one place
@@ -407,6 +407,10 @@ export const useWipData = (user) => {
   };
 
   const refreshSongs = async () => {
+    // Clear workflow fields cache to ensure fresh data after workflow updates
+    // This ensures new workflow steps are immediately visible
+    clearWorkflowFieldsCache();
+    
     // Use the same logic as the initial load so that
     // song.progress is always populated and pack percentages
     // remain correct after any refresh-triggering operation.

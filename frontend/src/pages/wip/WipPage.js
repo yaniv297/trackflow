@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useWipData } from "../../hooks/wip/useWipData";
 import { useWorkflowData } from "../../hooks/workflows/useWorkflowData";
@@ -47,6 +47,40 @@ function WipPage() {
 
   // Welcome notification
   useWipWelcomeNotification();
+
+  // Listen for Future Plans refresh events (when songs are marked as needs update from Released page)
+  // This ensures songs appear immediately in Future Plans when marked
+  useEffect(() => {
+    const handleRefreshFuturePlans = () => {
+      // Refresh songs to pick up any new "needs update" songs that should appear in Future Plans
+      // Note: This won't affect WIP page directly, but ensures Future Plans gets updated
+      refreshSongs();
+    };
+    window.addEventListener("refresh-future-plans", handleRefreshFuturePlans);
+    return () => {
+      window.removeEventListener("refresh-future-plans", handleRefreshFuturePlans);
+    };
+  }, [refreshSongs]);
+
+  // Listen for workflow update events to refresh songs immediately
+  // This ensures new workflow steps (like "Events") appear on WIP songs right away
+  useEffect(() => {
+    const handleWorkflowUpdate = () => {
+      // Refresh songs to pick up new workflow steps that were added to song_progress
+      refreshSongs();
+    };
+    const handleWipRefresh = () => {
+      // Direct refresh event from WorkflowSettings
+      refreshSongs();
+    };
+    
+    window.addEventListener("workflow-updated", handleWorkflowUpdate);
+    window.addEventListener("wip-refresh", handleWipRefresh);
+    return () => {
+      window.removeEventListener("workflow-updated", handleWorkflowUpdate);
+      window.removeEventListener("wip-refresh", handleWipRefresh);
+    };
+  }, [refreshSongs]);
 
   // UI state
   const {

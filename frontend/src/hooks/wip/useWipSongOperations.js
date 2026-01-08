@@ -79,6 +79,7 @@ export const useWipSongOperations = (
             "year",
             "notes",
             "irrelevantSteps",  // N/A steps for progress calculation
+            "content_rating",   // Content maturity rating
           ];
 
           safeFields.forEach((field) => {

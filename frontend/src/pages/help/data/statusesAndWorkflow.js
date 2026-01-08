@@ -150,6 +150,37 @@ export const statusesAndWorkflowContent = {
       },
     },
     {
+      title: "Remove Parts (Per-Song)",
+      type: "highlight-box",
+      highlightColor: "#fff8e6",
+      borderColor: "#ffe0a3",
+      content: {
+        title: "Skip Instruments That Don't Exist in a Song",
+        items: [
+          {
+            label: "Purpose:",
+            text: "Remove workflow steps for instruments that don't exist in a specific song (e.g., a song without Keys or Pro Keys)",
+          },
+          {
+            label: "How to Access:",
+            text: "Click the ⋯ menu on any WIP song card → \"Remove Parts\"",
+          },
+          {
+            label: "Effect on Progress:",
+            text: "Removed parts don't count toward completion - both for the individual song and the overall pack percentage",
+          },
+          {
+            label: "Example:",
+            text: "If your workflow has 12 steps but a song has no keys, remove the Keys and Pro Keys steps. The song will now calculate completion from 10 steps instead of 12",
+          },
+          {
+            label: "Visual Indicator:",
+            text: "Removed parts appear with strikethrough styling in the song's workflow badges, and the progress bar shows how many parts were removed",
+          },
+        ],
+      },
+    },
+    {
       title: "Workflow Best Practices",
       type: "info-box",
       content: {
@@ -165,6 +196,7 @@ export const statusesAndWorkflowContent = {
           "Use the progress bars to prioritize which songs to focus on",
           "Customize your workflow to match your actual process",
           "Add new steps when you discover new parts of your process",
+          "Use \"Remove Parts\" to skip instruments that don't exist in specific songs",
         ],
       },
     },
@@ -195,6 +227,84 @@ export const statusesAndWorkflowContent = {
           {
             label: "Toggle Feature:",
             text: "This feature can be enabled or disabled in Settings → Settings tab → \"Show instrument difficulties in WIP\"",
+          },
+        ],
+      },
+    },
+    {
+      title: "Content Rating",
+      type: "highlight-box",
+      highlightColor: "#fff5f5",
+      borderColor: "#f5c2c7",
+      content: {
+        title: "Track Content Maturity Ratings",
+        items: [
+          {
+            label: "Purpose:",
+            text: "Set a content maturity rating for each song so you remember what's appropriate for different audiences when it's time to release",
+          },
+          {
+            label: "Rating Options:",
+            text: "👨‍👩‍👧‍👦 Family Friendly (all ages), ⚠️ Supervision Recommended (mild content), 🔞 Mature (explicit content)",
+          },
+          {
+            label: "Family Friendly:",
+            text: "Suitable for all ages. No explicit content, mild themes only.",
+          },
+          {
+            label: "Supervision Recommended:",
+            text: "May contain mild language, suggestive themes, or references to substances.",
+          },
+          {
+            label: "Mature:",
+            text: "Contains explicit language, adult themes, or strong content. Not suitable for younger audiences.",
+          },
+          {
+            label: "How to Use:",
+            text: "Click the \"Rating\" button on any WIP song card and select the appropriate rating from the dropdown",
+          },
+          {
+            label: "Toggle Feature:",
+            text: "This feature is disabled by default. Enable it in Settings → Settings tab → \"Show content rating in WIP\"",
+          },
+        ],
+      },
+    },
+    {
+      title: "Updating Released Songs",
+      type: "highlight-box",
+      highlightColor: "#fff8e6",
+      borderColor: "#ffc107",
+      content: {
+        title: "Mark Songs for Updates - Dual-Presence Tracking",
+        items: [
+          {
+            label: "Purpose:",
+            text: "Mark released songs that need improvements or updates. The song will appear in both Released (showing the current version) and Future Plans/WIP (for tracking the update) simultaneously.",
+          },
+          {
+            label: "How to Mark:",
+            text: "On the Released page, enable the \"Update\" column (hidden by default), then click the circle icon (○) next to any song to mark it as needing an update. The icon will change to a checkmark (✓).",
+          },
+          {
+            label: "Dual Presence:",
+            text: "When marked, the song appears in both Released and Future Plans (or WIP if you move it there). This lets you track updates while keeping the original release visible.",
+          },
+          {
+            label: "Visual Indicators:",
+            text: "Songs marked for update show a 🔁 icon after their title in Future Plans/WIP views, and a badge in WIP cards indicating \"Updating Released Song\".",
+          },
+          {
+            label: "Pack Organization:",
+            text: "Update songs can be grouped in packs with new songs. When the pack moves to WIP, all songs (including updates) move together, and update songs get fresh progress tracking.",
+          },
+          {
+            label: "Completing Updates:",
+            text: "When you release the updated version (either individually or as part of a pack), the update status is cleared and the song returns to normal Released status with the new release date.",
+          },
+          {
+            label: "Progress Reset:",
+            text: "When an update song moves to WIP, its progress is reset so you can track the new work from scratch.",
           },
         ],
       },

@@ -123,6 +123,8 @@ async def get_user_workflow(
     """Get a specific user's workflow configuration (for collaboration songs).
     This ensures collaborators see the owner's workflow steps.
     """
+    start_time = time.time()
+    
     # Try cache first
     cached_workflow = _get_cached_workflow(user_id)
     if cached_workflow is not None:

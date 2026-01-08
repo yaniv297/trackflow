@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { apiGet } from "../../utils/api";
 
 /**
@@ -109,6 +109,20 @@ export const useOwnerWorkflows = () => {
   
   const preloadWorkflows = useCallback(async (ownerIds) => {
     return preloadOwnerWorkflows(ownerIds);
+  }, []);
+  
+  // Listen for workflow update events to clear cache
+  // This ensures owner workflows are refreshed when the current user updates their workflow
+  // (since owner workflows might be the current user's workflow)
+  useEffect(() => {
+    const handleWorkflowUpdate = () => {
+      clearOwnerWorkflowCache();
+    };
+    
+    window.addEventListener("workflow-updated", handleWorkflowUpdate);
+    return () => {
+      window.removeEventListener("workflow-updated", handleWorkflowUpdate);
+    };
   }, []);
   
   return {

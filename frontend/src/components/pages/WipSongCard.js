@@ -13,6 +13,7 @@ import SongActions from "./WipSongCard/SongActions";
 import SpotifyEnhancement from "./WipSongCard/SpotifyEnhancement";
 import AuthoringFields from "./WipSongCard/AuthoringFields";
 import InstrumentDifficulties from "./WipSongCard/InstrumentDifficulties";
+import ContentRating from "./WipSongCard/ContentRating";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useUserProfilePopup } from "../../hooks/ui/useUserProfilePopup";
@@ -211,6 +212,15 @@ export default function WipSongCard({
             songId={song.id}
             readOnly={readOnly}
           />
+
+          {/* Content Rating - only show when user has setting enabled */}
+          {currentUser?.show_content_rating && (
+            <ContentRating
+              song={song}
+              onSongUpdate={onSongUpdate}
+              readOnly={readOnly}
+            />
+          )}
 
           {/* Actions Dropdown */}
           <SongActions

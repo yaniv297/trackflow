@@ -86,6 +86,68 @@ export const collaborationRequestsContent = {
           ]
         }
       ]
+    },
+    {
+      title: "Bulk Collaboration Requests",
+      type: "highlight-box",
+      highlightColor: "#e8f5e9",
+      borderColor: "#a5d6a7",
+      content: {
+        title: "Request Collaboration on Multiple Songs at Once",
+        items: [
+          {
+            label: "Purpose:",
+            text: "Request collaboration on multiple songs from the same author in a single request - saves time when you want to help with several of their projects"
+          },
+          {
+            label: "How to Access:",
+            text: "In Community, select multiple songs from the same owner using checkboxes, then click 'Send Collaboration Request'"
+          },
+          {
+            label: "Important:",
+            text: "All selected songs must belong to the same owner - you cannot send a batch request across multiple authors"
+          },
+          {
+            label: "Add a Message:",
+            text: "Write one message explaining your interest - it applies to all selected songs"
+          },
+          {
+            label: "Owner Response:",
+            text: "The song owner can approve all, reject all, or selectively approve/reject individual songs from your batch"
+          }
+        ]
+      }
+    },
+    {
+      title: "Musical Connections",
+      type: "highlight-box",
+      highlightColor: "#fff3e0",
+      borderColor: "#ffcc80",
+      content: {
+        title: "Discover Shared Songs & Artists",
+        items: [
+          {
+            label: "Where to Find It:",
+            text: "The 'Your Musical Connections' section appears at the top of the Community page when you're logged in"
+          },
+          {
+            label: "Shared Songs:",
+            text: "Shows when you and another user are both working on the exact same song (same title AND artist). You can request to collaborate directly from here"
+          },
+          {
+            label: "Shared Artists:",
+            text: "Shows artists that both you and another user have songs for. Click on an artist card to see a detailed breakdown of who has which songs"
+          },
+          {
+            label: "Artist Details:",
+            text: "Expanding an artist shows your songs vs their songs, highlights which songs you share, and lets you request collaboration on their songs"
+          },
+          {
+            label: "Why It's Useful:",
+            text: "Quickly find users working on the same songs or artists as you - perfect for finding collaborators who share your musical interests"
+          }
+        ]
+      }
     }
   ]
 };

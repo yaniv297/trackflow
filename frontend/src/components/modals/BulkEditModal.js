@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { apiPost, apiPatch, apiGet, ApiError } from "../../utils/api";
 import SmartDropdown from "../ui/SmartDropdown";
 
-const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
+const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete, status }) => {
   const [selectedAction, setSelectedAction] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -364,6 +364,37 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           }
           break;
 
+        case "move_to_wip":
+          setProgress({
+            current: 0,
+            total: selectedSongs.length,
+            message: "Moving songs to WIP...",
+          });
+          for (let i = 0; i < selectedSongs.length; i++) {
+            const id = selectedSongs[i];
+            try {
+              await apiPatch(`/songs/${id}`, { status: "In Progress" });
+              setProgress({
+                current: i + 1,
+                total: selectedSongs.length,
+                message: `Moved ${i + 1} of ${selectedSongs.length} songs`,
+              });
+            } catch (error) {
+              failed++;
+              if (error instanceof ApiError) {
+                const errorMsg = error.detail || error.message;
+                if (errorMsg && !errorMessages.includes(errorMsg)) {
+                  errorMessages.push(errorMsg);
+                }
+              } else if (error.message) {
+                if (!errorMessages.includes(error.message)) {
+                  errorMessages.push(error.message);
+                }
+              }
+            }
+          }
+          break;
+
         default:
           window.showNotification("Unknown action selected.", "error");
           return;
@@ -498,6 +529,9 @@ const BulkEditModal = ({ isOpen, onClose, selectedSongs, onComplete }) => {
           <option value="edit_collaborations">Edit Collaborations</option>
           <option value="edit_owner">Edit Owner</option>
           <option value="edit_visibility">Edit Visibility</option>
+          {status === "Future Plans" && (
+            <option value="move_to_wip">Move to WIP</option>
+          )}
           <option value="bulk_enhance">Bulk Enhance</option>
           <option value="bulk_delete">Bulk Delete</option>
           <option value="clean_remaster_tags">Clean Remaster Tags</option>

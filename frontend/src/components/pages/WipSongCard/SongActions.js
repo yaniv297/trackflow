@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { exportYargIni } from "../../../utils/yargUtils";
-import { apiPost } from "../../../utils/api";
+import { apiPost, apiPatch } from "../../../utils/api";
 
 /**
  * Component for the song actions dropdown menu
@@ -24,6 +24,9 @@ const SongActions = ({
 }) => {
   const [showActionsDropdown, setShowActionsDropdown] = useState(false);
   const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const [clearingUpdate, setClearingUpdate] = useState(false);
+
+  const hasUpdateStatus = song.update_status !== null && song.update_status !== undefined;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -71,6 +74,30 @@ const SongActions = ({
       window.showNotification('Failed to toggle song visibility', 'error');
     } finally {
       setTogglingVisibility(false);
+    }
+  };
+
+  const handleClearUpdate = async () => {
+    setClearingUpdate(true);
+    try {
+      await apiPatch(`/songs/${song.id}`, { update_status: null });
+      if (onSongUpdate) {
+        onSongUpdate(song.id, { update_status: null });
+      }
+      
+      // Trigger refresh for Future Plans/WIP pages to remove the song
+      window.dispatchEvent(new CustomEvent("refresh-future-plans"));
+      
+      window.showNotification(
+        "Update status cleared - song is now a normal released song",
+        "success"
+      );
+      setShowActionsDropdown(false);
+    } catch (error) {
+      console.error('Failed to clear update status:', error);
+      window.showNotification('Failed to clear update status', 'error');
+    } finally {
+      setClearingUpdate(false);
     }
   };
 
@@ -308,21 +335,45 @@ const SongActions = ({
             }}
           />
 
-          <button
-            onClick={() => {
-              onDelete();
-              setShowActionsDropdown(false);
-            }}
-            style={deleteButtonStyle}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#fdf2f2";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "transparent";
-            }}
-          >
-            Delete Song
-          </button>
+          {/* For songs with update_status, show "Don't Update" instead of "Delete" */}
+          {hasUpdateStatus ? (
+            <button
+              onClick={handleClearUpdate}
+              disabled={clearingUpdate}
+              style={{
+                ...buttonStyle,
+                color: "#856404",
+                cursor: clearingUpdate ? "not-allowed" : "pointer",
+                opacity: clearingUpdate ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!clearingUpdate) {
+                  e.target.style.backgroundColor = "#fff8e6";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "transparent";
+              }}
+            >
+              {clearingUpdate ? "⏳ Clearing..." : "❌ Don't Update"}
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                onDelete();
+                setShowActionsDropdown(false);
+              }}
+              style={deleteButtonStyle}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = "#fdf2f2";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "transparent";
+              }}
+            >
+              Delete Song
+            </button>
+          )}
         </div>
       )}
     </div>

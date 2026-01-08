@@ -188,6 +188,51 @@ const TipsAndTricks = () => {
           "Add file history for WIP songs to track file versions and share progress with collaborators throughout the authoring process.",
         category: "collaboration",
       },
+      {
+        id: 25,
+        title: "Content Rating for Songs",
+        summary:
+          "Track content maturity ratings (Family Friendly, Supervision Recommended, Mature) for your songs. Enable this feature in Settings.",
+        category: "workflow",
+        link: "/settings",
+      },
+      {
+        id: 26,
+        title: "Instrument Difficulty Tracking",
+        summary:
+          "Record in-game difficulty ratings (0-5 dots + devil tier) for each instrument while charting. Great for remembering difficulties when uploading.",
+        category: "workflow",
+        link: "/settings",
+      },
+      {
+        id: 27,
+        title: "Remove Unused Parts",
+        summary:
+          "Songs missing certain instruments? Use 'Remove Parts' from the song menu to exclude them from completion calculations.",
+        category: "workflow",
+      },
+      {
+        id: 28,
+        title: "Bulk Collaboration Requests",
+        summary:
+          "Request collaboration on multiple songs at once! Select songs from the same owner in Community and send a single batch request for all of them.",
+        category: "collaboration",
+      },
+      {
+        id: 29,
+        title: "Musical Connections",
+        summary:
+          "Find users working on the same songs or artists as you! The 'Your Musical Connections' section in Community shows shared songs and artists you have in common.",
+        category: "community",
+        link: "/community",
+      },
+      {
+        id: 30,
+        title: "Update Released Songs",
+        summary:
+          "Mark released songs as 'needs update' to work on improvements while keeping them in your Released list. They'll appear simultaneously in Future Plans or WIP until the update is complete.",
+        category: "workflow",
+      },
     ];
 
     return tips;
@@ -254,7 +299,13 @@ const TipsAndTricks = () => {
   );
 };
 
-const TipCard = ({ tip, getCategoryColor, onNext, navigate, isAuthenticated }) => (
+const TipCard = ({
+  tip,
+  getCategoryColor,
+  onNext,
+  navigate,
+  isAuthenticated,
+}) => (
   <article className="tip-card compact">
     <div className="tip-header">
       <div className="tip-title-section">

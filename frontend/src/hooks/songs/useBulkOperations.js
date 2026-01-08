@@ -41,15 +41,25 @@ export const useBulkOperations = (
             return prev.filter((s) => !movedIds.has(s.id));
           }
           // Otherwise, mark them as In Progress
+          // For songs with update_status, update that field instead of status
           return prev.map((s) =>
-            movedIds.has(s.id) ? { ...s, status: "In Progress" } : s
+            movedIds.has(s.id) 
+              ? s.update_status 
+                ? { ...s, update_status: "in_progress" }
+                : { ...s, status: "In Progress" }
+              : s
           );
         });
 
         await Promise.all(
-          songsToMove.map((song) =>
-            apiPatch(`/songs/${song.id}`, { status: "In Progress" })
-          )
+          songsToMove.map((song) => {
+            // For songs with update_status (released songs being updated),
+            // only change update_status, NOT the song's status
+            if (song.update_status) {
+              return apiPatch(`/songs/${song.id}`, { update_status: "in_progress" });
+            }
+            return apiPatch(`/songs/${song.id}`, { status: "In Progress" });
+          })
         );
 
         // Check achievements after status change

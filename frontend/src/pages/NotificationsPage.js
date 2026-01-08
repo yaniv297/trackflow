@@ -188,9 +188,51 @@ const NotificationsPage = () => {
   };
 
   const formatTimeAgo = (dateString) => {
-    const date = new Date(dateString);
+    if (!dateString) {
+      return 'Unknown time';
+    }
+
+    // Parse the date string - handle both UTC (with Z) and naive UTC (without timezone)
+    // Backend sends UTC timestamps, so we need to ensure they're parsed as UTC
+    let date;
+    try {
+      // FastAPI/Pydantic may send dates without timezone info (naive UTC)
+      // JavaScript's Date constructor interprets strings without timezone as LOCAL time
+      // So we need to explicitly treat them as UTC
+      if (typeof dateString === 'string') {
+        // If it already has timezone info (Z, +, or - after position 10), use as-is
+        if (dateString.endsWith('Z') || dateString.match(/[+-]\d{2}:\d{2}$/)) {
+          date = new Date(dateString);
+        } else {
+          // No timezone info - assume it's UTC and append 'Z'
+          // Handle formats like "2024-01-15T10:30:00" or "2024-01-15 10:30:00"
+          const normalized = dateString.replace(' ', 'T').replace(/\.\d+$/, '');
+          date = new Date(normalized + (normalized.includes('T') ? 'Z' : ''));
+        }
+      } else {
+        date = new Date(dateString);
+      }
+    } catch (e) {
+      console.warn('Error parsing date:', dateString, e);
+      // Fallback to regular parsing
+      date = new Date(dateString);
+    }
+    
     const now = new Date();
-    const diffMs = now - date;
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString);
+      return 'Invalid date';
+    }
+    
+    const diffMs = now.getTime() - date.getTime();
+    
+    // Handle future dates (shouldn't happen, but just in case)
+    if (diffMs < 0) {
+      return date.toLocaleDateString();
+    }
+    
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);

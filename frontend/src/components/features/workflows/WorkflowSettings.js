@@ -60,12 +60,16 @@ const WorkflowSettings = () => {
       setWorkflow(updatedWorkflow);
       setEditingSteps([...updatedWorkflow.steps]);
       
-      // Clear workflow cache to force refresh on WIP page
-      // This ensures the updated display_name (e.g., "Events / Beat") is shown immediately
-      if (window.location.pathname !== "/wip") {
-        // Trigger a custom event to clear workflow caches across the app
-        window.dispatchEvent(new CustomEvent("workflow-updated"));
-      }
+      // Always trigger cache invalidation event to clear all workflow caches
+      // This ensures the updated workflow (including new steps like "Events") 
+      // shows immediately on WIP page and throughout the app
+      window.dispatchEvent(new CustomEvent("workflow-updated"));
+      
+      // Also dispatch a specific WIP refresh event to ensure songs refresh immediately
+      // Use a small delay to allow backend to finish updating song_progress
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("wip-refresh"));
+      }, 100);
       
       window.showNotification("Workflow updated successfully!", "success");
     } catch (error) {

@@ -58,6 +58,20 @@ function SongPage({ status }) {
   const { songs, setSongs, packs, setPacks, loading, refreshSongs } =
     useSongData(status, search);
 
+  // Listen for Future Plans refresh events (when songs are marked as needs update from Released page)
+  useEffect(() => {
+    const handleRefreshFuturePlans = () => {
+      // Only refresh if we're on the Future Plans page
+      if (status === "Future Plans") {
+        refreshSongs();
+      }
+    };
+    window.addEventListener("refresh-future-plans", handleRefreshFuturePlans);
+    return () => {
+      window.removeEventListener("refresh-future-plans", handleRefreshFuturePlans);
+    };
+  }, [status, refreshSongs]);
+
   // Collaborations
   const { fetchCollaborations, getPackCollaborators } = useCollaborations();
 
@@ -562,6 +576,7 @@ function SongPage({ status }) {
           isOpen={showBulkModal}
           onClose={() => setShowBulkModal(false)}
           selectedSongs={selectedSongs}
+          status={status}
           onComplete={() => {
             setShowBulkModal(false);
             setSelectedSongs([]);

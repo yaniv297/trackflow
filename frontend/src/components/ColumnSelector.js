@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 const DEFAULT_COLUMNS = {
   cover: { label: "Cover", enabled: true, required: true },
@@ -8,13 +9,16 @@ const DEFAULT_COLUMNS = {
   pack: { label: "Pack", enabled: true, required: false },
   author: { label: "Owner", enabled: true, required: false },
   year: { label: "Year", enabled: true, required: false },
+  content_rating: { label: "Rating", enabled: true, required: false },
   notes: { label: "Notes", enabled: true, required: false },
   collaborations: { label: "Collaborations", enabled: true, required: false },
   visibility: { label: "Visibility", enabled: true, required: false },
-  actions: { label: "Actions", enabled: true, required: true },
+  needs_update: { label: "Needs Update", enabled: false, required: false },
+  actions: { label: "Actions", enabled: true, required: false },
 };
 
 const ColumnSelector = ({ onColumnChange, groupBy, status }) => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const dropdownRef = useRef(null);
@@ -32,7 +36,7 @@ const ColumnSelector = ({ onColumnChange, groupBy, status }) => {
     }
   }, []);
 
-  // Filter out columns that shouldn't be shown based on groupBy or status
+  // Filter out columns that shouldn't be shown based on groupBy, status, or user settings
   const getVisibleColumns = useMemo(() => {
     const visibleColumns = { ...columns };
     
@@ -51,8 +55,18 @@ const ColumnSelector = ({ onColumnChange, groupBy, status }) => {
       visibleColumns.visibility = { ...visibleColumns.visibility, groupHidden: true };
     }
     
+    // Hide content_rating column if user doesn't have the setting enabled
+    if (!user?.show_content_rating) {
+      visibleColumns.content_rating = { ...visibleColumns.content_rating, groupHidden: true };
+    }
+    
+    // Only show needs_update column on Released page
+    if (status !== "Released") {
+      visibleColumns.needs_update = { ...visibleColumns.needs_update, groupHidden: true };
+    }
+    
     return visibleColumns;
-  }, [columns, groupBy, status]);
+  }, [columns, groupBy, status, user?.show_content_rating]);
 
   // Save column preferences when they change
   useEffect(() => {

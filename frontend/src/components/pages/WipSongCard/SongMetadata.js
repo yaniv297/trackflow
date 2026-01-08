@@ -54,10 +54,25 @@ const SongMetadata = ({
     );
   };
 
+  const hasUpdateStatus = song.update_status !== null && song.update_status !== undefined;
+
   return (
     <div style={{ flex: 1 }}>
-      <div style={{ fontSize: "1.1rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div style={{ fontSize: "1.1rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
         {renderEditable("title")}
+        {hasUpdateStatus && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              fontSize: "0.9rem",
+              cursor: "help",
+            }}
+            title="This is an update to an already released song - it appears in both Released and this view until the update is complete"
+          >
+            🔁
+          </span>
+        )}
         <span
           style={{
             fontStyle: "italic",

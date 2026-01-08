@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func, text
+from sqlalchemy import or_, and_, func, text
 from typing import List, Optional, Set, Dict, Any, Tuple
 from models import Song, SongStatus, User, Pack, Collaboration, CollaborationType, Artist, AlbumSeries
 from schemas import SongCreate
@@ -55,9 +55,29 @@ class SongRepository:
             )
         )
         
-        # Apply status filter
+        # Apply status filter with dual-presence support
+        # Songs with update_status should appear in Future Plans/WIP even if status is "Released"
         if status:
-            q = q.filter(Song.status == status)
+            if status == SongStatus.future:
+                # Future Plans: include songs with status="Future Plans" OR (status="Released" AND update_status="future_plans")
+                q = q.filter(
+                    or_(
+                        Song.status == status,
+                        and_(Song.status == SongStatus.released, Song.update_status == "future_plans")
+                    )
+                )
+            elif status == SongStatus.wip:
+                # In Progress: include songs with status="In Progress" OR (status="Released" AND update_status="in_progress")
+                q = q.filter(
+                    or_(
+                        Song.status == status,
+                        and_(Song.status == SongStatus.released, Song.update_status == "in_progress")
+                    )
+                )
+            else:
+                # For Released status, include all released songs (including those with update_status)
+                # They appear in both views
+                q = q.filter(Song.status == status)
         
         # Apply pack filter
         if pack_id:
@@ -139,9 +159,28 @@ class SongRepository:
         
         q = self.db.query(Song)
         
-        # Apply status filter
+        # Apply status filter with dual-presence support
+        # Songs with update_status should appear in Future Plans/WIP even if status is "Released"
         if status:
-            q = q.filter(Song.status == status)
+            if status == SongStatus.future:
+                # Future Plans: include songs with status="Future Plans" OR (status="Released" AND update_status="future_plans")
+                q = q.filter(
+                    or_(
+                        Song.status == status,
+                        and_(Song.status == SongStatus.released, Song.update_status == "future_plans")
+                    )
+                )
+            elif status == SongStatus.wip:
+                # In Progress: include songs with status="In Progress" OR (status="Released" AND update_status="in_progress")
+                q = q.filter(
+                    or_(
+                        Song.status == status,
+                        and_(Song.status == SongStatus.released, Song.update_status == "in_progress")
+                    )
+                )
+            else:
+                # For Released status, include all released songs (including those with update_status)
+                q = q.filter(Song.status == status)
         
         # Apply query filter
         if query:

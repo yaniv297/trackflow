@@ -50,6 +50,7 @@ class UserResponse(BaseModel):
     last_login_at: Optional[str] = None
     # User settings
     show_instrument_difficulties: bool = True
+    show_content_rating: bool = False
     
     class Config:
         from_attributes = True

@@ -58,9 +58,17 @@ export const useSongData = (status, search) => {
       setSongsCache({});
       fetchSongs();
     };
+    const invalidateOnly = () => {
+      // Only clear cache, don't refresh current page
+      // This is used when marking songs as "needs update" to avoid refreshing Released page
+      setSongsCache({});
+    };
     window.addEventListener("songs-invalidate-cache", invalidate);
-    return () =>
+    window.addEventListener("songs-invalidate-cache-only", invalidateOnly);
+    return () => {
       window.removeEventListener("songs-invalidate-cache", invalidate);
+      window.removeEventListener("songs-invalidate-cache-only", invalidateOnly);
+    };
   }, [fetchSongs]);
 
   const invalidateCache = useCallback(() => {

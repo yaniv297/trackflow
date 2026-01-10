@@ -104,8 +104,21 @@ class SongService:
         from sqlalchemy import text
         
         if song_ids or pack_ids:
-            # Single optimized query to get all collaboration data
-            collaboration_rows = self.db.execute(text("""
+            # Build IN clauses with named parameters (works for both SQLite and PostgreSQL)
+            song_params = list(song_ids) if song_ids else [0]
+            pack_params = list(pack_ids) if pack_ids else [0]
+            
+            # Generate named placeholders for each value
+            song_placeholders = ",".join(f":song_id_{i}" for i in range(len(song_params)))
+            pack_placeholders = ",".join(f":pack_id_{i}" for i in range(len(pack_params)))
+            
+            # Build parameter dictionary
+            params = {"user_id": current_user.id}
+            params.update({f"song_id_{i}": val for i, val in enumerate(song_params)})
+            params.update({f"pack_id_{i}": val for i, val in enumerate(pack_params)})
+            
+            # Single query that works for both SQLite and PostgreSQL
+            collaboration_rows = self.db.execute(text(f"""
                 SELECT 
                     song_id,
                     pack_id,
@@ -113,14 +126,10 @@ class SongService:
                 FROM collaborations
                 WHERE user_id = :user_id
                   AND (
-                    (song_id IN :song_ids AND collaboration_type = 'SONG_EDIT') OR
-                    (pack_id IN :pack_ids AND collaboration_type IN ('PACK_VIEW', 'PACK_EDIT'))
+                    (song_id IN ({song_placeholders}) AND collaboration_type = 'SONG_EDIT') OR
+                    (pack_id IN ({pack_placeholders}) AND collaboration_type IN ('PACK_VIEW', 'PACK_EDIT'))
                   )
-            """), {
-                "user_id": current_user.id,
-                "song_ids": tuple(song_ids) if song_ids else (0,),  # Dummy value if empty
-                "pack_ids": tuple(pack_ids) if pack_ids else (0,)   # Dummy value if empty
-            }).fetchall()
+            """), params).fetchall()
             
             # Process results efficiently
             for row in collaboration_rows:
@@ -148,6 +157,21 @@ class SongService:
 
         return results
     
+    def get_song(self, song_id: int, current_user: User) -> SongOut:
+        """Get a single song by ID with access control."""
+        song = self.song_repo.get_song_by_id(song_id)
+        if not song:
+            raise HTTPException(status_code=404, detail="Song not found")
+        
+        # Check access permissions (owner or collaborator)
+        if not self.song_repo.check_song_access(song_id, current_user.id):
+            raise HTTPException(status_code=403, detail="You don't have permission to view this song")
+        
+        # Build song response using existing helper
+        song_dict = self._build_song_response(song, current_user)
+        
+        return SongOut(**song_dict)
+    
     def update_song(self, song_id: int, updates: Dict[str, Any], current_user: User) -> SongOut:
         """Update a song with proper validation and access control."""
         song = self.song_repo.get_song_by_id(song_id)
@@ -168,12 +192,22 @@ class SongService:
             self._handle_pack_name_change(song, updates["pack"], current_user)
             del updates["pack"]
         
+        # Fields that should not be directly set (relationships, computed fields, etc.)
+        # These are either handled specially above or are read-only
+        skip_fields = {
+            "pack", "pack_obj", "user", "artist_obj", "authoring", 
+            "progress", "album_series_obj", "collaborations",
+            "id", "user_id", "created_at", "wipCollaborations"
+        }
+        
         # Check if status is changing to Released
         old_status = song.status
         
-        # Apply regular updates
+        # Apply regular updates (skip relationship and protected fields)
         for key, value in updates.items():
-            if hasattr(song, key):
+            if key in skip_fields:
+                continue
+            if hasattr(song, key) and not isinstance(value, dict):
                 setattr(song, key, value)
         
         # Handle status changes for achievements, timestamps and collaboration notifications

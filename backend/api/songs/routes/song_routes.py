@@ -46,6 +46,17 @@ def get_filtered_songs(
     return service.get_filtered_songs(current_user, status, query, pack_id, completion_threshold, order, limit)
 
 
+@router.get("/{song_id}", response_model=SongOut)
+def get_song(
+    song_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get a single song by ID."""
+    service = SongService(db)
+    return service.get_song(song_id, current_user)
+
+
 @router.get("/{song_id}/owner-id")
 def get_song_owner_id(
     song_id: int,

@@ -44,7 +44,7 @@ class SafeDateTime(DateTime):
 
 
 # Re-export Base for compatibility
-__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'CollaborationRequestBatch', 'CollaborationRequestBatchStatus', 'SongProgress']
+__all__ = ['Base', 'SafeDateTime', 'User', 'Song', 'Pack', 'Collaboration', 'CollaborationType', 'AlbumSeries', 'Authoring', 'Artist', 'SongStatus', 'WipCollaboration', 'FileLink', 'AlbumSeriesPreexisting', 'RockBandDLC', 'FeatureRequest', 'FeatureRequestComment', 'FeatureRequestVote', 'ActivityLog', 'Achievement', 'UserAchievement', 'UserStats', 'Notification', 'NotificationType', 'ReleasePost', 'PostType', 'Update', 'UpdateType', 'PasswordResetToken', 'CollaborationRequest', 'CollaborationRequestBatch', 'CollaborationRequestBatchStatus', 'SongProgress', 'CommunityEventRegistration']
 
 class SongStatus(str, enum.Enum):
     released = "Released"
@@ -99,10 +99,23 @@ class Pack(Base):
     release_download_link = Column(String, nullable=True)  # Download link for the pack
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
     show_on_homepage = Column(Boolean, default=True, nullable=False)  # Whether to show this pack on the homepage
+    
+    # Community Event fields
+    is_community_event = Column(Boolean, default=False, index=True)  # Marks pack as a community event
+    event_theme = Column(String, nullable=True)  # Theme name (e.g., "Valentine's Day", "Halloween")
+    event_end_date = Column(DateTime, nullable=True)  # When contributions close AND links are revealed (NULL = always open)
+    rv_release_time = Column(DateTime, nullable=True)  # RhythmVerse server release time (CET timezone)
+    event_banner_url = Column(String, nullable=True)  # Banner image for the event
+    event_description = Column(Text, nullable=True)  # Event description/instructions
+    event_organizer_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Admin who created the event
+    event_revealed_at = Column(DateTime, nullable=True)  # When links were manually revealed (for events without end_date)
+    
     # Relationships
     user = relationship("User", back_populates="packs", foreign_keys=[user_id])
     songs = relationship("Song", back_populates="pack_obj")
     collaborations = relationship("Collaboration", back_populates="pack")
+    event_organizer = relationship("User", foreign_keys=[event_organizer_id])
+    event_registrations = relationship("CommunityEventRegistration", back_populates="pack")
 
 class Song(Base):
     __tablename__ = "songs"
@@ -126,6 +139,13 @@ class Song(Base):
     release_description = Column(Text, nullable=True)  # Optional description for the release
     release_download_link = Column(String, nullable=True)  # Download link for the song
     release_youtube_url = Column(String, nullable=True)  # YouTube video URL for the release
+    
+    # Community event submission fields
+    rhythmverse_link = Column(String, nullable=True)  # Required RhythmVerse release URL for completed event songs
+    event_submission_description = Column(Text, nullable=True)  # Optional description for event submission
+    visualizer_link = Column(String, nullable=True)  # Optional visualizer URL for event submission
+    preview_link = Column(String, nullable=True)  # Optional preview/video URL for event submission
+    is_event_submitted = Column(Boolean, default=False, index=True)  # Marks song as submitted/ready for event
     
     # Composite indexes for common query patterns
     __table_args__ = (
@@ -458,6 +478,8 @@ class NotificationType(str, enum.Enum):
     COLLAB_BATCH_RESPONSE = "collab_batch_response"  # Batch request approved/rejected/partial
     # Potential collaboration discovery
     POTENTIAL_COLLABORATION = "potential_collaboration"  # Someone added a song you're working on
+    # Community event notifications
+    COMMUNITY_EVENT_STARTED = "community_event_started"  # New community event created
 
 class PostType(str, enum.Enum):
     PACK_RELEASE = "pack_release"      # Automatic pack release
@@ -690,3 +712,28 @@ class SongProgress(Base):
         Index('idx_song_progress_lookup', 'song_id', 'step_name'),
         UniqueConstraint('song_id', 'step_name', name='uq_song_step_progress'),
     )
+
+
+class CommunityEventRegistration(Base):
+    """
+    Tracks user interest/registration in community events before they add a song.
+    When a user adds a song to the event, their registration record is removed
+    (they are considered "participating" via their song instead).
+    """
+    __tablename__ = "community_event_registrations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=False, index=True)  # The event pack
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    registered_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Unique constraint: one registration per user per event
+    __table_args__ = (
+        UniqueConstraint('pack_id', 'user_id', name='unique_event_registration'),
+        Index('idx_event_reg_pack', 'pack_id'),
+        Index('idx_event_reg_user', 'user_id'),
+    )
+    
+    # Relationships
+    pack = relationship("Pack", back_populates="event_registrations")
+    user = relationship("User")

@@ -1,0 +1,885 @@
+/* Community Event Banner Styles - Matches app's light theme */
+
+.community-event-banner {
+  background: white;
+  border: 1px solid #ddd;
+  border-left: 4px solid #007bff;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.community-event-banner.expanded {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Collapsed Header */
+.event-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  background: #fafafa;
+}
+
+.event-banner-header:hover {
+  background: #f0f0f0;
+}
+
+.event-banner-title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.event-icon {
+  font-size: 1.5rem;
+}
+
+.event-theme {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.event-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.event-status-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.event-status-badge.ended {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.event-banner-stats {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.event-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.event-stat-value {
+  color: #333;
+  font-weight: 600;
+}
+
+.expand-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #007bff;
+  font-size: 0.85rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.expand-toggle:hover {
+  background: #e3f2fd;
+}
+
+.expand-toggle svg {
+  transition: transform 0.3s ease;
+}
+
+.expand-toggle.expanded svg {
+  transform: rotate(180deg);
+}
+
+/* Expanded Content */
+.event-banner-content {
+  padding: 1.25rem;
+  border-top: 1px solid #eee;
+  background: white;
+}
+
+.event-banner-image {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.event-description {
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.event-deadline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #856404;
+  background: #fff3cd;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  width: fit-content;
+}
+
+/* Stage-specific content */
+.event-stage-content {
+  background: #f8f9fa;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 1.25rem;
+}
+
+/* Stage 0 - Not Registered */
+.stage-not-registered {
+  text-align: center;
+}
+
+.stage-not-registered h3 {
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.stage-not-registered p {
+  color: #666;
+  margin-bottom: 1.25rem;
+}
+
+.register-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.register-button:hover {
+  background: #0056b3;
+}
+
+/* Stage 1 - Registered */
+.stage-registered {
+  text-align: center;
+}
+
+.registered-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+
+.add-song-section {
+  margin-top: 1rem;
+}
+
+.add-song-section h4 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.add-song-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.add-song-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  background: white;
+  color: #007bff;
+  border: 1px solid #007bff;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-song-button:hover {
+  background: #007bff;
+  color: white;
+}
+
+.unregister-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #999;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.unregister-link:hover {
+  color: #dc3545;
+}
+
+/* Stage 2 - In Progress */
+.stage-in-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Embedded WIP song card */
+.event-song-card-wrapper {
+  background: white;
+  border-radius: 8px;
+  /* Let the WipSongCard handle its own styling */
+}
+
+.event-song-card-wrapper > div {
+  /* Remove any margin from the embedded card */
+  margin: 0 !important;
+}
+
+.community-event-banner .event-song-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.community-event-banner .event-song-thumbnail {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #eee;
+}
+
+.community-event-banner .event-song-details h4 {
+  color: #333;
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+}
+
+.community-event-banner .event-song-details p {
+  color: #666;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.community-event-banner .stage-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.community-event-banner .action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.community-event-banner .action-button:hover {
+  background: #e0e0e0;
+}
+
+.community-event-banner .action-button.danger {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.community-event-banner .action-button.danger:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/* Stage 3 - Completed */
+.stage-completed {
+  text-align: center;
+}
+
+.stage-subtitle {
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.rv-release-notice {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.completed-song-info {
+  background: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.stage-completed-actions {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.stage-completed-actions .actions-label {
+  color: #888;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.stage-completed-actions .action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.stage-completed-actions .action-button {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background: white;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.stage-completed-actions .action-button:hover {
+  background: #f0f0f0;
+}
+
+.stage-completed-actions .action-button.secondary {
+  background: #e3f2fd;
+  border-color: #90caf9;
+  color: #1565c0;
+}
+
+.stage-completed-actions .action-button.secondary:hover {
+  background: #bbdefb;
+}
+
+.stage-completed-actions .action-button.danger {
+  color: #dc3545;
+  border-color: #f5c6cb;
+}
+
+.stage-completed-actions .action-button.danger:hover {
+  background: #f8d7da;
+}
+
+.completion-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #155724;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.community-event-banner .submission-form {
+  max-width: 450px;
+  margin: 0 auto;
+}
+
+.community-event-banner .form-group {
+  margin-bottom: 0.75rem;
+  text-align: left;
+}
+
+.community-event-banner .form-group label {
+  display: block;
+  color: #555;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+}
+
+.community-event-banner .form-group label.required::after {
+  content: " *";
+  color: #dc3545;
+}
+
+.community-event-banner .form-group input,
+.community-event-banner .form-group textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #333;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.community-event-banner .form-group input:focus,
+.community-event-banner .form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.15);
+}
+
+.community-event-banner .submit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+  width: auto;
+}
+
+.community-event-banner .submit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.community-event-banner .submit-button:not(:disabled):hover {
+  background: #218838;
+}
+
+/* Stage 4 - Submitted */
+.stage-submitted {
+  text-align: center;
+}
+
+.submitted-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: #d4edda;
+  color: #155724;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.community-event-banner .submission-preview {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.community-event-banner .submission-preview p {
+  color: #555;
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.community-event-banner .submission-preview a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.community-event-banner .submission-preview a:hover {
+  text-decoration: underline;
+}
+
+.community-event-banner .edit-submission-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.community-event-banner .edit-submission-button:hover {
+  background: #e0e0e0;
+}
+
+.community-event-banner .form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.event-error-message {
+  color: #dc3545;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: rgba(220, 53, 69, 0.1);
+  border-radius: 4px;
+}
+
+.inline-form-hint {
+  font-size: 0.8rem;
+  color: #666;
+  margin: 0.5rem 0;
+  text-align: left;
+}
+
+/* Inline Add Song Form */
+.inline-add-song-form {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.inline-add-song-form h4 {
+  margin: 0 0 0.75rem;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.inline-form-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.inline-form-row input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.inline-form-row input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.inline-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.inline-form-actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inline-form-actions .cancel-btn {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  color: #666;
+}
+
+.inline-form-actions .cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.inline-form-actions .submit-btn {
+  background: #007bff;
+  border: none;
+  color: white;
+}
+
+.inline-form-actions .submit-btn:hover {
+  background: #0056b3;
+}
+
+.inline-form-actions .submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Participants section */
+.event-participants {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.event-participants h4 {
+  color: #666;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+}
+
+.participants-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.participant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  background: #f0f0f0;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: #555;
+}
+
+.participant-badge.has-song {
+  background: #d4edda;
+  color: #155724;
+}
+
+.participant-badge.submitted {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+/* ============================
+   Other Submissions Section
+   ============================ */
+.community-event-banner .other-submissions-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.community-event-banner .other-submissions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #666;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+
+.community-event-banner .other-submissions-toggle:hover {
+  color: #333;
+}
+
+.community-event-banner .toggle-icon {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.community-event-banner .toggle-text {
+  font-weight: 500;
+}
+
+.community-event-banner .other-submissions-content {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.community-event-banner .submissions-loading,
+.community-event-banner .submissions-empty,
+.community-event-banner .submissions-error {
+  padding: 1rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.community-event-banner .submissions-error {
+  color: #d32f2f;
+}
+
+.community-event-banner .submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.community-event-banner .submission-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #e8e8e8;
+}
+
+.community-event-banner .submission-info {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+}
+
+.community-event-banner .submission-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.community-event-banner .submission-artist {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.community-event-banner .submission-user {
+  color: #888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.community-event-banner .submission-status-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.community-event-banner .submission-status-badge.wip {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.community-event-banner .submission-status-badge.done {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.community-event-banner .submission-status-badge.ready {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.community-event-banner .submission-status-badge.planning {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+/* Current user highlight */
+.community-event-banner .submission-item.current-user {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+}
+
+/* Registered but no song yet */
+.community-event-banner .submission-item.registered-only {
+  opacity: 0.8;
+}
+
+.community-event-banner .submission-title.no-song {
+  font-style: italic;
+  color: #999;
+}
+
+.community-event-banner .submission-link {
+  padding: 0.25rem 0.5rem;
+  background: #e3f2fd;
+  color: #1565c0;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.community-event-banner .submission-link:hover {
+  background: #bbdefb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .event-banner-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .event-banner-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .stage-in-progress {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .add-song-buttons {
+    flex-direction: column;
+  }
+
+  .add-song-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .inline-form-row {
+    flex-direction: column;
+  }
+
+  .community-event-banner .submission-item {
+    flex-wrap: wrap;
+  }
+
+  .community-event-banner .submission-info {
+    width: 100%;
+  }
+}

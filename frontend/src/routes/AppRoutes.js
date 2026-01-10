@@ -27,6 +27,7 @@ import CommunityPage from "../pages/CommunityPage";
 import CollaborationRequestsPage from "../pages/CollaborationRequestsPage";
 import ProfilePage from "../pages/ProfilePage";
 import ResourcesPage from "../pages/ResourcesPage";
+import CommunityEventsPage from "../pages/CommunityEventsPage";
 
 /**
  * All application routes
@@ -134,6 +135,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/community/events"
+        element={
+          <ProtectedRoute>
+            <CommunityEventsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/collaboration-requests"
         element={
           <ProtectedRoute>
@@ -223,6 +232,14 @@ const AppRoutes = () => {
       />
       <Route
         path="/admin/tools"
+        element={
+          <ProtectedRoute>
+            <AdminPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/events"
         element={
           <ProtectedRoute>
             <AdminPage />

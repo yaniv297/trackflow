@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Union
 import random
 
 from sqlalchemy.orm import Session
@@ -8,6 +8,36 @@ from models import Song, WipCollaboration
 from services.completion_service import build_song_completion_data
 from api.packs import compute_packs_near_completion
 from api.authoring import get_recent_authoring_activity
+
+
+def normalize_datetime(dt: Union[str, datetime, None]) -> Optional[datetime]:
+    """Convert datetime string or object to naive datetime object.
+    
+    SQLite returns datetime columns as strings, PostgreSQL returns datetime objects.
+    This function handles both cases.
+    """
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        # Parse common datetime string formats
+        try:
+            # Try ISO format first
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            try:
+                # Try common SQLite format
+                dt = datetime.strptime(dt, '%Y-%m-%d %H:%M:%S.%f')
+            except ValueError:
+                try:
+                    dt = datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    return None
+    # If it's already a datetime, ensure it's naive (no timezone)
+    if isinstance(dt, datetime):
+        if dt.tzinfo is not None:
+            dt = dt.replace(tzinfo=None)
+        return dt
+    return None
 
 
 class SuggestionsService:
@@ -166,7 +196,7 @@ class SuggestionsService:
             "album_cover": song.album_cover,
             "completion": completion,
             "remaining_steps": remaining_steps,
-            "updated_at": song.updated_at.isoformat() if song.updated_at else None,
+            "updated_at": (dt.isoformat() if (dt := normalize_datetime(song.updated_at)) else None),
              "status": song.status,
             "tags": [],
             "priority": 0,
@@ -178,7 +208,7 @@ class SuggestionsService:
 
         sorted_songs = sorted(
             songs,
-            key=lambda s: s.updated_at or s.created_at or datetime.min,
+            key=lambda s: normalize_datetime(s.updated_at or s.created_at) or datetime.min,
             reverse=True,
         )
 
@@ -333,8 +363,10 @@ class SuggestionsService:
             song, _ = item
             # Prefer song_progress.updated_at, then song.updated_at, then song.created_at
             if song.id in progress_map:
-                return progress_map[song.id] or datetime.min
-            return song.updated_at or song.created_at or datetime.min
+                dt = normalize_datetime(progress_map[song.id])
+                return dt if dt else datetime.min
+            dt = normalize_datetime(song.updated_at or song.created_at)
+            return dt if dt else datetime.min
         
         candidates.sort(key=get_sort_key)
 
@@ -347,13 +379,10 @@ class SuggestionsService:
         for song, enriched in candidates:
             # Get actual last work date
             last_updated = progress_map.get(song.id) or song.updated_at or song.created_at
+            last_updated = normalize_datetime(last_updated)
             if not last_updated:
                 # If no date at all, skip (shouldn't happen for songs with progress)
                 continue
-            
-            # Ensure last_updated is naive for comparison
-            if last_updated.tzinfo is not None:
-                last_updated = last_updated.replace(tzinfo=None)
             
             days_ago = (now - last_updated).days
             

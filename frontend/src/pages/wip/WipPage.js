@@ -23,6 +23,7 @@ import WipEmptyState from "./components/WipEmptyState";
 import WipPackView from "./components/WipPackView";
 import WipCompletionView from "./components/WipCompletionView";
 import WipModals from "./components/WipModals";
+import CommunityEventBanner from "../../components/wip/CommunityEventBanner";
 
 function WipPage() {
   const { user } = useAuth();
@@ -225,6 +226,9 @@ function WipPage() {
           packSortBy={packSortBy}
           setPackSortBy={setPackSortBy}
         />
+
+        {/* Community Event Banner */}
+        <CommunityEventBanner onRefreshSongs={refreshSongs} />
 
         {/* Loading Spinner */}
         {loading && (

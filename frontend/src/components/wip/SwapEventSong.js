@@ -36,7 +36,7 @@ const NEW_SONG_OPTIONS = [
   },
 ];
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 25;
 
 /**
  * SwapEventSong - 3-step process to swap a song in an event

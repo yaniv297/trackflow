@@ -105,7 +105,7 @@ const CommunityEventHomepageBanner = () => {
           </p>
           {event.rv_release_time && (
             <div className="event-homepage-deadline">
-              ⏰ RV Release: {formatDate(event.rv_release_time)}
+              ⏰ Release: {formatDate(event.rv_release_time)}
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import communityEventsService from "../../services/communityEventsService";
 import { useAuth } from "../../contexts/AuthContext";
 import "./MoveSongToEvent.css";
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 25;
 
 const MoveSongToEvent = ({ eventId, onClose, onSuccess }) => {
   const { user } = useAuth();
@@ -111,7 +111,7 @@ const MoveSongToEvent = ({ eventId, onClose, onSuccess }) => {
     <div className="move-song-modal-overlay" onClick={onClose}>
       <div className="move-song-modal" onClick={(e) => e.stopPropagation()}>
         <div className="move-song-header">
-          <h2>Move Existing Song to Event</h2>
+          <h2>Use Existing Song for Event</h2>
           <button className="close-button" onClick={onClose}>
             ×
           </button>

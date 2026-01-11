@@ -59,7 +59,7 @@ const StageRegistered = ({
               onClick={onMoveExistingSong}
               disabled={loading}
             >
-              📦 Move Existing Song
+              📦 Use Existing Song
             </button>
           </div>
         ) : (

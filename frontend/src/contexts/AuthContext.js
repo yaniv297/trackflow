@@ -21,42 +21,14 @@ export const AuthProvider = ({ children }) => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginTimestamp, setLoginTimestamp] = useState(null);
 
-  // Wrapper for setToken to track when it's cleared
-  // We need to use a ref to avoid stale closure issues
+  // Wrapper for setToken with ref to avoid stale closure issues
   const tokenRef = React.useRef(token);
   tokenRef.current = token;
   
   const setTokenWithLogging = React.useCallback((newToken) => {
-    const oldToken = tokenRef.current;
-    
-    // If clearing token, log error for debugging
-    if (!newToken && oldToken) {
-      console.error("[AuthContext] Token cleared");
-    }
-    
     setToken(newToken);
     tokenRef.current = newToken;
   }, []);
-
-  // Store error in localStorage for debugging
-  const storeAuthError = (errorData) => {
-    try {
-      const errorLog = {
-        timestamp: new Date().toISOString(),
-        ...errorData,
-      };
-      localStorage.setItem("auth_error_log", JSON.stringify(errorLog));
-      // Also keep last 5 errors
-      const errorHistory = JSON.parse(localStorage.getItem("auth_error_history") || "[]");
-      errorHistory.unshift(errorLog);
-      if (errorHistory.length > 5) {
-        errorHistory.pop();
-      }
-      localStorage.setItem("auth_error_history", JSON.stringify(errorHistory));
-    } catch (e) {
-      console.error("Failed to store auth error:", e);
-    }
-  };
 
   useEffect(() => {
 
@@ -79,24 +51,8 @@ export const AuthProvider = ({ children }) => {
           if (response.ok) {
             const userData = await response.json();
             setUser(userData);
-            // Clear any stored errors on success
-            localStorage.removeItem("auth_error_log");
           } else {
-            // Token is invalid
-            const errorText = await response.text();
-            const fullErrorData = {
-              status: response.status,
-              statusText: response.statusText,
-              body: errorText,
-              errorType: "http_error",
-              apiUrl: API_BASE_URL,
-              timestamp: new Date().toISOString(),
-            };
-            
-            console.error(`[AuthContext] Auth check failed: ${response.status} ${response.statusText}`);
-            storeAuthError(fullErrorData);
-            
-            // Don't clear token immediately after login - give it a longer chance
+            // Token is invalid - clear it silently (this is expected when not logged in)
             const shouldClear = !isLoggingIn && timeSinceLogin > 10000; // 10 seconds grace period
             if (shouldClear) {
               localStorage.removeItem("token");
@@ -104,18 +60,7 @@ export const AuthProvider = ({ children }) => {
             }
           }
         } catch (error) {
-          const fullErrorData = {
-            errorMessage: error.message,
-            errorStack: error.stack,
-            errorType: "exception",
-            apiUrl: API_BASE_URL,
-            timestamp: new Date().toISOString(),
-          };
-          
-          console.error("[AuthContext] Auth check failed with exception:", error);
-          storeAuthError(fullErrorData);
-          
-          // Don't clear token immediately after login - give it a longer chance
+          // Network error - clear token silently if not recently logged in
           const timeSinceLogin = loginTimestamp ? Date.now() - loginTimestamp : Infinity;
           const shouldClear = !isLoggingIn && timeSinceLogin > 10000; // 10 seconds grace period
           if (shouldClear) {
@@ -155,7 +100,6 @@ export const AuthProvider = ({ children }) => {
 
       if (!response.ok) {
         const error = await response.json();
-        console.error("[AuthContext] Login failed", { status: response.status, error });
         setIsLoggingIn(false);
         setLoginTimestamp(null);
         throw new Error(error.detail || "Login failed");
@@ -188,28 +132,9 @@ export const AuthProvider = ({ children }) => {
               sessionStorage.setItem("show_welcome", "true");
             }
           }
-        } else {
-          const errorText = await userResponse.text();
-          const errorData = {
-            status: userResponse.status,
-            statusText: userResponse.statusText,
-            body: errorText,
-            apiUrl: API_BASE_URL,
-            errorType: "login_me_failed",
-          };
-          console.error(`Failed to fetch user data after login: ${userResponse.status}`, errorData);
-          storeAuthError(errorData);
         }
       } catch (userError) {
         // If fetching user data fails, don't fail the login - user can still use the token
-        const errorData = {
-          errorMessage: userError.message,
-          errorStack: userError.stack,
-          apiUrl: API_BASE_URL,
-          errorType: "login_me_exception",
-        };
-        console.error("Failed to fetch user data after login:", userError, errorData);
-        storeAuthError(errorData);
       }
 
       // Give a longer grace period for the token to be validated before allowing auth checks to clear it
@@ -275,7 +200,6 @@ export const AuthProvider = ({ children }) => {
         logout();
       }
     } catch (error) {
-      console.error("Token refresh failed:", error);
       logout();
     }
   };
@@ -301,7 +225,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
       }
     } catch (error) {
-      console.error("Failed to fetch user data:", error);
+      // Silently fail - user data fetch is not critical
     }
   };
 

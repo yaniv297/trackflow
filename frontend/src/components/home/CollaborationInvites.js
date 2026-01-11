@@ -39,7 +39,6 @@ const CollaborationInvites = () => {
       }
       
     } catch (error) {
-      console.error('Failed to fetch collaboration invites:', error);
       setBatches([]);
       setError('Failed to load invites');
     } finally {
@@ -73,7 +72,6 @@ const CollaborationInvites = () => {
       }
       
     } catch (error) {
-      console.error(`Failed to ${action} collaboration request:`, error);
       window.showNotification && window.showNotification(
         `Failed to ${action} request. Please try again.`, 
         'error'
@@ -112,7 +110,6 @@ const CollaborationInvites = () => {
       }
       
     } catch (error) {
-      console.error('Failed to respond to batch:', error);
       window.showNotification && window.showNotification(
         'Failed to process request. Please try again.', 
         'error'

@@ -95,6 +95,14 @@ const AdminDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) => {
             Notifications
           </div>
           <div
+            onClick={() => handleClick("/admin/events")}
+            style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
+            onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
+          >
+            Community Events
+          </div>
+          <div
             onClick={() => handleClick("/admin/tools")}
             style={dropdownItemStyle}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}

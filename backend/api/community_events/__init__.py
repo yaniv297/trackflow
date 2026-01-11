@@ -1,0 +1,2 @@
+"""Community Events API module."""
+

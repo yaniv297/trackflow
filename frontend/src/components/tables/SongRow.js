@@ -425,8 +425,8 @@ export default function SongRow({
       <CustomAlert
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={() => {
-          handleDelete(song.id);
+        onConfirm={async () => {
+          await handleDelete(song.id);
           setShowDeleteConfirm(false);
         }}
         title="Delete Song"

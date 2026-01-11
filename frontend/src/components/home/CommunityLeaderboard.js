@@ -57,7 +57,6 @@ const CommunityLeaderboard = ({ limit = 8 }) => {
             setCurrentUserEntry(null);
           }
         } catch (err) {
-          console.error('Failed to fetch current user entry:', err);
           // Fallback: show top 8 if fetch fails
           setLeaderboard(topUsers.slice(0, 8));
           setCurrentUserEntry(null);
@@ -69,7 +68,6 @@ const CommunityLeaderboard = ({ limit = 8 }) => {
       }
       
     } catch (error) {
-      console.error('Failed to fetch leaderboard:', error);
       setLeaderboard([]);
       setError('Failed to load leaderboard');
     } finally {

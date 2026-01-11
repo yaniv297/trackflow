@@ -153,7 +153,7 @@ export const useWipSongOperations = (
             } catch (error) {
               console.error("Failed to delete song:", error);
               if (window.showNotification) {
-                window.showNotification("Failed to delete song", "error");
+                window.showNotification(error.message || "Failed to delete song", "error");
               }
             }
             setAlertConfig((prev) => ({ ...prev, isOpen: false }));

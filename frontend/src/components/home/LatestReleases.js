@@ -49,9 +49,7 @@ const LatestReleases = ({ limit = 5, isAuthenticated = true, onEditRelease }) =>
       }
       
     } catch (error) {
-      console.error('Failed to fetch releases:', error);
       setReleases([]);
-      // Note: Don't show error to users for production
       setError(null);
     } finally {
       setLoading(false);

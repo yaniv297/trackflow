@@ -4,6 +4,7 @@ import { apiGet, apiDelete, apiPost, apiPut } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import ActivityFeed from "../components/shared/ActivityFeed";
 import RecentlyAuthoredParts from "../components/shared/RecentlyAuthoredParts";
+import communityEventsService from "../services/communityEventsService";
 import "./AdminPage.css";
 
 function AdminPage() {
@@ -42,6 +43,19 @@ function AdminPage() {
     date: new Date().toISOString().split('T')[0]
   });
 
+  // Community Events state
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [eventForm, setEventForm] = useState({
+    name: "",
+    event_theme: "",
+    event_description: "",
+    event_banner_url: "",
+    rv_release_time: ""  // The only deadline - RhythmVerse server time (CET)
+  });
+
   // Determine current admin section from URL
   const currentSection = location.pathname === '/admin' ? 'dashboard' : 
                         location.pathname.split('/admin/')[1] || 'dashboard';
@@ -66,7 +80,27 @@ function AdminPage() {
     if (currentSection === 'updates') {
       loadUpdates();
     }
+    if (currentSection === 'events') {
+      loadEvents();
+    }
   }, [currentSection]);
+
+  const loadEvents = async () => {
+    try {
+      setLoadingEvents(true);
+      const result = await communityEventsService.getAdminEvents(true);
+      if (result.success) {
+        setEvents(result.data.events || []);
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error("Failed to load events:", err);
+      setError("Failed to load events");
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -234,7 +268,10 @@ function AdminPage() {
     return date.toLocaleString();
   };
 
-  if (loading) {
+  // Only show global loading state for sections that need users data
+  const needsUsersLoading = currentSection === 'users' || currentSection === 'dashboard';
+  
+  if (needsUsersLoading && loading) {
     return (
       <div className="admin-page">
         <div className="loading">Loading...</div>
@@ -242,7 +279,7 @@ function AdminPage() {
     );
   }
 
-  if (error) {
+  if (needsUsersLoading && error) {
     return (
       <div className="admin-page">
         <div className="error-message">{error}</div>
@@ -264,6 +301,7 @@ function AdminPage() {
         { id: 'users', label: 'Users', path: '/admin/users' },
         { id: 'updates', label: 'Updates', path: '/admin/updates' },
         { id: 'notifications', label: 'Notifications', path: '/admin/notifications' },
+        { id: 'events', label: 'Events', path: '/admin/events' },
         { id: 'tools', label: 'Tools', path: '/admin/tools' }
       ].map(tab => (
         <button
@@ -973,6 +1011,434 @@ function AdminPage() {
     </div>
   );
 
+  const handleEventSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingEvent) {
+        const result = await communityEventsService.updateEvent(editingEvent.id, eventForm);
+        if (result.success) {
+          loadEvents();
+          setShowEventForm(false);
+          setEditingEvent(null);
+          setEventForm({
+            name: "",
+            event_theme: "",
+            event_description: "",
+            event_banner_url: "",
+            rv_release_time: ""
+          });
+        } else {
+          setError(result.error);
+        }
+      } else {
+        const result = await communityEventsService.createEvent({
+          ...eventForm,
+          rv_release_time: eventForm.rv_release_time || null
+        });
+        if (result.success) {
+          loadEvents();
+          setShowEventForm(false);
+          setEventForm({
+            name: "",
+            event_theme: "",
+            event_description: "",
+            event_banner_url: "",
+            rv_release_time: ""
+          });
+        } else {
+          setError(result.error);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save event:", err);
+      setError("Failed to save event");
+    }
+  };
+
+  const handleEventDelete = async (eventId) => {
+    if (!window.confirm("Are you sure you want to delete this event? This will remove all registrations and associated data.")) {
+      return;
+    }
+    try {
+      const result = await communityEventsService.deleteEvent(eventId);
+      if (result.success) {
+        loadEvents();
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error("Failed to delete event:", err);
+      setError("Failed to delete event");
+    }
+  };
+
+  const handleEventRelease = async (eventId) => {
+    if (!window.confirm("Are you sure you want to RELEASE this event?\n\nThis will:\n• Reveal all RhythmVerse links\n• Mark all songs as Released\n• End the event (no more submissions)\n• Remove from WIP page\n• Move to Past Events archive\n\nThis action cannot be easily undone.")) {
+      return;
+    }
+    try {
+      const result = await communityEventsService.releaseEvent(eventId);
+      if (result.success) {
+        loadEvents();
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error("Failed to release event:", err);
+      setError("Failed to release event");
+    }
+  };
+
+  const handleEventUnrelease = async (eventId) => {
+    if (!window.confirm("Are you sure you want to REVERT this event to active?\n\nThis will:\n• Hide all links again\n• Set all songs back to In Progress\n• Make the event appear in WIP again\n\nUse this only for data repair.")) {
+      return;
+    }
+    try {
+      const result = await communityEventsService.unreleaseEvent(eventId);
+      if (result.success) {
+        loadEvents();
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error("Failed to unrelease event:", err);
+      setError("Failed to unrelease event");
+    }
+  };
+
+  const formatEventDate = (dateStr) => {
+    if (!dateStr) return "Not set";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  const renderEvents = () => (
+    <div className="admin-events-section">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h3 style={{ margin: 0, color: '#333' }}>Community Events</h3>
+        <button
+          onClick={() => {
+            setEditingEvent(null);
+            setEventForm({
+              name: "",
+              event_theme: "",
+              event_description: "",
+              event_banner_url: "",
+              rv_release_time: ""
+            });
+            setShowEventForm(true);
+          }}
+          style={{
+            padding: '0.5rem 1rem',
+            background: '#e94560',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '500'
+          }}
+        >
+          + Create Event
+        </button>
+      </div>
+
+      {showEventForm && (
+        <div style={{
+          background: 'white',
+          border: '1px solid #e0e0e0',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h4 style={{ marginTop: 0, color: '#333', marginBottom: '1rem' }}>{editingEvent ? 'Edit Event' : 'Create New Event'}</h4>
+          <form onSubmit={handleEventSubmit}>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>Event Name *</label>
+                <input
+                  type="text"
+                  value={eventForm.name}
+                  onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    background: '#fff',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>Theme *</label>
+                <input
+                  type="text"
+                  value={eventForm.event_theme}
+                  onChange={(e) => setEventForm({ ...eventForm, event_theme: e.target.value })}
+                  placeholder="e.g., Valentine's Day, Halloween"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    background: '#fff',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>Description</label>
+                <textarea
+                  value={eventForm.event_description}
+                  onChange={(e) => setEventForm({ ...eventForm, event_description: e.target.value })}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    background: '#fff',
+                    color: '#333',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>Banner Image URL</label>
+                <input
+                  type="url"
+                  value={eventForm.event_banner_url}
+                  onChange={(e) => setEventForm({ ...eventForm, event_banner_url: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    background: '#fff',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>
+                  RhythmVerse Release Time (CET) - Event Deadline
+                </label>
+                <input
+                  type="datetime-local"
+                  value={eventForm.rv_release_time}
+                  onChange={(e) => setEventForm({ ...eventForm, rv_release_time: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    background: '#fff',
+                    color: '#333',
+                    fontSize: '14px'
+                  }}
+                />
+                <small style={{ color: '#888', fontSize: '0.75rem' }}>
+                  The canonical deadline for the event. Users will schedule their RhythmVerse releases for this time (CET)
+                </small>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <button
+                type="submit"
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#2ed573',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                {editingEvent ? 'Update Event' : 'Create Event'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEventForm(false);
+                  setEditingEvent(null);
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#666',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loadingEvents ? (
+        <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>Loading events...</p>
+      ) : events.length === 0 ? (
+        <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No community events yet. Create one to get started!</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {events.map(event => (
+            <div
+              key={event.id}
+              style={{
+                background: 'white',
+                border: `1px solid ${event.status === 'active' ? '#2ed573' : '#ddd'}`,
+                borderRadius: '8px',
+                padding: '1rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 0.25rem', color: '#333' }}>{event.name}</h4>
+                  <span style={{ color: '#e94560', fontSize: '0.875rem' }}>{event.event_theme}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <span
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '999px',
+                      fontSize: '0.7rem',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      background: event.status === 'active' ? '#d4edda' : '#fff3cd',
+                      color: event.status === 'active' ? '#155724' : '#856404'
+                    }}
+                  >
+                    {event.status}
+                  </span>
+                  {event.is_revealed && (
+                    <span
+                      style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '999px',
+                        fontSize: '0.7rem',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        background: '#28a745',
+                        color: 'white'
+                      }}
+                    >
+                      Released
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {event.event_description && (
+                <p style={{ color: '#666', fontSize: '0.875rem', margin: '0 0 0.75rem' }}>
+                  {event.event_description.slice(0, 150)}
+                  {event.event_description.length > 150 ? '...' : ''}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem' }}>
+                <span>📅 RV Release: {formatEventDate(event.rv_release_time)}</span>
+                <span>👥 {event.registered_count} registered</span>
+                <span>🎵 {event.songs_count} songs</span>
+                <span>✅ {event.submitted_count} submitted</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => {
+                    setEditingEvent(event);
+                    setEventForm({
+                      name: event.name,
+                      event_theme: event.event_theme,
+                      event_description: event.event_description || "",
+                      event_banner_url: event.event_banner_url || "",
+                      rv_release_time: event.rv_release_time ? new Date(event.rv_release_time).toISOString().slice(0, 16) : ""
+                    });
+                    setShowEventForm(true);
+                  }}
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    background: '#f0f0f0',
+                    color: '#333',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  Edit
+                </button>
+                {!event.is_revealed ? (
+                  <button
+                    onClick={() => handleEventRelease(event.id)}
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      background: '#28a745',
+                      color: 'white',
+                      border: '1px solid #28a745',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    🚀 Release Event Pack
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleEventUnrelease(event.id)}
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      background: '#ffc107',
+                      color: '#333',
+                      border: '1px solid #ffc107',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem'
+                    }}
+                    title="Revert to active (for data repair)"
+                  >
+                    ↩️ Unrelease
+                  </button>
+                )}
+                <button
+                  onClick={() => handleEventDelete(event.id)}
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    background: '#f8d7da',
+                    color: '#721c24',
+                    border: '1px solid #f5c6cb',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const renderTools = () => (
     <div className="admin-tools-section">
       <h3>System Tools</h3>
@@ -1009,6 +1475,7 @@ function AdminPage() {
           {currentSection === 'users' && 'Manage users and permissions'}
           {currentSection === 'updates' && 'Manage Latest Updates for the home page'}
           {currentSection === 'notifications' && 'Send system messages to users'}
+          {currentSection === 'events' && 'Create and manage community events'}
           {currentSection === 'tools' && 'Maintenance and system tools'}
         </p>
       </div>
@@ -1019,6 +1486,7 @@ function AdminPage() {
       {currentSection === 'users' && renderUsers()}
       {currentSection === 'updates' && renderUpdates()}
       {currentSection === 'notifications' && renderNotifications()}
+      {currentSection === 'events' && renderEvents()}
       {currentSection === 'tools' && renderTools()}
     </div>
   );

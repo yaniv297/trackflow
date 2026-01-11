@@ -21,7 +21,6 @@ const UserProfilePopup = ({ username, isVisible, position, onClose, onMouseEnter
       const response = await apiGet(`/profiles/${username}`);
       setUserProfile(response);
     } catch (err) {
-      console.error("Error fetching user profile:", err);
       setError("Failed to load user profile");
     } finally {
       setLoading(false);

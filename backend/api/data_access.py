@@ -232,23 +232,23 @@ def create_song_in_db(db: Session, song: SongCreate, user: User, auto_enhance: b
                         status_code=400,
                         detail=f"Song '{song_title}' by {song_artist} already exists in your database (detected after Spotify enhancement)"
                     )
+            
+            # Auto-clean remaster tags after enhancement (runs regardless of duplicate check)
+            try:
+                from api.tools import clean_string
                 
-                # Auto-clean remaster tags after enhancement
-                try:
-                    from api.tools import clean_string
-                    
-                    cleaned_title = clean_string(db_song.title)
-                    cleaned_album = clean_string(db_song.album or "")
-                    
-                    if cleaned_title != db_song.title or cleaned_album != db_song.album:
-                        print(f"Cleaning remaster tags for song {db_song.id}")
-                        db_song.title = cleaned_title
-                        db_song.album = cleaned_album
-                        if auto_commit:
-                            db.commit()
-                        print(f"Cleaned song {db_song.id}: title='{cleaned_title}', album='{cleaned_album}'")
-                except Exception as clean_error:
-                    print(f"Failed to clean remaster tags for song {db_song.id}: {clean_error}")
+                cleaned_title = clean_string(db_song.title)
+                cleaned_album = clean_string(db_song.album or "")
+                
+                if cleaned_title != db_song.title or cleaned_album != db_song.album:
+                    print(f"Cleaning remaster tags for song {db_song.id}")
+                    db_song.title = cleaned_title
+                    db_song.album = cleaned_album
+                    if auto_commit:
+                        db.commit()
+                    print(f"Cleaned song {db_song.id}: title='{cleaned_title}', album='{cleaned_album}'")
+            except Exception as clean_error:
+                print(f"Failed to clean remaster tags for song {db_song.id}: {clean_error}")
         except Exception as e:
             print(f"Failed to auto-enhance song {db_song.id}: {e}")
             # Re-raise HTTPException to propagate duplicate detection errors

@@ -87,6 +87,14 @@ const CommunityDropdown = ({ show, onToggle, buttonRef, position, onNavigate }) 
             Album Series
           </div>
           <div
+            onClick={() => handleClick("/community/events")}
+            style={{ ...dropdownItemStyle, borderBottom: "1px solid #eee" }}
+            onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}
+            onMouseLeave={(e) => (e.target.style.background = "transparent")}
+          >
+            Community Events
+          </div>
+          <div
             onClick={() => handleClick("/leaderboard")}
             style={dropdownItemStyle}
             onMouseEnter={(e) => (e.target.style.background = "#f8f9fa")}

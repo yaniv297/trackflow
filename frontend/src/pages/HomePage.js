@@ -16,6 +16,7 @@ import {
 } from '../components/home';
 import RandomResourceWidget from '../components/widgets/RandomResourceWidget';
 import ReleaseModal from '../components/modals/ReleaseModal';
+import CommunityEventHomepageBanner from '../components/home/CommunityEventHomepageBanner';
 import './HomePage.css';
 
 const HomePage = () => {
@@ -58,6 +59,7 @@ const HomePage = () => {
           <>
             <div className="full-width-section">
               <UserDashboard />
+              <CommunityEventHomepageBanner />
             </div>
             <div className="main-content-area">
               <LatestUpdates limit={5} />

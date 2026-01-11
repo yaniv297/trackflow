@@ -40,7 +40,6 @@ function ClosestAchievements({ limit = 5 }) {
       setClosestAchievements(sorted.slice(0, limit));
       setLoading(false);
     } catch (error) {
-      console.error('Failed to fetch closest achievements:', error);
       setError('Failed to load achievements');
       setLoading(false);
     }

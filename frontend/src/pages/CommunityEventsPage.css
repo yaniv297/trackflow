@@ -1,0 +1,382 @@
+/* Community Events Page Styles - Light Theme */
+.community-events-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.community-events-header {
+  margin-bottom: 2rem;
+}
+
+.community-events-header h1 {
+  font-size: 2rem;
+  color: #333;
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.community-events-header p {
+  color: #666;
+  margin: 0;
+}
+
+/* Active Event Alert */
+.active-event-alert {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-left: 4px solid #e94560;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.active-event-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.active-event-alert-icon {
+  font-size: 1.5rem;
+}
+
+.active-event-alert-text h3 {
+  color: #e94560;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.active-event-alert-text p {
+  color: #666;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.active-event-alert-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.active-event-alert-cta:hover {
+  background: #d63384;
+}
+
+/* Events List */
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.events-section {
+  margin-bottom: 2rem;
+}
+
+.events-section h2 {
+  color: #555;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+/* Event Card */
+.event-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.event-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.event-card-banner {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  background: #f0f0f0;
+}
+
+.event-card-content {
+  padding: 1.25rem;
+}
+
+.event-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.event-card-title {
+  flex: 1;
+}
+
+.event-card-title h3 {
+  color: #333;
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+}
+
+.event-card-theme {
+  color: #e94560;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.event-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.event-card-status.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.event-card-status.ended {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.event-card-status.revealed {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.event-card-description {
+  color: #555;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.event-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.event-card-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.event-card-meta-value {
+  color: #555;
+  font-weight: 500;
+}
+
+/* Participants Section */
+.event-participants-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.event-participants-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  color: #007bff;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  width: 100%;
+  transition: color 0.2s ease;
+}
+
+.event-participants-toggle:hover {
+  color: #0056b3;
+}
+
+.event-participants-content {
+  margin-top: 1rem;
+}
+
+.event-songs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.event-song-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.event-song-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #e0e0e0;
+}
+
+.event-song-info {
+  flex: 1;
+}
+
+.event-song-info h4 {
+  color: #333;
+  margin: 0 0 0.125rem;
+  font-size: 0.9rem;
+}
+
+.event-song-info p {
+  color: #666;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.event-song-author {
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.event-song-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.event-song-status.in-progress {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.event-song-status.done {
+  background: #d4edda;
+  color: #155724;
+}
+
+.event-song-status.uploaded {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+/* Revealed links section */
+.event-song-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.event-song-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: #f0f0f0;
+  border-radius: 4px;
+  color: #007bff;
+  font-size: 0.7rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.event-song-link:hover {
+  background: #e3f2fd;
+}
+
+/* Empty state */
+.events-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #888;
+}
+
+.events-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.events-empty h3 {
+  color: #555;
+  margin: 0 0 0.5rem;
+}
+
+.events-empty p {
+  margin: 0;
+}
+
+/* Loading */
+.events-loading {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .community-events-page {
+    padding: 1rem;
+  }
+
+  .active-event-alert {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .active-event-alert-content {
+    flex-direction: column;
+  }
+
+  .event-card-header {
+    flex-direction: column;
+  }
+
+  .event-card-meta {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}

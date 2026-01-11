@@ -1,0 +1,158 @@
+/* Community Event Homepage Banner - Matches app's light theme */
+.community-event-homepage-banner {
+  background: white;
+  border: 1px solid #ddd;
+  border-left: 4px solid #007bff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.community-event-homepage-banner:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.event-homepage-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.event-homepage-icon {
+  font-size: 1.75rem;
+}
+
+.event-homepage-text h3 {
+  color: #333;
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.event-homepage-text p {
+  color: #666;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.event-homepage-stats {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+.event-homepage-stat {
+  text-align: center;
+}
+
+.event-homepage-stat-value {
+  display: block;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.event-homepage-stat-label {
+  color: #888;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.event-homepage-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.event-homepage-cta:hover {
+  background: #0056b3;
+}
+
+.event-homepage-deadline {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #856404;
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+  font-weight: 500;
+}
+
+/* Released state */
+.community-event-homepage-banner.released {
+  border-left-color: #28a745;
+  background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+}
+
+.released-badge {
+  display: inline-block;
+  background: #28a745;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+
+.event-homepage-stat.featured .event-homepage-stat-value {
+  color: #28a745;
+  font-size: 1.5rem;
+}
+
+.event-homepage-stat.featured .event-homepage-stat-label {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.event-homepage-cta.released {
+  background: #28a745;
+}
+
+.event-homepage-cta.released:hover {
+  background: #218838;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .community-event-homepage-banner {
+    flex-direction: column;
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .event-homepage-info {
+    flex-direction: column;
+  }
+
+  .event-homepage-stats {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .event-homepage-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}

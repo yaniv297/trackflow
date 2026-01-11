@@ -97,6 +97,43 @@
   font-weight: 500;
 }
 
+/* Released state */
+.community-event-homepage-banner.released {
+  border-left-color: #28a745;
+  background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+}
+
+.released-badge {
+  display: inline-block;
+  background: #28a745;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+
+.event-homepage-stat.featured .event-homepage-stat-value {
+  color: #28a745;
+  font-size: 1.5rem;
+}
+
+.event-homepage-stat.featured .event-homepage-stat-label {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.event-homepage-cta.released {
+  background: #28a745;
+}
+
+.event-homepage-cta.released:hover {
+  background: #218838;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .community-event-homepage-banner {

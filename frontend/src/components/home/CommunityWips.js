@@ -40,7 +40,7 @@ const CommunityWips = () => {
         setCollaborationStatusMap(statusMap);
       }
     } catch (error) {
-      console.error('Failed to load collaboration requests:', error);
+      // Silently fail - collaboration requests are optional
     }
   }, [user?.id]);
 
@@ -62,7 +62,6 @@ const CommunityWips = () => {
       const shuffled = publicWips.sort(() => 0.5 - Math.random());
       setWips(shuffled.slice(0, 5));
     } catch (error) {
-      console.error('Failed to fetch community WIPs:', error);
       setError('Failed to load community WIPs');
       setWips([]);
     } finally {

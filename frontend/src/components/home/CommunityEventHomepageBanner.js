@@ -8,26 +8,28 @@ const CommunityEventHomepageBanner = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchActiveEvent = async () => {
+    const fetchFeaturedEvent = async () => {
       try {
-        const result = await communityEventsService.getActiveEvents();
-        if (result.success && result.data.length > 0) {
-          setEvent(result.data[0]);
+        const result = await communityEventsService.getFeaturedEvent();
+        if (result.success && result.data) {
+          setEvent(result.data);
         }
       } catch (err) {
-        console.error("Error fetching active event:", err);
+        // Silently fail - events are optional
       } finally {
         setLoading(false);
       }
     };
 
-    fetchActiveEvent();
+    fetchFeaturedEvent();
   }, []);
 
-  // Don't render if loading or no active event
+  // Don't render if loading or no featured event
   if (loading || !event) {
     return null;
   }
+
+  const isReleased = event.is_revealed;
 
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
@@ -56,6 +58,41 @@ const CommunityEventHomepageBanner = () => {
     }
   };
 
+  // Released event banner
+  if (isReleased) {
+    return (
+      <div className="community-event-homepage-banner released">
+        <div className="event-homepage-info">
+          <span className="event-homepage-icon">🎉</span>
+          <div className="event-homepage-text">
+            <h3>
+              <span className="released-badge">RELEASED</span>
+              {event.event_theme}
+            </h3>
+            <p>
+              {event.event_description?.slice(0, 100)}
+              {event.event_description?.length > 100 ? "..." : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="event-homepage-stats">
+          <div className="event-homepage-stat featured">
+            <span className="event-homepage-stat-value">
+              {event.submitted_count || 0}
+            </span>
+            <span className="event-homepage-stat-label">Songs Released</span>
+          </div>
+        </div>
+
+        <Link to="/community/events" className="event-homepage-cta released">
+          🎵 View All Songs
+        </Link>
+      </div>
+    );
+  }
+
+  // Active event banner
   return (
     <div className="community-event-homepage-banner">
       <div className="event-homepage-info">
@@ -66,9 +103,9 @@ const CommunityEventHomepageBanner = () => {
             {event.event_description?.slice(0, 100)}
             {event.event_description?.length > 100 ? "..." : ""}
           </p>
-          {event.event_end_date && (
+          {event.rv_release_time && (
             <div className="event-homepage-deadline">
-              ⏰ Deadline: {formatDate(event.event_end_date)}
+              ⏰ RV Release: {formatDate(event.rv_release_time)}
             </div>
           )}
         </div>

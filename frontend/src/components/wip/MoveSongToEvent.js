@@ -32,7 +32,7 @@ const MoveSongToEvent = ({ eventId, onClose, onSuccess }) => {
         const combined = [...(wipSongs || []), ...(futureSongs || [])].filter(
           (song) => 
             song.user_id === user.id && 
-            !song.pack?.is_community_event
+            !song.is_community_event
         );
         
         setAllSongs(combined);

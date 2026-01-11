@@ -100,6 +100,15 @@ const OtherSubmissions = ({ eventId, isRevealed }) => {
                   key={`song-${song.id}`}
                   className={`submission-item ${song.user_id === user?.id ? "current-user" : ""}`}
                 >
+                  {song.album_cover ? (
+                    <img
+                      src={song.album_cover}
+                      alt={song.title}
+                      className="submission-album-cover"
+                    />
+                  ) : (
+                    <div className="submission-album-cover placeholder">🎵</div>
+                  )}
                   <div className="submission-info">
                     <span className="submission-title">{song.title}</span>
                     <span className="submission-artist">by {song.artist}</span>

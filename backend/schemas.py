@@ -109,6 +109,7 @@ class SongOut(BaseModel):
     pack_priority: Optional[int] = None
     pack_owner_id: Optional[int] = None
     pack_owner_username: Optional[str] = None
+    is_community_event: Optional[bool] = False  # Whether this song belongs to a community event pack
     year: Optional[int]
     album_cover: Optional[str]
     notes: Optional[str] = None
@@ -135,6 +136,12 @@ class SongOut(BaseModel):
     # Timestamps
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # Community event submission fields
+    rhythmverse_link: Optional[str] = None
+    event_submission_description: Optional[str] = None
+    visualizer_link: Optional[str] = None
+    preview_link: Optional[str] = None
+    is_event_submitted: Optional[bool] = None
     
 
     class Config:

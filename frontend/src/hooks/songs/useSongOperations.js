@@ -141,9 +141,14 @@ export const useSongOperations = (songs, setSongs, refreshSongs) => {
       try {
         await apiDelete(`/songs/${id}`);
         setSongs((prevSongs) => prevSongs.filter((song) => song.id !== id));
+        if (window.showNotification) {
+          window.showNotification("Song deleted successfully", "success");
+        }
       } catch (error) {
         console.error("Failed to delete song:", error);
-        throw error;
+        if (window.showNotification) {
+          window.showNotification(error.message || "Failed to delete song", "error");
+        }
       }
     },
     [setSongs]

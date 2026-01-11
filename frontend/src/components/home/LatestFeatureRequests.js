@@ -38,7 +38,6 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
       setFeatureRequests(activeRequests);
       
     } catch (error) {
-      console.error('Failed to fetch feature requests:', error);
       setFeatureRequests([]);
       setError('Failed to load feature requests');
     } finally {
@@ -60,7 +59,6 @@ const LatestFeatureRequests = ({ limit = 5 }) => {
         return prev.map((fr) => (fr.id === requestId ? updated : fr));
       });
     } catch (error) {
-      console.error('Failed to vote:', error);
       window.showNotification && window.showNotification('Failed to vote. Please try again.', 'error');
     }
   };

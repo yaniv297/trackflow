@@ -152,15 +152,47 @@ def update_community_event(
     return service.build_event_response(pack, current_user.id)
 
 
-@router.post("/{event_id}/reveal", response_model=CommunityEventResponse)
-def reveal_community_event(
+@router.post("/{event_id}/release", response_model=CommunityEventResponse)
+def release_community_event(
     event_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Manually reveal event links (admin only)."""
+    """Release a community event pack (admin only).
+    
+    This single action:
+    - Reveals all links (RhythmVerse, visualizer, preview)
+    - Marks all songs as Released
+    - Ends the event (no more submissions)
+    - Removes from WIP page / active events
+    - Moves to Past Events archive
+    """
     service = EventService(db)
-    pack = service.reveal_event(event_id)
+    pack = service.release_event(event_id)
+    
+    if not pack:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Community event not found"
+        )
+    
+    return service.build_event_response(pack, current_user.id)
+
+
+@router.post("/{event_id}/unrelease", response_model=CommunityEventResponse)
+def unrelease_community_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Revert a released event back to active state (admin only, for data repair).
+    
+    This reverts:
+    - Clears revealed_at to make event active again
+    - Sets all songs back to In Progress status
+    """
+    service = EventService(db)
+    pack = service.unreleased_event(event_id)
     
     if not pack:
         raise HTTPException(

@@ -72,13 +72,35 @@ const SwapEventSong = ({ eventId, currentSong, onClose, onSuccess }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch packs on mount
+  // Fetch packs on mount - only WIP packs (by fetching WIP/Future songs and extracting unique packs)
   useEffect(() => {
     const fetchPacks = async () => {
       try {
-        const data = await apiGet("/packs");
-        const regularPacks = (data || []).filter((p) => !p.is_community_event);
-        setPacks(regularPacks);
+        // Fetch WIP and Future Plans songs to find active packs
+        const [wipSongs, futureSongs] = await Promise.all([
+          apiGet("/songs?status=In Progress"),
+          apiGet("/songs?status=Future Plans"),
+        ]);
+        
+        const allSongs = [...(wipSongs || []), ...(futureSongs || [])];
+        
+        // Extract unique packs from songs (excluding community events)
+        const packMap = new Map();
+        allSongs.forEach((song) => {
+          if (song.pack_id && !song.is_community_event && !packMap.has(song.pack_id)) {
+            packMap.set(song.pack_id, {
+              id: song.pack_id,
+              name: song.pack_name,
+            });
+          }
+        });
+        
+        // Convert to array and sort alphabetically
+        const wipPacks = Array.from(packMap.values()).sort((a, b) => 
+          (a.name || "").localeCompare(b.name || "")
+        );
+        
+        setPacks(wipPacks);
       } catch (err) {
         console.error("Error fetching packs:", err);
         setError("Failed to load packs");
@@ -101,7 +123,7 @@ const SwapEventSong = ({ eventId, currentSong, onClose, onSuccess }) => {
           const combined = [...(wipSongs || []), ...(futureSongs || [])].filter(
             (song) => 
               song.user_id === user.id && 
-              !song.pack?.is_community_event
+              !song.is_community_event
           );
           
           setAllSongs(combined);

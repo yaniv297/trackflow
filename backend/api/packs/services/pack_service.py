@@ -1,13 +1,12 @@
 """Pack service layer for business logic."""
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import List
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from models import Pack, Song, SongStatus, CollaborationType
+from models import Pack, CollaborationType
 from ..repositories.pack_repository import PackRepository
-from ..schemas import PackCreate, PackUpdate, PackStatusUpdate, PackResponse
+from ..schemas import PackCreate, PackUpdate, PackResponse
 from api.songs.repositories.collaboration_repository import CollaborationRepository
 
 

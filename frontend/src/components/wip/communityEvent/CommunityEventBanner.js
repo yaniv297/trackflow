@@ -36,6 +36,7 @@ const CommunityEventBanner = ({ onRefreshSongs }) => {
     stage,
     song,
     fireworksTrigger,
+    isWorkflowComplete,
     handleRegister,
     handleUnregister,
     handleAddNewSong,
@@ -43,6 +44,7 @@ const CommunityEventBanner = ({ onRefreshSongs }) => {
     handleUpdateSubmission,
     handleModalSuccess,
     handleGoBackToEditing,
+    handleContinueToSubmit,
     fetchActiveEvent,
     updateSongProgress,
   } = useCommunityEvent(onRefreshSongs, authoringFields);
@@ -119,6 +121,8 @@ const CommunityEventBanner = ({ onRefreshSongs }) => {
           onSubmitSong={handleSubmitSong}
           onUpdateSubmission={handleUpdateSubmission}
           onGoBackToEditing={handleGoBackToEditing}
+          onContinueToSubmit={handleContinueToSubmit}
+          isWorkflowComplete={isWorkflowComplete}
           setError={setError}
           // WIP song card props
           onSongUpdate={handleSongUpdate}

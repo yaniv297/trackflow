@@ -39,7 +39,6 @@ const YourStats = () => {
       const response = await apiGet(`/stats/user/${statType}?limit=5`);
       setStatData(response || []);
     } catch (error) {
-      console.error(`Failed to fetch ${statType}:`, error);
       setError(`Failed to load ${statType}`);
       setStatData([]);
     } finally {

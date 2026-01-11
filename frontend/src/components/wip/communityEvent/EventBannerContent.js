@@ -24,6 +24,8 @@ const EventBannerContent = ({
   onSubmitSong,
   onUpdateSubmission,
   onGoBackToEditing,
+  onContinueToSubmit,
+  isWorkflowComplete,
   setError,
   // WIP song card props
   onSongUpdate,
@@ -70,6 +72,8 @@ const EventBannerContent = ({
             onSongUpdate={onSongUpdate}
             onAuthoringUpdate={onAuthoringUpdate}
             authoringFields={authoringFields}
+            isWorkflowComplete={isWorkflowComplete}
+            onContinueToSubmit={onContinueToSubmit}
           />
         );
 
@@ -92,6 +96,10 @@ const EventBannerContent = ({
             song={song}
             onUpdateSubmission={onUpdateSubmission}
             loading={actionLoading}
+            onBackToEditing={onGoBackToEditing}
+            onSwapSong={onSwapSong}
+            onRemoveSong={onRemoveSong}
+            rvReleaseTime={event.rv_release_time}
           />
         );
 
@@ -114,9 +122,9 @@ const EventBannerContent = ({
         <p className="event-description">{event.event_description}</p>
       )}
 
-      {event.event_end_date && (
+      {event.rv_release_time && (
         <div className="event-deadline">
-          ⏰ Deadline: {formatDate(event.event_end_date)}
+          ⏰ RV Release (CET): {formatDate(event.rv_release_time)}
         </div>
       )}
 
@@ -131,7 +139,7 @@ const EventBannerContent = ({
       {/* Other submissions - collapsed by default */}
       <OtherSubmissions
         eventId={event.id}
-        isRevealed={!!event.event_revealed_at}
+        isRevealed={event.is_revealed}
       />
     </div>
   );

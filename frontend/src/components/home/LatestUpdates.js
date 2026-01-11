@@ -30,7 +30,6 @@ const LatestUpdates = ({ limit = 5 }) => {
         setCurrentIndex(0);
       }
     } catch (error) {
-      console.error('Failed to fetch updates:', error);
       setError('Failed to load updates');
     } finally {
       setLoading(false);

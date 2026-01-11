@@ -4,7 +4,7 @@ import random
 
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from models import Song, WipCollaboration
+from models import Song, WipCollaboration, Pack
 from services.completion_service import build_song_completion_data
 from api.packs import compute_packs_near_completion
 from api.authoring import get_recent_authoring_activity
@@ -57,6 +57,12 @@ class SuggestionsService:
 
         suggestions: List[Dict[str, Any]] = []
         used_ids = set()
+
+        # 0. Community Event song (highest priority - always show if in progress)
+        event_suggestion = self._get_community_event_song(completion_data)
+        if event_suggestion:
+            suggestions.append(event_suggestion)
+            used_ids.add(event_suggestion["id"])
 
         # 1. Last worked on
         last_song = self._get_last_worked_song(songs, song_enriched)
@@ -149,17 +155,35 @@ class SuggestionsService:
                 seen_ids.add(item_id)
                 deduplicated.append(item)
 
+        # Extract community event item to keep it at the top (don't shuffle it)
+        community_event_item = None
+        other_items = []
+        for item in deduplicated:
+            if item.get("is_community_event"):
+                community_event_item = item
+            else:
+                other_items.append(item)
+
         # Collect a candidate pool (up to 20) and shuffle to rotate entries
         pool_size = max(limit * 2, 10)
-        candidate_pool = deduplicated[:pool_size]
+        candidate_pool = other_items[:pool_size]
         
         random.shuffle(candidate_pool)
 
+        # Determine how many non-event items we need
         sample_size = min(limit, len(candidate_pool))
-        if sample_size == 0:
+        if community_event_item:
+            sample_size = max(0, sample_size - 1)  # Leave room for event item
+
+        if sample_size == 0 and not community_event_item:
             return candidate_pool
 
-        result = random.sample(candidate_pool, sample_size)
+        result = random.sample(candidate_pool, sample_size) if sample_size > 0 else []
+        
+        # Always put community event item first
+        if community_event_item:
+            result.insert(0, community_event_item)
+        
         return result
 
     # --- internal helpers ---
@@ -200,6 +224,69 @@ class SuggestionsService:
              "status": song.status,
             "tags": [],
             "priority": 0,
+        }
+
+    def _get_community_event_song(
+        self, completion_data: Dict[int, Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """Get the user's community event song if they have one in progress."""
+        # Find active community events
+        active_events = (
+            self.db.query(Pack)
+            .filter(
+                Pack.is_community_event == True,
+                Pack.event_revealed_at.is_(None),  # Not yet revealed
+            )
+            .all()
+        )
+        
+        if not active_events:
+            return None
+        
+        event_pack_ids = [e.id for e in active_events]
+        
+        # Find user's song in any active event
+        event_song = (
+            self.db.query(Song)
+            .filter(
+                Song.pack_id.in_(event_pack_ids),
+                Song.user_id == self.current_user.id,
+                Song.status == "In Progress",  # Only in-progress songs
+            )
+            .first()
+        )
+        
+        if not event_song:
+            return None
+        
+        # Get the pack for event name
+        pack = next((p for p in active_events if p.id == event_song.pack_id), None)
+        event_name = pack.name if pack else "Community Event"
+        
+        # Enrich the song data
+        data = completion_data.get(event_song.id, {})
+        completion = data.get("completion", 0)
+        remaining_steps = data.get("remaining_steps", [])
+        
+        # Only show if not 100% complete
+        if completion is not None and completion >= 100:
+            return None
+        
+        return {
+            "id": f"song-{event_song.id}",
+            "type": "song",
+            "song_id": event_song.id,
+            "title": event_song.title,
+            "artist": event_song.artist,
+            "album_cover": event_song.album_cover,
+            "completion": completion,
+            "remaining_steps": remaining_steps,
+            "updated_at": (dt.isoformat() if (dt := normalize_datetime(event_song.updated_at)) else None),
+            "status": event_song.status,
+            "tags": ["Community Event"],  # Special tag
+            "message": f"📣 {event_name}",
+            "priority": 100,  # Highest priority - will always be first
+            "is_community_event": True,  # Flag for frontend styling
         }
 
     def _get_last_worked_song(self, songs, song_enriched) -> Optional[Dict[str, Any]]:

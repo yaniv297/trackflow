@@ -8,6 +8,8 @@ from datetime import datetime
 from database import get_db
 from api.auth import get_current_active_user
 from models import User, Pack, Song, CommunityEventRegistration, SongStatus
+from schemas import SongCreate
+from api.data_access import create_song_in_db
 from ..schemas import (
     CommunityEventResponse,
     CommunityEventListResponse,
@@ -63,6 +65,29 @@ def get_active_events(
         service.build_event_response(pack, current_user.id)
         for pack in events
     ]
+
+
+@router.get("/featured", response_model=CommunityEventResponse)
+def get_featured_event(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get a featured event for homepage display.
+    
+    Returns an event that is either:
+    - Active (not yet released), OR
+    - Released within the last 7 days
+    """
+    service = EventService(db)
+    pack = service.get_featured_event()
+    
+    if not pack:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No featured event available"
+        )
+    
+    return service.build_event_response(pack, current_user.id)
 
 
 @router.get("/{event_id}", response_model=CommunityEventResponse)
@@ -267,42 +292,72 @@ def add_song_to_event(
         # Store original pack for potential reversal
         # (We don't track this currently, but could add a field if needed)
         
-        # Move song to event pack
+        # Move song to event pack and set status to WIP
         song.pack_id = event_id
+        song.status = SongStatus.wip.value  # Events are always WIP
         song.updated_at = datetime.utcnow()
+        
+        # Remove registration if exists (user now has a song)
+        registration = db.query(CommunityEventRegistration).filter(
+            CommunityEventRegistration.pack_id == event_id,
+            CommunityEventRegistration.user_id == current_user.id
+        ).first()
+        
+        if registration:
+            db.delete(registration)
+        
+        db.commit()
+        db.refresh(song)
     else:
-        # Create new song
+        # Create new song using the standard song creation flow
+        # This includes Spotify auto-enhancement and workflow step creation
         if not request.title or not request.artist:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Title and artist are required when creating a new song"
             )
         
-        song = Song(
+        # Remove registration first (before song creation which may commit)
+        registration = db.query(CommunityEventRegistration).filter(
+            CommunityEventRegistration.pack_id == event_id,
+            CommunityEventRegistration.user_id == current_user.id
+        ).first()
+        
+        if registration:
+            db.delete(registration)
+            db.commit()
+        
+        song_data = SongCreate(
             title=request.title,
             artist=request.artist,
             album=request.album,
             year=request.year,
             album_cover=request.album_cover,
-            user_id=current_user.id,
             pack_id=event_id,
-            status=SongStatus.wip.value,  # Start as In Progress
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            status=SongStatus.wip,
         )
-        db.add(song)
-    
-    # Remove registration if exists (user now has a song)
-    registration = db.query(CommunityEventRegistration).filter(
-        CommunityEventRegistration.pack_id == event_id,
-        CommunityEventRegistration.user_id == current_user.id
-    ).first()
-    
-    if registration:
-        db.delete(registration)
-    
-    db.commit()
-    db.refresh(song)
+        
+        # Use the standard song creation function (includes Spotify enhancement)
+        song = create_song_in_db(db, song_data, current_user, auto_enhance=True)
+        
+        # Refresh song to get latest data after Spotify enhancement
+        db.refresh(song)
+        
+        # Clean remaster tags from the newly created song
+        try:
+            from api.tools import bulk_clean_remaster_tags_function
+            print(f"🧹 Cleaning remaster tags for song {song.id}: title='{song.title}', album='{song.album}'")
+            updated = bulk_clean_remaster_tags_function([song.id], db, current_user.id)
+            if updated:
+                db.refresh(song)
+                print(f"✅ Cleaned: title='{song.title}', album='{song.album}'")
+            else:
+                print(f"ℹ️ No remaster tags found to clean")
+        except Exception as e:
+            import traceback
+            print(f"⚠️ Failed to clean remaster tags for event song: {e}")
+            traceback.print_exc()
+            # Don't fail if cleaning fails
     
     return service._build_song_response(song, pack, is_owner=True)
 
@@ -343,11 +398,11 @@ def swap_event_song(
             detail="You don't have a song in this event"
         )
     
-    # Handle old song destination
-    if request.old_song_destination == "delete":
-        db.delete(old_song)
-    elif request.old_song_destination == "another_pack":
-        # Move to another pack
+    # VALIDATION PHASE: Validate all inputs before making any changes
+    target_pack = None
+    new_song = None
+    
+    if request.old_song_destination == "another_pack":
         target_pack = db.query(Pack).filter(
             Pack.id == request.old_song_new_pack_id,
             Pack.user_id == current_user.id
@@ -358,25 +413,8 @@ def swap_event_song(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Target pack not found or you don't own it"
             )
-        
-        old_song.pack_id = target_pack.id
-        old_song.is_event_submitted = False  # Reset event submission status
-        old_song.rhythmverse_link = None
-        old_song.event_submission_description = None
-        old_song.visualizer_link = None
-        old_song.preview_link = None
-        old_song.updated_at = datetime.utcnow()
-    else:
-        # "original_pack" - we don't track original pack, so create a new one or handle differently
-        # For now, we'll just remove from event (set pack_id to None or create orphan pack)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot restore to original pack - original pack info not tracked. Use 'another_pack' instead."
-        )
     
-    # Now add the new song
     if request.new_song_id:
-        # Move existing song to event
         new_song = db.query(Song).filter(
             Song.id == request.new_song_id,
             Song.user_id == current_user.id
@@ -387,33 +425,78 @@ def swap_event_song(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="New song not found or you don't own it"
             )
-        
-        new_song.pack_id = event_id
-        new_song.updated_at = datetime.utcnow()
     else:
-        # Create new song
         if not request.title or not request.artist:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Title and artist are required when creating a new song"
             )
-        
-        new_song = Song(
-            title=request.title,
-            artist=request.artist,
-            album=request.album,
-            year=request.year,
-            album_cover=request.album_cover,
-            user_id=current_user.id,
-            pack_id=event_id,
-            status=SongStatus.wip.value,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        db.add(new_song)
     
-    db.commit()
-    db.refresh(new_song)
+    # EXECUTION PHASE: All validations passed, now make changes with transaction safety
+    try:
+        # Handle old song destination
+        if request.old_song_destination == "delete":
+            db.delete(old_song)
+        elif request.old_song_destination == "another_pack":
+            old_song.pack_id = target_pack.id
+            old_song.is_event_submitted = False  # Reset event submission status
+            old_song.rhythmverse_link = None
+            old_song.event_submission_description = None
+            old_song.visualizer_link = None
+            old_song.preview_link = None
+            old_song.updated_at = datetime.utcnow()
+        
+        # Now add the new song
+        if request.new_song_id:
+            # Move existing song to event
+            new_song.pack_id = event_id
+            new_song.status = SongStatus.wip.value  # Events are always WIP
+            new_song.updated_at = datetime.utcnow()
+        else:
+            # Create new song using the standard song creation flow
+            song_data = SongCreate(
+                title=request.title,
+                artist=request.artist,
+                album=request.album,
+                year=request.year,
+                album_cover=request.album_cover,
+                pack_id=event_id,
+                status=SongStatus.wip,
+            )
+            
+            # Use the standard song creation function (includes Spotify enhancement)
+            new_song = create_song_in_db(db, song_data, current_user, auto_enhance=True)
+            
+            # Refresh song to get latest data after Spotify enhancement
+            db.refresh(new_song)
+            
+            # Clean remaster tags from the newly created song
+            try:
+                from api.tools import bulk_clean_remaster_tags_function
+                print(f"🧹 Cleaning remaster tags for song {new_song.id}: title='{new_song.title}', album='{new_song.album}'")
+                updated = bulk_clean_remaster_tags_function([new_song.id], db, current_user.id)
+                if updated:
+                    db.refresh(new_song)
+                    print(f"✅ Cleaned: title='{new_song.title}', album='{new_song.album}'")
+                else:
+                    print(f"ℹ️ No remaster tags found to clean")
+            except Exception as e:
+                import traceback
+                print(f"⚠️ Failed to clean remaster tags for event song: {e}")
+                traceback.print_exc()
+                # Don't fail if cleaning fails
+        
+        # Commit all changes together
+        db.commit()
+        db.refresh(new_song)
+        
+    except Exception as e:
+        # Rollback on any failure to ensure atomicity
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to swap song: {str(e)}"
+        )
     
     return service._build_song_response(new_song, pack, is_owner=True)
 
@@ -470,12 +553,6 @@ def remove_song_from_event(
         song.visualizer_link = None
         song.preview_link = None
         song.updated_at = datetime.utcnow()
-    else:
-        # "original_pack"
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot restore to original pack - original pack info not tracked. Use 'another_pack' instead."
-        )
     
     # Re-register the user so they stay in "planning to participate" stage
     existing_registration = db.query(CommunityEventRegistration).filter(
@@ -487,8 +564,7 @@ def remove_song_from_event(
         registration = CommunityEventRegistration(
             pack_id=event_id,
             user_id=current_user.id,
-            registered_at=datetime.utcnow(),
-            status="registered"
+            registered_at=datetime.utcnow()
         )
         db.add(registration)
     
@@ -512,6 +588,13 @@ def submit_song_to_event(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Community event not found"
+        )
+    
+    # Check if event is still active
+    if not service.is_event_active(pack):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This event has ended and is no longer accepting submissions"
         )
     
     # Find user's song in event
@@ -562,6 +645,13 @@ def update_song_submission(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Community event not found"
+        )
+    
+    # Check if event is still active
+    if not service.is_event_active(pack):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This event has ended and submissions can no longer be updated"
         )
     
     # Find user's song in event

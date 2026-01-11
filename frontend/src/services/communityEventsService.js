@@ -44,6 +44,26 @@ class CommunityEventsService {
   }
 
   /**
+   * Get featured event for homepage (active or recently released within 7 days)
+   */
+  async getFeaturedEvent() {
+    try {
+      const response = await apiGet("/api/community-events/featured");
+      return { success: true, data: response };
+    } catch (error) {
+      // 404 is expected when no featured event exists
+      if (error.response?.status === 404) {
+        return { success: true, data: null };
+      }
+      console.error("Error fetching featured event:", error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || "Failed to fetch featured event",
+      };
+    }
+  }
+
+  /**
    * Get a specific community event
    */
   async getEvent(eventId) {
@@ -243,7 +263,7 @@ class CommunityEventsService {
   async createEvent(eventData) {
     try {
       const response = await apiPost(
-        "/api/admin/community-events",
+        "/api/admin/community-events/",
         eventData
       );
       return { success: true, data: response };
@@ -262,7 +282,7 @@ class CommunityEventsService {
   async getAdminEvents(includeEnded = true) {
     try {
       const response = await apiGet(
-        `/api/admin/community-events?include_ended=${includeEnded}`
+        `/api/admin/community-events/?include_ended=${includeEnded}`
       );
       return { success: true, data: response };
     } catch (error) {
@@ -310,19 +330,39 @@ class CommunityEventsService {
   }
 
   /**
-   * Reveal event links (admin only)
+   * Release event pack (admin only)
+   * This single action: reveals links, marks songs as Released, ends event
    */
-  async revealEvent(eventId) {
+  async releaseEvent(eventId) {
     try {
       const response = await apiPost(
-        `/api/admin/community-events/${eventId}/reveal`
+        `/api/admin/community-events/${eventId}/release`
       );
       return { success: true, data: response };
     } catch (error) {
-      console.error("Error revealing event:", error);
+      console.error("Error releasing event:", error);
       return {
         success: false,
-        error: error.response?.data?.detail || "Failed to reveal event",
+        error: error.response?.data?.detail || "Failed to release event",
+      };
+    }
+  }
+
+  /**
+   * Unrelease event (admin only, for data repair)
+   * Reverts a released event back to active state
+   */
+  async unreleaseEvent(eventId) {
+    try {
+      const response = await apiPost(
+        `/api/admin/community-events/${eventId}/unrelease`
+      );
+      return { success: true, data: response };
+    } catch (error) {
+      console.error("Error unreleasing event:", error);
+      return {
+        success: false,
+        error: error.response?.data?.detail || "Failed to unrelease event",
       };
     }
   }

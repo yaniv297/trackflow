@@ -260,7 +260,13 @@ export const useWipData = (user) => {
     };
 
     // Group ALL songs by pack (both owned and collaborator songs)
+    // EXCLUDE songs that belong to community event packs - they're shown in the event banner
     const groups = songs.reduce((acc, song) => {
+      // Skip community event songs - they appear in the dedicated event banner
+      if (song.is_community_event) {
+        return acc;
+      }
+      
       const pack = song.pack_name || "(no pack)";
       if (!acc[pack]) acc[pack] = [];
       const songOwnerFields = getSongOwnerWorkflowFields(song);

@@ -55,7 +55,6 @@ const QuickStats = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
       setError('Failed to load stats');
     } finally {
       setLoading(false);

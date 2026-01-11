@@ -83,48 +83,6 @@ export const apiCall = async (endpoint, options = {}) => {
 
     // Handle 401 Unauthorized - token might be expired
     if (response.status === 401) {
-      // Check if we just logged in (within last 10 seconds) - don't clear token immediately
-      const loginTimestamp = localStorage.getItem("login_timestamp");
-      const timeSinceLogin = loginTimestamp ? Date.now() - parseInt(loginTimestamp) : Infinity;
-      const justLoggedIn = timeSinceLogin < 10000; // 10 seconds grace period
-      
-      // Try to get the actual error message from the response
-      let errorDetail = "Unknown error";
-      try {
-        const errorText = await response.clone().text();
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorDetail = errorJson.detail || errorJson.message || errorText;
-        } catch {
-          errorDetail = errorText;
-        }
-      } catch (e) {
-        errorDetail = "Could not read error response";
-      }
-      
-      console.error("[api.js] 401 error", {
-        justLoggedIn,
-        timeSinceLogin,
-        endpoint: url,
-        errorDetail,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-      
-      // Store the 401 error for debugging
-      try {
-        localStorage.setItem("api_401_error", JSON.stringify({
-          timestamp: new Date().toISOString(),
-          endpoint: url,
-          justLoggedIn,
-          timeSinceLogin,
-          errorDetail,
-          status: response.status,
-          statusText: response.statusText,
-        }));
-      } catch (e) {
-        console.error("Failed to store 401 error:", e);
-      }
-      
       // Try to refresh the token first
       try {
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -156,56 +114,13 @@ export const apiCall = async (endpoint, options = {}) => {
           }
         }
       } catch (refreshError) {
-        console.error("Token refresh failed:", refreshError);
+        // Token refresh failed silently
       }
 
-      // If refresh failed and we didn't just log in, redirect to login
-      if (!justLoggedIn) {
-        console.error("[api.js] All API calls returning 401. This suggests SECRET_KEY mismatch between staging and production.");
-        throw new Error("Authentication required - SECRET_KEY mismatch detected");
-      } else {
-        throw new Error("Authentication required - please try again in a moment");
-      }
+      throw new Error("Authentication required");
     }
 
     if (!response.ok) {
-      // Handle 403 Forbidden - likely SECRET_KEY mismatch across workers
-      if (response.status === 403) {
-        const loginTimestamp = localStorage.getItem("login_timestamp");
-        const timeSinceLogin = loginTimestamp ? Date.now() - parseInt(loginTimestamp) : Infinity;
-        const justLoggedIn = timeSinceLogin < 15000; // 15 seconds grace period
-        
-        console.error("[api.js] 403 Forbidden error", {
-          justLoggedIn,
-          timeSinceLogin,
-          endpoint: url,
-          message: "This usually indicates SECRET_KEY mismatch across backend workers",
-        });
-        
-        // Store the 403 error for debugging
-        try {
-          localStorage.setItem("api_403_error", JSON.stringify({
-            timestamp: new Date().toISOString(),
-            endpoint: url,
-            justLoggedIn,
-            timeSinceLogin,
-            status: response.status,
-            statusText: response.statusText,
-            message: "SECRET_KEY mismatch - each backend worker has different key",
-          }));
-        } catch (e) {
-          console.error("Failed to store 403 error:", e);
-        }
-        
-        if (!justLoggedIn) {
-          console.error("[api.js] CRITICAL: 403 Forbidden errors indicate SECRET_KEY mismatch.");
-          console.error("[api.js] Backend has multiple workers, each with different SECRET_KEY.");
-          console.error("[api.js] SOLUTION: Set SECRET_KEY environment variable in Railway backend.");
-        }
-        
-        throw new Error("Forbidden - SECRET_KEY mismatch detected");
-      }
-      
       // Try to parse error response as JSON
       let errorData = {};
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -225,7 +140,6 @@ export const apiCall = async (endpoint, options = {}) => {
         }
       } catch (parseError) {
         // If JSON parsing fails, use default error message
-        console.error("Failed to parse error response:", parseError);
       }
       
       // Throw structured API error with status code and message
@@ -248,14 +162,11 @@ export const apiCall = async (endpoint, options = {}) => {
   } catch (error) {
     // If it's already an ApiError, re-throw it
     if (error instanceof ApiError) {
-      console.error("API call failed:", error.message, `Status: ${error.status}`);
       throw error;
     }
     
     // For network errors (TypeError: Failed to fetch, etc.), wrap in ApiError
-    // but mark as network error (no status code)
     if (error instanceof TypeError && error.message.includes("fetch")) {
-      console.error("API call failed: Network error", error);
       throw new ApiError(
         "Network error: Could not reach the server. Please check your connection.",
         null,
@@ -264,7 +175,6 @@ export const apiCall = async (endpoint, options = {}) => {
     }
     
     // For other errors, re-throw as-is
-    console.error("API call failed:", error);
     throw error;
   }
 };
@@ -345,7 +255,6 @@ export const publicApiCall = async (endpoint, options = {}) => {
 
     return await response.json();
   } catch (error) {
-    console.error("Public API call failed:", error);
     throw error;
   }
 };

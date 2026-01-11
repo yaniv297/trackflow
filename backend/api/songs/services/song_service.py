@@ -699,6 +699,9 @@ class SongService:
     
     def _add_pack_data(self, song_dict: Dict[str, Any], song: Song, pack_map: Optional[Dict[int, Pack]]):
         """Add pack data to song dict."""
+        # Default to False if no pack
+        song_dict["is_community_event"] = False
+        
         if song.pack_obj:
             pack = pack_map.get(song.pack_obj.id) if pack_map else song.pack_obj
             song_dict["pack_id"] = pack.id
@@ -706,6 +709,7 @@ class SongService:
             song_dict["pack_priority"] = pack.priority
             song_dict["pack_owner_id"] = pack.user_id
             song_dict["pack_owner_username"] = pack.user.username if pack.user else None
+            song_dict["is_community_event"] = pack.is_community_event or False
     
     def _add_access_control_data(
         self,

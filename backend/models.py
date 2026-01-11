@@ -162,8 +162,7 @@ class Song(Base):
         "Authoring",
         back_populates="song",
         uselist=False,
-        cascade="",  # Do not auto-delete or update authoring (can be a DB view)
-        passive_deletes=True,
+        viewonly=True,  # Authoring can be a DB view - never try to modify it via ORM
     )
     progress = relationship("SongProgress", backref="song", cascade="all, delete-orphan")
     collaborations = relationship("Collaboration", back_populates="song")
@@ -296,7 +295,7 @@ class Authoring(Base):
     compile = Column(Boolean, default=False)
     
     # Relationships
-    song = relationship("Song", back_populates="authoring")
+    song = relationship("Song", back_populates="authoring", viewonly=True)
 
 class FileLink(Base):
     __tablename__ = "file_links"

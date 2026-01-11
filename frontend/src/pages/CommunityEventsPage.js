@@ -65,7 +65,7 @@ const CommunityEventsPage = () => {
 
   const getEventStatus = (event) => {
     if (event.is_revealed) {
-      return { label: "Revealed", className: "revealed" };
+      return { label: "Released", className: "released" };
     }
     if (event.status === "active") {
       return { label: "Active", className: "active" };
@@ -209,12 +209,12 @@ const EventCard = ({ event, status, isExpanded, songs, onToggle, formatDate }) =
         )}
 
         <div className="event-card-meta">
-          {event.event_end_date && (
+          {event.rv_release_time && (
             <div className="event-card-meta-item">
               <span>📅</span>
               <span className="event-card-meta-value">
-                {event.status === "ended" ? "Ended" : "Deadline"}:{" "}
-                {formatDate(event.event_end_date)}
+                {event.status === "ended" ? "Released" : "RV Release"}:{" "}
+                {formatDate(event.rv_release_time)}
               </span>
             </div>
           )}
@@ -332,7 +332,7 @@ const EventCard = ({ event, status, isExpanded, songs, onToggle, formatDate }) =
                             fontStyle: "italic",
                           }}
                         >
-                          Links revealed on {formatDate(event.event_end_date) || "reveal"}
+                          Links will be revealed on release
                         </span>
                       )}
                     </div>

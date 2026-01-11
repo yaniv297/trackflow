@@ -28,7 +28,6 @@ const UserDashboard = () => {
         error: null,
       });
     } catch (error) {
-      console.error("Failed to fetch dashboard data:", error);
       setDashboardData((prev) => ({
         ...prev,
         loading: false,
@@ -123,7 +122,9 @@ const UserDashboard = () => {
                 return (
                   <div
                     key={suggestion.id}
-                    className="suggestion-item"
+                    className={`suggestion-item ${
+                      suggestion.is_community_event ? "suggestion-item-event" : ""
+                    }`}
                     onClick={handleClick}
                   >
                     {suggestion.album_cover && (
@@ -151,7 +152,12 @@ const UserDashboard = () => {
                         )}
                         <div className="suggestion-tags">
                           {tags.map((tag, index) => (
-                            <span key={index} className="suggestion-tag">
+                            <span 
+                              key={index} 
+                              className={`suggestion-tag ${
+                                tag === "Community Event" ? "suggestion-tag-event" : ""
+                              }`}
+                            >
                               {tag}
                             </span>
                           ))}

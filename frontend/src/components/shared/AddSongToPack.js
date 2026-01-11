@@ -178,7 +178,7 @@ const AddSongToPack = ({ isOpen, onClose, packId, packName, onSongAdded }) => {
       onSongAdded?.();
     } catch (error) {
       console.error("Error adding song(s):", error);
-      window.showNotification?.("Failed to add song(s)", "error");
+      window.showNotification?.(error.message || "Failed to add song(s)", "error");
     } finally {
       setLoading(false);
     }

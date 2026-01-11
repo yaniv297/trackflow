@@ -25,7 +25,7 @@ const StageRegistered = ({
       setFormData({ artist: "", title: "" });
       setShowForm(false);
     } catch (err) {
-      setError("Failed to add song. Please try again.");
+      setError(err.message || "Failed to add song. Please try again.");
     } finally {
       setAdding(false);
     }

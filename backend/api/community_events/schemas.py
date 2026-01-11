@@ -7,9 +7,9 @@ from enum import Enum
 
 
 class EventStatus(str, Enum):
-    """Event status based on end_date and revealed_at."""
-    ACTIVE = "active"  # event_end_date is NULL or in the future
-    ENDED = "ended"  # event_end_date has passed
+    """Event status based on whether the event has been released."""
+    ACTIVE = "active"  # event_revealed_at is NULL (not yet released)
+    ENDED = "ended"  # event_revealed_at is set (released)
 
 
 class ParticipationStage(int, Enum):
@@ -31,8 +31,7 @@ class CommunityEventCreate(BaseModel):
     event_theme: str  # Theme name (required)
     event_description: Optional[str] = None
     event_banner_url: Optional[str] = None
-    event_end_date: Optional[datetime] = None  # NULL = always open, admin must manually reveal
-    rv_release_time: Optional[datetime] = None  # RhythmVerse server release time (CET timezone)
+    rv_release_time: Optional[datetime] = None  # RhythmVerse server release time (CET) - the only deadline
     
     @validator('name')
     def validate_name(cls, v):
@@ -49,6 +48,13 @@ class CommunityEventCreate(BaseModel):
         if len(v.strip()) > 255:
             raise ValueError("Event theme must be less than 255 characters")
         return v.strip()
+    
+    @validator('rv_release_time', pre=True)
+    def empty_string_to_none(cls, v):
+        """Convert empty strings to None for optional datetime fields."""
+        if v == "" or v is None:
+            return None
+        return v
 
 
 class CommunityEventUpdate(BaseModel):
@@ -57,8 +63,7 @@ class CommunityEventUpdate(BaseModel):
     event_theme: Optional[str] = None
     event_description: Optional[str] = None
     event_banner_url: Optional[str] = None
-    event_end_date: Optional[datetime] = None
-    rv_release_time: Optional[datetime] = None  # RhythmVerse server release time (CET timezone)
+    rv_release_time: Optional[datetime] = None  # RhythmVerse server release time (CET) - the only deadline
     
     @validator('name')
     def validate_name(cls, v):
@@ -71,6 +76,13 @@ class CommunityEventUpdate(BaseModel):
         if v is not None and len(v.strip()) == 0:
             raise ValueError("Event theme cannot be empty")
         return v.strip() if v else v
+    
+    @validator('rv_release_time', pre=True)
+    def empty_string_to_none(cls, v):
+        """Convert empty strings to None for optional datetime fields."""
+        if v == "" or v is None:
+            return None
+        return v
 
 
 # ============================================
@@ -136,9 +148,9 @@ class CommunityEventResponse(BaseModel):
     event_theme: str
     event_description: Optional[str] = None
     event_banner_url: Optional[str] = None
-    event_end_date: Optional[datetime] = None
-    rv_release_time: Optional[datetime] = None  # RhythmVerse server release time (CET)
-    event_revealed_at: Optional[datetime] = None
+    event_end_date: Optional[datetime] = None  # DEPRECATED: kept for backwards compat, always None for new events
+    rv_release_time: Optional[datetime] = None  # RhythmVerse server release time (CET) - the canonical deadline
+    event_revealed_at: Optional[datetime] = None  # When set, event is released (links visible, no more submissions)
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -253,12 +265,12 @@ class SwapSongRequest(BaseModel):
     year: Optional[int] = None
     album_cover: Optional[str] = None
     # Where to put the old song
-    old_song_destination: str  # "original_pack", "another_pack", "delete"
+    old_song_destination: str  # "another_pack" or "delete"
     old_song_new_pack_id: Optional[int] = None  # Required if destination is "another_pack"
     
     @validator('old_song_destination')
     def validate_destination(cls, v):
-        valid = ["original_pack", "another_pack", "delete"]
+        valid = ["another_pack", "delete"]
         if v not in valid:
             raise ValueError(f"old_song_destination must be one of: {', '.join(valid)}")
         return v
@@ -272,12 +284,12 @@ class SwapSongRequest(BaseModel):
 
 class RemoveSongRequest(BaseModel):
     """Request to remove a song from an event."""
-    destination: str  # "original_pack", "another_pack", "delete"
+    destination: str  # "another_pack" or "delete"
     new_pack_id: Optional[int] = None  # Required if destination is "another_pack"
     
     @validator('destination')
     def validate_destination(cls, v):
-        valid = ["original_pack", "another_pack", "delete"]
+        valid = ["another_pack", "delete"]
         if v not in valid:
             raise ValueError(f"destination must be one of: {', '.join(valid)}")
         return v

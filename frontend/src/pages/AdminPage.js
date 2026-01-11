@@ -53,8 +53,7 @@ function AdminPage() {
     event_theme: "",
     event_description: "",
     event_banner_url: "",
-    event_end_date: "",
-    rv_release_time: ""
+    rv_release_time: ""  // The only deadline - RhythmVerse server time (CET)
   });
 
   // Determine current admin section from URL
@@ -269,7 +268,10 @@ function AdminPage() {
     return date.toLocaleString();
   };
 
-  if (loading) {
+  // Only show global loading state for sections that need users data
+  const needsUsersLoading = currentSection === 'users' || currentSection === 'dashboard';
+  
+  if (needsUsersLoading && loading) {
     return (
       <div className="admin-page">
         <div className="loading">Loading...</div>
@@ -277,7 +279,7 @@ function AdminPage() {
     );
   }
 
-  if (error) {
+  if (needsUsersLoading && error) {
     return (
       <div className="admin-page">
         <div className="error-message">{error}</div>
@@ -1023,7 +1025,6 @@ function AdminPage() {
             event_theme: "",
             event_description: "",
             event_banner_url: "",
-            event_end_date: "",
             rv_release_time: ""
           });
         } else {
@@ -1032,7 +1033,6 @@ function AdminPage() {
       } else {
         const result = await communityEventsService.createEvent({
           ...eventForm,
-          event_end_date: eventForm.event_end_date || null,
           rv_release_time: eventForm.rv_release_time || null
         });
         if (result.success) {
@@ -1043,7 +1043,6 @@ function AdminPage() {
             event_theme: "",
             event_description: "",
             event_banner_url: "",
-            event_end_date: "",
             rv_release_time: ""
           });
         } else {
@@ -1073,30 +1072,49 @@ function AdminPage() {
     }
   };
 
-  const handleEventReveal = async (eventId) => {
-    if (!window.confirm("Are you sure you want to reveal this event? This will make all RhythmVerse links and submission details visible to everyone.")) {
+  const handleEventRelease = async (eventId) => {
+    if (!window.confirm("Are you sure you want to RELEASE this event?\n\nThis will:\n• Reveal all RhythmVerse links\n• Mark all songs as Released\n• End the event (no more submissions)\n• Remove from WIP page\n• Move to Past Events archive\n\nThis action cannot be easily undone.")) {
       return;
     }
     try {
-      const result = await communityEventsService.revealEvent(eventId);
+      const result = await communityEventsService.releaseEvent(eventId);
       if (result.success) {
         loadEvents();
       } else {
         setError(result.error);
       }
     } catch (err) {
-      console.error("Failed to reveal event:", err);
-      setError("Failed to reveal event");
+      console.error("Failed to release event:", err);
+      setError("Failed to release event");
+    }
+  };
+
+  const handleEventUnrelease = async (eventId) => {
+    if (!window.confirm("Are you sure you want to REVERT this event to active?\n\nThis will:\n• Hide all links again\n• Set all songs back to In Progress\n• Make the event appear in WIP again\n\nUse this only for data repair.")) {
+      return;
+    }
+    try {
+      const result = await communityEventsService.unreleaseEvent(eventId);
+      if (result.success) {
+        loadEvents();
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error("Failed to unrelease event:", err);
+      setError("Failed to unrelease event");
     }
   };
 
   const formatEventDate = (dateStr) => {
-    if (!dateStr) return "No deadline";
+    if (!dateStr) return "Not set";
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
-      year: "numeric"
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
     });
   };
 
@@ -1112,7 +1130,6 @@ function AdminPage() {
               event_theme: "",
               event_description: "",
               event_banner_url: "",
-              event_end_date: "",
               rv_release_time: ""
             });
             setShowEventForm(true);
@@ -1218,26 +1235,7 @@ function AdminPage() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>
-                  End Date (leave empty for no deadline - must manually reveal)
-                </label>
-                <input
-                  type="datetime-local"
-                  value={eventForm.event_end_date}
-                  onChange={(e) => setEventForm({ ...eventForm, event_end_date: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.625rem',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd',
-                    background: '#fff',
-                    color: '#333',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>
-                  RhythmVerse Release Time (CET)
+                  RhythmVerse Release Time (CET) - Event Deadline
                 </label>
                 <input
                   type="datetime-local"
@@ -1254,7 +1252,7 @@ function AdminPage() {
                   }}
                 />
                 <small style={{ color: '#888', fontSize: '0.75rem' }}>
-                  The time when songs should be scheduled for release on RhythmVerse server
+                  The canonical deadline for the event. Users will schedule their RhythmVerse releases for this time (CET)
                 </small>
               </div>
             </div>
@@ -1337,11 +1335,11 @@ function AdminPage() {
                         fontSize: '0.7rem',
                         fontWeight: '600',
                         textTransform: 'uppercase',
-                        background: '#d1ecf1',
-                        color: '#0c5460'
+                        background: '#28a745',
+                        color: 'white'
                       }}
                     >
-                      Revealed
+                      Released
                     </span>
                   )}
                 </div>
@@ -1355,7 +1353,7 @@ function AdminPage() {
               )}
 
               <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem' }}>
-                <span>📅 {formatEventDate(event.event_end_date)}</span>
+                <span>📅 RV Release: {formatEventDate(event.rv_release_time)}</span>
                 <span>👥 {event.registered_count} registered</span>
                 <span>🎵 {event.songs_count} songs</span>
                 <span>✅ {event.submitted_count} submitted</span>
@@ -1370,7 +1368,6 @@ function AdminPage() {
                       event_theme: event.event_theme,
                       event_description: event.event_description || "",
                       event_banner_url: event.event_banner_url || "",
-                      event_end_date: event.event_end_date ? new Date(event.event_end_date).toISOString().slice(0, 16) : "",
                       rv_release_time: event.rv_release_time ? new Date(event.rv_release_time).toISOString().slice(0, 16) : ""
                     });
                     setShowEventForm(true);
@@ -1387,20 +1384,37 @@ function AdminPage() {
                 >
                   Edit
                 </button>
-                {!event.is_revealed && (
+                {!event.is_revealed ? (
                   <button
-                    onClick={() => handleEventReveal(event.id)}
+                    onClick={() => handleEventRelease(event.id)}
                     style={{
                       padding: '0.375rem 0.75rem',
-                      background: '#d1ecf1',
-                      color: '#0c5460',
-                      border: '1px solid #bee5eb',
+                      background: '#28a745',
+                      color: 'white',
+                      border: '1px solid #28a745',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: '600'
+                    }}
+                  >
+                    🚀 Release Event Pack
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleEventUnrelease(event.id)}
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      background: '#ffc107',
+                      color: '#333',
+                      border: '1px solid #ffc107',
                       borderRadius: '4px',
                       cursor: 'pointer',
                       fontSize: '0.8rem'
                     }}
+                    title="Revert to active (for data repair)"
                   >
-                    Reveal Links
+                    ↩️ Unrelease
                   </button>
                 )}
                 <button

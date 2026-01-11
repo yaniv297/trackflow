@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { apiPost, apiGet } from "../../../utils/api";
 import communityEventsService from "../../../services/communityEventsService";
+import { isSongComplete } from "../../../utils/progressUtils";
 
 // Participation stages
 export const STAGE = {
@@ -24,10 +25,14 @@ export const useCommunityEvent = (onRefreshSongs, authoringFields = []) => {
   const [fireworksTrigger, setFireworksTrigger] = useState(0);
   const [forceEditMode, setForceEditMode] = useState(false);
 
+  // State to track if user explicitly clicked "Continue to Submit"
+  const [userClickedContinue, setUserClickedContinue] = useState(false);
+
   // Fetch full song data when we have a song in the event
   const fetchFullSongData = useCallback(async (songId) => {
     if (!songId) {
       setFullSong(null);
+      setUserClickedContinue(false); // Reset when song changes
       return;
     }
     try {
@@ -93,35 +98,46 @@ export const useCommunityEvent = (onRefreshSongs, authoringFields = []) => {
   const song = fullSong || event?.participation?.song;
 
   // Check if all workflow steps are complete (for local stage detection)
+  // Use the same utility as WipSongCard for consistency
   const isWorkflowComplete = useMemo(() => {
-    if (!song?.progress || authoringFields.length === 0) return false;
-    
-    // Check if all authoring fields are complete
-    for (const field of authoringFields) {
-      if (!song.progress[field.name]) {
-        return false;
-      }
-    }
-    return true;
-  }, [song?.progress, authoringFields]);
+    if (!song || authoringFields.length === 0) return false;
+    return isSongComplete(song, authoringFields);
+  }, [song, authoringFields]);
 
-  // Derived stage - use local detection for IN_PROGRESS/COMPLETED transition
+  // Derived stage - NEVER auto-transition to COMPLETED
+  // User must explicitly click "Continue to Submit"
   const backendStage = event?.participation?.stage ?? STAGE.NOT_REGISTERED;
   const stage = useMemo(() => {
-    // If force edit mode is on, stay in IN_PROGRESS
-    if (forceEditMode && (backendStage === STAGE.IN_PROGRESS || (backendStage === STAGE.IN_PROGRESS && isWorkflowComplete))) {
+    // For NOT_REGISTERED or REGISTERED, follow backend
+    if (backendStage < STAGE.IN_PROGRESS) {
+      return backendStage;
+    }
+    
+    // If user is in force edit mode (went back from any stage), show IN_PROGRESS
+    if (forceEditMode) {
       return STAGE.IN_PROGRESS;
     }
-    // If backend says IN_PROGRESS but all steps are locally complete, show COMPLETED
-    if (backendStage === STAGE.IN_PROGRESS && isWorkflowComplete) {
+    
+    // If already SUBMITTED (has RhythmVerse link), show SUBMITTED
+    if (backendStage === STAGE.SUBMITTED) {
+      return STAGE.SUBMITTED;
+    }
+    
+    // For IN_PROGRESS or COMPLETED from backend:
+    // - If user clicked continue AND workflow is complete, show COMPLETED
+    // - Otherwise stay in IN_PROGRESS (show the "Continue to Submit" button when complete)
+    if (userClickedContinue && isWorkflowComplete) {
       return STAGE.COMPLETED;
     }
-    return backendStage;
-  }, [backendStage, isWorkflowComplete, forceEditMode]);
+    
+    // Default to IN_PROGRESS - user sees the button when all parts are done
+    return STAGE.IN_PROGRESS;
+  }, [backendStage, isWorkflowComplete, forceEditMode, userClickedContinue]);
 
   // Handler to go back to editing
   const handleGoBackToEditing = useCallback(() => {
     setForceEditMode(true);
+    setUserClickedContinue(false); // Reset so they see the button again
   }, []);
 
   // Actions
@@ -275,6 +291,12 @@ export const useCommunityEvent = (onRefreshSongs, authoringFields = []) => {
     });
   }, [authoringFields]);
 
+  // Continue to submit - transitions to COMPLETED stage
+  const handleContinueToSubmit = useCallback(() => {
+    setForceEditMode(false);
+    setUserClickedContinue(true);
+  }, []);
+
   return {
     // State
     event,
@@ -297,6 +319,7 @@ export const useCommunityEvent = (onRefreshSongs, authoringFields = []) => {
     handleUpdateSubmission,
     handleModalSuccess,
     handleGoBackToEditing,
+    handleContinueToSubmit,
     fetchActiveEvent,
     updateSongProgress,
   };
